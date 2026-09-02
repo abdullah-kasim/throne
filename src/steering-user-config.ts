@@ -133,6 +133,16 @@ export interface SteeringConfig {
    *  runs balancer-off, matching every other steering field's "committed
    *  default is the conservative one" convention. */
   readonly tokenBalanceEnabled: boolean;
+  /** THE OPERATOR PAUSE for the whole court's spawning. The alpha-autoscale
+   *  worker's env switch (`THRONE_ALPHA_AUTOSCALE_ENABLED`) is permanently
+   *  armed in both service templates since 2026-09-02, so this field is the
+   *  one deliberate place the autoscaler is turned off: `false` makes every
+   *  tick skip before it touches the queue, and the worker re-reads the file
+   *  each tick, so no restart is needed in either direction. Absent-means-ON,
+   *  the reverse of every other steering field's convention, because the
+   *  Lord ordered the autoscaler armed by default and a fresh clone must not
+   *  quietly stand the court down. Flip it with the `/autoscaler` skill. */
+  readonly autoscaleEnabled: boolean;
 }
 
 /** The shape a `config.user.ts` default export may take: every field
@@ -148,6 +158,8 @@ export interface SteeringConfigOverride {
   /** See `SteeringConfig.stagerPool`. */
   readonly stagerPool?: readonly CustomPlanPresetPair[];
   readonly tokenBalanceEnabled?: boolean;
+  /** See `SteeringConfig.autoscaleEnabled`. */
+  readonly autoscaleEnabled?: boolean;
 }
 
 /** The committed, deliberately conservative default: the values
@@ -157,6 +169,7 @@ export const DEFAULT_STEERING_CONFIG: SteeringConfig = {
   activeTargetEffort: 1,
   customPlanPresets: {},
   tokenBalanceEnabled: false,
+  autoscaleEnabled: true,
 };
 
 /** Delegates to the merged file's path (`user-config-loader.ts`) — steering no
@@ -400,6 +413,17 @@ export function validateSteeringOverride(
     }
     override.tokenBalanceEnabled = tokenBalanceEnabled;
   }
+  if ('autoscaleEnabled' in value) {
+    const autoscaleEnabled = value.autoscaleEnabled;
+    if (typeof autoscaleEnabled !== 'boolean') {
+      throw invalidSteeringConfig(
+        sourcePath,
+        'autoscaleEnabled',
+        `must be a boolean (got ${describeValue(autoscaleEnabled)})`,
+      );
+    }
+    override.autoscaleEnabled = autoscaleEnabled;
+  }
   return override;
 }
 
@@ -433,6 +457,7 @@ function mergeSteeringConfig(
       : { stagerPool: override.stagerPool ?? base.stagerPool },
     tokenBalanceEnabled:
       override.tokenBalanceEnabled ?? base.tokenBalanceEnabled,
+    autoscaleEnabled: override.autoscaleEnabled ?? base.autoscaleEnabled,
   };
 }
 
@@ -522,4 +547,12 @@ export function activeStagerPool():
  *  consumer must check both, since either being "off" fully de-gates. */
 export function isTokenBalanceEnabled(): boolean {
   return RESOLVED_STEERING_CONFIG.tokenBalanceEnabled;
+}
+
+/** The operator pause as this PROCESS loaded it. The long-lived backend must
+ *  not use this — it would only ever see the value from its own start; the
+ *  alpha-autoscale worker reads the file fresh each tick through
+ *  `readAutoscaleEnabledInUserConfig` (`alpha-autoscale/kill-switch.ts`). */
+export function isAutoscaleEnabledInSteering(): boolean {
+  return RESOLVED_STEERING_CONFIG.autoscaleEnabled;
 }

@@ -24,7 +24,15 @@ import {
 } from "../alpha-launch-queue/launch-ledger.ts";
 import { DEFAULT_LAUNCH_LEDGER_PATH } from "../alpha-launch-queue/paths.ts";
 import { checkDeliveryVerdict } from "../verify-delivery/verify-delivery-runtime.ts";
-import { allowsUnadvancedBranchTeardown, isCompletionProvenVerdictOnlyAgent, requireLiveReapabilityClaim } from "./reapability-claim.ts";
+import {
+  allowsUnadvancedBranchTeardown,
+  isCompletionProvenVerdictOnlyAgent,
+  requireLiveReapabilityClaim,
+} from "./reapability-claim.ts";
+import {
+  readQueueLinkage,
+  resolveQueueReapDeliveryCommit,
+} from "./queue-reap-writeback.ts";
 
 /** Applies the same stated-evidence gate `complete-agent` applies, scoped to
  *  `--reason completed` — the case where a completion claim can carry an
@@ -198,7 +206,6 @@ async function cascadeLiveChildren(
   return true;
 }
 
-
 function writeSuccessfulOutcome(
   request: ReapRequest,
   actions: string[],
@@ -253,21 +260,41 @@ function writeSuccessfulOutcome(
  * `failed`; other reasons map it to `abandoned`. Unmatched launch-ledger names
  * remain unaffected because status rows surface only when joined to a launch.
  */
-async function recordLaunchLedgerStatus(
+/** Resolves the launch-ledger terminal status BEFORE teardown — the
+ *  delivery verdict reads `tree-base.json`, which teardown archives. */
+async function resolveLaunchLedgerStatus(
   request: ReapRequest,
   deps: ReapDeps,
-): Promise<void> {
+): Promise<LaunchTerminalStatus | undefined> {
   try {
     const verdict = await (deps.checkDeliveryVerdict ?? checkDeliveryVerdict)(
       request.name,
       undefined,
     );
-    const status: LaunchTerminalStatus =
-      verdict.status === "delivered"
-        ? "delivered"
-        : request.reason === REAP_REASON.ERROR || request.reason === REAP_REASON.COMPLETED_UNPUBLISHABLE
-          ? "failed"
-          : "abandoned";
+    return verdict.status === "delivered"
+      ? "delivered"
+      : request.reason === REAP_REASON.ERROR ||
+          request.reason === REAP_REASON.COMPLETED_UNPUBLISHABLE
+        ? "failed"
+        : "abandoned";
+  } catch (error) {
+    process.stderr.write(
+      `reap-agent: could not resolve launch-ledger status for "${request.name}" ` +
+        `(${errorText(error)}) — continuing teardown.\n`,
+    );
+    return undefined;
+  }
+}
+
+/** Appends the launch-ledger line AFTER teardown succeeded, so the ledger
+ *  never records an ending for an agent that is still alive. */
+async function recordLaunchLedgerStatus(
+  request: ReapRequest,
+  status: LaunchTerminalStatus | undefined,
+  deps: ReapDeps,
+): Promise<void> {
+  if (status === undefined) return;
+  try {
     await (deps.appendLaunchLedgerStatus ?? appendLaunchLedgerStatus)(
       deps.launchLedgerPath ?? DEFAULT_LAUNCH_LEDGER_PATH,
       {
@@ -279,7 +306,7 @@ async function recordLaunchLedgerStatus(
   } catch (error) {
     process.stderr.write(
       `reap-agent: could not record launch-ledger status for "${request.name}" ` +
-        `(${errorText(error)}) — continuing teardown.\n`,
+        `(${errorText(error)}).\n`,
     );
   }
 }
@@ -305,6 +332,28 @@ export async function reapAgent(
     return 1;
   }
   visited.add(request.name);
+
+  // A queue-linked agent's row moves only on `completed`, `cancelled`, or
+  // `force`; `scratch` is a deliberate no-op for the row. That silent no-op is
+  // how a queued Alpha got reaped as scratch and its row stayed in flight
+  // forever (hiregent2, 2026-09-02). Scratch stays legal for what it is for —
+  // unlinked probes and canaries — and refuses on a linked row, naming it.
+  if (request.reason === REAP_REASON.SCRATCH) {
+    const linkage = await (deps.readQueueLinkage ?? readQueueLinkage)(
+      request.name,
+    );
+    if (linkage !== undefined) {
+      process.stderr.write(
+        `reap-agent: refusing --reason scratch for "${request.name}" — it is the ` +
+          `recorded launcher of in-flight queue item "${linkage.itemId}"` +
+          `${linkage.objectiveCode === null ? "" : ` (objective ${linkage.objectiveCode})`}. ` +
+          `A scratch reap leaves that row in flight forever. Use --reason completed ` +
+          `(closes the row), --reason cancelled (reopens it), or ${FORCE_FLAG} ` +
+          `(abandons it). Nothing was torn down.\n`,
+      );
+      return 1;
+    }
+  }
 
   if (await refuseOrWarnForUnmetEvidence(request, deps)) {
     return 1;
@@ -376,11 +425,7 @@ export async function reapAgent(
   // that picked the work back up, and reaping it there destroys live work.
   // Deleting `refuseUnprovenLiveAgent` took this check with it by accident,
   // and two tests caught it reaping a working Shadow.
-  if (
-    live !== undefined &&
-    !request.force &&
-    live.agentStatus === "working"
-  ) {
+  if (live !== undefined && !request.force && live.agentStatus === "working") {
     process.stderr.write(
       `reap-agent: "${request.name}" is LIVE and still WORKING (pane ` +
         `${live.paneId}) — refusing to reap it whatever it has published. ` +
@@ -416,29 +461,39 @@ export async function reapAgent(
     return 1;
   }
 
-  // MUST run BEFORE executeTeardown: teardown deletes the merged branch and
-  // archives data/<name>/tree-base.json, and both `--reason completed`'s
-  // delivery-commit lookup and the shared path-wise blob delivery proof
-  // `checkDeliveryVerdict` performs (the same one verify-delivery uses)
-  // need both to still exist. Checking after teardown would find nothing on
-  // the common, successful path and silently write back neither. For
-  // `cancelled`/`force` no such git evidence is needed, so ordering relative
-  // to teardown makes no observable difference there. This writes back
-  // directly to the regent-queue SQLite store — there is no prose-file
-  // marking step to race against.
-  await deps.writeQueueReapOutcome?.(request.name, request.reason);
-  await recordLaunchLedgerStatus(request, deps);
+  // RESOLVE before teardown, WRITE after it. Teardown deletes the merged
+  // branch and archives data/<name>/tree-base.json, and both `--reason
+  // completed`'s delivery-commit lookup and the path-wise blob delivery proof
+  // `checkDeliveryVerdict` performs need both to still exist — so the
+  // evidence is gathered here. But the queue row and the launch ledger are
+  // written only once teardown has actually succeeded: writing them first
+  // let a `completed` reap mark the row `complete`, then have teardown
+  // refuse, leaving a queue that said "done" about an agent still alive
+  // (hiregent, 2026-09-02). A refused teardown now writes nothing, which is
+  // the truth: the row stays in flight because the agent is.
+  const queueDeliveryCommit = await (
+    deps.resolveQueueReapDeliveryCommit ?? resolveQueueReapDeliveryCommit
+  )(request.name, request.reason);
+  const launchLedgerStatus = await resolveLaunchLedgerStatus(request, deps);
 
   try {
     const outcome = await executeTeardown(
       request,
       live,
       deps,
-      await allowsUnadvancedBranchTeardown(request.name, verdictOnlyTeardownProven, deps),
+      await allowsUnadvancedBranchTeardown(
+        request.name,
+        verdictOnlyTeardownProven,
+        deps,
+      ),
     );
     if (outcome.status === "refused") {
       return 1;
     }
+    await deps.writeQueueReapOutcome?.(request.name, request.reason, {
+      deliveryCommit: queueDeliveryCommit,
+    });
+    await recordLaunchLedgerStatus(request, launchLedgerStatus, deps);
     if (!(await verifyNoStrandedTree(request.name, outcome.spawnCwd, deps))) {
       return 1;
     }

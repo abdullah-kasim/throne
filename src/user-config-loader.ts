@@ -55,6 +55,7 @@ export const STEERING_SECTION_FIELDS = [
   'customPlanPresets',
   'stagerPool',
   'tokenBalanceEnabled',
+  'autoscaleEnabled',
 ] as const;
 const IDENTITY_SECTION_FIELDS = ['name', 'email'] as const;
 
