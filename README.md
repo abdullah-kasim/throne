@@ -704,3 +704,7 @@ throne/
 
 The ledger and worktrees are not in this tree. They live under
 `~/.throne/data/` and `~/.throne/worktrees/`, outside every repository.
+
+## License
+
+[MIT](LICENSE).
