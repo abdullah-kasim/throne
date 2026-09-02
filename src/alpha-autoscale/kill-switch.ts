@@ -1,9 +1,9 @@
 import { loadUserConfigFile } from '../user-config-loader.ts';
 
 /**
- * The env-var half of the autoscale spawn gate. Defaults OFF in code: absent,
- * empty, or any value other than `"1"` reads as OFF. SINCE 2026-09-02 IT IS
- * PERMANENTLY ARMED by both service templates (`systemd/throne-backend.service`
+ * The env-var half of the autoscale spawn gate. Since 2026-09-02 it reads ON
+ * unless explicitly `"0"` (see `isAutoscaleKillSwitchOn`), and is ALSO set to
+ * `1` by both service templates (`systemd/throne-backend.service`
  * `Environment=`, `launchd/com.throne.throne-backend.plist`
  * `EnvironmentVariables`) — the Lord's order after the live proof that it was
  * set nowhere and the worker had never spawned an Alpha on any host. The
@@ -17,10 +17,21 @@ import { loadUserConfigFile } from '../user-config-loader.ts';
  */
 export const AUTOSCALE_KILL_SWITCH_ENV_VAR = 'THRONE_ALPHA_AUTOSCALE_ENABLED';
 
+/**
+ * ARMED UNLESS EXPLICITLY `"0"`. Until 2026-09-02 this read ON only for `"1"`,
+ * which meant a manual `throne autoscale-now` from an operator's shell -- a
+ * process that never inherits the service template's Environment= -- stopped
+ * at "skip: kill switch off" while the cron tick in the backend proceeded.
+ * The Lord watched exactly that happen during a demo. His standing order is
+ * that the autoscaler is permanently armed; the operator pause is
+ * `steering.autoscaleEnabled` in config.user.ts, read by
+ * `readAutoscaleEnabledInUserConfig` below, and it applies identically to the
+ * cron and to a shell. `"0"` remains the emergency env-level off.
+ */
 export function isAutoscaleKillSwitchOn(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return env[AUTOSCALE_KILL_SWITCH_ENV_VAR] === '1';
+  return env[AUTOSCALE_KILL_SWITCH_ENV_VAR] !== '0';
 }
 
 /**
