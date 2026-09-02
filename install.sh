@@ -504,7 +504,7 @@ else
                 warn "no live $regent_name after ${waited}s; inspect the throne-backend log (linux: journalctl --user -u throne-backend; macOS: ~/Library/Logs/throne/throne-backend.log)"
             else
                 did "$regent_name is live (after ${waited}s)"
-                install_order="install.sh just stood up this throne on $(hostname) and resurrected you as its ${regent_title}. Begin the court's startup now: read AGENTS.md, run \`npm start -- consume-fence-handoff-on-start\`, run render-queue, run \`./bin/throne-cli agent-statuses\` and confirm a live Stager (your SessionStart hook raises one; say so in your report if none is live), reconcile any in-flight work, and start dispatching queued objectives. Report outcomes to the ${lord_title}; never put questions to him."
+                install_order="install.sh just stood up this throne on $(hostname) and resurrected you as its ${regent_title}. Run the /throne-startup skill now (.claude/skills/throne-startup, step 0 is the boot checklist: read AGENTS.md, consume-fence-handoff-on-start, render-queue, confirm a live Stager via agent-statuses, reconcile in-flight work, dispatch queued objectives). Report outcomes to the ${lord_title}; never put questions to him."
                 if court_cli send-agent "$regent_name" "$install_order" --sender-name install; then
                     did "sent the $regent_name its install order (send-agent)"
                 else

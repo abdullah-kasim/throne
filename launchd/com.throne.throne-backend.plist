@@ -50,6 +50,16 @@ KEYS SHIPPED BELOW
   ThrottleInterval  launchd.plist(5): "by default, jobs will not be spawned
                     more than once every 10 seconds." 10 is that documented
                     default; the linux unit's RestartSec=3 is not reproduced.
+  EnvironmentVariables
+                    THRONE_ALPHA_AUTOSCALE_ENABLED=1 — THE AUTOSCALER IS
+                    PERMANENTLY ARMED (the Lord's order of 2026-09-02). The
+                    alpha-autoscale worker's spawn switch defaults OFF in
+                    code and was set nowhere on any host, so it never
+                    spawned an Alpha until that day. Do not remove it to
+                    pause the court: the operator pause is
+                    `steering.autoscaleEnabled: false` in the live
+                    config.user.ts (the /autoscaler off skill), re-read
+                    every tick. Same key as the linux unit's Environment=.
 
 NOT REPRODUCED from the linux unit, deliberately: `Type=notify`,
 `WatchdogSec=` and the READY=1 handshake are systemd-only. sd_notify is a
@@ -69,6 +79,11 @@ mac is restarted by an operator, not by launchd.
 	</array>
 	<key>WorkingDirectory</key>
 	<string>{{THRONE_ROOT}}</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>THRONE_ALPHA_AUTOSCALE_ENABLED</key>
+		<string>1</string>
+	</dict>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>KeepAlive</key>

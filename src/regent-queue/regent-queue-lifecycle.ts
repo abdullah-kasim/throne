@@ -30,7 +30,7 @@ export function findQueueItemByObjectiveCode(
   return all.items.find((item) => item.objectiveCode === objectiveCode);
 }
 
-function findInFlightQueueItemByAgentName(
+export function findInFlightQueueItemByAgentName(
   store: RegentQueueStore,
   agentName: string,
 ): RegentQueueItemRow | undefined {

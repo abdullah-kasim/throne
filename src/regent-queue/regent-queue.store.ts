@@ -23,6 +23,7 @@ export type {
   StageQueueLaunchBrief,
 } from "./regent-queue-launch-brief.ts";
 import {
+  type QueueDeliverableShape,
   type QueueDeferral,
   queueItemColumns,
   requireQueueDeliveryMirror,
@@ -82,6 +83,7 @@ export interface NewQueueItem {
   readonly body: string;
   readonly prBranch?: string | null;
   readonly modelHint?: ModelPair | null;
+  readonly deliverableShape?: QueueDeliverableShape | null;
   readonly launch?: EligibleQueueLaunchMetadata;
   readonly deliveryMirror?: QueueDeliveryMirror;
   readonly absorption?: QueueAbsorption | null;
@@ -186,8 +188,8 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
     const row = this.db
       .prepare(
         `INSERT INTO queue_items
-           (id, objective_code, status, body, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, priority, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (id, objective_code, status, body, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, deliverable_shape, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, priority, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING ${queueItemColumns}`,
       )
       .get(
@@ -203,6 +205,7 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
         item.prBranch ?? null,
         item.modelHint?.harness ?? null,
         item.modelHint?.model ?? null,
+        item.deliverableShape ?? null,
         item.launch?.targetRepo ?? null,
         item.launch?.baseCommit ?? null,
         mirror?.verdict ?? "unknown",
