@@ -621,17 +621,18 @@ pushes — review `git -C ~/repos/throne-public show --stat`, then push yourself
 `--dry-run` stages and verifies without touching the target; `--include-dirty`
 publishes the working tree instead of `HEAD`.
 
-The two repos share no history, so correspondence is tracked by a
-`Public-Commit: <hash>` trailer in **this** repo's history: `publish.sh` records
-the public commit it created, and `./import-from-public.sh` records the public
-`main` it imported. `publish.sh` refuses while public `main` is not recorded —
-that is a public-side change (a merged contribution, or a non-fast-forward
-merge of a publish branch) that a fresh snapshot would silently overwrite.
-`import-from-public.sh` applies the diff of public `main` since the last
-recorded commit (`git apply --3way`, then `--reject`), commits it with the
-trailer, and on any rejected hunk records nothing and leaves `.rej` files plus
-the patch for manual resolution, after which `--mark-only <hash>` records the
-hash. Fast-forwarding a publish branch into public `main` needs no import.
+The two repos share no history, so correspondence is one tracked file,
+`current_public_commit.txt` (never published): the public commit this tree
+corresponds to. `publish.sh` writes the commit it created there and commits
+that; `./import-from-public.sh` writes the public `main` it imported.
+`publish.sh` refuses unless public `main` is the recorded commit or an ancestor
+of it (an unmerged publish branch) — anything else is a public-side change (a
+merged contribution, a non-fast-forward merge) that a fresh snapshot would
+silently overwrite. `import-from-public.sh` applies the diff of public `main`
+since the recorded commit (`git apply --3way`, then `--reject`) and commits it
+with the updated file; on any rejected hunk it records nothing and leaves
+`.rej` files plus the patch for manual resolution, after which
+`--mark-only <hash>` records the hash.
 
 ## Layout
 
