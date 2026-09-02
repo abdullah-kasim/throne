@@ -13,18 +13,37 @@ its current portability limits are.
 
 ## Install
 
-The throne stands alone. On a machine with no `herdr`, no Claude Code and no
-Codex on it:
+Three steps. The throne stands alone: a machine with no `herdr`, no Claude
+Code and no Codex on it is the expected starting point.
 
-```bash
-git clone <this repo> && cd throne
-claude      # or codex, or opencode — then ask it to run ./install.sh
-```
+1. **Clone it** — `~/throne` is the recommended location (the docs, the
+   service templates' comments and the worked examples all assume it; any
+   path works):
 
-The installer is run **by an agent, not by hand**: it refuses to start
-without `I_AM_AN_AGENT=1`, which the agent supplies when it runs it. An agent
-reads whatever breaks on your particular machine, fixes it, and re-runs until
-the install is clean; its last message tells you to quit it and run `throne`.
+   ```bash
+   git clone <this repo> ~/throne
+   cd ~/throne
+   ```
+
+2. **Start an agent in that folder.** Claude Code is recommended; Codex also
+   works:
+
+   ```bash
+   claude      # recommended
+   codex       # also fine
+   ```
+
+3. **Ask the agent to run the installer**, in so many words:
+
+   > Run `./install.sh` and keep going until it finishes clean.
+
+   The installer is run **by an agent, not by hand**: it refuses to start
+   without `I_AM_AN_AGENT=1`, which the agent supplies when it runs it. This
+   is deliberate — an agent reads whatever breaks on your particular machine
+   (a too-old bash, a missing `flock`, a Node below 24), fixes it, and
+   re-runs until the install is clean, where a human pasting commands stops
+   at the first error. Its last message tells you to quit it and run `throne`.
+
 The script installs the node dependencies, compiles the CLI, downloads all
 three harnesses at pinned versions, pulls the ntfy image, installs and
 starts every service, and then seats the court: it runs `keep-going`, so a
@@ -175,6 +194,7 @@ descriptions.
 | `dismiss-regent` | Mark the Regent dismissed and reap the live harness so the watchdog stops resurrecting it. |
 | `throne-startup` | On session start, rename the throne's own top-level harness to Regent and arm its heartbeat timer. |
 | `add-to-queue` | Add a new open item to the SQLite-backed Regent queue store. |
+| `autoscale-now` (alias `alpha-autoscale-tick`) | Run one full autoscale sweep immediately — every gate the five-minute cron applies (pause switch, pressure, kill switch, cooldown, floor, launch history) — so a freshly queued objective need not wait for the next tick. Safe to run while paused: it prints the skip reason and stops. |
 | `trim-queue` | Remove terminal (complete/abandoned) items from the Regent queue store; dry-run by default. |
 
 ### Worktrees
@@ -599,12 +619,16 @@ the live throne root; the "who" column is the role that may invoke it.
 | `/write-todos` (aliases `/create-todos`, `/make-todos`, `/plan-todos`, `/draft-todos`) | Alpha | plan an objective into a `todo-<iso-timestamp>-<topic>/` bundle of executable todo files |
 | `/execute-todos` (aliases `/run-todos`, `/do-todos`, `/process-todos`) | Alpha | execute a todo bundle, one real Shadow per slice, through the terminal 99 gates |
 | `/write-and-execute-todos` (aliases `/plan-and-run-todos`, `/do-all-todos`) | Alpha | chain the two above with no human checkpoint between planning and execution |
-| `/plan-task-split` | Alpha | shape large work as a STAR of independently testable spokes around a wiring core, before the bundle is written |
+| `/plan-task-split` | Stager (decides the shape), Alpha (preserves it) | shape large work as a STAR of independently testable spokes around a wiring core. The Stager applies it when consolidating and queueing the Lord's objective — a plan body filed as a chain has lost its parallelism before any Alpha reads it; the Alpha re-reads it in `/write-todos` so the bundle keeps the seams rather than re-chaining them |
 | `/review-loop` | Alpha | bounded reviewer/fixer loop against a named target and reviewer model; every reviewer and fixer is requested from the Regent |
 | `/gap-analysis-model` | Alpha | one pinned nested campaign per compared harness/model pair, distilled into per-model capability guidance |
 | `/no-alpha` (alias `/na`) | Regent or Stager | do the Lord's scoped task directly in the invoking session, after a mandatory scope confirmation, without spawning an Alpha |
 | `/usage` | Regent or Stager | quota dashboard: limits, remaining, burn rate, reset times, projected percentage at reset |
+| `/throne-startup` | Regent or Stager | diagnose and heal a broken startup: headless court, timed-out hook, stranded `stager-floor` worktree, `flock` missing on macOS, starved deliveries |
+| `/queue-objective` | Stager only, on the Lord's word | the Stager's core job made discoverable: shape the objective as a STAR, write the four-marker body for a Sonnet reader, grep-verify every code noun, `lint-queue-plan`, `add-to-queue` with the four launch facts, then notify the Regent as a pointer. Refuses filing requests relayed from anyone but the Lord |
 | `/switch-campaign-model [model]` | Stager only | move Alpha, Shadow, and ShadowSlice99 onto one model (default `sonnet`) by rewriting `steering` in the gitignored `config.user.ts`; the Stager's own `claude/opus` pin is untouched |
+| `/autoscaler off \| on \| status` | Stager only | pause or resume the court's spawning by flipping `steering.autoscaleEnabled` in the gitignored `config.user.ts`; the worker re-reads it every tick, so no restart. The env switch itself is permanently armed in both service templates |
+| `/update-harnesses` | Stager or Regent | check, stage, probe, promote, or roll back throne-managed Claude Code / Codex CLI installs (`scripts/update-harness.mjs`), gated on `harness-decouple`; see "Future harness updates" above |
 
 ## Publishing to the public mirror
 

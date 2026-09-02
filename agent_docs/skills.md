@@ -29,6 +29,20 @@ invoke it.
   published outside the throne, in the global `claude/agent_docs/Claude/` and
   `claude/agent_docs/GPT/` family directories.
 
+`queue-objective` is throne-locally discovered AND Stager-only at runtime: the
+file-then-notify procedure from AGENTS.md "The Stager" (STAR shaping, four
+markers, verified nouns, lint, `add-to-queue` with launch facts, pointer
+notification), packaged so a reader finds it without excavating AGENTS.md.
+It adds no law of its own and cites the paragraph each step comes from.
+
+`autoscaler` is throne-locally discovered AND Stager-only at runtime, a
+sibling of `switch-campaign-model`: `/autoscaler off | on | status` flips
+`steering.autoscaleEnabled` in the live `config.user.ts` to pause or resume
+the court's spawning. It exists because the alpha-autoscale env switch is
+permanently armed in both service templates since 2026-09-02 (the Lord's
+order), so the operator pause moved to config. The worker re-reads the file
+every tick; no restart in either direction.
+
 Skills intentionally scoped to the throne for discovery too live under
 `throne/.claude/skills/`, alongside the todo skills: Claude Code discovers that
 directory natively from a throne cwd, live root and worktree alike. The

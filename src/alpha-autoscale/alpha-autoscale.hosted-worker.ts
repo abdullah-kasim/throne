@@ -14,7 +14,10 @@ import {
   stageEligibleLaunchBriefsFromStore,
   type AutoBriefResult,
 } from "./regent-queue-feed.ts";
-import { isAutoscaleKillSwitchOn } from "./kill-switch.ts";
+import {
+  isAutoscaleKillSwitchOn,
+  readAutoscaleEnabledInUserConfig,
+} from "./kill-switch.ts";
 import {
   readAlphaAutoscaleCooldown,
   recordSuccessfulAlphaAutoscaleSpawn,
@@ -72,6 +75,14 @@ export interface AlphaAutoscaleDependencies {
   readReadyQueue: () => ReadyQueueResult;
   autoBriefEligibleItems: () => AutoBriefResult;
   readKillSwitch: () => boolean;
+  /** The operator pause, `steering.autoscaleEnabled` in the live
+   *  `config.user.ts`, read fresh per tick. OPTIONAL only so the many
+   *  existing test dependency bags need no change: absent means enabled,
+   *  which is also what an absent config file means. Production always
+   *  supplies it. */
+  readAutoscaleEnabledInConfig?: () => Promise<
+    { readonly enabled: true } | { readonly enabled: false; readonly reason: string }
+  >;
   readSpawnCooldown: () => AlphaAutoscaleCooldownStatus;
   recordSuccessfulSpawn: () => void;
   readActiveCapacityInputs: () => Promise<ActiveAlphaCapacityInputs>;
@@ -136,6 +147,7 @@ export const ALPHA_AUTOSCALE_DEFAULT_DEPENDENCIES: AlphaAutoscaleDependencies = 
   readReadyQueue: readAutoscaleQueueFromStore,
   autoBriefEligibleItems: stageEligibleLaunchBriefsFromStore,
   readKillSwitch: isAutoscaleKillSwitchOn,
+  readAutoscaleEnabledInConfig: readAutoscaleEnabledInUserConfig,
   readSpawnCooldown: readAlphaAutoscaleCooldown,
   recordSuccessfulSpawn: recordSuccessfulAlphaAutoscaleSpawn,
   readActiveCapacityInputs: readActiveAlphaCapacityInputs,
@@ -188,6 +200,18 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     // Stager actuation deliberately absent: autoscale/autodispatch touch
     // Alphas and Shadows ONLY (Lord ruling 2026-08-19). The Stager-floor
     // effect lives solely in throne-startup's Regent boot reconciliation.
+    //
+    // THE OPERATOR PAUSE comes first, before auto-brief or deferral
+    // promotion mutate a single queue row: a paused court is inert, not
+    // "inert except for the bookkeeping". No floor-breach page either --
+    // the breach is the operator's deliberate state, and paging the Regent
+    // about it every five minutes would be noise about a decision already
+    // made. The log line is the record.
+    const pause = await this.dependencies.readAutoscaleEnabledInConfig?.();
+    if (pause !== undefined && !pause.enabled) {
+      this.dependencies.log(`skip: ${pause.reason}`);
+      return;
+    }
     const autoBrief = this.dependencies.autoBriefEligibleItems();
     if (autoBrief.state === "unknown") {
       this.dependencies.log(`skip: auto-brief unknown: ${autoBrief.reason}`);
@@ -392,6 +416,9 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       ...(candidate.modelHint === null || candidate.modelHint === undefined
         ? []
         : ["--model-hint", `${candidate.modelHint.harness}/${candidate.modelHint.model}`]),
+      ...(candidate.deliverableShape === null || candidate.deliverableShape === undefined
+        ? []
+        : ["--deliverable-shape", candidate.deliverableShape]),
       "--role",
       "Alpha",
       "--supervisor",

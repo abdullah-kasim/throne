@@ -55,3 +55,19 @@ export class AlphaAutoscaleTickCommand extends CommandRunner {
     await this.worker.runOnce();
   }
 }
+
+/**
+ * `autoscale-now` -- the same sweep under the name a human reaches for. The
+ * Lord, 2026-09-02: "we need a cli command to trigger the autoscaler to run
+ * a check now so that we don't have to wait 10 mins". `alpha-autoscale-tick`
+ * already was that command; nobody could find it by that name. This is a
+ * pure alias: same class body, same transport flags, same gates, same
+ * serialisation through `alphaAutoscaleExecutionGate` -- a manual check can
+ * never race the cron tick.
+ */
+@Command({
+  name: "autoscale-now",
+  allowUnknownOptions: true,
+  allowExcessArgs: true,
+})
+export class AutoscaleNowCommand extends AlphaAutoscaleTickCommand {}

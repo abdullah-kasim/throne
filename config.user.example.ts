@@ -119,6 +119,17 @@ const userConfig: UserConfigFileOverride = {
     // default. Set true only once the balancer feature is meant to run.
     tokenBalanceEnabled: false,
 
+    // THE OPERATOR PAUSE. The alpha-autoscale worker's env switch
+    // (THRONE_ALPHA_AUTOSCALE_ENABLED) is permanently armed in both service
+    // templates (the Lord's order of 2026-09-02), so this field is the one
+    // deliberate place the court's spawning is turned off. `false` makes
+    // every autoscale tick skip before it touches the queue -- no Alpha is
+    // born until it is `true` again. The worker re-reads this file on every
+    // tick, so flipping it needs no backend restart in either direction.
+    // Absent means ON. Flip it with the `/autoscaler off` / `/autoscaler on`
+    // skill (Stager only) rather than by hand.
+    autoscaleEnabled: true,
+
     // A custom preset pool routes fresh spawns through a `{harness, model}`
     // pair that isn't one of the committed built-in presets above. EXAMPLE
     // ONLY — commented out, and not referenced by `activePlanPresetName`

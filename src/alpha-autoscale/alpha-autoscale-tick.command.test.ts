@@ -99,3 +99,12 @@ test("alpha-autoscale-tick --transport rest fails loudly, naming --local, when t
   process.exitCode = 0;
   assert.match(stderrOutput, /--local/);
 });
+
+test("autoscale-now is the same sweep under a findable name", async () => {
+  const { AutoscaleNowCommand } = await import("./alpha-autoscale-tick.command.ts");
+  let ran = 0;
+  const command = new AutoscaleNowCommand({ runOnce: async () => { ran += 1; } } as never);
+  await command.run([]);
+  assert.equal(ran, 1);
+  assert.ok(command instanceof AlphaAutoscaleTickCommand);
+});
