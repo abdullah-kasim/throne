@@ -13,7 +13,7 @@ it through the tracked `codex/.agents/skills` link. The skill may check, update,
 Claude Code and Codex CLI artifacts only when `harness-decouple` is explicitly
 enabled; OFF performs no discovery or ownership mutation. Its deterministic
 script stages and probes each harness in isolation and has no live Herdr
-operation. See `README.md` for the operator flow and evidence contract.
+operation. See `throne/.claude/skills/update-harnesses/SKILL.md` for the operator flow and evidence contract.
 
 `gap-analysis-model` is throne-locally discovered AND throne-only at runtime: its
 implementation lives at `throne/.claude/skills/gap-analysis-model/`, discovered
