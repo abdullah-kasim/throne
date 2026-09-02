@@ -23,6 +23,7 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
       pr_branch TEXT,
       model_hint_harness TEXT,
       model_hint_model TEXT,
+      deliverable_shape TEXT,
       agent_name TEXT,
       target_repo TEXT,
       base_commit TEXT,
@@ -84,6 +85,8 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
     db.exec(`ALTER TABLE queue_items ADD COLUMN model_hint_harness TEXT`);
   if (!names.has("model_hint_model"))
     db.exec(`ALTER TABLE queue_items ADD COLUMN model_hint_model TEXT`);
+  if (!names.has("deliverable_shape"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN deliverable_shape TEXT`);
   if (!names.has("delivery_mirror_state"))
     db.exec(
       `ALTER TABLE queue_items ADD COLUMN delivery_mirror_state TEXT NOT NULL DEFAULT 'unknown'`,

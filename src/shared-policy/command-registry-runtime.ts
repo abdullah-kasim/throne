@@ -12,7 +12,10 @@ import { ThroneBackendCommand } from "../throne-backend/throne-backend.command.t
 import { QueueHealthCommand } from "../throne-work/queue-health.command.ts";
 import { VerifyDeliveryPathCommand } from "../message-queue/verify-delivery-path.command.ts";
 import { VerifyAlphaFloorDeliveryCommand } from "../alpha-autoscale/verify-alpha-floor-delivery.command.ts";
-import { AlphaAutoscaleTickCommand } from "../alpha-autoscale/alpha-autoscale-tick.command.ts";
+import {
+  AlphaAutoscaleTickCommand,
+  AutoscaleNowCommand,
+} from "../alpha-autoscale/alpha-autoscale-tick.command.ts";
 import type { CommandRegistryEntry } from "./command-registry-entry.ts";
 
 export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
@@ -129,5 +132,12 @@ export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: false,
     description: "Run one published alpha-autoscale watchdog tick.",
+  },
+  {
+    name: "autoscale-now",
+    provider: AutoscaleNowCommand,
+    visibility: "public",
+    migrated: false,
+    description: "Check the queue and spawn now, without waiting for the five-minute autoscale cron (alias of alpha-autoscale-tick).",
   },
 ] as const;

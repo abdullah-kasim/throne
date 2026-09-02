@@ -60,6 +60,15 @@ StartLimitBurst=5
 # process in the unit's control group, which covers that child.
 NotifyAccess=all
 Type=notify
+# THE AUTOSCALER IS PERMANENTLY ARMED (the Lord's order of 2026-09-02). This
+# env var is the alpha-autoscale worker's spawn switch
+# (`src/alpha-autoscale/kill-switch.ts`); it defaults OFF in code and was set
+# nowhere on any host, so the worker never spawned an Alpha anywhere until
+# that day. Do not remove it to pause the court: the operator pause is
+# `steering.autoscaleEnabled: false` in the live `config.user.ts` (the
+# `/autoscaler off` skill), which the worker re-reads every tick without a
+# restart. The launchd twin carries the same key in EnvironmentVariables.
+Environment=THRONE_ALPHA_AUTOSCALE_ENABLED=1
 WorkingDirectory={{THRONE_ROOT}}
 # `{{NODE_BIN}}` is the mise `lts` symlink form, not a version-pinned path:
 # mise repoints `lts` on upgrade, so a version-pinned path would silently

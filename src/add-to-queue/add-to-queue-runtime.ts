@@ -33,6 +33,10 @@ import {
 import { resolveCurrentAgentName } from "../herdr/herdr-session.service.ts";
 import { parseQueuePriority } from "../regent-queue/regent-queue-row.ts";
 import { parseQueueModelHint } from "../regent-queue/model-hint.ts";
+import {
+  parseQueueDeliverableShape,
+  type QueueDeliverableShape,
+} from "../regent-queue/regent-queue-row.ts";
 import type { ModelPair } from "../config.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { herdrAgentNameRefusal } from "../herdr/herdr-identity.service.ts";
@@ -52,6 +56,7 @@ const LAUNCH_FLAGS = new Set([
 const PR_BRANCH_FLAG = "--pr-branch";
 const PRIORITY_FLAG = "--priority";
 const MODEL_HINT_FLAG = "--model-hint";
+const DELIVERABLE_SHAPE_FLAG = "--deliverable-shape";
 
 export interface LaunchMetadata {
   alphaName: string;
@@ -72,6 +77,11 @@ export interface ParsedAddToQueueArgs {
   prBranch?: string;
   priority?: number;
   modelHint?: ModelPair;
+  /** `verdict-only`: an answer-shaped objective (report, audit, probe) whose
+   *  Alpha never needs to advance its branch. Forwarded by the autoscaler to
+   *  `create-agent --deliverable-shape` so `reap-agent --reason completed`
+   *  can close the row without a delivery commit. */
+  deliverableShape?: QueueDeliverableShape;
   body: string;
 }
 
@@ -93,6 +103,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
   let prBranch: string | undefined;
   let priority: number | undefined;
   let modelHint: ModelPair | undefined;
+  let deliverableShape: QueueDeliverableShape | undefined;
   const launchValues: Record<string, string> = {};
   const bodyWords: string[] = [];
   for (let i = 0; i < args.length; i++) {
@@ -122,6 +133,21 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
     }
     if (args[i] === MODEL_HINT_FLAG) {
       modelHint = parseQueueModelHint(args[++i]);
+      continue;
+    }
+    if (args[i] === DELIVERABLE_SHAPE_FLAG) {
+      const value = args[++i];
+      if (value === undefined)
+        throw new Error(
+          `add-to-queue: ${DELIVERABLE_SHAPE_FLAG} requires a value (verdict-only)`,
+        );
+      try {
+        deliverableShape = parseQueueDeliverableShape(value);
+      } catch (error) {
+        throw new Error(
+          `add-to-queue: ${DELIVERABLE_SHAPE_FLAG} ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
       continue;
     }
     if (LAUNCH_FLAGS.has(args[i]!)) {
@@ -200,6 +226,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
     ...(prBranch === undefined ? {} : { prBranch }),
     ...(priority === undefined ? {} : { priority }),
     ...(modelHint === undefined ? {} : { modelHint }),
+    ...(deliverableShape === undefined ? {} : { deliverableShape }),
     launchOverrides,
   };
 }
@@ -362,6 +389,9 @@ export async function run(
       ...(parsed.prBranch === undefined ? {} : { prBranch: parsed.prBranch }),
       ...(parsed.priority === undefined ? {} : { priority: parsed.priority }),
       ...(parsed.modelHint === undefined ? {} : { modelHint: parsed.modelHint }),
+      ...(parsed.deliverableShape === undefined
+        ? {}
+        : { deliverableShape: parsed.deliverableShape }),
       launch,
       deliveryMirror: {
         verdict: "not-started",
