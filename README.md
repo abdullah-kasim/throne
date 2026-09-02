@@ -83,6 +83,27 @@ Only two things must already exist: **bash ≥ 4.3** (macOS ships 3.2 — `brew
 install bash`) and **Node ≥ 24**. The installer checks both and refuses early
 with instructions rather than failing halfway.
 
+## Usage
+
+1. **Open the throne** — run `throne`. This connects you to the herdr
+   instance the throne runs on; every agent in the court is a pane in it.
+
+2. **Ask the Stager for anything you want**, in plain words:
+
+   > Repo `/path/to/repo` needs this feature sorted out. Create a PR branch
+   > for adding X.
+
+   The Stager is the agent that exists to be talked to. It will ask you
+   whatever it needs to pin the plan down.
+
+3. **The Stager queues it up.** It files the consolidated objective as a queue
+   row; the autoscaler's dispatcher picks the row up, spawns an Alpha for it,
+   and the Alpha runs the campaign in its own worktree through Shadows. You
+   do not drive any of that.
+
+4. **Ask the Stager for the queue status** whenever you want to know what is
+   done, what is in flight, and what is still waiting.
+
 ## The peerage
 
 Work flows down. Escalations flow up one link at a time. No tier below the
@@ -90,8 +111,9 @@ Regent holds the whole map.
 
 | Tier | Role | Mandate |
 | --- | --- | --- |
-| 1 | **Lord** | The human. Wills objectives into being, speaks only to the Regent, and is never asked a question — the court reports outcomes, never decisions to make. |
-| 2 | **Regent** | The harness running in the throne itself. Relays the Lord's will downward and delegates everything; does no execution work. |
+| 1 | **Lord** | The human. Wills objectives into being and speaks to the Stager; the tiered court below never asks the Lord a question — it reports outcomes, never decisions to make. |
+| — | **Stager** | The Lord's point of contact, standing beside the tiered chain rather than in it. Talks to the Lord directly (the one role whose job is to ask him questions), consolidates his objectives, and files them to the queue; never spawns, never supervises, never takes instructions from anyone but the Lord. |
+| 2 | **Regent** | The harness running in the throne itself. Owns the queue, spawns and supervises campaigns, and delegates everything; does no execution work and sends the Stager nothing. |
 | 3 | **Alpha** | Spawned by the Regent, one per campaign. Plans, splits, assigns, monitors, and resolves every ambiguity itself. |
 | 4 | **Shadow** | Spawned by an Alpha, one per slice. Executes its assigned slice. Routine questions go to its Alpha; genuine blockers go to the Regent. |
 
