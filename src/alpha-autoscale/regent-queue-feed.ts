@@ -138,6 +138,13 @@ export function stageEligibleLaunchBriefs(
   const openItems = orderQueueItemsForDispatch(
     queue.items.filter((item) => item.status === "open"),
   );
+  // A queue whose every row is non-open (complete, dismissed, archived) has
+  // nothing to brief and nothing to call ineligible. Before 2026-09-02 this
+  // fell through to `ineligible` with an EMPTY reason list, and the worker
+  // logged "auto-brief found ineligible items: " with nothing after the
+  // colon -- a claim with no subject. Observed on the live Mac the tick
+  // after the first `hiregent` row went complete.
+  if (openItems.length === 0) return { state: "staged", count: 0 };
   const eligibleItems = openItems.filter(
     (item) =>
       classifyEffectiveQueueDecision(item).state === "eligible" &&
@@ -192,6 +199,10 @@ export function readAutoscaleQueue(
   const openItems = orderQueueItemsForDispatch(
     queue.items.filter((item) => item.status === "open"),
   );
+  // Same guard as `stageEligibleLaunchBriefs`: no open rows is positively
+  // empty, whatever launch briefs may linger, never `ineligible` for no
+  // stated reason.
+  if (openItems.length === 0) return { state: "positively-empty" };
   const decisionByObjective = new Map(
     openItems.map((item) => [
       item.objectiveCode,
@@ -271,6 +282,8 @@ export function readAutoscaleQueue(
         : { createTargetFromBranch: brief.targetBranch }),
       objective: itemByObjective.get(brief.objectiveCode)?.body ?? "",
       modelHint: itemByObjective.get(brief.objectiveCode)?.modelHint ?? null,
+      deliverableShape:
+        itemByObjective.get(brief.objectiveCode)?.deliverableShape ?? null,
     }));
   return candidates.length === 0
     ? {

@@ -24,7 +24,11 @@ import type { isAncestor } from '../git-lifecycle/delivery.ts';
 import type { ReapReason } from '../agent-timings/reap-reason.ts';
 import type { ScratchDirRemovalResult } from '../tmp-scratch-lifecycle/tmp-scratch-lifecycle.types.ts';
 import type { SliceEvidenceResult } from '../slice-evidence/agent-evidence-gate.ts';
-import type { writeQueueReapOutcome } from './queue-reap-writeback.ts';
+import type {
+  readQueueLinkage,
+  resolveQueueReapDeliveryCommit,
+  writeQueueReapOutcome,
+} from './queue-reap-writeback.ts';
 import type { appendLaunchLedgerStatus } from '../alpha-launch-queue/launch-ledger.ts';
 import type { checkDeliveryVerdict } from '../verify-delivery/verify-delivery-runtime.ts';
 import type { readSpawnSpec } from '../agentdata/spawn-data-contracts.ts';
@@ -113,6 +117,13 @@ export interface ReapDeps {
    *  status mapping — `regent-queue-lifecycle.ts`'s `reap-agent` side.
    *  Falls back to no write-back when omitted. */
   writeQueueReapOutcome?: typeof writeQueueReapOutcome;
+  /** Pre-teardown half of the queue write-back: resolves the delivery
+   *  commit while the branch still exists. Falls back to the real lookup. */
+  resolveQueueReapDeliveryCommit?: typeof resolveQueueReapDeliveryCommit;
+  /** Reads whether the agent is the recorded launcher of an in-flight queue
+   *  row. A `--reason scratch` reap refuses on linkage. Falls back to the real
+   *  store read. */
+  readQueueLinkage?: typeof readQueueLinkage;
   /** Appends the launch-ledger terminal-status line for a reaped agent.
    *  Falls back to the real implementation when omitted. */
   appendLaunchLedgerStatus?: typeof appendLaunchLedgerStatus;
