@@ -1436,7 +1436,11 @@ has no journal: both live agents append to `~/Library/Logs/throne/`.
 The separate five-minute `alpha-autoscale` hosted tick also enforces the live
 Stager floor before evaluating any Alpha queue signal. While desired state is
 `running`, zero positively-known live Stagers is an immediate breach: there is
-no grace tick, cooldown, capacity hold, or autoscale kill-switch exemption. The
+no grace tick, cooldown, capacity hold, or autoscale kill-switch exemption
+(the env switch `THRONE_ALPHA_AUTOSCALE_ENABLED=1` is permanently armed in
+both service templates since 2026-09-02; the operator pause is
+`steering.autoscaleEnabled: false` in the live `config.user.ts`, flipped by
+the `/autoscaler` skill and re-read by the worker every tick). The
 tick uses ordinary `spawn-git-tree` and `create-agent --role Stager`, and a
 uniquely live Stager makes the effect idempotent. Unknown role/roster evidence
 or multiple live candidates fails closed. `dismissed` is the sole exemption and

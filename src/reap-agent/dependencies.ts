@@ -25,7 +25,7 @@ import {
   resolveDeliveryRepoRoot,
 } from '../git-lifecycle/delivery-commit-proof.ts';
 import { checkAgentEvidenceRequirementByName } from '../slice-evidence/agent-evidence-gate.ts';
-import { writeQueueReapOutcome } from './queue-reap-writeback.ts';
+import { readQueueLinkage, writeQueueReapOutcome } from './queue-reap-writeback.ts';
 import { MEMORY_PATH } from './input.ts';
 import { reapAgentScratchDirs } from './scratch-cleanup.ts';
 import { terminateWorktreeProcesses } from './process-teardown.ts';
@@ -151,4 +151,5 @@ export const REAL_DEPS: ReapDeps = {
   cleanupAgentScratch: (name) => reapAgentScratchDirs(name),
   terminateWorktreeProcesses: (worktreePath) => terminateWorktreeProcesses(worktreePath),
   writeQueueReapOutcome,
+  readQueueLinkage,
 };

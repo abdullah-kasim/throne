@@ -228,3 +228,51 @@ test("the target repository is never inferred from where the filer is standing",
     "the derivation stub's repo must not win over the named one",
   );
 });
+
+// A verdict-only objective (a report, an audit, a probe) has no diff to
+// deliver. Its Alpha's branch legitimately never advances, and `reap-agent
+// --reason completed` closes the row only when the spawn record carries
+// `deliverable_shape: verdict-only` — which `create-agent` writes from its
+// `--deliverable-shape` flag, which the autoscaler forwards from THIS column.
+// Without it the Regent falls back to `--reason scratch`, a queue no-op, and
+// the row sits in flight forever (hiregent2, 2026-09-02).
+test("add-to-queue records --deliverable-shape verdict-only on the row the autoscaler reads", async () => {
+  const databasePath = scratchStorePath();
+  const exitCode = await run(
+    ["--target-repo", REPO_PATH, "--objective-code", "vdo", "--deliverable-shape", "verdict-only", "Answer a question"],
+    {
+      openStore: () => openRegentQueueStore(databasePath),
+      ...AS_STAGER,
+      resolveLaunchDefaults: (_repoPath: string) => LAUNCH_DEFAULTS,
+      now: () => 1_700_000_000_000,
+    },
+  );
+  assert.equal(exitCode, 0);
+  const store = openRegentQueueStore(databasePath);
+  try {
+    assert.equal(store.readItem("vdo")?.deliverableShape, "verdict-only");
+    assert.equal(classifyEffectiveQueueDecision(store.readItem("vdo")!).state, "eligible");
+  } finally {
+    store.close();
+  }
+});
+
+test("add-to-queue leaves deliverable shape null when the flag is absent, and refuses any value other than verdict-only", async () => {
+  const databasePath = scratchStorePath();
+  await run(["--target-repo", REPO_PATH, "--objective-code", "dfl", "Ordinary code work"], {
+    openStore: () => openRegentQueueStore(databasePath),
+    ...AS_STAGER,
+    resolveLaunchDefaults: (_repoPath: string) => LAUNCH_DEFAULTS,
+    now: () => 1_700_000_000_000,
+  });
+  const store = openRegentQueueStore(databasePath);
+  try {
+    assert.equal(store.readItem("dfl")?.deliverableShape, null);
+  } finally {
+    store.close();
+  }
+  assert.throws(
+    () => parseAddToQueueArgs(["--target-repo", REPO_PATH, "--objective-code", "bad", "--deliverable-shape", "code", "x"]),
+    /--deliverable-shape invalid deliverable shape "code"/,
+  );
+});

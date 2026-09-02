@@ -1,6 +1,6 @@
 ---
 name: switch-campaign-model
-description: This throne-only, STAGER-ONLY skill moves the whole campaign workflow — Alpha, ordinary Shadow, and the terminal ShadowSlice99 gates — onto one model by rewriting `steering` in the live throne's gitignored `config.user.ts`. Invoked by /switch-campaign-model [model] (default sonnet), or when the Lord says "switch to sonnet for the whole alpha/shadow/99 workflow", "run every campaign role on <model>", "put the court on <model>", or "switch the campaign model". Only a registered Stager may run it; the Regent, an Alpha, or a Shadow must refuse and relay to a Stager.
+description: This throne-only, STAGER-ONLY skill moves the whole campaign workflow — Alpha, ordinary Shadow, and the terminal ShadowSlice99 gates — onto one model by rewriting `steering` in the live throne's gitignored `config.user.ts`. Invoked by /switch-campaign-model [model] (default sonnet; `terra` = codex/gpt-5.6-terra), or when the Lord says "switch to sonnet for the whole alpha/shadow/99 workflow", "run every campaign role on <model>", "put the court on <model>", or "switch the campaign model". Only a registered Stager may run it; the Regent, an Alpha, or a Shadow must refuse and relay to a Stager.
 ---
 
 # Switch the campaign model (Stager only)
@@ -24,11 +24,14 @@ section of `config.user.ts`. This skill is that action, made repeatable.
 ## Which model
 
 The argument is a model slug from `throne list-harnesses-and-models`
-(`sonnet` when omitted). Map it to a preset:
+(`sonnet` when omitted). Short names resolve to the registered slug:
+`terra` → `gpt-5.6-terra`, `sol` → `gpt-5.6-sol`, `luna` → `gpt-5.6-luna`.
+Map it to a preset:
 
 | model | preset to name in `activePlanPresetName` |
 |---|---|
 | `sonnet` | built-in `UnifiedRouting` (Alpha, Shadow, ShadowSlice99 all `claude/sonnet`) |
+| `terra` (= `gpt-5.6-terra`) | `customPlanPresets.TerraOnly`, all three pools `{ harness: 'codex', model: 'gpt-5.6-terra' }`. Codex, not the `claude`-harness `claudey-all` row for the same slug — that row is bypass-only for fresh spawns. |
 | any other registered model | a `customPlanPresets` entry named `<Model>Only`, whose `alpha`, `shadow`, and `shadowSlice99` pools each hold the single `{ harness, model }` pair. The harness is whatever the registry lists for that model (`claude` for Anthropic models, `codex` for `gpt-*`). |
 
 Do not reach for `AnthropicOnly`/`Optimized` as shortcuts for fable or opus:
