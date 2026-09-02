@@ -1,0 +1,30 @@
+
+[0m[38;2;78;186;101m●[0m [0m[1mBash[0m(throne send-agent regent "alpha-cia-childless-idle:
+      taking the box now for a full 'npm test' run (pinned
+      scratch XDG_CONFIG_HOME), per your box handoff. Fix com…)
+[0m[38;2;153;153;153m  ⎿  [0mauto-ea4350255376adb3192e3b74d595b7233057b3047a117c9a
+     ec89cf35c0425282
+
+[0m[38;2;255;107;128m●[0m [0m[1mBash[0m(cd /var/home/theuser/.throne/worktrees/throne/alpha-cia-
+      childless-idle
+      export XDG_CONFIG_HOME=/tmp/throne-scratch-cia-full-$$…)
+[0m[38;2;153;153;153m  ⎿  [0m[38;2;255;107;128mError: Exit code 143[0m
+     [0m[38;2;255;107;128mCommand timed out after 2m 0s[0m
+
+[0m[38;2;255;255;255m●[0m Full suite is large; run with a longer timeout in background.
+
+[0m[38;2;78;186;101m● [0m[1mBash[0m(cd /var/home/theuser/.throne/worktrees/throne/alpha-cia-
+      childless-idle
+      export XDG_CONFIG_HOME=/tmp/throne-scratch-cia-full-$$…)
+[0m[38;2;153;153;153m  ⎿  [0mXDG_CONFIG_HOME=/tmp/throne-scratch-cia-full-334393
+     PID=334448
+
+[0m[38;2;215;119;87m✶[0m [0m[38;2;215;119;87mFermenting… [0m[38;2;153;153;153m(11m 59s · ↓[0m [0m[38;2;153;153;153m38.8k tokens)[0m
+[0m[38;2;153;153;153m  ⎿  Tip: Use /btw to ask a quick side question without [0m
+     [0m[38;2;153;153;153minterrupting Claude's current work[0m
+
+[0m[38;2;136;136;136m───────────────────────────────────────────────────────────────[0m
+[0m[38;2;153;153;153m❯ [0m
+[0m[38;2;136;136;136m───────────────────────────────────────────────────────────────[0m
+  [0m[38;2;153;153;153mSonnet 5 · effort:low · ~/.throne/worktrees/throne/alpha-c…[0m
+  [0m[38;2;255;107;128m⏵⏵ bypass permissions on[0m[38;2;153;153;153m (shift+tab to cycle) · gh auth log[0m

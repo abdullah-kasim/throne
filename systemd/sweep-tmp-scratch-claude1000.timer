@@ -1,0 +1,25 @@
+# sweep-tmp-scratch-claude1000.timer — user unit. Fires
+# sweep-tmp-scratch-claude1000.service on boot and every 6 hours thereafter.
+#
+# Same 6-hour cadence as the home/slash pairs, though the safety mechanism
+# differs here: it's the triggered service's positive-attribution
+# requirement (an exact dead-agent match plus a fresh holder check), not
+# this interval, that protects a live session's scratch directory.
+#
+# No `Persistent=`: per `man 5 systemd.timer` on this box (systemd 259),
+# that setting only affects `OnCalendar=` timers, and this one schedules
+# with OnBootSec=/OnUnitActiveSec= only (same basis as throne-keep-going.timer).
+#
+# Throne-owned unit source. Carries no substitution tokens, so it installs
+# verbatim — but install it through the throne, not by hand:
+#   cd <throne root> && ./bin/throne-cli install-services
+
+[Unit]
+Description=Run sweep-tmp-scratch-claude1000.service every 6 hours
+
+[Timer]
+OnBootSec=25min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target

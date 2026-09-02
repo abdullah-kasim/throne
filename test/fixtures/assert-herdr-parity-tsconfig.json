@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": [
+    "assert-herdr-parity-driver.ts",
+    "assert-herdr-status-mutant.ts"
+  ]
+}

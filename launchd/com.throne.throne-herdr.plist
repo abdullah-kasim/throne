@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+com.throne.throne-herdr.plist — throne-owned macOS LaunchAgent template for
+the herdr terminal-workspace server (throne session); the mac counterpart of
+throne/systemd/throne-herdr.service.
+
+Not loadable as it stands: `{{HERDR_BIN}}` (absolute path of the herdr binary)
+is substituted at install time, and only the rendered copy in the user's
+LaunchAgents dir is a working agent. Install with:
+  cd <throne root> && ./install.sh        (or ./bin/throne-cli install-services)
+
+Enabled and bootstrapped by install-services, exactly like its systemd twin
+is `enable --now`ed on linux. Its predecessor com.throne.herdr-server is
+retired (RETIRED_DARWIN_AGENTS in src/install-services/darwin.ts): a box that
+still has it loaded gets it booted out before this one is bootstrapped, so
+two servers never fight for the throne session socket.
+
+PROVEN on a real mac (2026-09-02, macOS 26 / Darwin 25.6): Apple's plist
+parser accepts this file with the comment block in this position, and
+`launchctl print gui/<uid>/com.throne.throne-herdr`, `launchctl enable`,
+`launchctl bootstrap gui/<uid> <plist>` and `launchctl bootout` all behave
+as install-services expects. Earlier revisions of this file carried a long
+"no macOS host exists" disclaimer; that bound no longer applies.
+
+KEYS SHIPPED BELOW
+  Label             a launchctl service target is built from this label
+                    rather than from the filename.
+  ProgramArguments  /bin/bash as a login shell, so the server and every agent
+                    pane it spawns inherit the PATH the .profile chain builds
+                    (mise shims, brew). A launchd agent otherwise starts with
+                    the bare system PATH, which reaches none of them. The
+                    server's own output goes to ~/Library/Logs/throne/ —
+                    there is no journal on a mac, and StandardOutPath does
+                    not expand ~, so the redirect lives inside the shell.
+  RunAtLoad         launchd.plist(5): "This optional key is used to control
+                    whether your job is launched once at the time the job is
+                    loaded. The default is false."
+  KeepAlive         launchd.plist(5): "The value may be set to true to
+                    unconditionally keep the job alive." It stands in for the
+                    linux unit's Restart=always.
+  ThrottleInterval  launchd.plist(5): "by default, jobs will not be spawned
+                    more than once every 10 seconds." 10 is that documented
+                    default; the linux unit's RestartSec=3 is not reproduced.
+
+SHARP EDGE — a herdr behavior, not a launchd one: `herdr update` with its
+handoff flag makes the OLD server spawn the new one as a detached daemon,
+which then fights this agent for the socket. Update without the handoff flag
+and restart the agent explicitly between agent runs instead:
+  launchctl kickstart -k gui/$(id -u)/com.throne.throne-herdr
+Any restart drops every live pane.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.throne.throne-herdr</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>-lc</string>
+		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{HERDR_BIN}} --session throne server &gt;&gt; "$HOME/Library/Logs/throne/throne-herdr.log" 2&gt;&amp;1</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+</dict>
+</plist>

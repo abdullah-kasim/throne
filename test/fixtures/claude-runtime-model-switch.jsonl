@@ -1,0 +1,3 @@
+{"message":{"model":"claude-fable-5","role":"assistant","content":[{"type":"text","text":"runtime evidence before automatic switching"}]},"type":"assistant","sessionId":"eea678d7-c9ea-402c-aade-2ac515d7f83a"}
+{"type":"system","subtype":"model_switch","originalModel":"claude-fable-5","fallbackModel":"claude-opus-4-8","reason":"safeguard_triggered"}
+{"message":{"model":"claude-opus-4-8","role":"assistant","content":[{"type":"text","text":"runtime evidence after automatic switching"}]},"type":"assistant","sessionId":"eea678d7-c9ea-402c-aade-2ac515d7f83a"}

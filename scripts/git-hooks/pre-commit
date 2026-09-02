@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Refuses a porcelain `git commit` on branch `main` in the live throne
+# checkout; every other branch is unaffected. This is the guard against a
+# repeat of the incident where a Shadow's shell wandered `cd` into the live
+# checkout instead of its own worktree and committed straight onto `main`.
+#
+# Chosen mechanism and why the alternatives were rejected: an identity-based
+# hook was rejected because every worktree and the live checkout share the
+# same git committer identity ("99a Rehearsal", a global user.name/
+# user.email) — there is no per-agent identity signal to gate on. A
+# cwd-under-~/.throne/worktrees/ check was rejected because it would have to
+# be threaded through every call site that might ever commit and is
+# trivially bypassed by anything not routed through that helper; a
+# pre-commit hook's own location already encodes "not a worktree" for free.
+# A receive-side/push refusal was rejected because there is no separate
+# remote or server here — this is one local checkout committed into
+# directly, so the commit itself is the only real intervention point.
+#
+# This hook cannot break `merge-git-tree`'s fast-forward delivery path:
+# delivery creates commits via `git commit-tree` + `git update-ref` and
+# publishes via `git merge --ff-only`, never porcelain `git commit` — a
+# pre-commit hook only fires on the porcelain path, so delivery is
+# structurally unreachable by it.
+#
+# The sanctioned override for a deliberate direct commit on live `main` is
+# git's own `git commit --no-verify`; no custom bypass is provided.
+set -euo pipefail
+
+branch="$(git symbolic-ref --quiet --short HEAD || true)"
+
+if [ "$branch" = "main" ]; then
+  cat >&2 <<'EOF'
+refusing commit: current branch is "main" in what looks like the live throne
+checkout. Agents must do all coding in their own worktree under
+~/.throne/worktrees/, never commit directly onto main.
+
+If this is a deliberate, reviewed direct commit onto live main, use:
+  git commit --no-verify
+EOF
+  exit 1
+fi
+
+exit 0

@@ -1,0 +1,24 @@
+# Per-suite redis. scripts/run-suite-redis.mjs brings this up under a unique
+# `-p <project>` per run, so `podman compose`/`docker compose` gives each
+# suite its own private default network, container, and (if one existed)
+# volume for free.
+#
+# The one semantic decision this file encodes — and the ONLY place it is
+# encoded — is: a suite's redis is reachable only from that suite's own
+# compose network, never from the host or another suite's network. That
+# falls out of two plain compose primitives, not a custom mechanism: no
+# `ports:` (so nothing is published to the host) and no explicit `networks:`
+# override (so this service sits only on its project's own default network,
+# addressable there as `redis`, per compose's own project-scoped network and
+# DNS behavior). Nothing in scripts/run-suite-redis.mjs re-decides this.
+services:
+  redis:
+    build:
+      context: .
+      dockerfile: suite.Dockerfile
+    command: ["redis-server", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 1s
+      retries: 30

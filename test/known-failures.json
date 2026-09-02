@@ -1,0 +1,122 @@
+[
+  {
+    "name": "MUTATION WITNESS: disabling the spawn-marker window for the queue-shaped caller lets it duplicate-spawn even after the cron-shaped caller already released the lock, proving the marker (not the lock) is load-bearing for the post-release case",
+    "reason": "container timing churn under host contention (cancelledByParent, whole-file/suite timeout budget) — confirmed bidirectional noise across independent runs, not a code regression"
+  },
+  {
+    "name": "the accumulated-wait counter survives across yields and the ceiling terminates the job — mutation witness: stubbing job.updateData to a no-op makes this same scenario loop forever instead of terminating",
+    "reason": "container timing churn — see above (delivery-sandboxed-processor.spec.ts); passes 3/3 in isolation"
+  },
+  {
+    "name": "a queue.add() that outlives the enqueue timeout still lands the job after the caller has already been told not-sent",
+    "reason": "container timing churn — see above"
+  },
+  {
+    "name": "duplicate cannot land: an abandoned slow enqueue and the caller's retry, both carrying the deterministic default key, collide on ONE job instead of creating two",
+    "reason": "container timing churn — see above"
+  },
+  {
+    "name": "mutation witness: without a shared idempotency key (the pre-fix shape), the same two calls WOULD create two distinct jobs",
+    "reason": "container timing churn — see above"
+  },
+  {
+    "name": "close() is bounded: a close() that never resolves does not hang the caller past the timeout, and never throws",
+    "reason": "container timing churn — see above"
+  },
+  {
+    "name": "close() bound: a close() that resolves quickly is unaffected — the happy path is not slowed down by the bound",
+    "reason": "container timing churn — see above"
+  },
+  {
+    "name": "close() bound: a close() that rejects is caught and logged, never thrown to the caller",
+    "reason": "container timing churn — see above"
+  },
+  {
+    "name": "a stalled head-of-lane job cannot hold the lane past laneBoundMs — mutation witness: a version with no bound (Infinity) would leave the second job waiting forever",
+    "reason": "container timing churn — see above (recipient-lane-gate.spec.ts)"
+  },
+  {
+    "name": "a background npm run build never exposes a torn dist/ tree to a concurrent reader",
+    "reason": "build-generation/dist-atomicity machinery main landed 2026-08-09..08-16 as new, actively-developing test surface — confirmed new machinery, not this campaign's regression"
+  },
+  {
+    "name": "a generation superseded by an overlapping build survives a later unrelated build's prune",
+    "reason": "build-generation/dist-atomicity machinery — see above; passes 6/6 in isolation"
+  },
+  {
+    "name": "effective container mounts only exact owned and required host paths",
+    "reason": "environmental: podman unavailable inside the nested test sandbox (spawn podman ENOENT), not a code defect"
+  },
+  {
+    "name": "failed image builds clean only the exact owned tag",
+    "reason": "environmental: podman unavailable inside the nested test sandbox (spawn podman ENOENT) — see above"
+  },
+  {
+    "name": "timed-out owned builds terminate only their process group",
+    "reason": "environmental: podman build timed out, same podman-unavailable root cause as above"
+  },
+  {
+    "name": "test/agent-statuses-parity.test.ts",
+    "reason": "whole-file spawn-heavy timeout under full-suite container contention — per-test 300s budget (SPAWN_HEAVY_TEST_TIMEOUT_MS) has real headroom in isolation (6/6 pass, 147.8s wall-clock); contention-driven, not an undersized or non-applied timeout"
+  },
+  {
+    "name": "test/reports-all-tests-when-patching-writer.test.ts",
+    "reason": "whole-file spawn-heavy timeout under full-suite container contention — per-test 600s budget has real headroom in isolation (1/1 pass, 396.7s wall-clock); contention-driven, not an undersized or non-applied timeout"
+  },
+  {
+    "name": "claudey-all launch artifacts are reaped after a controlling-terminal hangup",
+    "reason": "contention-driven under full-suite load; passes 3/3 in isolation. Already investigated once (000_current_questions.md Q4) — no locatable code defect, the detached reaper's 1s poll is a deliberately pinned design (test/pane-readiness.test.ts:559), not an available fix"
+  },
+  {
+    "name": "keep-going throttle: a firing non-NORMAL tick appends the band advisory and nothing else",
+    "reason": "SQLite (queue store) contention under full-suite concurrency — passes 7/7 in isolation, not a code defect"
+  },
+  {
+    "name": "a real duplicate-send canary across concurrent OS processes delivers exactly one turn carrying the latest raced payload",
+    "reason": "cross-process mutex/canary test, load-sensitive under full-suite contention — passes 1/1 in isolation, not a code defect"
+  },
+  {
+    "name": "all recipient-pane producers share one crash-safe cross-process mutex",
+    "reason": "cross-process mutex test, load-sensitive under full-suite contention — passes 8/8 in isolation, not a code defect"
+  },
+  {
+    "name": "family persistence and discovery reject a duplicated config point or crossed family",
+    "reason": "container/composition gap: scripts/run-suite-container.mjs's createSuiteContainerMountArguments never binds the host's ~/dotfiles tree into the container's HOME, so any test reading it fails inside the container regardless of host state — standing gap, not this campaign's regression; report-only finding for a future campaign"
+  },
+  {
+    "name": "core model policy documentation points to executable truth without copying current values",
+    "reason": "container ~/dotfiles mount gap — see above (test/model-policy.test.ts explicitly reads homedir()/dotfiles/cliproxyapi/README.md)"
+  },
+  {
+    "name": "empirical admission semantics remain documented",
+    "reason": "container ~/dotfiles mount gap — see above (test/model-policy.test.ts)"
+  },
+  {
+    "name": "every canonical harness executable is an accepted launcher",
+    "reason": "container ~/dotfiles mount gap — see above (test/pane-readiness.test.ts)"
+  },
+  {
+    "name": "Claude and Codex share the one canonical update-harnesses skill tree",
+    "reason": "container ~/dotfiles mount gap — see above (test/update-harnesses-integration.test.ts); passes 3/3 in isolation"
+  },
+  {
+    "name": "the updater probes staged launch, create-agent, and resume contracts only",
+    "reason": "container ~/dotfiles mount gap — see above (test/update-harnesses-integration.test.ts)"
+  },
+  {
+    "name": "Herdr eligibility uses both flags and the updater has no live Herdr command",
+    "reason": "container ~/dotfiles mount gap — see above (test/update-harnesses-integration.test.ts)"
+  },
+  {
+    "name": "the durable flag path is deterministic from explicit config roots",
+    "reason": "full-suite container contention noise — passes 8/8 in isolation (test/featureflags.test.ts), not a code defect"
+  },
+  {
+    "name": "a queued-then-abandoned attempt, killed while still blocked on both held slots, exits nonzero — never 0, and distinct from the zero-tests-executed exit code",
+    "reason": "full-suite container contention on the concurrency-guard's own scratch/slot resources — passes 7/7 in isolation (test/suite-concurrency-guard.test.ts); main's own new, actively-developing machinery"
+  },
+  {
+    "name": "both published family directories exist and instruct selective, own-pair reads",
+    "reason": "full-suite container contention noise — passes 15/15 in isolation (test/gap-analysis-isolation-and-guidance.test.ts), not a code defect"
+  }
+]

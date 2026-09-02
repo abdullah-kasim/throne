@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'for cli in \"$HOME/.local/bin/throne-cli\" \"$HOME/bin/throne-cli\"; do [ -x \"$cli\" ] && exec \"$cli\" throne-startup; done; command -v throne-cli >/dev/null 2>&1 && exec throne-cli throne-startup; exec \"${CLAUDE_PROJECT_DIR:-$PWD}/bin/throne-cli\" throne-startup'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

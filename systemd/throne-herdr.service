@@ -1,0 +1,46 @@
+# throne-herdr.service — systemd --user unit that owns the herdr terminal-
+# workspace server (throne session), under its consolidated name. Functionally
+# IDENTICAL to herdr-server.service (same ExecStart shape, same tokens) —
+# this template does not change what the unit does, it only adds it under
+# the new name so both can be installed side by side ahead of a future
+# coordinated switch.
+#
+# THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{HERDR_BIN}}`
+# (absolute path of the herdr binary) is substituted at install time; only
+# the rendered copy in the systemd user unit dir is a working unit. Install
+# with:
+#   cd <throne root> && ./bin/throne-cli install-services
+#
+# Added and installed no-clobber alongside the still-active
+# herdr-server.service — NOT enabled by install-services, and
+# herdr-server.service is neither edited, renamed, restarted, nor disabled
+# by this template's existence. The herdr-server -> throne-herdr cutover
+# itself is explicitly deferred: it requires the Alpha to message Regent for
+# authorization at the cutover instant, AND must ship in the same change as
+# the update to uninstall.sh's live-court guard (which currently checks
+# specifically for herdr-server.service being the active unit name). This
+# template performs neither.
+# The operator's separate `herdr` package still carries the original,
+# untemplated unit for running herdr standalone without the throne.
+
+[Unit]
+Description=herdr server (throne session, consolidated name) — terminal workspace host for throne agents
+
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=%h
+# Login shell so the server — and every agent pane it spawns — inherits the
+# full PATH (~/bin-override, mise shims, brew) from the .profile chain; a bare
+# systemd environment would strand spawned harnesses. .bashrc-only exports
+# (CLAUDE_BIN et al) are absent here, but the claudey/codexy wrappers fall
+# back to a PATH scan that skips bin-override, so resolution stays correct.
+ExecStart=/usr/bin/bash -lc 'exec {{HERDR_BIN}} --session throne server'
+Restart=always
+RestartSec=3
+SyslogIdentifier=throne-herdr
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,27 @@
+# sweep-tmp-scratch-home.service — user unit.
+#
+# THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{THRONE_ROOT}}`
+# (absolute path of the throne directory) and `{{NODE_BIN}}` (absolute path
+# of the node interpreter, resolved through mise's `lts` symlink) are
+# substituted at install time; only the rendered copy in the systemd user
+# unit dir is a working unit. Install with:
+#   cd <throne root> && ./bin/throne-cli install-services
+#
+# No `Wants=`/`After=`: unlike throne-keep-going.service, this run touches
+# only the filesystem under `~/tmp` and the live `/proc` table to check
+# holders — it has no herdr/backend dependency to order against or start.
+
+[Unit]
+Description=Sweep stale scratch directories under ~/tmp (one-shot, triggered by sweep-tmp-scratch-home.timer)
+
+[Service]
+Type=oneshot
+WorkingDirectory={{THRONE_ROOT}}
+# `{{NODE_BIN}}` is the mise `lts` symlink form, not a version-pinned path:
+# mise repoints `lts` on upgrade, so a version-pinned path would silently
+# break the unit again the next time node moves. Calling node directly
+# (no login-shell wrapper) makes resolution independent of ambient PATH,
+# which is unset before any login shell runs at boot.
+ExecStart={{NODE_BIN}} {{THRONE_ROOT}}/dist/src/tools.js sweep-tmp-scratch --apply --tmp-root %h/tmp
+# No ExecStart output redirection needed: systemd captures stdout/stderr to
+# the journal by default (journalctl --user -u sweep-tmp-scratch-home.service).

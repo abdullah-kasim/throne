@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+shim_dir=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+real_git=""
+IFS=: read -r -a search_path <<<"${PATH:-}"
+for path_dir in "${search_path[@]}"; do
+    [ -n "$path_dir" ] || path_dir=.
+    candidate="$path_dir/git"
+    if [ -x "$candidate" ] && [ "$(cd -P "$(dirname "$candidate")" && pwd -P)/$(basename "$candidate")" != "$shim_dir/git" ]; then
+        real_git="$candidate"
+        break
+    fi
+done
+
+if [ -z "$real_git" ]; then
+    echo "throne git guard: real git binary not found" >&2
+    exit 127
+fi
+
+subcommand=""
+for ((i = 1; i <= $#; i++)); do
+    arg="${!i}"
+    case "$arg" in
+        -C|--git-dir|--work-tree|--namespace|-c|--config-env|--exec-path)
+            ((i++))
+            ;;
+        --*=*)
+            ;;
+        -*)
+            ;;
+        *)
+            subcommand="$arg"
+            break
+            ;;
+    esac
+done
+
+if [ "$subcommand" != commit ]; then
+    exec "$real_git" "$@"
+fi
+
+message=""
+args=("$@")
+for ((i = 1; i < ${#args[@]}; i++)); do
+    case "${args[i]}" in
+        -m|--message)
+            ((i++))
+            message+="${args[i]}\n"
+            ;;
+        --message=*) message+="${args[i]#*=}\n" ;;
+        -F|--file)
+            ((i++))
+            message+="$(<"${args[i]}")\n"
+            ;;
+        --file=*) message+="$(<"${args[i]#*=}")\n" ;;
+    esac
+done
+
+if [[ "$message" =~ (^|[^[:alnum:]])(todo([[:space:]]+skills?)?|Herdr|terminal[[:space:]]+tabs|agents?|Alpha|Shadow|Regent|throne|assignment[[:space:]]+files?|execution[[:space:]]+logs?|slice|gate([[:space:]]+ceremony)?|supervisor|merge[[:space:]]+choreography|campaign|objective|checkpoint|delivery|validator|reap|no-idling|Codex|OpenCode|workflow)[^[:alnum:]] ]]; then
+    echo "throne git guard: commit message describes the repository change, not orchestration machinery" >&2
+    echo "Use a concise imperative subject with task-domain behavior; remove todo, agent, campaign, gate, or checkpoint provenance." >&2
+    exit 65
+fi
+
+exec "$real_git" "$@"

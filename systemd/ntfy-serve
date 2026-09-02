@@ -1,0 +1,143 @@
+#!/bin/sh
+# ntfy-serve — wait for a real Tailscale IPv4, then exec `ntfy serve` bound to
+# it. Runs under systemd (systemd/ntfy.service) on linux and under launchd
+# (launchd/com.throne.ntfy.plist) on macOS; both platforms use this one file.
+#
+# The server is the pinned binwiederhier/ntfy image (vendor-pins.json
+# tools.ntfy.image, pulled by ./install.sh) run under whichever OCI runtime
+# the host has — docker or podman, THRONE_CONTAINER_RUNTIME to force one.
+# Tailscale is the one thing nothing installs for you: without it there is
+# no tailnet address to bind to, and the wait below times out and exits
+# non-zero so the service manager retries (the deliberate boot-race guard,
+# see agent_docs/ntfy-phone-notifications.md).
+set -eu
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: ntfy-serve <ntfy-server-config>" >&2
+    exit 64
+fi
+
+server_config=$1
+if [ ! -r "$server_config" ]; then
+    echo "ntfy-serve: server config is not readable: $server_config" >&2
+    exit 1
+fi
+
+for required_command in date grep sleep; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "ntfy-serve: required command is unavailable: $required_command" >&2
+        exit 1
+    fi
+done
+
+# The container runtime: docker and podman share the CLI surface used here
+# (info, rm -f, run --rm --name -p -v). THRONE_CONTAINER_RUNTIME forces one.
+runtime=""
+for candidate in ${THRONE_CONTAINER_RUNTIME:-} docker podman; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        runtime=$candidate
+        break
+    fi
+done
+if [ -z "$runtime" ]; then
+    echo "ntfy-serve: no container runtime found (looked for docker, podman); run ./install.sh" >&2
+    exit 1
+fi
+
+# The image tag is the pin ./install.sh pulled, read from the pins file in
+# this script's own throne checkout.
+pins_file="$(cd "$(dirname "$0")/.." && pwd -P)/vendor-pins.json"
+ntfy_image=$(sed -n 's/^[[:space:]]*"image":[[:space:]]*"\([^"]*\)".*/\1/p' "$pins_file" | head -1)
+if [ -z "$ntfy_image" ]; then
+    echo "ntfy-serve: no tools.ntfy.image pin in $pins_file" >&2
+    exit 1
+fi
+
+# Bind-mount label: an SELinux-enforcing host (Fedora + podman, or docker
+# there) refuses the container access to the mounts without a relabel.
+mount_label=""
+if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled 2>/dev/null; then
+    mount_label=":Z"
+fi
+
+# The tailscale CLI: on linux it is on PATH; on a mac the App Store /
+# standalone builds ship it inside the app bundle and do NOT put it on PATH.
+if command -v tailscale >/dev/null 2>&1; then
+    tailscale_cli=tailscale
+elif [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
+    tailscale_cli=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+else
+    echo "ntfy-serve: tailscale is not installed (not on PATH, no /Applications/Tailscale.app); ntfy is tailnet-only and cannot start without it" >&2
+    exit 1
+fi
+
+# GNU `timeout` is coreutils: always on linux, only on a mac that brewed
+# coreutils. Without it the tailscale probe runs unbounded, which is fine for
+# a query that answers in milliseconds when the daemon is up.
+if command -v timeout >/dev/null 2>&1; then
+    probe_tailnet_ip() { timeout 2s "$tailscale_cli" ip -4 2>/dev/null || true; }
+else
+    probe_tailnet_ip() { "$tailscale_cli" ip -4 2>/dev/null || true; }
+fi
+
+# Confirm an interface actually holds the address tailscale reports — the
+# daemon can answer before the tunnel is plumbed. linux names it tailscale0
+# and speaks iproute2; a mac uses a utunN interface and ifconfig.
+case "$(uname -s)" in
+    Darwin)
+        interface_holds() { ifconfig 2>/dev/null | grep -Fq "inet $1 "; }
+        ;;
+    *)
+        interface_holds() {
+            ip -4 -o addr show dev tailscale0 2>/dev/null | grep -Fq " inet $1/"
+        }
+        ;;
+esac
+
+wait_seconds=60
+deadline=$(( $(date +%s) + wait_seconds ))
+
+while :; do
+    tailnet_ip=$(probe_tailnet_ip)
+    case "$tailnet_ip" in
+        ''|*[!0-9.]*)
+            ;;
+        *)
+            if interface_holds "$tailnet_ip"; then
+                # systemd creates this through StateDirectory=; launchd has
+                # no equivalent, and ntfy does not create the parent itself.
+                cache_dir="${XDG_STATE_HOME:-$HOME/.local/state}/ntfy"
+                mkdir -p "$cache_dir"
+                chmod 0700 "$cache_dir"
+                # The runtime may still be starting at login (Docker
+                # Desktop, a podman machine), so a failure here exits
+                # non-zero and the service manager retries. The container
+                # binds ONLY to the tailnet address on the host — the same
+                # containment boundary the old binary had — listens on its
+                # own :80 inside, and is attached in the foreground so a
+                # stop of this process stops it; a stale container from an
+                # unclean stop is removed first.
+                if ! "$runtime" info >/dev/null 2>&1; then
+                    echo "ntfy-serve: $runtime is not reachable yet" >&2
+                    exit 1
+                fi
+                "$runtime" rm -f throne-ntfy >/dev/null 2>&1 || true
+                exec "$runtime" run --rm --name throne-ntfy \
+                    -p "${tailnet_ip}:8410:80" \
+                    -v "${server_config}:/etc/ntfy/server.yml:ro${mount_label}" \
+                    -v "${cache_dir}:/var/cache/ntfy${mount_label}" \
+                    "$ntfy_image" serve \
+                    --config /etc/ntfy/server.yml \
+                    --listen-http ":80" \
+                    --base-url "http://${tailnet_ip}:8410" \
+                    --cache-file /var/cache/ntfy/cache.db
+            fi
+            ;;
+    esac
+
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+        echo "ntfy-serve: no Tailscale IPv4 address after ${wait_seconds} seconds" >&2
+        exit 1
+    fi
+    sleep 1
+done

@@ -1,0 +1,62 @@
+# Machine-local agent context is disposable and must never be committed.
+/agent_docs_local/
+
+# Same carve-out for the throne-local skills at the throne root (the todo
+# skills and gap-analysis-model): tracked deliverables, while any future
+# machine state directly under .claude/ stays ignored.
+!.claude/
+.claude/*
+!.claude/skills/
+# The throne registers its OWN SessionStart hook rather than leaning on the
+# operator's user-level settings, so this one file is a tracked deliverable.
+!.claude/settings.json
+
+# Per-agent persistent data (todos, scratch, identity) — never committed.
+/data/
+
+# Worktrees for coding work live under worktrees/ — transient, not committed.
+/worktrees/
+
+# Installed dependencies and the compiled CLI.
+/node_modules/
+# No trailing slash: dist/ is now published as a symlink (see below), and a
+# trailing-slash pattern only ever matches an actual directory, never a
+# symlink of the same name.
+/dist
+# dist/ is published as a symlink to one of these generation directories by
+# scripts/build-and-publish-dist.mjs; never track the generations themselves,
+# nor the transient per-build scratch directory it stages tsconfig overrides in.
+/dist.build.*/
+/.dist-scratch.*/
+
+# Vendored third-party harnesses (claude, codex) and install stamps, downloaded
+# by ./install.sh at the versions pinned in vendor-pins.json. Reproducible from
+# that manifest on any machine, so the bytes never belong in git.
+/vendor/
+
+/report/
+
+# Local machine override — persona/display, ntfy, steering, and git identity,
+# merged into one file so a partial override of one section never risks
+# clobbering another. Machine-specific, must never reach the committed tree.
+# Copy `config.user.example.ts` to create it.
+/config.user.ts
+
+# Machine-rendered Codex hook registration (the config.user.ts pattern): the
+# committed source is `.codex/hooks.json.template`; `install-services` renders
+# this file from it with the absolute throne path substituted, so the rendered
+# copy carries a machine path and must never be committed.
+/.codex/hooks.json
+
+# Campaign residue: gate evidence, frozen todo bundles and per-campaign reports
+# belong to the agent that produced them, in the external ledger under
+# ~/.throne/data/<agent>/ — never committed into the orchestrator.
+/evidence/
+/todos/
+/REPORT.md
+/agent_docs/validation/
+.throne-cli-bootstrap.lock
+.throne-hydration-provenance.json
+
+# Local machine rules for publish.sh (private identifiers live here, never committed).
+/publish-scrub.sed

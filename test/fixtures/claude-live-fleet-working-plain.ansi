@@ -1,0 +1,22 @@
+[0m[38;2;153;153;153m  ⎿  [0m                "pane_id": "wD:pJ4
+     7",
+                     "revision": 0,
+     [0m[2m… +12 lines (ctrl+o to expand)[0m
+     
+[0m[38;2;153;153;153m  [0m[1mBash[0m(cd /tmp/claude-1000/-var-home-example
+      --throne-worktrees-throne-shadow-sat-0
+      1/7bdd54d8-acae-47a7-a297-c5f8ef7240ce
+      /scratchpad/captures
+      herdr agent read alpha-sat…)
+[0m[38;2;153;153;153m  ⎿  Running…[0m
+
+[0m[38;2;215;119;87m✻[0m [0m[38;2;218;124;92mSock-hopping…[0m[38;2;215;119;87m [0m[38;2;153;153;153m(2m 11s · ↓[0m [0m[38;2;153;153;153m7.8k tokens)[0m
+[0m[38;2;153;153;153m  ⎿  Tip: Use /btw to ask a quick side [0m
+     [0m[38;2;153;153;153mquestion without interrupting Claude's [0m
+     [0m[38;2;153;153;153mcurrent work[0m
+
+[0m[38;2;136;136;136m────────────────────────────────────────────[0m
+[0m[38;2;153;153;153m❯ [0m
+[0m[38;2;136;136;136m────────────────────────────────────────────[0m
+  [0m[38;2;153;153;153mSonnet 5 · effort:low · /tmp/claude-100…[0m
+  [0m[38;2;255;107;128m⏵⏵ bypass permissions on[0m[38;2;153;153;153m · gh auth login[0m
