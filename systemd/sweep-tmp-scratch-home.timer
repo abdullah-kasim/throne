@@ -1,0 +1,26 @@
+# sweep-tmp-scratch-home.timer — user unit. Fires
+# sweep-tmp-scratch-home.service on boot and every 6 hours thereafter.
+#
+# 6 hours is chosen so the sweep's own `--min-age-ms` age gate (not this
+# cadence) is what protects a live campaign's scratch directory: a normal
+# campaign's scratch tree can persist for hours, so firing this often only
+# controls how promptly ALREADY-eligible (i.e. already past the age gate)
+# directories get reclaimed, never how soon a fresh one becomes eligible.
+#
+# No `Persistent=`: per `man 5 systemd.timer` on this box (systemd 259),
+# that setting only affects `OnCalendar=` timers, and this one schedules
+# with OnBootSec=/OnUnitActiveSec= only (same basis as throne-keep-going.timer).
+#
+# Throne-owned unit source. Carries no substitution tokens, so it installs
+# verbatim — but install it through the throne, not by hand:
+#   cd <throne root> && ./bin/throne-cli install-services
+
+[Unit]
+Description=Run sweep-tmp-scratch-home.service every 6 hours
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target

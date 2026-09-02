@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+launcher_source="${BASH_SOURCE[0]}"
+launcher_hops=0
+while [ -L "$launcher_source" ] && [ "$launcher_hops" -lt 32 ]; do
+    launcher_link=$(readlink "$launcher_source")
+    case "$launcher_link" in
+        /*) launcher_source="$launcher_link" ;;
+        *) launcher_source="$(dirname "$launcher_source")/$launcher_link" ;;
+    esac
+    launcher_hops=$((launcher_hops + 1))
+done
+launcher_bin_dir=$(cd -P "$(dirname "$launcher_source")" && pwd -P) || exit 1
+throne_root=$(cd -P "$launcher_bin_dir/.." && pwd -P) || exit 1
+
+entrypoint="$throne_root/dist/src/tools.js"
+if [ ! -f "$entrypoint" ]; then
+    echo "throne: no valid compiled build at $entrypoint; run npm run build first" >&2
+    exit 1
+fi
+
+if [ "$#" -eq 0 ]; then
+    exec node "$entrypoint" attach-throne-herdr
+fi
+
+exec node "$entrypoint" "$@"

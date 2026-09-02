@@ -1,0 +1,36 @@
+# ntfy.service — user unit for the throne's phone-notification server. The
+# server is the pinned binwiederhier/ntfy image run by ntfy-serve under docker
+# or podman (rootless podman needs no daemon; docker's must be up, and the
+# wrapper retries until it is).
+#
+# THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{THRONE_ROOT}}`
+# (absolute path of the throne directory) is substituted at install time; only
+# the rendered copy in the systemd user unit dir is a working unit. Install
+# with:
+#   cd <throne root> && ./bin/throne-cli install-services
+
+[Unit]
+Description=ntfy server on the Tailscale network
+Documentation=https://docs.ntfy.sh/
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=%h
+Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+ExecStart={{THRONE_ROOT}}/systemd/ntfy-serve {{THRONE_ROOT}}/systemd/ntfy-server.yml
+StateDirectory=ntfy
+StateDirectoryMode=0700
+UMask=0077
+TimeoutStartSec=70
+Restart=always
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ntfy
+
+[Install]
+WantedBy=default.target

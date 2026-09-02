@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+com.throne.ntfy.plist — throne-owned macOS LaunchAgent template for the
+throne's phone-notification server; the mac counterpart of
+throne/systemd/ntfy.service.
+
+Not loadable as it stands: `{{THRONE_ROOT}}` (absolute path of the throne
+directory) is substituted at install time, and only the rendered copy in the
+user's LaunchAgents dir is a working agent. Install with:
+  cd <throne root> && ./install.sh        (or ./bin/throne-cli install-services)
+
+Enabled and bootstrapped by install-services, like its systemd twin. The
+program is the same `ntfy-serve` script the linux unit runs; that script is
+platform-aware (ifconfig instead of iproute2, the Tailscale.app bundle CLI,
+optional GNU timeout) and runs the server as the pinned binwiederhier/ntfy
+image (vendor-pins.json tools.ntfy.image, pulled by ./install.sh) under
+docker or podman, whichever the host has. Tailscale is the one prerequisite
+nothing here installs: ntfy is tailnet-only by design, and without a tailnet
+address (or with the runtime still starting) ntfy-serve exits non-zero, so KeepAlive
+relaunches it after ThrottleInterval — the same wait-and-retry boot-race
+contract as the linux unit's Restart=always.
+
+PROVEN on a real mac (2026-09-02, macOS 26 / Darwin 25.6, Docker Desktop
+29): the plist parses and bootstraps, and the pinned image serves the
+throne's config; see agent_docs/ntfy-phone-notifications.md for the mac
+commands.
+
+KEYS SHIPPED BELOW
+  Label             a launchctl service target is built from this label
+                    rather than from the filename.
+  ProgramArguments  /bin/bash as a login shell so the container runtime
+                    (docker under /usr/local/bin, podman under brew) and
+                    `timeout` (brew coreutils, optional) resolve — launchd's
+                    bare system PATH reaches neither. Output goes to
+                    ~/Library/Logs/throne/ntfy.log; StandardOutPath does not
+                    expand ~, hence the redirect inside the shell.
+  RunAtLoad         launchd.plist(5): "This optional key is used to control
+                    whether your job is launched once at the time the job is
+                    loaded. The default is false."
+  KeepAlive         launchd.plist(5): "The value may be set to true to
+                    unconditionally keep the job alive." It stands in for the
+                    linux unit's Restart=always.
+  ThrottleInterval  launchd.plist(5): "by default, jobs will not be spawned
+                    more than once every 10 seconds." 10 is that documented
+                    default; the linux unit's RestartSec=5s is not reproduced.
+  Umask             63 decimal is 0077 octal, the linux unit's UMask. Spelled
+                    in decimal because launchd.plist(5) Umask says the value
+                    "must be a decimal representation of the desired umask, as
+                    property lists do not support encoding integers in octal."
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.throne.ntfy</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>-lc</string>
+		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{THRONE_ROOT}}/systemd/ntfy-serve {{THRONE_ROOT}}/systemd/ntfy-server.yml &gt;&gt; "$HOME/Library/Logs/throne/ntfy.log" 2&gt;&amp;1</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>Umask</key>
+	<integer>63</integer>
+</dict>
+</plist>

@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# throne-gh-guard-shim — this marker identifies the guard to ITSELF; see below.
+set -euo pipefail
+
+guard_marker=throne-gh-guard-shim
+shim_dir=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+real_gh=""
+IFS=: read -r -a search_path <<<"${PATH:-}"
+for path_dir in "${search_path[@]}"; do
+    [ -n "$path_dir" ] || path_dir=.
+    candidate="$path_dir/gh"
+    [ -x "$candidate" ] || continue
+    # Skip our own path, and skip ANY other copy of this guard: with two throne
+    # checkouts on PATH the old checkout's shim would otherwise be taken for the
+    # real binary, so it re-judged the command and a waived one was denied twice.
+    [ "$(cd -P "$(dirname "$candidate")" && pwd -P)/$(basename "$candidate")" = "$shim_dir/gh" ] && continue
+    # `grep -I` reports no match on the real (binary) gh, so only a text copy of
+    # this guard is skipped. Match the denial string as well as the marker: an
+    # older deployed copy predates the marker and must still be recognised.
+    grep -Iqs -e "$guard_marker" -e 'throne gh guard' -- "$candidate" && continue
+    real_gh="$candidate"
+    break
+done
+
+if [ -z "$real_gh" ]; then
+    echo "throne gh guard: real gh binary not found" >&2
+    exit 127
+fi
+
+# An explicit `--bypass` as the FIRST argument waives the guard for this one
+# invocation and is stripped before the real binary sees it. Position matters:
+# scanning the whole argv would let the literal string "--bypass" inside a PR
+# body, issue title or --jq expression silently unlock a mutation.
+if [ "${1:-}" = "--bypass" ]; then
+    shift
+    echo "throne gh guard: BYPASSED by explicit --bypass: gh $*" >&2
+    exec "$real_gh" "$@"
+fi
+
+command_name=${1:-help}
+subcommand=${2:-}
+allowed=false
+
+case "$command_name" in
+    --help|-h|--version|help|status|completion)
+        allowed=true
+        ;;
+    auth)
+        [ "$subcommand" = status ] && allowed=true
+        ;;
+    api)
+        # `gh api <path>` defaults to GET; only the method actually decides
+        # mutation vs. read, and `-X`/`--method` can appear anywhere in the
+        # remaining argv (after the endpoint, combined as `-XPOST`, etc.) —
+        # so scan every remaining word rather than trusting position 2.
+        api_method=GET
+        api_args=("${@:2}")
+        api_i=0
+        while [ "$api_i" -lt "${#api_args[@]}" ]; do
+            api_arg=${api_args[$api_i]}
+            case "$api_arg" in
+                -X|--method)
+                    api_i=$((api_i + 1))
+                    api_method=${api_args[$api_i]:-GET}
+                    ;;
+                -X*)
+                    api_method=${api_arg#-X}
+                    ;;
+                --method=*)
+                    api_method=${api_arg#--method=}
+                    ;;
+            esac
+            api_i=$((api_i + 1))
+        done
+        case "${api_method^^}" in
+            GET|HEAD) allowed=true ;;
+        esac
+        ;;
+    search)
+        allowed=true
+        ;;
+    issue)
+        case "$subcommand" in list|view|status) allowed=true ;; esac
+        ;;
+    pr)
+        case "$subcommand" in list|view|diff|checks|status) allowed=true ;; esac
+        ;;
+    repo)
+        case "$subcommand" in list|view|clone) allowed=true ;; esac
+        ;;
+    run)
+        case "$subcommand" in list|view|watch|download) allowed=true ;; esac
+        ;;
+    workflow)
+        case "$subcommand" in list|view) allowed=true ;; esac
+        ;;
+    release)
+        case "$subcommand" in list|view|download) allowed=true ;; esac
+        ;;
+    label)
+        [ "$subcommand" = list ] && allowed=true
+        ;;
+    secret)
+        [ "$subcommand" = list ] && allowed=true
+        ;;
+    variable)
+        case "$subcommand" in list|get) allowed=true ;; esac
+        ;;
+    cache)
+        case "$subcommand" in list) allowed=true ;; esac
+        ;;
+esac
+
+if [ "$allowed" != true ]; then
+    echo "throne gh guard: denied GitHub mutation or unclassified command: gh $*" >&2
+    echo "throne agents may inspect GitHub but may not mutate external GitHub state" >&2
+    exit 64
+fi
+
+exec "$real_gh" "$@"

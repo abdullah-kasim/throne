@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "Pinned third-party harness versions the throne vendors into ./vendor/.",
+    "install.sh reads this file; nothing resolves 'latest' at install time, so",
+    "two machines cloning the same commit get byte-identical harnesses.",
+    "herdr is pinned separately in src/install-services/herdr-release.service.ts,",
+    "which also carries its per-artifact sha256 checksums.",
+    "tools.ntfy pins the ntfy server image. ntfy runs as a container on every",
+    "throne host (docker or podman, whichever is present); install.sh pulls",
+    "this tag and systemd/ntfy-serve runs it.",
+    "To move a pin: edit the version here, run ./install.sh, verify, commit."
+  ],
+  "tools": {
+    "ntfy": {
+      "image": "binwiederhier/ntfy:v2.28.0"
+    }
+  },
+  "harnesses": {
+    "claude": {
+      "package": "@anthropic-ai/claude-code",
+      "version": "2.1.226",
+      "bin": "claude"
+    },
+    "codex": {
+      "package": "@openai/codex",
+      "version": "0.147.0",
+      "bin": "codex"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+     lation, escalation Regent — routed: validation capabi
+     [0m[2m… +2 lines (ctrl+o to expand)[0m
+
+[0m[38;2;78;186;101m● [0m[1mBash[0m(cd /var/home/theuser/repos/throne
+      ./bin/throne-cli send-agent "shadow-tio-99b-file-size"
+      \…)
+[0m[38;2;153;153;153m  ⎿  [0mauto-ffe1c17db8e1a29708d2ee07bfbcb3c31e8791917cadefd8
+     b345ee371dd87d62
+
+[0m[38;2;255;255;255m● [0mWaiting on [0m[38;2;177;185;249mshadow-tio-99b-file-size[0m's DONE.
+[0m[38;2;153;153;153m───────────────────────────────────────────────────────────────[0m
+[0m[38;2;0;0;0m[48;2;177;185;249m ☐ Gate 99b [0m
+
+[0m[1m[38;2;255;255;255mHolding for shadow-tio-99b-file-size's DONE report — proceed [0m
+[0m[1m[38;2;255;255;255mwith waiting rather than polling?[0m
+
+[0m[38;2;177;185;249m❯[0m [0m[38;2;153;153;153m1.[0m [0m[38;2;177;185;249mWait for the async DONE (Recommended)[0m
+     [0m[38;2;153;153;153mSame pattern as 99a — the Shadow's send-agent DONE will [0m
+     [0m[38;2;153;153;153msurface as a mid-turn message.[0m
+  [0m[38;2;153;153;153m2. [0mPoll agent-logs instead
+     [0m[38;2;153;153;153mCheck agent-logs manually now, against the skill's own[0m
+     [0m[38;2;153;153;153mguidance not to poll.[0m
+  [0m[38;2;153;153;153m3. Type something.[0m
+[0m[38;2;153;153;153m───────────────────────────────────────────────────────────────[0m
+  4. Chat about this
+
+[0m[38;2;153;153;153mEnter to select · ↑/↓ to navigate · Esc to cancel[0m
+
+  [0m[1m[38;2;153;153;153m1[0m[38;2;153;153;153m tasks ([0m[1m[38;2;153;153;153m0[0m[38;2;153;153;153m done, [0m[1m[38;2;153;153;153m1[0m[38;2;153;153;153m open)[0m
+  ◻ Gate chain 99b: wait for shadow-tio-99b-file-si…

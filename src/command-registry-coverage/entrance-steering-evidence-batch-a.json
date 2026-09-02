@@ -1,0 +1,1013 @@
+[
+  {
+    "commandName": "agent-logs",
+    "testFile": "src/agent-logs/agent-logs.test.ts",
+    "testName": "runAgentLogs steers parser refusals before calling the reader",
+    "sourceFile": "src/agent-logs/agent-logs.ts",
+    "sourceAnchor": "runAgentLogs(",
+    "invocationTokens": [
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "agent-logs entrance validation refused the invocation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(result.code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(reads, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "agent-logs",
+    "testFile": "src/agent-logs/agent-logs.test.ts",
+    "testName": "runAgentLogs steers parser refusals before calling the reader",
+    "sourceFile": "src/agent-logs/agent-logs.ts",
+    "sourceAnchor": "runAgentLogs(",
+    "invocationTokens": [
+      "[\"agent\", \"--lines\", \"bad\"]"
+    ],
+    "reasonAssertionTokens": [
+      "agent-logs entrance validation refused the invocation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(result.code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(reads, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "agent-logs",
+    "testFile": "src/agent-logs/agent-logs.test.ts",
+    "testName": "runAgentLogs steers an isolated agent-resolution refusal",
+    "sourceFile": "src/agent-logs/agent-logs.ts",
+    "sourceAnchor": "runAgentLogs(",
+    "invocationTokens": [
+      "[\"missing-agent\"]"
+    ],
+    "reasonAssertionTokens": [
+      "agent-logs could not resolve"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(result.code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(result.stdout, \"\")"
+    ],
+    "failureMode": "policy refusal"
+  },
+  {
+    "commandName": "delivery-failures",
+    "testFile": "src/delivery-failures/delivery-failures.test.ts",
+    "testName": "runDeliveryFailures steers missing and invalid entrance input before opening its store",
+    "sourceFile": "src/delivery-failures/delivery-failures.ts",
+    "sourceAnchor": "runDeliveryFailures(",
+    "invocationTokens": [
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "delivery-failures entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, DELIVERY_FAILURES_EXIT.Usage)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(storeOpens, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "delivery-failures",
+    "testFile": "src/delivery-failures/delivery-failures.test.ts",
+    "testName": "runDeliveryFailures steers missing and invalid entrance input before opening its store",
+    "sourceFile": "src/delivery-failures/delivery-failures.ts",
+    "sourceAnchor": "runDeliveryFailures(",
+    "invocationTokens": [
+      "[\"--ack\", \"bad\"]"
+    ],
+    "reasonAssertionTokens": [
+      "delivery-failures entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, DELIVERY_FAILURES_EXIT.Usage)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(storeOpens, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "message-status",
+    "testFile": "src/message-status/message-status.test.ts",
+    "testName": "runMessageStatus steers missing and invalid input before opening the queue store",
+    "sourceFile": "src/message-status/message-status.ts",
+    "sourceAnchor": "runMessageStatus(",
+    "invocationTokens": [
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "message-status entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, MESSAGE_STATUS_EXIT.Usage)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(storeOpens, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "message-status",
+    "testFile": "src/message-status/message-status.test.ts",
+    "testName": "runMessageStatus steers missing and invalid input before opening the queue store",
+    "sourceFile": "src/message-status/message-status.ts",
+    "sourceAnchor": "runMessageStatus(",
+    "invocationTokens": [
+      "[\"not-numeric\"]"
+    ],
+    "reasonAssertionTokens": [
+      "message-status entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, MESSAGE_STATUS_EXIT.Usage)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(storeOpens, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "create-agent",
+    "testFile": "src/create-agent/request.test.ts",
+    "testName": "create-agent steers missing and invalid input before registration dependencies",
+    "sourceFile": "src/create-agent/request.ts",
+    "sourceAnchor": "prepareCreateAgentRequest(",
+    "invocationTokens": [
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "requires model, name, and supervisor"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.deepEqual(effectAccesses, [])"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "create-agent",
+    "testFile": "src/create-agent/request.test.ts",
+    "testName": "create-agent steers missing and invalid input before registration dependencies",
+    "sourceFile": "src/create-agent/request.ts",
+    "sourceAnchor": "prepareCreateAgentRequest(",
+    "invocationTokens": [
+      "\"--deliverable-shape\", \"bogus\""
+    ],
+    "reasonAssertionTokens": [
+      "invalid --deliverable-shape"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.deepEqual(effectAccesses, [])"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "derive-shadow-name-from-alpha",
+    "testFile": "src/derive-shadow-name-from-alpha/derive-shadow-name-from-alpha.command.test.ts",
+    "testName": "runDeriveShadowName steers missing arguments before reading Alpha evidence",
+    "sourceFile": "src/derive-shadow-name-from-alpha/derive-shadow-name-from-alpha.command.ts",
+    "sourceAnchor": "runDeriveShadowName(",
+    "invocationTokens": [
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "requires an Alpha name and slice id"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(reads, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "derive-shadow-name-from-alpha",
+    "testFile": "src/derive-shadow-name-from-alpha/derive-shadow-name-from-alpha.command.test.ts",
+    "testName": "runDeriveShadowName steers invalid objective evidence without a write",
+    "sourceFile": "src/derive-shadow-name-from-alpha/derive-shadow-name-from-alpha.command.ts",
+    "sourceAnchor": "runDeriveShadowName(",
+    "invocationTokens": [
+      "[\"alpha-steerall-refusal\", \"not-a-slice\"]"
+    ],
+    "reasonAssertionTokens": [
+      "rejected the supplied objective evidence"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(stdout, \"\")"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "complete-agent",
+    "testFile": "src/complete-agent/complete-agent-live-done-gate.test.ts",
+    "testName": "complete-agent steers unknown, missing, and invalid selectors before roster access",
+    "sourceFile": "src/complete-agent/complete-agent.ts",
+    "sourceAnchor": "runCompleteAgent(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]",
+      "[\"agent-a\", \"agent-b\"]"
+    ],
+    "reasonAssertionTokens": [
+      "complete-agent entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(rosterReads, 0)"
+    ],
+    "failureMode": "unknown flag"
+  },
+  {
+    "commandName": "complete-agent",
+    "testFile": "src/complete-agent/complete-agent-live-done-gate.test.ts",
+    "testName": "complete-agent steers unknown, missing, and invalid selectors before roster access",
+    "sourceFile": "src/complete-agent/complete-agent.ts",
+    "sourceAnchor": "runCompleteAgent(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]",
+      "[\"agent-a\", \"agent-b\"]"
+    ],
+    "reasonAssertionTokens": [
+      "complete-agent entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(rosterReads, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "complete-agent",
+    "testFile": "src/complete-agent/complete-agent-live-done-gate.test.ts",
+    "testName": "complete-agent steers unknown, missing, and invalid selectors before roster access",
+    "sourceFile": "src/complete-agent/complete-agent.ts",
+    "sourceAnchor": "runCompleteAgent(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]",
+      "[\"agent-a\", \"agent-b\"]"
+    ],
+    "reasonAssertionTokens": [
+      "complete-agent entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(rosterReads, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "merge-git-tree",
+    "testFile": "src/merge-git-tree/merge-git-tree.command.spec.ts",
+    "testName": "merge-git-tree steers unknown, missing, and invalid input before target reads or merge",
+    "sourceFile": "src/merge-git-tree/merge-git-tree-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "merge-git-tree entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(targetReads, 0)"
+    ],
+    "failureMode": "unknown flag"
+  },
+  {
+    "commandName": "merge-git-tree",
+    "testFile": "src/merge-git-tree/merge-git-tree.command.spec.ts",
+    "testName": "merge-git-tree steers unknown, missing, and invalid input before target reads or merge",
+    "sourceFile": "src/merge-git-tree/merge-git-tree-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "merge-git-tree entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(targetReads, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "merge-git-tree",
+    "testFile": "src/merge-git-tree/merge-git-tree.command.spec.ts",
+    "testName": "merge-git-tree steers unknown, missing, and invalid input before target reads or merge",
+    "sourceFile": "src/merge-git-tree/merge-git-tree-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "merge-git-tree entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(targetReads, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "make-squash-commit",
+    "testFile": "src/make-squash-commit/make-squash-commit-runtime.test.ts",
+    "testName": "run steers unknown, missing, and invalid input before preview dependencies",
+    "sourceFile": "src/make-squash-commit/make-squash-commit-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]",
+      "[\"candidate\"]"
+    ],
+    "reasonAssertionTokens": [
+      "make-squash-commit entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(previews, 0)"
+    ],
+    "failureMode": "unknown flag"
+  },
+  {
+    "commandName": "make-squash-commit",
+    "testFile": "src/make-squash-commit/make-squash-commit-runtime.test.ts",
+    "testName": "run steers unknown, missing, and invalid input before preview dependencies",
+    "sourceFile": "src/make-squash-commit/make-squash-commit-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]",
+      "[\"candidate\"]"
+    ],
+    "reasonAssertionTokens": [
+      "make-squash-commit entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(previews, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "make-squash-commit",
+    "testFile": "src/make-squash-commit/make-squash-commit-runtime.test.ts",
+    "testName": "run steers unknown, missing, and invalid input before preview dependencies",
+    "sourceFile": "src/make-squash-commit/make-squash-commit-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]",
+      "[\"candidate\"]"
+    ],
+    "reasonAssertionTokens": [
+      "make-squash-commit entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(previews, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "lint-slice-assignment",
+    "testFile": "src/slice-assignment/lint-slice-assignment.command.spec.ts",
+    "testName": "lint-slice-assignment steers missing and invalid path shapes before file reads",
+    "sourceFile": "src/slice-assignment/lint-slice-assignment.command.ts",
+    "sourceAnchor": "runLintSliceAssignment(",
+    "invocationTokens": [
+      "[]",
+      "[\"missing.md\", \"extra.md\"]"
+    ],
+    "reasonAssertionTokens": [
+      "lint-slice-assignment entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(lintCalls, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "lint-slice-assignment",
+    "testFile": "src/slice-assignment/lint-slice-assignment.command.spec.ts",
+    "testName": "lint-slice-assignment steers missing and invalid path shapes before file reads",
+    "sourceFile": "src/slice-assignment/lint-slice-assignment.command.ts",
+    "sourceAnchor": "runLintSliceAssignment(",
+    "invocationTokens": [
+      "[]",
+      "[\"missing.md\", \"extra.md\"]"
+    ],
+    "reasonAssertionTokens": [
+      "lint-slice-assignment entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(lintCalls, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "absorb-git-tree",
+    "testFile": "src/absorb-git-tree/absorb-git-tree-both-classes.test.ts",
+    "testName": "absorb-git-tree steers unknown, missing, and invalid input before absorption",
+    "sourceFile": "src/absorb-git-tree/absorb-git-tree-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "absorb-git-tree entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(absorbs, 0)"
+    ],
+    "failureMode": "unknown flag"
+  },
+  {
+    "commandName": "absorb-git-tree",
+    "testFile": "src/absorb-git-tree/absorb-git-tree-both-classes.test.ts",
+    "testName": "absorb-git-tree steers unknown, missing, and invalid input before absorption",
+    "sourceFile": "src/absorb-git-tree/absorb-git-tree-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "absorb-git-tree entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(absorbs, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "absorb-git-tree",
+    "testFile": "src/absorb-git-tree/absorb-git-tree-both-classes.test.ts",
+    "testName": "absorb-git-tree steers unknown, missing, and invalid input before absorption",
+    "sourceFile": "src/absorb-git-tree/absorb-git-tree-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "absorb-git-tree entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(absorbs, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "add-to-queue",
+    "testFile": "src/add-to-queue/add-to-queue-runtime.test.ts",
+    "testName": "run steers missing and invalid queue input before opening the store",
+    "sourceFile": "src/add-to-queue/add-to-queue-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "add-to-queue entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(result.value, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(opens, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "add-to-queue",
+    "testFile": "src/add-to-queue/add-to-queue-runtime.test.ts",
+    "testName": "run steers missing and invalid queue input before opening the store",
+    "sourceFile": "src/add-to-queue/add-to-queue-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "add-to-queue entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(result.value, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(opens, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "mark-queue-launch-eligible",
+    "testFile": "src/mark-queue-launch-eligible/mark-queue-launch-eligible-runtime.test.ts",
+    "testName": "run steers unknown, missing, and invalid launch facts before opening the store",
+    "sourceFile": "src/mark-queue-launch-eligible/mark-queue-launch-eligible-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "mark-queue-launch-eligible entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(result.code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(opens, 0)"
+    ],
+    "failureMode": "unknown flag"
+  },
+  {
+    "commandName": "mark-queue-launch-eligible",
+    "testFile": "src/mark-queue-launch-eligible/mark-queue-launch-eligible-runtime.test.ts",
+    "testName": "run steers unknown, missing, and invalid launch facts before opening the store",
+    "sourceFile": "src/mark-queue-launch-eligible/mark-queue-launch-eligible-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "mark-queue-launch-eligible entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(result.code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(opens, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "mark-queue-launch-eligible",
+    "testFile": "src/mark-queue-launch-eligible/mark-queue-launch-eligible-runtime.test.ts",
+    "testName": "run steers unknown, missing, and invalid launch facts before opening the store",
+    "sourceFile": "src/mark-queue-launch-eligible/mark-queue-launch-eligible-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[\"--unknown\"]",
+      "[]"
+    ],
+    "reasonAssertionTokens": [
+      "mark-queue-launch-eligible entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(result.code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(opens, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "install-services",
+    "testFile": "src/install-services/install-services.spec.ts",
+    "testName": "install-services steers unknown, missing, and invalid input before service effects",
+    "sourceFile": "src/install-services/install-services.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "['--unknown']"
+    ],
+    "reasonAssertionTokens": [
+      "install-services entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(effects, 0)"
+    ],
+    "failureMode": "unknown flag"
+  },
+  {
+    "commandName": "install-services",
+    "testFile": "src/install-services/install-services.spec.ts",
+    "testName": "install-services steers unknown, missing, and invalid input before service effects",
+    "sourceFile": "src/install-services/install-services.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "['--throne-root']"
+    ],
+    "reasonAssertionTokens": [
+      "install-services entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(effects, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "install-services",
+    "testFile": "src/install-services/install-services.spec.ts",
+    "testName": "install-services steers unknown, missing, and invalid input before service effects",
+    "sourceFile": "src/install-services/install-services.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "['--throne-root', 'relative']"
+    ],
+    "reasonAssertionTokens": [
+      "install-services entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(effects, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "dismiss-regent",
+    "testFile": "src/dismiss-regent/dismiss-regent.command.spec.ts",
+    "testName": "dismiss-regent steers unknown and invalid input before persisting state",
+    "sourceFile": "src/dismiss-regent/dismiss-regent-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "--keep-harness=value"
+    ],
+    "reasonAssertionTokens": [
+      "dismiss-regent entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(writes, 0)"
+    ],
+    "failureMode": "unknown flag"
+  },
+  {
+    "commandName": "dismiss-regent",
+    "testFile": "src/dismiss-regent/dismiss-regent.command.spec.ts",
+    "testName": "dismiss-regent steers unknown and invalid input before persisting state",
+    "sourceFile": "src/dismiss-regent/dismiss-regent-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "--keep-harness=value"
+    ],
+    "reasonAssertionTokens": [
+      "dismiss-regent entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(writes, 0)"
+    ],
+    "failureMode": "invalid value"
+  },
+  {
+    "commandName": "campaign-evidence",
+    "testFile": "src/campaign-evidence/campaign-evidence.command.spec.ts",
+    "testName": "campaign-evidence steers unknown, missing, and invalid input before git effects",
+    "sourceFile": "src/campaign-evidence/campaign-evidence-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "['--unknown']"
+    ],
+    "reasonAssertionTokens": [
+      "campaign-evidence entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 2)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(gitCalls, 0)"
+    ],
+    "failureMode": "unknown flag"
+  },
+  {
+    "commandName": "campaign-evidence",
+    "testFile": "src/campaign-evidence/campaign-evidence.command.spec.ts",
+    "testName": "campaign-evidence steers unknown, missing, and invalid input before git effects",
+    "sourceFile": "src/campaign-evidence/campaign-evidence-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "[],"
+    ],
+    "reasonAssertionTokens": [
+      "campaign-evidence entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 2)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(gitCalls, 0)"
+    ],
+    "failureMode": "missing argument"
+  },
+  {
+    "commandName": "campaign-evidence",
+    "testFile": "src/campaign-evidence/campaign-evidence.command.spec.ts",
+    "testName": "campaign-evidence steers unknown, missing, and invalid input before git effects",
+    "sourceFile": "src/campaign-evidence/campaign-evidence-runtime.ts",
+    "sourceAnchor": "run(",
+    "invocationTokens": [
+      "'--section', 'bad'"
+    ],
+    "reasonAssertionTokens": [
+      "campaign-evidence entrance validation"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(code, 2)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.equal(gitCalls, 0)"
+    ],
+    "failureMode": "invalid value"
+  }
+]

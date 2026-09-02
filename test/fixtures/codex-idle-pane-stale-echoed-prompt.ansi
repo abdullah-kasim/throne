@@ -1,0 +1,31 @@
+[0m[2m  └ # Codex GPT-5.6 Sol guidance[0m
+
+[0m[2m    … +87 lines (ctrl + t to view transcript)[0m
+    [0m[2monly because the incumbent tool's own path was assumed[0m
+    [0m[2mmandatory.[0m
+
+[0m[2m───────────────────────────────────────────────────────────────[0m
+
+[0m[2m• [0mUnderstood, Lord. I’ll commit immediately after every future
+  file edit.
+
+  Current constraint: this directory is not a Git repository,
+  and you confirmed there is no backup, so commits are
+  impossible as-is. I won’t edit files until the task either
+  initializes Git or provides a repository.
+
+[0m[2m───────────────────────────────────────────────────────────────[0m
+
+
+[0m[1m› [0mRead and follow every instruction in `/home/example/.throne/
+  data/agent-hrn-codex-canary/opening-prompt.md` now, before
+  any other action. Also read `/home/example/.throne/data/
+  agent-hrn-codex-canary/identity.md`; it remains the
+  authoritative identity record. Together these durable
+  records contain the registered identity and chain of
+  command, campaign status or objective, every policy
+  override, persona, role instructions, and the exact custom
+  assignment when one was provided.
+
+
+  [0m[38;2;246;226;183mgpt-5.6-sol low[0m[2m · [0m[38;2;171;223;167m/var/home/theuser/tmp/hrn-codex-canary-cwd[0m

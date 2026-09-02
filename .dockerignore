@@ -1,0 +1,19 @@
+# Build context for docker/suite-app.Dockerfile is the repo root, so this
+# file matters: excludes everything the image rebuilds or never needs,
+# keeping `podman build` fast and keeping host-only state (the live ledger,
+# worktrees, vendored harness downloads) out of the image.
+#
+# `.git` is deliberately NOT excluded: in a git worktree (this repo's own
+# convention — see AGENTS.md) it is a tiny pointer FILE, not the object
+# database, and git-dependent tests need that pointer file present so
+# scripts/run-suite-container.mjs's bind-mounted common gitdir (the real
+# history, mounted at runtime at the same absolute host path) resolves.
+node_modules/
+dist/
+dist.build.*/
+.dist-scratch.*/
+vendor/
+report/
+data/
+worktrees/
+agent_docs_local/

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Harnesses"
+  short_description: "Safely update throne-owned Claude and Codex CLIs"
+  default_prompt: "Use $update-harnesses to check or update a throne-managed Claude Code or Codex CLI installation."

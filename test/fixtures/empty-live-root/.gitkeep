@@ -1,0 +1,4 @@
+A deliberately empty live throne root.
+The test suite points THRONE_LIVE_ROOT here so every persona and steering
+load resolves the committed defaults instead of the developer machine's own
+config.user.ts. Do not put a config.user.ts in this directory.
