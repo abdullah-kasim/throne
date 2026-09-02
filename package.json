@@ -2,6 +2,7 @@
   "name": "throne",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Agent-agnostic orchestrator: a typed CLI over herdr.",
   "type": "module",
   "engines": {
