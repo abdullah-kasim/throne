@@ -1,0 +1,24 @@
+# sweep-tmp-scratch-slash.timer — user unit. Fires
+# sweep-tmp-scratch-slash.service on boot and every 6 hours thereafter.
+#
+# Same 6-hour cadence and rationale as sweep-tmp-scratch-home.timer: the
+# sweep's own `--min-age-ms` age gate, not this interval, is what protects a
+# live campaign's scratch directory.
+#
+# No `Persistent=`: per `man 5 systemd.timer` on this box (systemd 259),
+# that setting only affects `OnCalendar=` timers, and this one schedules
+# with OnBootSec=/OnUnitActiveSec= only (same basis as throne-keep-going.timer).
+#
+# Throne-owned unit source. Carries no substitution tokens, so it installs
+# verbatim — but install it through the throne, not by hand:
+#   cd <throne root> && ./bin/throne-cli install-services
+
+[Unit]
+Description=Run sweep-tmp-scratch-slash.service every 6 hours
+
+[Timer]
+OnBootSec=20min
+OnUnitActiveSec=6h
+
+[Install]
+WantedBy=timers.target

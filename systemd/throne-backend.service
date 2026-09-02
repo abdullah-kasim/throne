@@ -1,0 +1,162 @@
+# throne-backend.service — user unit that owns the throne-backend NestJS
+# server: the long-running @nestjs/schedule cron host for keep-going,
+# no-idling, the throne-work dispatch loop, the status.md writer, and the
+# feature-flagged BullMQ worker. Mirrors throne-work.service (persistent
+# daemon, boot-started, resurrectable) rather than throne-keep-going.service
+# (timer-triggered oneshot), because a cron-hosting server is inherently a
+# standing process.
+#
+# THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{THRONE_ROOT}}`
+# (absolute path of the throne directory) and `{{NODE_BIN}}` (absolute path
+# of the node interpreter, resolved through mise's `lts` symlink) are
+# substituted at install time; only the rendered copy in the systemd user
+# unit dir is a working unit. Install with:
+#   cd <throne root> && ./bin/throne-cli install-services
+#
+# This template is added and installed no-clobber alongside the still-active
+# throne-keep-going/throne-no-idling/throne-work units — it is NOT enabled
+# by install-services and none of those old units are touched. Enabling
+# throne-backend and retiring the old three units is a later, Regent-
+# authorized operator decision.
+#
+# Dispatch delivers through the herdr pane-send primitive, so the server is
+# useless without a reachable herdr session: Wants=/After= start throne-herdr
+# first, mirroring throne-work.service's ordering. (herdr-server.service was
+# retired — see RETIRED_LINUX_UNITS in src/install-services/linux.ts — so this
+# orders after its consolidated-name successor throne-herdr.service instead.)
+#
+# BCL campaign (2026-08-14): throne-backend.service now also owns what used
+# to be the separate throne-build.service's job, in-process
+# (`SelfRebuildHostedWorker`, see src/throne-backend/self-rebuild.hosted-worker.ts) —
+# it rebuilds this checkout when its source settles and restarts itself onto
+# the new build, but ONLY once that build succeeds. Compile-success is not
+# runtime-success, though: a generation can build cleanly and still crash or
+# never reach READY=1. See ExecStartPre= below for the other half of that
+# guarantee — the automatic rollback a second, separate builder process used
+# to provide for free.
+
+[Unit]
+Description=throne-backend server — NestJS cron host for keep-going, no-idling, throne-work dispatch, status.md, and the BullMQ worker
+Wants=throne-herdr.service
+After=throne-herdr.service
+
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+# `Type=notify` gets `READY=1` start-up semantics for free (the process is
+# considered started only once it reports readiness) and is required for
+# `WatchdogSec=` below to mean anything.
+#
+# `NotifyAccess=all`, not the `main`-only default `Type=notify` would
+# otherwise imply: this process sends its `sd_notify` datagrams through the
+# `systemd-notify` CLI (see `src/throne-backend/sd-notify.ts`) because
+# Node's `node:dgram` module has no Unix-domain datagram support to open
+# that socket directly as the main process itself. `systemd-notify` runs as
+# a *child* process of the main `node` process — same control group,
+# different PID — and `NotifyAccess=main` matches by PID, so it would
+# silently discard every notification this unit ever sends, exactly the
+# "confident liar" failure this watchdog exists to avoid. `all` matches any
+# process in the unit's control group, which covers that child.
+NotifyAccess=all
+Type=notify
+WorkingDirectory={{THRONE_ROOT}}
+# `{{NODE_BIN}}` is the mise `lts` symlink form, not a version-pinned path:
+# mise repoints `lts` on upgrade, so a version-pinned path would silently
+# break the unit again the next time node moves. Calling node directly
+# (no login-shell wrapper) makes resolution independent of ambient PATH,
+# which is unset before any login shell runs at boot.
+# BCL campaign (2026-08-14): runs BEFORE every single start attempt --
+# including every iteration of a Restart=always crash loop, not just the
+# first. It decides, from a small durable marker (never from anything inside
+# a dist.build.<gen> directory, so it survives a generation broken badly
+# enough to be unimportable), whether the generation `dist` currently points
+# at has already failed once without reaching READY=1. If so, it atomically
+# repoints `dist` back to the last generation that DID reach READY=1 before
+# ExecStart runs -- see scripts/throne-backend-rollback-guard.mjs's own
+# header and src/throne-backend/generation-readiness-marker.ts for the full
+# state machine and src/throne-backend/rollback-guard-real-systemd.spec.ts
+# for the acceptance proof (a real systemd unit, a real broken generation,
+# a real recovery). It NEVER exits non-zero itself -- an ExecStartPre
+# failure would fail the whole start attempt, turning "couldn't decide" into
+# "can never start again", which is strictly worse than doing nothing.
+# ExecStartPre= (the rollback guard) is GONE. It repointed `dist` back to a
+# known-good generation when a new one failed to reach READY=1 — a hazard that
+# only exists when a reload publishes an immutable generation and restarts into
+# it. The watcher compiles in place and relaunches the child, so there is no
+# generation to roll back to and nothing to roll back from: the recovery is
+# "fix the source", which the watcher already acts on.
+# THE WATCH LOOP IS THE SERVICE (2026-08-26). This host is both the Lord's
+# development environment and a 24/7 court, deliberately — he self-bootstraps,
+# building the throne with the throne. systemd exists here so the watch loop
+# runs unattended, not so a release artifact is supervised.
+#
+# The long-lived process is now the Nest CLI; the app is its CHILD. That is
+# the whole fix. Previously ExecStart ran the app directly, so every reload
+# had to go out through `systemctl restart` — a DELIBERATE stop, which
+# `Restart=always` correctly declines to undo, and which `StartLimitBurst=`
+# can refuse permanently. On 2026-08-26 a self-restart landed on a generation
+# that never reached READY=1 and the court was down for FOUR HOURS, taking the
+# Regent resurrection tick, the idle sweep, the autoscaler and the queue drain
+# with it, because all fourteen workers are schedules inside this one process.
+#
+# Under the watcher a bad build crash-loops in the CHILD. systemd never sees a
+# stop, the start limit is never touched, and fixing the source recompiles and
+# relaunches automatically. The failure class is removed, not guarded.
+#
+# `nest start --watch` compiles to `dist` and spawns
+# `<outDir>/<sourceRoot>/<entryFile>`, which has nowhere to carry the
+# `throne-backend` subcommand argument — hence `src/throne-backend-main.ts`,
+# an argument-free entry point that calls the same `runThroneBackendForever`.
+# Invoked as the CLI's real JS entry rather than `npx nest` or the
+# `node_modules/.bin` shim: a systemd user unit has a famously thin PATH, and
+# a shim is a shell script that would need one. This is a plain node argv.
+# --path is RELATIVE, deliberately. nest-cli resolves it against the workspace
+# root and reports an ABSOLUTE path as "Could not find TypeScript
+# configuration file" even when the file plainly exists — the same trap
+# already recorded in scripts/build-and-publish-dist.mjs, and hit again here
+# on 2026-08-26 during this very cutover. WorkingDirectory= above is the
+# throne root, so a bare filename is both correct and unambiguous.
+ExecStart={{NODE_BIN}} {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --path tsconfig.build.json
+# `Type=notify` start-up waits out `TimeoutStartSec=` before killing a unit
+# that never sends `READY=1` (unset here inherits the manager default,
+# ~90s). `READY=1` is now withheld until every long-lived worker with a
+# genuine readiness condition reaches it (see
+# `HostedWorkerRegistrarService.whenAllWorkersReady` in
+# hosted-worker-registrar.service.ts), and that wait carries its own
+# internal per-worker timeout (`DEFAULT_WORKER_READY_TIMEOUT_MS = 20_000`,
+# same file) so a hung worker fails loudly and by name well before any
+# systemd-level timeout would fire blind. `TimeoutStartSec=` here only has
+# to clear that internal 20s ceiling with margin for process exit and
+# journal flush, not guess at worker behavior itself: 45s leaves ~25s of
+# margin above the 20s internal timeout, while still resolving far sooner
+# than the ~90s inherited default would if left unset.
+TimeoutStartSec=45
+Restart=always
+RestartSec=3
+# The keep-going hosted worker (the only sender of `WATCHDOG=1`, see
+# keep-going.hosted-worker.ts) ticks every 30 minutes
+# (throne-keep-going.timer's own OnUnitActiveSec= cadence, mirrored
+# in-process) and tolerates up to 2 consecutive failed ticks before
+# withholding the ping on the 3rd (CONSECUTIVE_FAILURE_THRESHOLD = 3 in
+# keep-going.hosted-worker.ts). That means two separate deadlines share this
+# one number, and it has to clear both:
+#   - One missed/delayed tick must survive: the gap between two successful
+#     pings can stretch to ~2 cadences (3600s) before the next ping lands, so
+#     WatchdogSec= must sit comfortably above 3600s or a single slow tick
+#     kills the service outright (2400s's old bug).
+#   - A genuinely persistent failure must still be caught well inside its
+#     N x cadence = 3 x 1800s = 5400s theoretical worst case (pings continue
+#     through the first 2 failures, so systemd only starts timing out after
+#     the last of those), so WatchdogSec= must sit meaningfully below 5400s
+#     rather than just being "some number bigger than 1800".
+# 4200s (70 minutes) splits that gap: 600s (10 minutes) of margin above the
+# one-missed-tick floor, 1200s (20 minutes) below the persistent-failure
+# ceiling.
+WatchdogSec=4200
+SyslogIdentifier=throne-backend
+# No ExecStart output redirection needed: systemd captures stdout/stderr to
+# the journal by default (journalctl --user -u throne-backend.service).
+
+[Install]
+WantedBy=default.target

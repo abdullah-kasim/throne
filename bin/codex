@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+#
+# codex — Codex in yolo mode, on the throne's own pinned binary.
+#
+# `./bin/codex` is the entrypoint a human types. It pins the real binary to the
+# vendored install (./vendor/node_modules/.bin/codex, version fixed by
+# vendor-pins.json) and hands off to `codexy`, which does the actual yolo work:
+# bypass approvals and the sandbox, and normalise the prompt arguments.
+#
+# Why a separate file instead of symlinking codex -> codexy: the launcher
+# resolves the REAL binary by scanning PATH for its own name, so a wrapper
+# named `codex` sitting on PATH is exactly what it must not pick. Setting
+# CODEX_BIN here removes the guesswork — the throne's pin always wins, and no
+# globally installed Codex can shadow it.
+#
+# Every argument is forwarded untouched.
+
+set -euo pipefail
+
+# Resolve this script's directory through symlinks without `readlink -f`,
+# which stock macOS does not have.
+launcher_source="${BASH_SOURCE[0]}"
+launcher_hops=0
+while [ -L "$launcher_source" ] && [ "$launcher_hops" -lt 32 ]; do
+    launcher_link=$(readlink "$launcher_source")
+    case "$launcher_link" in
+        /*) launcher_source="$launcher_link" ;;
+        *)  launcher_source="$(dirname "$launcher_source")/$launcher_link" ;;
+    esac
+    launcher_hops=$((launcher_hops + 1))
+done
+LAUNCHER_BIN_DIR=$(cd -- "$(dirname -- "$launcher_source")" && pwd -P)
+THRONE_ROOT=$(cd -- "$LAUNCHER_BIN_DIR/.." && pwd -P)
+
+VENDORED_CODEX="$THRONE_ROOT/vendor/node_modules/.bin/codex"
+
+if [ ! -x "$VENDORED_CODEX" ]; then
+    cat >&2 <<EOF
+bin/codex: no vendored Codex at
+  $VENDORED_CODEX
+
+The throne installs its own pinned harness rather than borrowing a global one.
+Run the installer first:
+
+  cd "$THRONE_ROOT" && ./install.sh
+
+EOF
+    exit 127
+fi
+
+# codexy honours \$CODEX_BIN as the real-binary override, and refuses any
+# override that would resolve back into a wrapper. An absolute vendored path
+# can never do that.
+export CODEX_BIN="$VENDORED_CODEX"
+
+exec "$LAUNCHER_BIN_DIR/codexy" "$@"

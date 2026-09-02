@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+com.throne.throne-backend.plist — throne-owned macOS LaunchAgent template for
+the throne-backend NestJS cron host (keep-going, no-idling, dispatch, the
+status writer and every other hosted worker); the mac counterpart of
+throne/systemd/throne-backend.service.
+
+Not loadable as it stands: `{{THRONE_ROOT}}` (absolute path of the throne
+directory) and `{{NODE_BIN}}` (absolute path of the node interpreter, resolved
+through mise's `lts` symlink) are substituted at install time, and only the
+rendered copy in the user's LaunchAgents dir is a working agent. Install with:
+  cd <throne root> && ./install.sh        (or ./bin/throne-cli install-services)
+
+Enabled and bootstrapped by install-services, exactly like its systemd twin.
+The pre-consolidation com.throne.keep-going and com.throne.no-idling agents
+this process replaces are retired (RETIRED_DARWIN_AGENTS in
+src/install-services/darwin.ts) and booted out before this one is bootstrapped,
+so no second dispatch loop ever delivers into live panes twice.
+
+THE WATCH LOOP IS THE SERVICE, same as on linux (systemd/throne-backend.service,
+2026-08-26): the long-lived process is the Nest CLI in --watch mode and the
+app is its CHILD. A bad build crash-loops in the child; launchd never sees an
+exit, and fixing the source recompiles and relaunches automatically.
+
+KEYS SHIPPED BELOW
+  Label             a launchctl service target is built from this label
+                    rather than from the filename.
+  ProgramArguments  /bin/bash as a login shell wrapping the exact argv the
+                    linux ExecStart uses. The login shell is not optional
+                    here: `nest start --watch` spawns its child as the bare
+                    word `node` through a shell, and the hosted workers spawn
+                    git, gh, herdr and the harness launchers by name — all of
+                    which live on the PATH the .profile chain builds, not on
+                    launchd's bare system PATH. --path is RELATIVE on purpose
+                    (nest-cli rejects an absolute tsconfig path; see the
+                    linux unit), which WorkingDirectory below makes safe.
+                    Output goes to ~/Library/Logs/throne/ for want of a
+                    journal; StandardOutPath does not expand ~, hence the
+                    redirect inside the shell.
+  WorkingDirectory  the rendered throne root. launchd.plist(5): "This optional
+                    key is used to specify a directory to chdir(2) to before
+                    running the job."
+  RunAtLoad         launchd.plist(5): "This optional key is used to control
+                    whether your job is launched once at the time the job is
+                    loaded. The default is false."
+  KeepAlive         launchd.plist(5): "The value may be set to true to
+                    unconditionally keep the job alive." Stands in for the
+                    linux unit's Restart=always.
+  ThrottleInterval  launchd.plist(5): "by default, jobs will not be spawned
+                    more than once every 10 seconds." 10 is that documented
+                    default; the linux unit's RestartSec=3 is not reproduced.
+
+NOT REPRODUCED from the linux unit, deliberately: `Type=notify`,
+`WatchdogSec=` and the READY=1 handshake are systemd-only. sd_notify is a
+documented no-op when NOTIFY_SOCKET is unset (src/throne-backend/sd-notify.ts),
+so the same code runs here without a watchdog; a hung-but-alive backend on a
+mac is restarted by an operator, not by launchd.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.throne.throne-backend</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>-lc</string>
+		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{NODE_BIN}} {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --path tsconfig.build.json &gt;&gt; "$HOME/Library/Logs/throne/throne-backend.log" 2&gt;&amp;1</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>{{THRONE_ROOT}}</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+</dict>
+</plist>

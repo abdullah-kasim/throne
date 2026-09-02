@@ -1,0 +1,28 @@
+      ./bin/throne-cli send-agent
+      shadow-bsy-01-capture-evidence \…)
+[0m[38;2;153;153;153m  ⎿  [0mauto-5e940019e9f3214fc853798d5521edff96399481c046df3e
+     92a37843dbd66aff
+
+[0m[38;2;78;186;101m●[0m [0m[1mBash[0m(cd /var/home/theuser/repos/throne
+      ./bin/throne-cli send-agent regent
+      "alpha-bsy-busy-not-draft: Received and applied — good
+      catch, and credit where due for meas…)
+[0m[38;2;153;153;153m  ⎿  [0mauto-3f84ebb21d8166b78e53297b20bc6003c0cb116ef5913ee0
+     f042e363d664391c
+
+[0m[38;2;255;255;255m●[0m Amendment applied and propagated: slice 01's assignment now
+  hunts a duration-correlated transient misclassification
+  (repeated sampling across a live long generation) instead of
+  single-frame snapshots, the overview's source-turn ledger
+  records the Regent's withdrawal and the new hypothesis, and
+  both the working Shadow and the Regent have been notified.
+  Standing by for slice 01's report or a genuine blocker before
+  dispatching 02.
+
+[0m[38;2;153;153;153m✻[0m [0m[38;2;153;153;153mBrewed for 54s[0m
+
+[0m[38;2;136;136;136m───────────────────────────────────────────────────────────────[0m
+❯ evidence capture test draft - do not send
+[0m[38;2;136;136;136m───────────────────────────────────────────────────────────────[0m
+  [0m[38;2;153;153;153mSonnet 5 · effort:low · ~/repos/throne (main) · ctx:21%[0m
+  [0m[38;2;255;107;128m⏵⏵ bypass permissions on[0m[38;2;153;153;153m (shift+tab to cycle)[0m

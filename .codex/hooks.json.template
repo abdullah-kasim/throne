@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{THRONE_ROOT}}/bin/throne-cli throne-startup",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

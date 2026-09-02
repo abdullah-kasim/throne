@@ -1,0 +1,7 @@
+listen-http: "127.0.0.1:8410"
+cache-duration: "12h"
+auth-default-access: "read-write"
+enable-signup: false
+enable-login: false
+require-login: false
+upstream-base-url: ""

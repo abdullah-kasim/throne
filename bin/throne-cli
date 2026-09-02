@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+launcher_source="${BASH_SOURCE[0]}"
+launcher_hops=0
+while [ -L "$launcher_source" ] && [ "$launcher_hops" -lt 32 ]; do
+    launcher_link=$(readlink "$launcher_source")
+    case "$launcher_link" in
+        /*) launcher_source="$launcher_link" ;;
+        *) launcher_source="$(dirname "$launcher_source")/$launcher_link" ;;
+    esac
+    launcher_hops=$((launcher_hops + 1))
+done
+launcher_bin_dir=$(cd -P "$(dirname "$launcher_source")" && pwd -P) || exit 1
+throne_root=$(cd -P "$launcher_bin_dir/.." && pwd -P) || exit 1
+
+entrypoint="$throne_root/dist/src/tools.js"
+if [ ! -f "$entrypoint" ]; then
+    # A fresh worktree has no dist/ (it is never hydrated: each tree's own
+    # source may differ, so copying another tree's compiled output would ship
+    # a build that does not match this checkout). Bootstrap it here, once,
+    # lazily — only trees that actually invoke the CLI pay this cost, and
+    # every invocation after the first reuses the resulting dist/. This is
+    # the ONLY self-heal: it never falls back to a different checkout.
+    lock_file="$throne_root/.throne-cli-bootstrap.lock"
+    bootstrap() {
+        echo "throne: no compiled build at $entrypoint (fresh worktree) -- bootstrapping this tree once (npm install if needed, then npm run build)" >&2
+        if [ ! -d "$throne_root/node_modules" ]; then
+            if ! (cd "$throne_root" && npm install --no-audit --no-fund) 1>&2; then
+                echo "throne: npm install failed in $throne_root; fix the error above and re-run" >&2
+                return 1
+            fi
+        fi
+        if ! (cd "$throne_root" && npm run build --silent) 1>&2; then
+            echo "throne: npm run build failed in $throne_root; fix the error above and re-run" >&2
+            return 1
+        fi
+        return 0
+    }
+    if command -v flock >/dev/null 2>&1; then
+        # Serialize concurrent first-use bootstraps of the same tree instead
+        # of racing two builds against the same dist/ generation swap.
+        exec 9>"$lock_file"
+        flock 9
+        if [ ! -f "$entrypoint" ]; then
+            bootstrap || exit 1
+        fi
+        flock -u 9
+    else
+        bootstrap || exit 1
+    fi
+fi
+if [ ! -f "$entrypoint" ]; then
+    echo "throne: bootstrap completed but $entrypoint is still missing; the build likely failed silently -- inspect the output above" >&2
+    exit 1
+fi
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    node "$entrypoint" attach-throne-herdr --help 2>&1 || true
+    exit 0
+fi
+
+exec node "$entrypoint" "$@"

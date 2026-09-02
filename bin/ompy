@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# ompy — launch omp (oh-my-pi) in yolo mode: push a checkpoint of the current
+# repo to a local bare backup, and pass every argument straight through to
+# the real binary.
+#
+# This is the throne's own copy: self-contained under throne/bin, so a throne
+# spawn depends on nothing stowed into ~/bin. Needs bash >= 4.3 — the guard
+# below re-execs into one or fails with instructions.
+#
+# Real-binary resolution deliberately never accepts anything inside
+# ~/bin-override (see yolo_resolve_real_bin), so a yolo-mode shim planted there
+# cannot bounce the launch back through another wrapper.
+#
+# Honors $OMP_BIN as the real binary override.
+#
+# All arguments pass through verbatim to the real binary BY DESIGN — no
+# interception, so `ompy --help` reaches the real omp's help. Any always-on
+# yolo/approval flag omp needs is buildLaunchArgv's responsibility
+# (src/harness.ts), not this launcher's — mirroring claudey/codexy/opencodey,
+# which likewise never inject harness-specific flags of their own beyond what
+# their own contract already establishes.
+
+# Bootstrap, inline by necessity: it runs before any sibling file can be
+# sourced, so it resolves this script's own directory unaided — through
+# symlinks, and without `readlink -f`, which stock macOS does not have.
+launcher_source="${BASH_SOURCE[0]}"
+launcher_hops=0
+while [ -L "$launcher_source" ] && [ "$launcher_hops" -lt 32 ]; do
+    launcher_link=$(readlink "$launcher_source")
+    case "$launcher_link" in
+        /*) launcher_source="$launcher_link" ;;
+        *)  launcher_source="$(dirname "$launcher_source")/$launcher_link" ;;
+    esac
+    launcher_hops=$((launcher_hops + 1))
+done
+LAUNCHER_BIN_DIR=$(cd -P "$(dirname "$launcher_source")" && pwd -P)
+SELF_PATH="$LAUNCHER_BIN_DIR/$(basename "$launcher_source")"
+
+. "$LAUNCHER_BIN_DIR/launcher-bash-guard.sh" || exit 1
+throne_launcher_require_modern_bash "$SELF_PATH" "$@"
+
+. "$LAUNCHER_BIN_DIR/agent-launcher-lib.sh" || exit 1
+
+omp_bin=""
+if ! yolo_resolve_real_bin omp_bin omp "${OMP_BIN:-}" "$SELF_PATH"; then
+    echo "ompy: no real 'omp' binary found on PATH (searched everything except $YOLO_OVERRIDE_DIR)" >&2
+    exit 127
+fi
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+backup_msg=""
+claudey_setup_backup backup_msg "$repo_root"
+
+exec "$omp_bin" "$@"

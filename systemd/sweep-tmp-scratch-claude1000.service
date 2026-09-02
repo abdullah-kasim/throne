@@ -1,0 +1,33 @@
+# sweep-tmp-scratch-claude1000.service — user unit.
+#
+# THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{THRONE_ROOT}}`
+# (absolute path of the throne directory) and `{{NODE_BIN}}` (absolute path
+# of the node interpreter, resolved through mise's `lts` symlink) are
+# substituted at install time; only the rendered copy in the systemd user
+# unit dir is a working unit. Install with:
+#   cd <throne root> && ./bin/throne-cli install-services
+#
+# No `Wants=`/`After=`: this run touches only the filesystem under
+# /tmp/claude-1000, the live /proc table to check holders, and throne's own
+# agent roster/data directory — it has no herdr/backend dependency to order
+# against or start.
+
+[Unit]
+Description=Reclaim dead agents' session scratchpads under /tmp/claude-1000 by positive attribution (one-shot, triggered by sweep-tmp-scratch-claude1000.timer)
+
+[Service]
+Type=oneshot
+WorkingDirectory={{THRONE_ROOT}}
+# /tmp/claude-1000 holds live harness session scratch that can sit idle for
+# hours between turns while still legitimately belonging to a live agent —
+# an idle session's cwd/fd holder check alone can find nothing, which is NOT
+# the same as the directory being dead. This root therefore runs the
+# positive-attribution reclaimer, not the generic holder-absence sweeper:
+# it only removes an entry that resolves to an exact throne agent name with
+# no live roster entry AND a confirmed data/.reaped/ record, with a fresh
+# holder check immediately before delete as a final race guard. Everything
+# else (unresolvable names, non-worktree-shaped entries, ambiguous cases) is
+# left untouched permanently — no age gate needed or used.
+ExecStart={{NODE_BIN}} {{THRONE_ROOT}}/dist/src/tools.js reclaim-agent-scratchpads --apply --tmp-root /tmp/claude-1000
+# No ExecStart output redirection needed: systemd captures stdout/stderr to
+# the journal by default (journalctl --user -u sweep-tmp-scratch-claude1000.service).

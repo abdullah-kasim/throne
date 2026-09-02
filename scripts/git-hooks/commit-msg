@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Delegate to the machine-wide commit-msg guard.
+#
+# WHY THIS FILE EXISTS: this repo sets its own `core.hooksPath` to
+# `scripts/git-hooks` (for the refuse-commit-on-live-main `pre-commit`
+# guard beside this file). A repo-level `core.hooksPath` REPLACES the global
+# hooks directory outright -- it does not chain to it and does not fall back.
+# So setting it here silently voided the global `commit-msg` hook that
+# refuses AI co-authorship trailers, leaving throne -- the repo agents commit
+# to most often -- as the least protected checkout on the machine. Nothing
+# warned about this; it was found by inspection on 2026-08-21.
+#
+# Unsetting the repo override instead would have restored the global hook at
+# the cost of deleting the live-main guard. Delegating keeps both.
+#
+# If the global hook is absent (a fresh machine, a different operator), this
+# is a no-op rather than a hard failure: throne's own commits must not become
+# unmakeable because a personal dotfile did not land.
+set -uo pipefail
+
+global_hook="${XDG_CONFIG_HOME:-$HOME/.config}/git/hooks/commit-msg"
+
+if [ -x "$global_hook" ]; then
+  exec "$global_hook" "$@"
+fi
+
+exit 0

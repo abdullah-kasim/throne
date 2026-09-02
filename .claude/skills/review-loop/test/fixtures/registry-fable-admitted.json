@@ -1,0 +1,9 @@
+{
+  "active_plan": {
+    "rolePools": {
+      "Alpha": ["claude-sonnet-5@claude", "fable@openai"],
+      "Shadow": ["claude-sonnet-5@claude"],
+      "ShadowSlice99": ["claude-haiku-4-5@claude"]
+    }
+  }
+}
