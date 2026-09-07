@@ -21,12 +21,10 @@ import {
 import { recordAgentTiming } from '../agent-timings/record-agent-timing.ts';
 import { notifyAgentCompletion } from '../notify-lord/notification.service.ts';
 import {
-  listUncommittedMemoryChanges,
   readSpawnCwd,
   readTreeRepo,
 } from './dependencies.ts';
 import {
-  FORCE_DISCARD_MEMORIES_FLAG,
   FORCE_FLAG,
 } from './input.ts';
 import { reapAgentScratchDirs, removedScratchDirs, stillHeldScratchDirs } from './scratch-cleanup.ts';
@@ -186,30 +184,6 @@ async function resolveCleanupRepo(
   return target.status === 'eligible' ? target.repo : strictRecordedRepo;
 }
 
-async function refuseUncommittedMemories(
-  request: ReapRequest,
-  repo: string | undefined,
-  deps: ReapDeps,
-): Promise<boolean> {
-  const memoryChanges = await (
-    deps.listUncommittedMemoryChanges ?? listUncommittedMemoryChanges
-  )(request.name, repo);
-  if (memoryChanges.length === 0 || request.forceDiscardMemories) {
-    return false;
-  }
-  const message =
-    `reap-agent: refusing to reap "${request.name}" because its worktree contains ` +
-    `uncommitted agent memories:\n` +
-    `${memoryChanges.map((change) => `  ${change}`).join('\n')}\n` +
-    `Commit these files to the slice branch before reaping so they can be ` +
-    `merged back, or explicitly discard them by re-running with ` +
-    `${FORCE_DISCARD_MEMORIES_FLAG}. ${FORCE_FLAG} alone never permits ` +
-    `discarding memories.\n`;
-  (deps.writeMemoryRefusal ?? ((text: string) => process.stderr.write(text)))(
-    message,
-  );
-  return true;
-}
 
 async function preflightBranchDisposition(
   request: ReapRequest,
@@ -412,9 +386,6 @@ export async function executeTeardown(
     deps,
   );
   const repo = await resolveCleanupRepo(request, target, disposition, deps);
-  if (await refuseUncommittedMemories(request, repo, deps)) {
-    return { status: 'refused' };
-  }
   const spawnCwd = await (deps.readSpawnCwd ?? readSpawnCwd)(request.name);
   const deliveryVerdict = await (
     deps.checkDeliveryVerdict ?? checkDeliveryVerdict

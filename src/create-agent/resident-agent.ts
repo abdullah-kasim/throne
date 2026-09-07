@@ -23,6 +23,40 @@ import {
   verifyCodexLaunchTrust,
 } from "./codex-launch-trust.ts";
 import { deliverAgentOpeningPrompt } from "./opening-prompt.ts";
+import {
+  resolveMemoryDir,
+  type MemoryResolution,
+} from "../memory-dir/memory-dir-resolver.ts";
+import { PRODUCTION_MEMORY_RESOLVER_DEPS } from "../memory-dir/memory-dir-runtime.ts";
+
+/**
+ * Resolved once at spawn so the identity record states where memory lives
+ * for THIS cwd. A resolution failure (a cwd that does not exist yet, an
+ * operator tool that misbehaved) is reported and leaves the field absent —
+ * the identity then tells the agent to resolve it itself — because memory
+ * placement must never be the reason a spawn fails.
+ */
+async function resolveSpawnMemory(
+  request: PolicyResolution,
+  deps: CreateAgentDeps,
+): Promise<MemoryResolution | undefined> {
+  if (request.resuming) {
+    return undefined;
+  }
+  const resolve =
+    deps.resolveMemoryDir ??
+    ((dir: string) => resolveMemoryDir(dir, PRODUCTION_MEMORY_RESOLVER_DEPS));
+  try {
+    return await resolve(request.cwd);
+  } catch (error) {
+    stderrWriter(deps)(
+      `create-agent: memory directory for "${request.name}" not resolved from ` +
+        `${request.cwd} (${error instanceof Error ? error.message : String(error)}); ` +
+        `its identity tells it to run \`throne memory-dir\` itself.\n`,
+    );
+    return undefined;
+  }
+}
 
 function launchArgv(request: PolicyResolution): string[] {
   return request.customExecutable !== undefined
@@ -152,6 +186,7 @@ export async function runResidentAgent(
       ? (request.flags.supervisor as string)
       : REGENT_NAME,
     spawnedTabLabel,
+    await resolveSpawnMemory(request, deps),
   );
   const prompts = await createAgentOpeningPrompts(request, identity);
   const argv = launchArgv(request);

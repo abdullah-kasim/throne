@@ -11,7 +11,7 @@ Produce a `todo-<iso-timestamp>-<topic>/` folder of sequence-numbered planning
 files in your campaign data dir: `~/.throne/data/<alpha-name>/` — never at the
 target repo root, never at the throne root. Campaign working notes/artifacts
 live in the same `~/.throne/data/<alpha-name>/` dir; durable cross-session learnings go
-to `agent_docs/MEMORY/`. `/execute-todos` later runs one fresh real
+to the memory directory named in your identity (`throne memory-dir`). `/execute-todos` later runs one fresh real
 Shadow per file and lands the work on your campaign branch.
 
 ## Entry guard — throne context only
@@ -1178,7 +1178,9 @@ Write each criterion as observable behavior the `99b` verify gate can later mark
 ### Consumer-bearing criteria — new capability and replacement bundles
 
 A capability can exist, pass every test, and clear every gate while nothing
-calls it — see `agent_docs/MEMORY/THE_CAPABILITY_EXISTED_THE_WIRING_DID_NOT.md`.
+calls it — a delivered campaign once shipped a fully tested module that no
+production path imported, and every gate stayed green because the gates
+measured the module, not its wiring.
 Two obligations close that gap; neither applies to a bugfix, a
 behavior-preserving refactor, a doc/report bundle, or any criterion shipping no
 new or replaced capability. **New capability:** a criterion introducing a new
@@ -1395,7 +1397,15 @@ Always the final executable todo and always a distinct fresh real Shadow. It
 runs only after explicit `99b` PASS and owns delivery together with the
 conflicts delivery hits in `git-repo` mode: it merges the latest target branch
 into the campaign branch, resolves every conflict there, and then delivers the
-result to the target. In `no-git` mode it invokes no merge tooling: it records
+result to the target. When the deliverable is a pull request (the queue row's
+launch facts carry `pr: <branch>`, or the objective says so), the todo also
+pushes the human-named PR branch and opens the draft PR from it — see
+`/execute-todos` "Pull-request delivery": the branch, the PR title and body,
+and every pushed commit message are written as the repository's own
+contributor would write them, and never name `alpha`, `shadow`, an objective
+code, an agent, a bundle or a gate. Write the PR branch name and the base
+branch into the todo verbatim; a `99c` that has to guess them is a defect of
+this bundle. In `no-git` mode it invokes no merge tooling: it records
 Git delivery as N/A with the classifier reason, verifies the requested
 operational outcome with its naturally applicable evidence, and records the
 explicit final outcome.

@@ -8,6 +8,8 @@ import { ResourcePressureCommand } from "../resource-pressure/resource-pressure.
 import { TokenBalanceCommand } from "../token-balance/token-balance.command.ts";
 import { CampaignEvidenceCommand } from "../campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "../sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
+import { MemoryDirCommand } from "../memory-dir/memory-dir.command.ts";
+import { GitIdentityCommand } from "../git-identity/git-identity.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "../reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
 import {
   DisableThroneCommand,
@@ -92,6 +94,24 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: false,
     description: "Sweep unheld, aged scratch directories (dry-run by default).",
+    ownHelp: true,
+  },
+  {
+    name: "git-identity",
+    provider: GitIdentityCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Print the git author identity from config.user.ts (`identity.name`/`identity.email`); exit 3 when unset.",
+    ownHelp: true,
+  },
+  {
+    name: "memory-dir",
+    provider: MemoryDirCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Print the durable cross-session memory directory for the project containing DIR, deferring to any memory convention already in force.",
     ownHelp: true,
   },
   {

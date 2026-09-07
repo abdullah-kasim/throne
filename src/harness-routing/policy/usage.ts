@@ -22,6 +22,8 @@ export interface UsagePayloadLike {
   source: 'api' | 'error';
   windows?: UsageWindow[];
   stale?: boolean;
+  /** The sensor's own one-line failure when `source` is `error`. */
+  error?: string;
 }
 
 export interface RemainingComparison {

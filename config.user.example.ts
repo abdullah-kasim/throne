@@ -37,6 +37,13 @@ interface UserConfigFileOverride extends PersonaConfigOverride {
   readonly identity?: {
     readonly name?: string;
     readonly email?: string;
+    readonly signingKey?: string;
+    readonly signingFormat?: 'openpgp' | 'ssh';
+    readonly identities?: Record<
+      string,
+      { name: string; email: string; signingKey?: string; signingFormat?: 'openpgp' | 'ssh' }
+    >;
+    readonly remotes?: Record<string, string>;
   };
 }
 
@@ -148,16 +155,22 @@ const userConfig: UserConfigFileOverride = {
     // },
   },
 
-  // --- Git identity (see create-agent's --empty-worktree) ---
-
-  // The LOCAL git identity `create-agent --empty-worktree` sets in a freshly
-  // created scratch workspace (`git -C <workspace> config user.name/
-  // user.email`). Never written globally, never written into any target
-  // repo. Omit the whole section (or run without a `config.user.ts` at all)
-  // to have `--empty-worktree` refuse loudly instead of guessing an identity.
+  // --- Git identity (docs/CONFIG.md, "identity") ---
+  // Who signs every commit the court makes. Exported onto every tab as
+  // GIT_AUTHOR_*/GIT_COMMITTER_* plus git's env-injected signing config, and
+  // re-resolved per commit by bin/git for a repository whose origin differs
+  // from the tab's. Never written globally, never written into any repo.
+  // SIGNING IS MANDATORY: without `signingKey` the identity does not count,
+  // and the shim STOPs and has the agent ask you — it never guesses.
   identity: {
     name: 'Your Name',
     email: 'you@example.com',
+    signingKey: '<gpg key id from `gpg --list-secret-keys --keyid-format long`>',
+    // signingFormat: 'openpgp',           // or 'ssh' with a public-key path above
+    // Named alternatives, chosen by the repository origin (`host` or
+    // `host:owner`; `host:owner` wins; 'default' names the pair above).
+    // identities: { work: { name: 'Your Name', email: 'you@work.example' } },
+    // remotes: { 'github.com:your-org': 'work', 'git.work.example': 'work' },
   },
 };
 

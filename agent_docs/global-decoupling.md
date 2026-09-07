@@ -77,11 +77,16 @@ Severed table.) Each row says what cutting it would concretely take.
 **Negative findings worth recording** (a sweep result is evidence too):
 
 - No file under `throne/` references the global `claude/agent_docs/MEMORY/`
-  tree or the global learning-mode doc. Throne law already directs
-  learning-mode writes to `agent_docs_local/MEMORY/`
-  (`throne/AGENTS.md`, "Discovery + learning (every prompt)"), a real tracked
-  directory inside the throne (the repo-root path is a symlink into it) so a
-  Shadow's memory survives its worktree. The global preamble's own
+  tree or the global learning-mode doc. Throne law now owns memory placement
+  outright: `throne memory-dir` (`throne/AGENTS.md`, "Discovery + learning
+  (every prompt)"; contract in `agent_docs/commands.md`) resolves where memory
+  lives for the project at hand and defers to a convention already in force —
+  a target repo's in-tree `agent_docs/MEMORY/`, a project memory directive, or
+  a `memory-dir` executable on the machine — before falling back to the
+  throne-native `~/.throne/memories/<slug>`. The in-tree throne memory
+  directory this row once described was deleted (`d53911c`); the memory half
+  of the F1 mandate below is therefore severed, and only the style/terminal
+  mandate of that row remains outsourced. The global preamble's own
   memory-write instruction reaches throne agents through F1 — by the mandate
   and by the session-start auto-load alike — so there is nothing throne-side
   to repoint.

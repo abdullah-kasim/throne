@@ -704,8 +704,33 @@ already persists it for every phase, under
 `~/.throne/data/<name>/runtime-model-evidence/spawn-<attestation|quarantine>.json`
 (`attestation` for a matching model, `quarantine` for anything else) — the
 `spawn-` phase prefix keeps it distinct from the files `send-agent`'s own
-runtime-model gate writes for its own phases. No existing project doc yet
-describes that `send-agent` gate to cross-reference here.
+runtime-model gate writes for its own phases.
+
+### The runtime-model gate and who it quarantines
+
+`send-agent` (phase `task`) and the reap preconditions (`src/slice-evidence/
+agent-evidence-gate.ts`) both call `checkAgentRuntimeModelAcceptance`
+(`src/session/runtime-model-acceptance.ts`). It compares the recipient's
+recorded `spawn.json` model against EVERY assistant record in the pane's
+Claude transcript; one record on another model is a `mismatch`, and the pane
+stays mismatched for its whole life even after switching back.
+
+- **Campaign roles (Alpha, Shadow, Agent) are quarantined on mismatch.** The
+  send is refused with exit 1 and nothing is queued; evidence lands at
+  `~/.throne/data/<name>/runtime-model-evidence/<phase>-quarantine.json`.
+  There is no bypass flag and none should be added — a campaign pane on the
+  wrong model is a defect, and it happens more often than it looks.
+- **Stager and Regent are exempt (Lord, 2026-09-07).** They are human-steered:
+  the Lord switches them between opus and fable by hand and on purpose. The
+  gate resolves the role from `identity.md` (and the literal name `regent`,
+  which carries no `spawn.json`), returns `exempt-human-steered-role`, and
+  still writes the attestation as `<phase>-exempt.json` so a mis-spawned pane
+  remains visible. `send-agent` prints one stderr line when the pane was
+  observed off its recorded model — `"<name>" is a Stager observed on … —
+  human-steered role, delivering anyway` — and delivers.
+- **For the Regent:** an exempt notice is information, not a blocker. Do not
+  quarantine, do not respawn, do not report it to the Lord as a delivery
+  failure. The message went through.
 
 ## switch-agent-model
 
@@ -830,8 +855,8 @@ environment variable all three routes are explicitly skipped.
 ## reap-agent
 
 ```bash
-./bin/throne-cli reap-agent <name> --reason <enum> [--force] [--bypass-marker] [--force-discard-memories]
-./bin/throne-cli reap-agent <name> --reason cancelled --archive-cancelled-unmerged [--force] [--bypass-marker] [--force-discard-memories]
+./bin/throne-cli reap-agent <name> --reason <enum> [--force] [--bypass-marker]
+./bin/throne-cli reap-agent <name> --reason cancelled --archive-cancelled-unmerged [--force] [--bypass-marker]
 ```
 
 Tears an agent down entirely through the tooling — the teardown counterpart to
@@ -893,11 +918,10 @@ entirely.
   ```
 
   Never rename provenance by hand. This mode inherits every normal Regent,
-  liveness, live-child, and uncommitted-memory refusal gate. `--force` retains
-  its narrow meaning: it is only the live-agent/live-child override and can
-  kill genuinely working agents. `--force-discard-memories` retains its separate
-  narrow meaning: it explicitly permits discarding uncommitted
-  `agent_docs/MEMORY/` files; `--force` alone does not. In particular,
+  liveness, and live-child refusal gate. `--force` retains its narrow
+  meaning: it is only the live-agent/live-child override and can kill
+  genuinely working agents. Agent memory lives outside every worktree (see
+  `memory-dir`), so reap has nothing of it to protect. In particular,
   `--reason completed` is not a cancellation shortcut: it requires the ordinary
   merged-branch cleanup path.
 
@@ -1265,6 +1289,16 @@ among the arguments) keys the item by objective code instead of a generated
 id. Prints the inserted item's id and status on success; a missing body is a
 hard error (non-zero exit, store never opened).
 
+`--pr-branch <name>` records the branch a pull request will be opened FROM
+(rendered as `pr: <name>` in the queue and carried into the launch brief; also
+settable later with `update-queue --pr-branch`, cleared with
+`--clear-pr-branch`). For a PR-shaped campaign the Stager creates that branch
+from the repository's default branch first and files it as `--target-branch` as
+well, so delivery lands on it and `99c` opens the draft PR from it (see
+`.claude/skills/execute-todos/SKILL.md`, "Pull-request delivery"). The name is
+the human contributor's — `add/<feature>`, `fix/<bug>` — never an agent name,
+an objective code or any throne machinery (Lord, 2026-09-08).
+
 **Admitted for the `Stager` role only (Lord, 2026-08-21).** An Alpha, a
 Shadow, or the Regent invoking this command is refused and nothing is added;
 see AGENTS.md, "The Stager" → "Only a Stager files queue objectives" for the
@@ -1341,6 +1375,107 @@ reimplemented here. An empty store or a store with no terminal items prints a
 "nothing to trim" message and exits 0. A store the read layer reports as
 `unknown` (could not read) is a hard error (non-zero exit) — never silently
 treated as empty.
+
+## git-identity
+
+```bash
+./bin/throne-cli git-identity [--repo <path>] [--remote <origin url>]
+```
+
+Prints the git author identity the court signs with for one repository, as
+`<name>\t<email>\t<signing key>\t<openpgp|ssh>`, read fresh from the live
+throne `config.user.ts` `identity` section on every call. **Signing is
+mandatory (Lord, 2026-09-08):** every identity carries a `signingKey` (a gpg
+key id, or an ssh public-key path with `signingFormat: 'ssh'`; a named
+identity inherits the top-level key when it names none), and an identity
+without one is treated as unset — exit 3, and the shim's STOP. The section
+carries a default pair and, optionally, named alternatives selected by the
+repository's `origin`
+(`host` or `host:owner`, matched case-insensitively against ssh, scp and
+https URLs; `host:owner` beats `host`; `default` names the top-level pair; no
+match or no origin falls back to the default):
+
+```ts
+identity: {
+  name: 'Full Name', email: 'me@example.com', signingKey: 'EF48D4AEA48740A906D185C249F04938B553113B',
+  identities: { work: { name: 'Full Name', email: 'me@examplecorp.example', signingKey: '<same or another key id>' } },
+  remotes: {
+    'github.com:example-owner': 'default',
+    'github.example-corp.com': 'work',
+    'github.com:ExampleCorp': 'work',
+  },
+},
+```
+
+`--repo` (default: the cwd) reads the origin with `git remote get-url origin`;
+`--remote` supplies the URL directly. Exit 3 when nothing applies, 1 when the
+file cannot be loaded, 2 (steered) on an unknown argument. The same
+resolution is the identity every tab is born with: `src/herdr/herdr-tab.service.ts`
+resolves it for the tab's cwd at `herdr tab create` and exports
+`GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL`/`GIT_COMMITTER_NAME`/`GIT_COMMITTER_EMAIL`,
+the signing configuration as git's own env-injected config
+(`GIT_CONFIG_COUNT=4` with `user.signingkey`, `commit.gpgsign=true`,
+`tag.gpgsign=true`, `gpg.format`), `THRONE_GIT_SIGNING_KEY`/
+`THRONE_GIT_SIGNING_FORMAT`, plus `THRONE_GIT_IDENTITY_ORIGIN` (the origin
+it was chosen for) on the tab,
+next to the `<throne>/bin`-first `PATH`, so git signs natively and no global
+or per-repo git config is ever written. The `bin/git` shim is the backstop:
+before `commit`, `merge`, `cherry-pick`, `revert`, `am` and `rebase` it trusts
+those variables only while the repository's origin equals
+`THRONE_GIT_IDENTITY_ORIGIN` and a signing key is exported, pinning
+`-c user.signingkey=… -c commit.gpgsign=true -c tag.gpgsign=true -c gpg.format=…`
+on the command line so no repository-level `commit.gpgsign=false` can switch
+signing off; for any other repository (or a tab spawned before the section
+was filled) it asks this command with `--repo` and injects the identity AND
+the signing flags, clearing the tab's variables so the re-resolved identity
+wins; a configured identity without a key is a STOP that names the signing
+key; and when nothing is configured it inspects the identity git would use; a
+machine-local one — empty, no `@`, `localhost`, `*.local`/`*.lan`/single-label
+domains, or the host's own name — is refused with exit 66 and a **STOP RIGHT
+THERE** that tells the agent to ask the Lord (via its supervisor) for the two
+lines, exactly as a missing `gh` login is handled (Lord, 2026-09-08). An
+explicit `GIT_AUTHOR_EMAIL`/`GIT_COMMITTER_EMAIL` in the environment is
+honoured and skips the guard.
+
+## memory-dir
+
+```bash
+./bin/throne-cli memory-dir [--json] [--create] [DIR]
+```
+
+Prints the durable cross-session memory directory for the project containing
+`DIR` (default: the cwd) — the place an agent `ls`es before acting and writes a
+correction, busted assumption, or dead end to the moment it happens. The throne
+never invents a second memory convention when one is already in force, so the
+resolution is a precedence, first hit wins:
+
+| mode | detection | printed path |
+| --- | --- | --- |
+| `in-tree` | `<repoRoot>/agent_docs/MEMORY/` exists (a target repo that keeps memory committed) | that directory, inside the agent's own worktree |
+| `project-declared` | root-level `AGENTS.md`, `CLAUDE.md`, or `CLAUDE.local.md` contains one of the strict tokens `memory-dir`, `~/.memories`, `.memories/`, `agent_docs/MEMORY` (prose about "memory" never matches) | the `memory-dir` executable's output when one is on PATH; otherwise the throne-native path plus a stderr WARNING naming `file:line` the agent must read and obey |
+| `external` | a `memory-dir` executable on PATH (the operator's own tooling) | its stdout, verbatim |
+| `throne-native` | none of the above | `~/.throne/memories/<slug>` |
+
+Every mode keys on the **repository**, resolved through
+`git rev-parse --git-common-dir`: a linked worktree and any subdirectory
+collapse onto the main checkout, a bare repository is its own identity, and a
+directory outside git keys on its own physical path (non-git projects are
+real). The slug is that root with every `/` turned into `-`, leading one
+included. Because every campaign worktree of one target shares the directory,
+a Shadow's learning is visible to its siblings the instant it is written —
+nothing merges, nothing is lost on reap. The throne itself resolves like any
+other repo; it keeps no in-tree memory.
+
+Text mode prints exactly one absolute directory on stdout so
+`ls -1 "$(throne memory-dir)"` composes; `--json` prints
+`{mode, path, repoRoot, evidence, warning?}`. Print-only by default —
+`--create` is the only thing that `mkdir -p`s, so the bootstrap `ls` never
+litters. Exit 2, with entrance steering, on an unknown flag, a second `DIR`, an
+unreadable `DIR`, or an operator tool that printed something other than an
+absolute path. A missing `git` degrades to the physical-path rule; it never
+fails. `create-agent` runs this resolution from the spawn cwd and writes the
+result into the agent's identity, so every spawn is told its memory directory
+before its first turn. Resolver: `src/memory-dir/memory-dir-resolver.ts`.
 
 ## ensure-heartbeat
 

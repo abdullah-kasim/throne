@@ -15,9 +15,8 @@ import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
  * `IdentityLineRead` rather than collapsed to a string, so an unresolved
  * read stays distinguishable from a genuinely absent supervisor field for
  * every downstream consumer (`idle-family.ts`), and so this map itself IS
- * the record of which entries had an unresolved read, per
- * `agent_docs/MEMORY/TRISTATE_UNKNOWN_IS_NEVER_EMPTY_LAW.md`'s "must say so
- * in its own verdict" obligation -- no separate diagnostic set is needed
+ * the record of which entries had an unresolved read: a check that cannot
+ * complete must say so in its own verdict, so no separate diagnostic set is needed
  * when the evidence already carries the distinction losslessly.
  */
 export async function readSupervisors(

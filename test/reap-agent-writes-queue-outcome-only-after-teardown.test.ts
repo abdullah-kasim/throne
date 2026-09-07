@@ -67,7 +67,6 @@ function request(name: string): ReapRequest {
     name,
     force: false,
     bypassMarker: false,
-    forceDiscardMemories: false,
     archiveCancelledUnmerged: false,
     reason: "completed",
   };
@@ -103,7 +102,6 @@ function buildDeps(
       status: "missing-provenance",
       missingFields: "test fixture",
     }),
-    listUncommittedMemoryChanges: async () => [],
     readSpawnCwd: async () => undefined,
     recordTiming: async () => {},
     notify: async () => undefined,
@@ -144,11 +142,15 @@ test("a completed reap whose teardown is refused writes neither the queue outcom
   await landVerdictOnlyShadow(name);
   const recorded: Recorded = { queueWrites: [], ledgerAppends: 0 };
   const deps = buildDeps(name, recorded, {
-    // Uncommitted memory changes make teardown refuse without --force-discard-memories.
-    listUncommittedMemoryChanges: async () => [
-      "agent_docs/MEMORY/SOMETHING.md",
-    ],
-    writeMemoryRefusal: () => {},
+    // A tree-base whose canonical name is not this agent's makes teardown
+    // refuse before touching either lifecycle.
+    readTreeBase: async () => ({
+      name: "someone-else",
+      base: "main",
+      branch: "main",
+      commit: "abc123",
+      notedAt: "2026-01-01T00:00:00.000Z",
+    }),
   });
   const code = await reapAgent(request(name), deps, new Set());
   assert.equal(code, 1);

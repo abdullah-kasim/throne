@@ -65,7 +65,6 @@ function baseRequest(name: string): ReapRequest {
     name,
     force: false,
     bypassMarker: false,
-    forceDiscardMemories: false,
     archiveCancelledUnmerged: false,
     reason: "completed",
   };
@@ -119,7 +118,6 @@ function buildDeps(name: string): ReapDeps {
       status: "missing-provenance",
       missingFields: "test fixture",
     }),
-    listUncommittedMemoryChanges: async () => [],
     readSpawnCwd: async () => undefined,
     recordTiming: async () => {},
     notify: async () => undefined,

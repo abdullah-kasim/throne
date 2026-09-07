@@ -98,11 +98,6 @@ export interface ReapDeps {
   readSpawnCwd?: (name: string) => Promise<string | undefined>;
   readTreeBase?: (name: string) => Promise<TreeBase | null>;
   listWorktreesInRepo?: (repo?: string) => Promise<Worktree[]>;
-  listUncommittedMemoryChanges?: (
-    name: string,
-    repo?: string,
-  ) => Promise<string[]>;
-  writeMemoryRefusal?: (message: string) => void;
   cleanupAgentScratch?: (name: string) => Promise<ScratchDirRemovalResult[]>;
   /** Terminates processes still working inside the reaped agent's worktree,
    *  identified by cwd containment (never by pid guessing or name matching).
@@ -136,7 +131,6 @@ export interface ParsedReapArgs {
   name?: string;
   force: boolean;
   bypassMarker: boolean;
-  forceDiscardMemories: boolean;
   archiveCancelledUnmerged: boolean;
   reason?: ReapReason;
 }
@@ -145,7 +139,6 @@ export interface ReapRequest {
   name: string;
   force: boolean;
   bypassMarker?: boolean;
-  forceDiscardMemories: boolean;
   archiveCancelledUnmerged: boolean;
   reason: ReapReason;
 }

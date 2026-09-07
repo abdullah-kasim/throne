@@ -37,7 +37,7 @@ marked; these three could NOT be verified and are therefore still live.**
 - ⚪ **BMS-PROMO — cellstra-plc `bms-iot-module` → `main`.** Explicitly the Lord's decision.
 
 ## 📌 STANDING LAW — carried forward so the archive can be cleared safely
-- **Tool-behaviour findings go to `agent_docs/MEMORY/`** (survives reap); campaign story goes to `REPORT.md`.
+- **Tool-behaviour findings go to the memory directory named in your identity (`throne memory-dir`)** (survives reap); campaign story goes to `REPORT.md`.
 - **No more `uninstall.sh` behavioural verification on this box, by anyone, ever.** It is edited, never executed.
 - **The Lord's migration law:** keep the old path until the new one EARNS retirement — replacement ships alongside what it replaces, the fallback gets its own name, retirement criteria are written BEFORE starting. (Honoured tonight: the keep-going timer was retired only after the hosted cron was watched working.)
 - **Landing slots** are Regent-granted, one campaign at a time; absorb before requesting.

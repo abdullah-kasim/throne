@@ -143,7 +143,18 @@ async function readCodexAuthFile(deps: Deps): Promise<string> {
   }
 }
 
-function parseAuthFile(raw: string): CodexTokens {
+// Older Codex CLIs stamp `auth_mode: "chatgpt"`; the current one omits the
+// field and signals ChatGPT mode by a `tokens` object with a null
+// `OPENAI_API_KEY`. Only an explicit non-chatgpt mode, or an API key with no
+// tokens, is API-key mode (which has no plan-usage endpoint).
+function isChatgptAuthMode(parsed: Record<string, unknown>): boolean {
+  if (parsed.auth_mode !== undefined) return parsed.auth_mode === 'chatgpt';
+  const apiKey = parsed.OPENAI_API_KEY;
+  const hasApiKey = typeof apiKey === 'string' && apiKey.length > 0;
+  return isRecord(parsed.tokens) && !hasApiKey;
+}
+
+export function parseAuthFile(raw: string): CodexTokens {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -153,9 +164,9 @@ function parseAuthFile(raw: string): CodexTokens {
   if (!isRecord(parsed)) {
     throw new Error('Codex credentials file is not a JSON object');
   }
-  if (parsed.auth_mode !== 'chatgpt') {
+  if (!isChatgptAuthMode(parsed)) {
     throw new Error(
-      `Codex credentials use auth_mode "${String(parsed.auth_mode)}", not "chatgpt" (API-key mode has no plan-usage endpoint)`,
+      `Codex credentials use auth_mode "${String(parsed.auth_mode ?? 'apikey')}", not "chatgpt" (API-key mode has no plan-usage endpoint)`,
     );
   }
   const tokens = parsed.tokens;

@@ -26,7 +26,6 @@ import {
 } from '../git-lifecycle/delivery-commit-proof.ts';
 import { checkAgentEvidenceRequirementByName } from '../slice-evidence/agent-evidence-gate.ts';
 import { readQueueLinkage, writeQueueReapOutcome } from './queue-reap-writeback.ts';
-import { MEMORY_PATH } from './input.ts';
 import { reapAgentScratchDirs } from './scratch-cleanup.ts';
 import { terminateWorktreeProcesses } from './process-teardown.ts';
 import type { ReapDeps } from './reap-agent.types.ts';
@@ -47,61 +46,6 @@ export const listWorktreesInRepo = async (
   repo?: string,
 ): Promise<Worktree[]> => WORKTREES.list(await repoRoot(repo ?? process.cwd()));
 
-async function memoryGuardPathspecs(
-  root: string,
-  projectDir: string,
-): Promise<string[]> {
-  const [realRoot, realProject] = await Promise.all([
-    realpath(root),
-    realpath(projectDir),
-  ]);
-  const subpath = path.relative(realRoot, realProject);
-  return subpath === ''
-    ? [MEMORY_PATH]
-    : [MEMORY_PATH, path.join(subpath, MEMORY_PATH)];
-}
-
-export async function listUncommittedMemoryChanges(
-  name: string,
-  repo?: string,
-): Promise<string[]> {
-  const projectDir = repo ?? THRONE_PROJECT_DIR;
-  const root = await repoRoot(projectDir);
-  const tree = (await WORKTREES.list(root)).find(
-    (worktree) => worktree.branch === name,
-  );
-  if (tree === undefined) {
-    return [];
-  }
-  const pathspecs = await memoryGuardPathspecs(root, projectDir);
-  const porcelain = await new Promise<string>((resolve, reject) => {
-    execFile(
-      'git',
-      [
-        '-C',
-        tree.path,
-        'status',
-        '--porcelain',
-        '--untracked-files=all',
-        '--',
-        ...pathspecs,
-      ],
-      { encoding: 'utf8' },
-      (err, stdout, stderr) => {
-        if (err) {
-          reject(
-            new Error(
-              `git status failed for ${tree.path}: ${stderr.trim() || err.message}`,
-            ),
-          );
-          return;
-        }
-        resolve(stdout);
-      },
-    );
-  });
-  return porcelain.split('\n').filter((line) => line.length > 0);
-}
 
 export async function readCompletionReport(
   name: string,
@@ -147,7 +91,6 @@ export const REAL_DEPS: ReapDeps = {
   readSpawnCwd,
   readTreeBase: TREE_BASE_DATA.read.bind(TREE_BASE_DATA),
   listWorktreesInRepo,
-  listUncommittedMemoryChanges,
   cleanupAgentScratch: (name) => reapAgentScratchDirs(name),
   terminateWorktreeProcesses: (worktreePath) => terminateWorktreeProcesses(worktreePath),
   writeQueueReapOutcome,

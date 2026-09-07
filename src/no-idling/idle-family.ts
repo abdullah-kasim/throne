@@ -178,8 +178,7 @@ function isDurablyAccountedFor(name: string, evidence: IdleFamilyEvidence): bool
  * exists to fix) refuses rather than degrading into either the positive or
  * the negative case: it reports `true` so the entry is excluded from
  * `findBareEntryPoints` entirely -- an unknown supervisor state must never
- * produce a false ORPHANED page, per
- * `agent_docs/MEMORY/TRISTATE_UNKNOWN_IS_NEVER_EMPTY_LAW.md`. The read
+ * produce a false ORPHANED page: unknown is never empty, never absent. The read
  * itself stays visible for diagnostics in `evidence.supervisors` (see that
  * field's own doc comment) without a new paging class.
  */

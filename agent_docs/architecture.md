@@ -555,10 +555,9 @@ live ledger remains unarchived for retry.
 deliberate opposite branch disposition, and the supported replacement for FPC's
 historical manual provenance rename. `cancelled` and
 `--archive-cancelled-unmerged` are a mandatory pair; `--force` remains only
-the liveness/live-child override and `--force-discard-memories` only permits
-discarding uncommitted agent-memory files. This path still requires exact,
-readable, name-matching target-repository provenance and every normal Regent,
-liveness, child, and memory gate.
+the liveness/live-child override. This path still requires exact, readable,
+name-matching target-repository provenance and every normal Regent,
+liveness, and child gate.
 
 Before any lifecycle mutation, `preflightCancelledUnmergedBranch` proves the exact
 existing `refs/heads/<name>` resolves to a full object ID, is intentionally
@@ -644,6 +643,27 @@ orphan decision, not E2's). Teardown delegates to `reap-agent`'s `run` verbatim,
 so no completion-detection or teardown logic is re-implemented; an unknown name
 is an idempotent no-op success. `--all` sweeps every COMPLETE agent, failure-
 isolated (a non-zero aggregate exit if any single reap fails).
+
+## Agent memory (`src/memory-dir/`, `throne memory-dir`)
+
+Durable cross-session memory never lives in a throne worktree. `resolveMemoryDir`
+(`src/memory-dir/memory-dir-resolver.ts`) decides where it lives for the
+project an agent is working in, deferring to any convention already in force —
+first hit wins: a target repo's own in-tree `agent_docs/MEMORY/`; a strict memory
+directive (`memory-dir`, `~/.memories`, `.memories/`, `agent_docs/MEMORY`) in
+its root `AGENTS.md`/`CLAUDE.md`/`CLAUDE.local.md`, honoured through a
+`memory-dir` executable on PATH when one exists; that executable alone; and
+only then the throne-native `~/.throne/memories/<slug>`. Every mode keys on
+`git rev-parse --git-common-dir`, so a linked worktree and any subdirectory
+collapse onto the main checkout and every worktree of one project shares one
+directory — nothing merges, nothing is lost on reap, and `reap-agent` carries
+no memory guard. Effects are injected (`MemoryResolverDeps`); production wiring
+is `memory-dir-runtime.ts`. `create-agent` resolves it from the spawn cwd
+(`resident-agent.ts`) and records it in `identity.md` as the `Memory directory`
+line, rendered into every opening prompt by `formatMemoryStandingInstruction`;
+a resumed agent, or a resolution that failed, is told to run the command
+itself rather than handed a path nobody observed. Contract and precedence
+table: `agent_docs/commands.md` under `memory-dir`.
 
 ## Background scheduling
 

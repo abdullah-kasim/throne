@@ -17,8 +17,8 @@ export function renderEmptyRangeRefusal(base: string, head: string): string {
       'so every section would be computed over an empty diff and report a false clean verdict. ' +
       'Likely cause: a campaign under construction should target its Alpha branch with --head ' +
       '<branch>, not main, since base..main is empty by construction until main absorbs the ' +
-      'campaign. See agent_docs/MEMORY/VACUOUS_VERIFICATION_PASSES.md (rule 2: guard the range, not ' +
-      'the flag combination that produced it).',
+      'campaign. Guard the range, not the flag combination that produced it: a verification ' +
+      'over zero commits passes vacuously and proves nothing.',
     bypass: undefined,
     supervisorRoute: 'Escalate to the Regent.',
   });

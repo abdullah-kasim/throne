@@ -26,8 +26,8 @@ export interface IdleFamilyEvidence {
   readonly roster: readonly AgentStatusesRosterEntry[];
   // The tristate supervisor read per roster entry, not collapsed to a
   // string -- an unresolved read (any errno, corrupt/partial content) must
-  // stay distinguishable from a genuinely absent supervisor field, per
-  // `agent_docs/MEMORY/TRISTATE_UNKNOWN_IS_NEVER_EMPTY_LAW.md`. See
+  // stay distinguishable from a genuinely absent supervisor field: unknown
+  // is never empty, never absent. See
   // `resolvedSupervisorName`/`hasLiveAlphaSupervisor` for how each state is
   // read.
   readonly supervisors: ReadonlyMap<string, IdentityLineRead>;

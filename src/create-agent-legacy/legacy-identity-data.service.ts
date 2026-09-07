@@ -96,8 +96,8 @@ const ROLE_STANDING_INSTRUCTION: Record<string, string> = {
     `and artifacts inside the ${PERSONA_CONFIG.throneTitle.toLowerCase()} ledger at \`data/<your-agent-name>/\` — ` +
     "NEVER in the target repo and NEVER at the throne root. This holds for " +
     `cross-repo ${PERSONA_CONFIG.campaignTitle}s: the bundle stays in the ${PERSONA_CONFIG.throneTitle.toLowerCase()} ledger even when the ` +
-    "code lives elsewhere. Durable cross-session learnings go to " +
-    "`agent_docs/MEMORY/`, not the ledger.",
+    "code lives elsewhere. Durable cross-session learnings go to the memory " +
+    "directory named in your identity, not the ledger.",
   Stager:
     `Idle waiting on the ${PERSONA_CONFIG.addressTitle} is your NORMAL state, ` +
     "not a stall. You exist because the " +
@@ -271,8 +271,7 @@ export async function writeIdentity(
 //
 // The tristate distinction itself (found / field-absent / read-unresolved)
 // is unchanged from the replacement's contract; only the location of the
-// implementation is legacy-owned. Per
-// `agent_docs/MEMORY/TRISTATE_UNKNOWN_IS_NEVER_EMPTY_LAW.md`, an unresolvable
+// implementation is legacy-owned. An unresolvable
 // read (any errno, corrupt/partial content) is never collapsed into the
 // field-absent outcome -- it surfaces as a thrown error, matching this
 // file's public string-returning contract.

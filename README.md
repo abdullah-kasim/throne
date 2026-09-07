@@ -79,6 +79,14 @@ Only two things must already exist: **bash ≥ 4.3** (macOS ships 3.2 — `brew
 install bash`) and **Node ≥ 24**. The installer checks both and refuses early
 with instructions rather than failing halfway.
 
+## Configuration
+
+One gitignored file at the throne root, `config.user.ts`, holds every
+machine-local setting: how the court addresses you, phone pushes, which
+harness and model fresh spawns run on, the autoscaler pause, and the git
+identity and signing key every commit carries. Every key is documented in
+**[docs/CONFIG.md](docs/CONFIG.md)**; `config.user.example.ts` is the template.
+
 ## Usage
 
 1. **Open the throne** — run `throne`. This connects you to the herdr
