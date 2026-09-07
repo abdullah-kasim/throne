@@ -76,6 +76,9 @@ export type ThrottleSignal =
       driverHarness: Harness;
       status: "unavailable";
       keyPct: null;
+      /** Why the sensor gave no reading — the sensor's own error text, so
+       *  the next Regent does not have to rerun the CLI to learn the cause. */
+      reason?: string;
     }
   | {
       driverHarness: string;
@@ -151,7 +154,8 @@ function isThrottleSignal(value: unknown): value is ThrottleSignal {
     return (
       typeof candidate.driverHarness === "string" &&
       isSupportedThrottleHarness(candidate.driverHarness) &&
-      candidate.keyPct === null
+      candidate.keyPct === null &&
+      (candidate.reason === undefined || typeof candidate.reason === "string")
     );
   }
   if (candidate.status === "unsupported") {
@@ -214,6 +218,16 @@ export function usageKey(payload: UsagePayloadLike): number | null {
   return usage.sessionPct === undefined
     ? usage.weeklyPct
     : Math.min(usage.weeklyPct, usage.sessionPct);
+}
+
+/** The sensor's own error when it reported one; otherwise the payload was
+ *  well-formed but carried nothing the throttle can key on. */
+function unavailableReason(payload: UsagePayloadLike): string {
+  if (payload.source === "error") {
+    return payload.error ?? "sensor reported an error without detail";
+  }
+  if (payload.stale === true) return "sensor reading is stale";
+  return "sensor reading has no weekly window";
 }
 
 export function computeBand(
@@ -342,25 +356,24 @@ export async function evaluateThrottle(
   const previousBand = stateMatchesHarness ? state.band : "NORMAL";
   const previousLastNudgeAt = stateMatchesHarness ? state.lastNudgeAt : null;
 
-  let signal: ThrottleSignal = {
-    driverHarness: routeDriverHarness,
-    status: "unavailable",
-    keyPct: null,
-  };
+  let signal: ThrottleSignal;
   try {
-    const keyPct = usageKey(await usageSource());
-    if (keyPct !== null) {
-      signal = {
-        driverHarness: routeDriverHarness,
-        status: "fresh",
-        keyPct,
-      };
-    }
-  } catch {
+    const payload = await usageSource();
+    const keyPct = usageKey(payload);
+    signal = keyPct !== null
+      ? { driverHarness: routeDriverHarness, status: "fresh", keyPct }
+      : {
+          driverHarness: routeDriverHarness,
+          status: "unavailable",
+          keyPct: null,
+          reason: unavailableReason(payload),
+        };
+  } catch (error) {
     signal = {
       driverHarness: routeDriverHarness,
       status: "unavailable",
       keyPct: null,
+      reason: error instanceof Error ? error.message : String(error),
     };
   }
 

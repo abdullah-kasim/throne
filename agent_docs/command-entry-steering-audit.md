@@ -242,6 +242,14 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `sweep-tmp-scratch` | missing argument | N/A | All options are optional; dry-run is the default. |
 | `sweep-tmp-scratch` | invalid value | PASS | Executable evidence: `src/command-entry-steering-batch-b.spec.ts` — `sweep-tmp-scratch entrance refusals state WHY, no bypass, HUMAN ROUTE, status, and no effect`. |
 | `sweep-tmp-scratch`              | policy refusal   | N/A     | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; operational or mutation policy occurs only after argument admission.                                                                                                                                       |
+| `git-identity` | unknown flag | PASS | Executable evidence: `test/git-identity-command.test.ts` — `any argument is a steered exit 2`. |
+| `git-identity` | missing argument | N/A | No arguments are declared. |
+| `git-identity` | invalid value | N/A | No value-bearing option exists. |
+| `git-identity` | policy refusal | N/A | An unset identity is a status (exit 3), not an entrance policy gate. |
+| `memory-dir` | unknown flag | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `an unknown flag or a second DIR is a steered exit 2`. |
+| `memory-dir` | missing argument | N/A | DIR is optional; the cwd is the default. |
+| `memory-dir` | invalid value | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `a resolver failure is a steered exit 2 with the cause`. |
+| `memory-dir` | policy refusal | N/A | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; resolution has no policy gate. |
 | `reclaim-agent-scratchpads` | unknown flag | PASS | Executable evidence: `src/command-entry-steering-batch-b.spec.ts` — `reclaim-agent-scratchpads entrance refusals state WHY, no bypass, HUMAN ROUTE, status, and no effect`. |
 | `reclaim-agent-scratchpads` | missing argument | N/A | All options are optional; dry-run is the default. |
 | `reclaim-agent-scratchpads` | invalid value | N/A | No enum/numeric value domain exists; `--tmp-root`/`--worktrees-root`/`--data-dir` accept any string path. |

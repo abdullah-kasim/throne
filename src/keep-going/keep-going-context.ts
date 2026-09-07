@@ -35,7 +35,7 @@ export interface ThrottleBand {
 export interface ThrottleEvaluation {
   readonly band: ThrottleBand;
   readonly shouldNudge: boolean;
-  readonly signal: { readonly status: string };
+  readonly signal: { readonly status: string; readonly reason?: string };
 }
 
 export const REGENT_NAME = 'Regent';

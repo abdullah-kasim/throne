@@ -1,7 +1,7 @@
-import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { HARNESS_NAMES } from '../harness-routing/harness.ts';
+import { readClaudeCredentialsRaw } from './claude-credential-source.ts';
 import { realUsageCacheIo } from './telemetry-core/cache.ts';
 import { readUsageLogRaw, realAppendUsageLog } from './telemetry-core/log.ts';
 import type { HttpJsonRequest, HttpJsonResponse, PlanUsageDeps } from './pipeline.types.ts';
@@ -17,7 +17,7 @@ async function requestJson(request: HttpJsonRequest): Promise<HttpJsonResponse> 
 
 function createRuntime(credentialsPath: string = CREDENTIALS_PATH): PlanUsageDeps {
   return {
-    readCredentialsFile: () => readFile(credentialsPath, 'utf8'),
+    readCredentialsFile: () => readClaudeCredentialsRaw(credentialsPath),
     httpJson: requestJson,
     now: () => new Date(),
     out: (line) => process.stdout.write(line),

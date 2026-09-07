@@ -650,6 +650,10 @@ This section is the one owning policy for every commit created by this workflow.
 Planning skills, chained workflows, terminal gates, correction passes, reports,
 checkpoints, and aliases inherit it by reference; they must not copy or weaken it.
 
+A commit is signed with the Lord's identity (`config.user.ts` `identity`,
+applied by the `bin/git` shim); a **STOP RIGHT THERE** from the shim means the
+identity is unset or machine-local — report it upward and wait, never guess,
+never set a global, never `--author` around it (AGENTS.md, "Git identity").
 A commit message describes the repository change, never the machinery that caused
 it. Apply the contract to the complete subject and body before every commit:
 
@@ -1095,6 +1099,7 @@ orchestrator applies it at every spawn and merge decision.
 Every Shadow's `ASSIGNMENT.md` must explicitly direct it to read:
 
 - The global agent instructions — claude: `~/.claude/CLAUDE.md`; codex: `~/.codex/AGENTS.md` (which chains to the same CLAUDE.md). They carry terminal naming, commit conventions, communication style.
+- Its memory directory — `throne memory-dir --json` from its cwd (the same path its identity names): `ls` it and read anything relevant before the slice, and write every correction, busted assumption, or dead end there the moment it happens. The throne's memory law is `AGENTS.md` "Discovery + learning"; the resolution contract is `agent_docs/commands.md` under `memory-dir`.
 - `$THRONE/agent_docs/CRITICAL_coding_a_feature_masterplan.md`.
 - `$THRONE/agent_docs/coding_principles.md` — SRP, DRY, self-documenting names, no surprises, contract-based design.
 - `00_overview.md` if the bundle has one — the north-star for the whole bundle (the feature, the architecture, the `## Done when` acceptance checklist). Gives the worker the big picture its single slice plugs into, so local choices serve the global goal.
@@ -1742,6 +1747,62 @@ during real integration is abandoned, the target is returned to its pre-merge
 baseline, and delivery is re-proved from a fresh private copy before any further
 attempt. A live abort is not treated as a proven-safe undo — the rehearsal
 exists to make a live conflict and abort unnecessary.
+
+#### Pull-request delivery — when the deliverable is a PR, not a merge
+
+A campaign whose deliverable is a pull request (the queue row carries `pr:
+<branch>` in its launch facts — `add-to-queue --pr-branch` / `update-queue
+--pr-branch` — or the objective says "pull request" / "PR") delivers onto a
+**human-named branch** and opens the PR from it. It never merges into the
+repository's default branch, and it never pushes that default branch.
+
+**Branch names are the human author's, never the court's.** The PR branch is
+named for the change in the repository's own convention — `add/podman-support`,
+`fix/proxy-port-scan`, `update/lando-fork` — and is set by the Stager at filing
+(`--pr-branch`). It must not contain `alpha`, `shadow`, an objective code, an
+agent name, a campaign or slice number, or any other piece of throne machinery.
+The same rule covers the PR title, the PR body and the commit messages the PR
+carries: they read as the repository's own contributor wrote them, name what
+changed and why, cite files and tests, and mention no roles, no agents, no
+bundles and no gates. If the campaign branch (`$ALPHA`) carries commits whose
+messages name throne machinery, `99c` squashes or rewords them onto the PR
+branch before pushing; the campaign branch itself is never pushed.
+
+**The normal shape (filed under this law).** The Stager created the PR branch
+from the default branch before filing and recorded it as BOTH `--target-branch`
+and `--pr-branch`, so the recorded target branch *is* the PR branch. `99c` then
+runs exactly the delivery above — rehearsal, merge into the recorded target with
+plain git, proof — and continues:
+
+```bash
+git -C "$repo" push -u origin "$target_branch"
+gh -R <owner>/<repo> pr create --draft --base <default branch> --head "$target_branch" \
+   --title "<what changed, as the contributor would say it>" --body-file <body.md>
+gh -R <owner>/<repo> pr view "$target_branch" --json url,isDraft,headRefName,baseRefName
+```
+
+The PR is opened as a **draft** unless the objective says otherwise. The body
+carries what the objective's `INTENT:` asked for (findings, tests run, what is
+not covered) in the contributor's voice. Paste the `gh pr view` JSON into the
+report: a `**Delivery outcome:** PASS` for a PR-shaped campaign without a PR URL
+and `"isDraft": true` (when a draft was asked) is invalid. The
+`checkTerminalDeliveryPrecondition` proof is unchanged and still passes: the
+campaign landed on its recorded target branch, which is the PR branch.
+
+**The legacy shape (row filed with the default branch as target, `pr:` added
+later).** Deliver into the recorded target branch *locally* exactly as above —
+that is what the recorded provenance and the terminal precondition verify —
+then move the PR branch to that tip and push only the PR branch:
+
+```bash
+git -C "$repo" branch -f "$pr_branch" "$target_branch"
+git -C "$repo" push -u origin "$pr_branch"
+```
+
+Never push the default branch in this shape; say in the report that the local
+default branch is ahead of `origin` by the delivery merge, so the human can
+`git reset --hard origin/<default>` once the PR lands. Prefer refiling under the
+normal shape whenever the campaign is young enough that a cancel costs little.
 
 #### The delivery rehearsal — absorb the target inside a private copy
 

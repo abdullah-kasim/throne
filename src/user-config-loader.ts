@@ -29,7 +29,7 @@ import {
 } from './shared-policy/config-value-shape.ts';
 import { resolveLiveThroneRoot } from './throne-root-resolution.ts';
 
-const PERSONA_SECTION_FIELDS = [
+export const PERSONA_SECTION_FIELDS = [
   'roleplayPreset',
   'addressTitle',
   'tierTitles',
@@ -57,7 +57,10 @@ export const STEERING_SECTION_FIELDS = [
   'tokenBalanceEnabled',
   'autoscaleEnabled',
 ] as const;
-const IDENTITY_SECTION_FIELDS = ['name', 'email'] as const;
+/** `name`/`email` are the default identity; `identities` names alternatives
+ *  and `remotes` maps a remote pattern (`host` or `host:owner`) to one of
+ *  those names — see `git-identity/git-identity.command.ts`. */
+export const IDENTITY_SECTION_FIELDS = ['name', 'email', 'signingKey', 'signingFormat', 'identities', 'remotes'] as const;
 
 const TOP_LEVEL_FIELDS = [
   ...PERSONA_SECTION_FIELDS,

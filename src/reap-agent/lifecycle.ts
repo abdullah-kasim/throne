@@ -188,7 +188,6 @@ async function cascadeLiveChildren(
         name: childName,
         force: true,
         bypassMarker: request.bypassMarker,
-        forceDiscardMemories: request.forceDiscardMemories,
         reason: "force",
         archiveCancelledUnmerged: false,
       },

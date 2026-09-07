@@ -18,9 +18,8 @@ const VALID_IDENTITY_LINE_READ_STATUSES: readonly string[] = Object.values(
  * (slices 05, 06, 07, 10) from non-TS-checked construction paths (a `.mjs`
  * driver among them), each one bypassing the compiler by construction. A
  * plain string or any other non-tristate shape reaching this boundary must
- * fail loudly, naming what it actually got, per
- * `agent_docs/MEMORY/TRISTATE_UNKNOWN_IS_NEVER_EMPTY_LAW.md`'s "a check
- * that cannot complete must say so ... and refuse" -- applied one layer
+ * fail loudly, naming what it actually got -- a check that cannot complete
+ * must say so and refuse -- applied one layer
  * earlier, where untyped data enters typed code.
  */
 function assertValidIdentityLineReadShape(

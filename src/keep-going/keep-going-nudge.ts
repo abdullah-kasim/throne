@@ -88,6 +88,11 @@ export async function evaluateLiveRegentThrottle(
         deps,
         `keep-going: live Regent harness "${regentHarness}" is unsupported for usage throttle — nudging unthrottled without reading a provider sensor.\n`,
       );
+    } else if (evaluation.signal.status === 'unavailable') {
+      writeOut(
+        deps,
+        `keep-going: usage sensor for Regent harness "${regentHarness}" is unavailable (${evaluation.signal.reason ?? 'no reason recorded'}) — nudging without a usage reading.\n`,
+      );
     }
     return evaluation;
   } catch (err) {

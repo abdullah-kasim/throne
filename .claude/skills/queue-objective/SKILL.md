@@ -86,6 +86,17 @@ throne add-to-queue --objective-code <code> \
 - `<code>`: ASCII alphanumerics only (`OBJECTIVE_CODE_PATTERN`), short,
   memorable; it prefixes every agent name in the campaign
   (`alpha-<code>-…`, `shadow-<code>-…`).
+- **A pull request as deliverable (Lord, 2026-09-08): name the branch like a
+  human, and make it the target.** Before filing, create the PR branch in the
+  target repo from its default branch — `git -C <repo> branch add/<feature>
+  <default>` — named in that repository's own convention (`add/…`, `fix/…`,
+  `update/…`), never with `alpha`, `shadow`, the objective code, an agent name
+  or any other throne machinery. Then file with `--target-branch` AND
+  `--pr-branch` both set to that branch, and `--base-commit` from it. The
+  campaign delivers onto the PR branch and `99c` opens the draft PR from it to
+  the default branch (`/execute-todos`, "Pull-request delivery"); the default
+  branch is never merged into or pushed. State the branch and the base in the
+  body's `SCOPE:` too.
 - Supplying the four launch facts here marks the row launch-eligible in the
   same write. `mark-queue-launch-eligible` exists only for rows filed
   earlier without them. Prose is never read as launch intent.

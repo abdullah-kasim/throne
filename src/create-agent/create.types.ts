@@ -1,3 +1,4 @@
+import type { MemoryResolution } from "../memory-dir/memory-dir-resolver.ts";
 import type {
   writeIdentity,
   writeOpeningPrompt,
@@ -159,6 +160,10 @@ export interface CreateAgentDeps {
   ensureCodexTrust: typeof ensureCodexTrust;
   probeCodexTrustPrompt: typeof probeCodexTrustPrompt;
   writeIdentity: typeof writeIdentity;
+  /** Resolves the spawn cwd's durable memory directory for the identity
+   *  record. Optional so fixtures need not care; production wires the real
+   *  `memory-dir` resolver. A failure never fails the spawn. */
+  resolveMemoryDir?: (dir: string) => Promise<MemoryResolution>;
   writeOpeningPrompt: typeof writeOpeningPrompt;
   writeSpawnSpec: typeof writeSpawnSpec;
   writeModelAllowlist: typeof writeModelAllowlist;

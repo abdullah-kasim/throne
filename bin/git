@@ -36,6 +36,84 @@ for ((i = 1; i <= $#; i++)); do
     esac
 done
 
+# Identity guard — before any command that CREATES commits. The court signs
+# every commit with the Lord's identity from the live throne config.user.ts
+# (`identity.name` / `identity.email`, read through `throne-cli git-identity`
+# so nothing here re-parses TypeScript). Without it, git synthesises
+# `<user>@<hostname>` — a machine-local address that must never reach a
+# repository. That is a STOP: the agent asks the Lord for the values, exactly
+# like a missing `gh` login; it never guesses one and never sets a global.
+case "$subcommand" in
+    commit|merge|cherry-pick|revert|am|rebase)
+        identity_args=()
+        # The tab's exported identity was chosen for the tab's own origin
+        # (THRONE_GIT_IDENTITY_ORIGIN). A commit in a repository with a
+        # different origin re-resolves, so an work repo is never signed with
+        # the personal identity just because the tab was opened elsewhere.
+        env_identity_applies=false
+        if [ -n "${GIT_AUTHOR_EMAIL:-}${GIT_COMMITTER_EMAIL:-}" ] && [ -n "${THRONE_GIT_SIGNING_KEY:-}" ]; then
+            env_identity_applies=true
+            if [ -n "${THRONE_GIT_IDENTITY_ORIGIN:-}" ]; then
+                current_origin=$("$real_git" "${@:1:$((i-1))}" remote get-url origin 2>/dev/null || true)
+                [ -z "$current_origin" ] || [ "$current_origin" = "$THRONE_GIT_IDENTITY_ORIGIN" ] || env_identity_applies=false
+            fi
+        fi
+        if [ "$env_identity_applies" = false ]; then
+            configured=""
+            if [ -x "$shim_dir/throne-cli" ]; then
+                repo_dir=$("$real_git" "${@:1:$((i-1))}" rev-parse --show-toplevel 2>/dev/null || pwd -P)
+                configured=$("$shim_dir/throne-cli" git-identity --repo "$repo_dir" 2>/dev/null) || configured=""
+            fi
+            IFS=$'\t' read -r cfg_name cfg_email cfg_key cfg_format <<<"$configured"
+            if [ -n "$configured" ] && [ -n "${cfg_key:-}" ]; then
+                identity_args=(-c "user.name=$cfg_name" -c "user.email=$cfg_email" -c "user.signingkey=$cfg_key" -c commit.gpgsign=true -c tag.gpgsign=true -c "gpg.format=${cfg_format:-openpgp}")
+            elif [ -n "$configured" ]; then
+                echo "throne git guard: STOP RIGHT THERE — the configured identity has no signing key, and signing is mandatory (Lord, 2026-09-08)." >&2
+                echo "Do NOT commit unsigned, do NOT bypass this. Ask the Lord, through your supervisor, to add \`signingKey\` (a gpg key id; or an ssh key path with signingFormat: 'ssh') to the identity in the live throne config.user.ts, then rerun the exact same command." >&2
+                exit 66
+            else
+                effective_email=$("$real_git" "${@:1:$((i-1))}" config --get user.email 2>/dev/null || true)
+                effective_name=$("$real_git" "${@:1:$((i-1))}" config --get user.name 2>/dev/null || true)
+                host_long=$(hostname 2>/dev/null || true)
+                host_short=${host_long%%.*}
+                domain=${effective_email#*@}
+                local_looking=false
+                if [ -z "$effective_email" ] || [ -z "$effective_name" ]; then
+                    local_looking=true
+                elif [ "$domain" = "$effective_email" ]; then
+                    local_looking=true   # no "@" at all
+                else
+                    case "$domain" in
+                        localhost|localdomain|*.local|*.lan|*.home|*.internal|*.localdomain|"(none)") local_looking=true ;;
+                    esac
+                    [ -n "$host_long" ] && [ "$domain" = "$host_long" ] && local_looking=true
+                    [ -n "$host_short" ] && [ "$domain" = "$host_short" ] && local_looking=true
+                    case "$domain" in *.*) ;; *) local_looking=true ;; esac
+                fi
+                if [ "$local_looking" = true ]; then
+                    echo "throne git guard: STOP RIGHT THERE — this checkout has no real git identity (name: '${effective_name:-<unset>}', email: '${effective_email:-<unset>}'; git would sign as '${USER:-$(id -un)}@${host_long:-localhost}')." >&2
+                    echo "Commits from the court carry the Lord's identity, never a machine-local one. Do NOT guess an identity, do NOT set one globally, do NOT bypass this." >&2
+                    echo "Ask the Lord, through your supervisor, to put these two lines into the live throne config.user.ts and then rerun the exact same command:" >&2
+                    echo "    identity: { name: '<full name>', email: '<real address>', signingKey: '<gpg key id>' }," >&2
+                    echo "(read by \`throne-cli git-identity\`; the shim then signs every commit with it and touches no global config)." >&2
+                    exit 66
+                fi
+            fi
+        fi
+        if [ ${#identity_args[@]} -gt 0 ]; then
+            # A re-resolved identity must beat the tab's stale GIT_* variables:
+            # -c user.* is not consulted while GIT_AUTHOR_* is set, so clear them.
+            unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
+            set -- "${@:1:$((i-1))}" "${identity_args[@]}" "${@:i}"
+        elif [ "$env_identity_applies" = true ]; then
+            # The tab's own identity: git's env-injected config already carries
+            # the key, but say it on the command line too so no repo-level
+            # `commit.gpgsign=false` can switch signing off.
+            set -- "${@:1:$((i-1))}" -c "user.signingkey=$THRONE_GIT_SIGNING_KEY" -c commit.gpgsign=true -c tag.gpgsign=true -c "gpg.format=${THRONE_GIT_SIGNING_FORMAT:-openpgp}" "${@:i}"
+        fi
+        ;;
+esac
+
 if [ "$subcommand" != commit ]; then
     exec "$real_git" "$@"
 fi

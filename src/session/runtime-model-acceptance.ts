@@ -16,11 +16,27 @@ import {
   type ClaudeRuntimeModelAttestation,
 } from "./claude-runtime-model-attestation.ts";
 import { resolvedOrRawPath } from "../shared-policy/path-equivalence.ts";
+import {
+  IdentityLineReadStatus,
+  readAgentRole,
+} from "../agentdata/identity-data.service.ts";
 
 export type RuntimeModelAcceptancePhase = "task" | "verdict" | "spawn";
 
+export const HUMAN_STEERED_ROLES = ["Stager", "Regent"] as const;
+export type HumanSteeredRole = (typeof HUMAN_STEERED_ROLES)[number];
+const REGENT_AGENT_NAME = "regent";
+
 export type RuntimeModelAcceptance =
   | { ok: true; outcome: "matching" | "not-applicable"; evidencePath?: string }
+  | {
+      ok: true;
+      outcome: "exempt-human-steered-role";
+      role: HumanSteeredRole;
+      recordedModel: string;
+      observedModels: string[];
+      evidencePath: string;
+    }
   | {
       ok: false;
       outcome: "missing" | "mismatch";
@@ -33,6 +49,23 @@ interface RuntimeModelEvidence {
   phase: RuntimeModelAcceptancePhase;
   checkedAt: string;
   attestation: ClaudeRuntimeModelAttestation;
+  exemptRole?: HumanSteeredRole;
+}
+
+function isHumanSteeredRole(value: string): value is HumanSteeredRole {
+  return (HUMAN_STEERED_ROLES as readonly string[]).includes(value);
+}
+
+async function humanSteeredRoleOf(
+  name: string,
+  baseDir: string,
+): Promise<HumanSteeredRole | undefined> {
+  if (name.toLowerCase() === REGENT_AGENT_NAME) return "Regent";
+  const role = await readAgentRole(name, baseDir);
+  if (role.status === IdentityLineReadStatus.Found && isHumanSteeredRole(role.value)) {
+    return role.value;
+  }
+  return undefined;
 }
 
 function claudeProjectDirectory(cwd: string, projectsDir: string): string {
@@ -81,17 +114,23 @@ async function preserveRuntimeModelEvidence(
   phase: RuntimeModelAcceptancePhase,
   attestation: ClaudeRuntimeModelAttestation,
   baseDir: string,
+  exemptRole?: HumanSteeredRole,
 ): Promise<string> {
   const evidenceDirectory = path.join(baseDir, name, "runtime-model-evidence");
   await mkdir(evidenceDirectory, { recursive: true });
   const outcome =
-    attestation.status === "matching" ? "attestation" : "quarantine";
+    exemptRole !== undefined
+      ? "exempt"
+      : attestation.status === "matching"
+        ? "attestation"
+        : "quarantine";
   const evidencePath = path.join(evidenceDirectory, `${phase}-${outcome}.json`);
   const evidence: RuntimeModelEvidence = {
     agent: name,
     phase,
     checkedAt: new Date().toISOString(),
     attestation,
+    ...(exemptRole === undefined ? {} : { exemptRole }),
   };
   await writeFile(
     evidencePath,
@@ -108,6 +147,7 @@ export async function checkAgentRuntimeModelAcceptance(
   projectsDir: string = path.join(homedir(), ".claude", "projects"),
 ): Promise<RuntimeModelAcceptance> {
   const spawn = await readSpawnSpec(name, baseDir);
+  const exemptRole = await humanSteeredRoleOf(name, baseDir);
   if (spawn === null) {
     return { ok: true, outcome: "not-applicable" };
   }
@@ -132,7 +172,18 @@ export async function checkAgentRuntimeModelAcceptance(
     phase,
     attestation,
     baseDir,
+    exemptRole,
   );
+  if (exemptRole !== undefined) {
+    return {
+      ok: true,
+      outcome: "exempt-human-steered-role",
+      role: exemptRole,
+      recordedModel: attestation.requestedModel,
+      observedModels: attestation.observedModels,
+      evidencePath,
+    };
+  }
   if (attestation.status === "matching") {
     return { ok: true, outcome: "matching", evidencePath };
   }

@@ -6,6 +6,10 @@ import { canonicalizeIdentityRole } from "../shared-policy/identity-role-casing.
 import { DEFAULT_DATA_DIR } from "./spawn-data-contracts.ts";
 import { containsSupervisionPollingLoop } from "./identity-polling.ts";
 import { formatReapabilityClaim } from "../reap-agent/reapability-claim.ts";
+import {
+  formatMemoryStandingInstruction,
+  type MemoryResolution,
+} from "../memory-dir/memory-dir-resolver.ts";
 
 export interface AgentIdentity {
   supervisor: string;
@@ -21,11 +25,17 @@ export interface AgentIdentity {
    *  time" — it just reads what actually happened. Absent for a resumed
    *  agent, which never gets a fresh spawn-time label. */
   spawnedTabLabel?: string;
+  /** Where this agent's durable cross-session memory lives, resolved by
+   *  `memory-dir` from the spawn cwd at spawn time. Absent for a resumed or
+   *  pre-existing agent, which is then told to resolve it itself rather
+   *  than handed a path nobody observed. */
+  memory?: MemoryResolution;
 }
 
 const ROLE_LINE_PREFIX = "- **Role:** ";
 export const SUPERVISOR_LINE_PREFIX = "- **Supervisor (routine):** ";
 export const SPAWNED_TAB_LABEL_LINE_PREFIX = "- **Spawned tab label:** ";
+export const MEMORY_DIRECTORY_LINE_PREFIX = "- **Memory directory:** ";
 
 const NEVER_ASK_ADDRESSEE_INSTRUCTION =
   `You never put a question to the ${PERSONA_CONFIG.addressTitle} — decisions ` +
@@ -60,6 +70,7 @@ export function identityText(name: string, identity: AgentIdentity): string {
       `Policy override for \`${name}\`: ${identity.policyOverride}`,
     );
   }
+  sections.push(formatMemoryStandingInstruction(identity.memory));
   sections.push(PERSONA_CONFIG.roleplayPrompt);
   return sections.join("\n\n");
 }
@@ -97,8 +108,8 @@ const ROLE_STANDING_INSTRUCTION: Record<string, string> = {
     `and artifacts inside the ${PERSONA_CONFIG.throneTitle.toLowerCase()} ledger at \`data/<your-agent-name>/\` — ` +
     "NEVER in the target repo and NEVER at the throne root. This holds for " +
     `cross-repo ${PERSONA_CONFIG.campaignTitle}s: the bundle stays in the ${PERSONA_CONFIG.throneTitle.toLowerCase()} ledger even when the ` +
-    "code lives elsewhere. Durable cross-session learnings go to " +
-    "`agent_docs/MEMORY/`, not the ledger. " +
+    "code lives elsewhere. Durable cross-session learnings go to the memory " +
+    "directory named in your identity, not the ledger. " +
     "When you end a turn idle because you are genuinely waiting on a specific " +
     "child, publish `{\"blocked\":true}` together with one `__BLOCKED_BY_<name>__` " +
     "token per child you are waiting on, in that same message -- naming the " +
@@ -267,6 +278,12 @@ export async function writeIdentity(
     ...(canonicalIdentity.spawnedTabLabel === undefined
       ? []
       : [`${SPAWNED_TAB_LABEL_LINE_PREFIX}${canonicalIdentity.spawnedTabLabel}`]),
+    ...(canonicalIdentity.memory === undefined
+      ? []
+      : [
+          `${MEMORY_DIRECTORY_LINE_PREFIX}${canonicalIdentity.memory.path} ` +
+            `(mode ${canonicalIdentity.memory.mode})`,
+        ]),
     "",
     identityText(name, canonicalIdentity),
     "",
@@ -278,8 +295,8 @@ export async function writeIdentity(
  * The three distinguishable outcomes of reading one prefixed line out of an
  * agent's `identity.md`. An unresolvable read (any errno, corrupt or
  * partially written content) is never collapsed into the field-absent
- * outcome -- per `agent_docs/MEMORY/TRISTATE_UNKNOWN_IS_NEVER_EMPTY_LAW.md`,
- * "an unresolvable read is unknown; unknown is never empty, never absent."
+ * outcome: an unresolvable read is unknown, and unknown is never empty,
+ * never absent.
  */
 export const IdentityLineReadStatus = {
   Found: "found",

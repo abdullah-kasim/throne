@@ -69,6 +69,8 @@ import { PlanUsageAuthenticationService } from "./plan-usage-remaining/plan-usag
 import { PlanUsageHistoryService } from "./plan-usage-remaining/plan-usage-history.service.ts";
 import { CampaignEvidenceCommand } from "./campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "./sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
+import { MemoryDirCommand } from "./memory-dir/memory-dir.command.ts";
+import { GitIdentityCommand } from "./git-identity/git-identity.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "./reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
 import {
   CodexUsageDependenciesService,
@@ -293,6 +295,8 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     LintQueuePlanCommand,
     CampaignEvidenceCommand,
     SweepTmpScratchCommand,
+    MemoryDirCommand,
+    GitIdentityCommand,
     ReclaimAgentScratchpadsCommand,
     SwitchPersonaCommand,
     DisableThroneCommand,

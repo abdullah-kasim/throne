@@ -3,7 +3,10 @@ import {
   type UsageReaderDependencies,
 } from './usage-readers.ts';
 import { UsageAdaptersService } from './usage-adapters.service.ts';
-import { PlanUsageRemainingService } from '../plan-usage-remaining/plan-usage-remaining.service.ts';
+import {
+  PlanUsageRemainingService,
+  realPlanUsageRemainingService,
+} from '../plan-usage-remaining/plan-usage-remaining.service.ts';
 
 /**
  * DI owner for the single-read usage snapshot shared by routing and policy.
@@ -25,8 +28,13 @@ export class UsageReadersService {
     const adapters = adaptersOrDependencies instanceof UsageAdaptersService
       ? adaptersOrDependencies
       : new UsageAdaptersService();
+    // A no-arg construction is the real, fully-wired reader set: the Claude
+    // sensor is wired in by default, not left as a throwing stub. Observed
+    // 2026-09-07: `new ThrottleSteeringService()` on the keep-going tick built
+    // `new UsageReadersService()` and every Regent throttle read failed with
+    // "PlanUsageRemainingService is required for Claude usage".
     const readerDependencies = adaptersOrDependencies instanceof UsageAdaptersService
-      ? dependencies ?? realUsageReaderDependencies(adapters, directPlanUsage)
+      ? dependencies ?? realUsageReaderDependencies(adapters, directPlanUsage ?? realPlanUsageRemainingService())
       : adaptersOrDependencies instanceof PlanUsageRemainingService
         ? realUsageReaderDependencies(adapters, directPlanUsage)
         : adaptersOrDependencies;

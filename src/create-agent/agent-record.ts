@@ -10,6 +10,7 @@ import { currentIsoTime, stderrWriter } from "./command-context.ts";
 import { appendLaunchLedgerEntry as appendLaunchLedgerEntryDefault } from "../alpha-launch-queue/launch-ledger.ts";
 import { DEFAULT_LAUNCH_LEDGER_PATH } from "../alpha-launch-queue/paths.ts";
 import { TREE_BASE_DATA } from "../agentdata/tree-base-data.service.ts";
+import type { MemoryResolution } from "../memory-dir/memory-dir-resolver.ts";
 
 export interface AgentOpeningPrompts {
   complete: string;
@@ -20,6 +21,7 @@ export function createAgentIdentity(
   request: PolicyResolution,
   defaultEscalation: string,
   spawnedTabLabel?: string,
+  memory?: MemoryResolution,
 ): AgentIdentity {
   const policyOverride = [
     request.capabilityOverrideNote,
@@ -40,6 +42,7 @@ export function createAgentIdentity(
     ...(policyOverride === "" ? {} : { policyOverride }),
     ...(request.emptyWorktree ? { emptyWorktree: true as const } : {}),
     ...(spawnedTabLabel === undefined ? {} : { spawnedTabLabel }),
+    ...(memory === undefined ? {} : { memory }),
   };
 }
 
