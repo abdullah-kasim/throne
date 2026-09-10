@@ -419,6 +419,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       ...(candidate.deliverableShape === null || candidate.deliverableShape === undefined
         ? []
         : ["--deliverable-shape", candidate.deliverableShape]),
+      ...(candidate.shadowless === true ? ["--shadowless"] : []),
       "--role",
       "Alpha",
       "--supervisor",

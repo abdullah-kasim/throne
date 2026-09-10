@@ -53,6 +53,12 @@ import {
 import { HARNESS_NAMES, type Harness } from "../harness-routing/harness.ts";
 import { pathsResolveEqual } from "../shared-policy/path-equivalence.ts";
 import { ensureLiveStager } from "../alpha-autoscale/stager-floor.ts";
+import { appendFile } from "node:fs/promises";
+import { resolveLiveThroneRoot } from "../throne-root-resolution.ts";
+import {
+  exportGitShimToSession,
+  type SessionEnvExportOutcome,
+} from "./session-env-export.ts";
 
 /**
  * Root of the throne project (three levels up from this file:
@@ -101,6 +107,7 @@ export interface ThroneStartupDeps {
   reconcile?: (liveAgents: HerdrAgent[]) => Promise<unknown>;
   /** Shared Stager-floor effect. Runs only for the confirmed Regent. */
   ensureStagerFloor?: () => Promise<unknown>;
+  exportSessionEnv?: () => Promise<SessionEnvExportOutcome>;
 }
 
 export const REAL_DEPS: ThroneStartupDeps = {
@@ -133,6 +140,14 @@ export const REAL_DEPS: ThroneStartupDeps = {
   writeRegentRoute,
   reconcile: async () => [],
   ensureStagerFloor: ensureLiveStager,
+  exportSessionEnv: () =>
+    exportGitShimToSession({
+      sessionEnvFile: process.env.CLAUDE_ENV_FILE,
+      liveRoot: () => resolveLiveThroneRoot(THRONE_ROOT),
+      currentPath: process.env.PATH,
+      appendToFile: (file, text) => appendFile(file, text),
+      writeStderr: (text) => process.stderr.write(text),
+    }),
 };
 
 function errText(err: unknown): string {
@@ -339,6 +354,15 @@ export async function run(
   _args: string[],
   deps: ThroneStartupDeps = REAL_DEPS,
 ): Promise<number> {
+  if (deps.exportSessionEnv !== undefined) {
+    const outcome = await deps.exportSessionEnv();
+    if (outcome === "written") {
+      process.stderr.write(
+        "throne-startup: exported the live throne bin dir (git identity shim) onto this session's PATH\n",
+      );
+    }
+  }
+
   // Step 0 — keep the omp delivery extension current, before anything that
   // might send a message. It is a symlink into this checkout, so this is
   // normally a no-op that confirms the link still points here; it matters on

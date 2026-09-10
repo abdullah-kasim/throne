@@ -41,6 +41,7 @@ export function createAgentIdentity(
         : {}),
     ...(policyOverride === "" ? {} : { policyOverride }),
     ...(request.emptyWorktree ? { emptyWorktree: true as const } : {}),
+    ...(request.shadowless === true ? { shadowless: true as const } : {}),
     ...(spawnedTabLabel === undefined ? {} : { spawnedTabLabel }),
     ...(memory === undefined ? {} : { memory }),
   };
@@ -147,6 +148,7 @@ export async function persistNewAgentRecord(
       ...(request.deliverableShape === undefined
         ? {}
         : { deliverable_shape: request.deliverableShape }),
+      ...(request.shadowless === true ? { shadowless: true as const } : {}),
       ...(request.laneEvidence === undefined
         ? {}
         : "lane" in request.laneEvidence

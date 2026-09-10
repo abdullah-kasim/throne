@@ -51,6 +51,10 @@ For every user-visible feature or regression fix, exercise the affected journey 
 - Unit and integration tests still provide focused coverage, but they do not replace E2E verification of user-visible behavior.
 - When the application cannot run locally, report the exact blocker and the unverified journey instead of quietly substituting a mocked test.
 
+**Accessible by construction.** Every interactive element a change adds or edits is reachable by keyboard with a visible focus state, carries an accessible name that says what it does (visible text, `aria-label`, or visually hidden text), keeps text contrast at 4.5:1 and click targets at 24px or larger, and conveys state by more than colour alone. Screen readers and keyboards are users, not edge cases; a control they cannot reach is a control that does not exist. The `frontend-critic` skill audits this for the changed surfaces only: accessibility debt the change did not touch is reported, never silently fixed, so a slice stays the size it was planned.
+
+Behaviour is half of user-visible. When a change touches CSS, markup, or component rendering, its appearance is verified with the throne-local `/frontend-critic` skill: render the served build, measure the changed element against its neighbours, check every state and all three browser engines, and fix until the report is empty. In a campaign this runs inside the `99b` verify gate of every bundle stamped `frontend: true`; a Stager or a no-alpha session runs it directly before calling the change done. A green suite is the floor; the Lord noticing a one-pixel offset is a failure of this step, not a review comment.
+
 ## Functions should do one thing (SRP)
 
 Don't merge two distinct operations into a single function just because they often appear together. Each function should have a single responsibility.

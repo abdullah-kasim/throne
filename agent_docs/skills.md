@@ -29,6 +29,19 @@ invoke it.
   published outside the throne, in the global `claude/agent_docs/Claude/` and
   `claude/agent_docs/GPT/` family directories.
 
+`frontend-critic` is throne-locally discovered at
+`throne/.claude/skills/frontend-critic/` (the Lord's order, 2026-09-09: most
+of his coding runs through the throne, so the review lives where the work
+does). It is the measured visual review of a web UI change: render the
+served build, measure the changed element against its neighbours with
+`getBoundingClientRect()`, check every state in Chromium, Firefox and
+WebKit, and report each defect with its cause and fix. It binds every role:
+`write-todos` stamps `frontend: true` on bundles whose slices touch CSS,
+markup, or component paths and puts the critique block into `99b`, so the
+verify gate runs it for campaign work; a Stager or a no-alpha session runs it
+directly (AGENTS.md "The Stager"; `no-alpha` step 5). It drives the browser
+through the global `agent-browser` skill.
+
 `queue-objective` is throne-locally discovered AND Stager-only at runtime: the
 file-then-notify procedure from AGENTS.md "The Stager" (STAR shaping, four
 markers, verified nouns, lint, `add-to-queue` with launch facts, pointer

@@ -19,6 +19,7 @@ export interface AgentIdentity {
   objectiveCode?: string;
   nonCampaign?: true;
   emptyWorktree?: true;
+  shadowless?: true;
   /** The exact herdr tab label this agent was spawned with (persona-aware
    *  under a non-Default preset, canonical otherwise). Durable so restart
    *  recovery never has to reconstruct "which preset was active at spawn
@@ -33,6 +34,23 @@ export interface AgentIdentity {
 }
 
 const ROLE_LINE_PREFIX = "- **Role:** ";
+export const SHADOWLESS_LINE = "- **Execution mode:** shadowless (Lord-authorized)";
+export const SHADOWLESS_STANDING_INSTRUCTION =
+  "Execution mode: SHADOWLESS, authorized by the Lord for this campaign at filing. " +
+  "You execute every todo slice yourself, in your own worktree and on your own branch, " +
+  "one slice at a time, instead of spawning a Shadow per slice; follow the " +
+  "\"Shadowless mode\" section of /execute-todos. Nothing else about the campaign contract " +
+  "changes: the todo bundle, the execution logs, the gate chain and the delivery rules still apply.";
+export const SHADOWED_LINE =
+  "- **Execution mode:** shadowed (default) — one real Shadow per slice; executing a slice yourself is a process deviation";
+export const SHADOWED_STANDING_INSTRUCTION =
+  "Execution mode: SHADOWED, the default. The Lord did NOT authorize shadowless execution for this campaign " +
+  "(no `--shadowless` at filing, no `Execution mode: shadowless` line in your identity.md). " +
+  "Every todo slice is executed by a real Shadow you spawn with `create-agent --role Shadow`, in its own " +
+  "herdr tab and worktree, and the 99a, 99b and 99c gates are real Shadows too. Writing, testing or pushing " +
+  "a slice yourself is the process deviation AGENTS.md forbids, whatever the size of the diff; the git shim " +
+  "refuses an Alpha's push to a named remote until 99a and 99b have recorded PASS. When in doubt, run " +
+  "/write-and-execute-todos and let the bundle decide.";
 export const SUPERVISOR_LINE_PREFIX = "- **Supervisor (routine):** ";
 export const SPAWNED_TAB_LABEL_LINE_PREFIX = "- **Spawned tab label:** ";
 export const MEMORY_DIRECTORY_LINE_PREFIX = "- **Memory directory:** ";
@@ -69,6 +87,11 @@ export function identityText(name: string, identity: AgentIdentity): string {
     sections.push(
       `Policy override for \`${name}\`: ${identity.policyOverride}`,
     );
+  }
+  if (identity.shadowless === true) {
+    sections.push(SHADOWLESS_STANDING_INSTRUCTION);
+  } else if (canonicalizeIdentityRole(identity.role) === "Alpha") {
+    sections.push(SHADOWED_STANDING_INSTRUCTION);
   }
   sections.push(formatMemoryStandingInstruction(identity.memory));
   sections.push(PERSONA_CONFIG.roleplayPrompt);
@@ -275,6 +298,11 @@ export async function writeIdentity(
     ...(canonicalIdentity.emptyWorktree === true
       ? ["- **Launch mode:** explicit empty-worktree (managed empty scratch)"]
       : []),
+    ...(canonicalIdentity.shadowless === true
+      ? [SHADOWLESS_LINE]
+      : canonicalIdentity.role === "Alpha"
+        ? [SHADOWED_LINE]
+        : []),
     ...(canonicalIdentity.spawnedTabLabel === undefined
       ? []
       : [`${SPAWNED_TAB_LABEL_LINE_PREFIX}${canonicalIdentity.spawnedTabLabel}`]),

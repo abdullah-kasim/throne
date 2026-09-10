@@ -284,6 +284,7 @@ export function readAutoscaleQueue(
       modelHint: itemByObjective.get(brief.objectiveCode)?.modelHint ?? null,
       deliverableShape:
         itemByObjective.get(brief.objectiveCode)?.deliverableShape ?? null,
+      shadowless: itemByObjective.get(brief.objectiveCode)?.shadowless === true,
     }));
   return candidates.length === 0
     ? {

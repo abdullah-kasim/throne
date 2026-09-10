@@ -208,7 +208,7 @@ async function preserveDeliveryStampBeforeDeletion(
     return undefined;
   }
   const tagName = `preserved-deliver-stamp/${branch}`;
-  await runGit(['tag', '--force', tagName, tip], root);
+  await runGit(['tag', '--force', '--no-sign', tagName, tip], root);
   return tagName;
 }
 

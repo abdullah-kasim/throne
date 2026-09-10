@@ -89,6 +89,7 @@ export interface SpawnSpec {
   // evidence never produced — this field is a stated, accepted residual,
   // never tamper-proof or cryptographically enforced.
   deliverable_shape?: "verdict-only";
+  shadowless?: true;
 }
 
 /** Historical records remain readable while score evidence is retired. */
@@ -194,6 +195,7 @@ function isSpawnSpec(value: unknown): value is SpawnSpec {
       typeof record.tasked_at === "string") &&
     (record.deliverable_shape === undefined ||
       record.deliverable_shape === "verdict-only") &&
+    (record.shadowless === undefined || record.shadowless === true) &&
     (record.token_balance_lane === undefined ||
       typeof record.token_balance_lane === "string") &&
     (record.token_balance_mandate === undefined ||

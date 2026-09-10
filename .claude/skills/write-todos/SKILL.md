@@ -669,13 +669,15 @@ Once the breakdown is settled:
 1. `mkdir ~/.throne/data/<alpha-name>/todo-<timestamp>-<topic>/` — the campaign
    data dir is the bundle's only home: never the target repo root, never the
    throne root.
-2. Write `00_overview.md` first (see "The overview file" below) with the bundle-level `todo_run_personality:` stamp, it is never executed.
+2. Write `00_overview.md` first (see "The overview file" below) with the bundle-level `todo_run_personality:` stamp and, when the classification in "Front-end bundles" below fires, `frontend: true`; it is never executed.
 3. Write each `NN_<task>.md` slice (one per title), each opening with the `deps:` and `touches:` lines settled there. Never emit legacy `tier:`/`model:` stamps.
 4. Write `99a_conform_<topic>.md` (see "The conformance todo" below) with
    `deps: [<every ordinary slice>]`.
 5. Write `99b_verify_<topic>.md` (see "The verify todo" below) with
    `deps: [99a]` frontmatter. It runs the
-   bundle's tests and lint, and fixes what fails.
+   bundle's tests and lint, and fixes what fails. When `00` stamps
+   `frontend: true`, include the front-end critique block from that template;
+   a front-end bundle whose `99b` lacks it is malformed.
 6. Write `99c_deliver_<topic>.md` last (see "The delivery todo" below) with
    `deps: [99b]` and the conflict-owning delivery
    contract. It merges the target branch into the campaign branch and re-checks
@@ -1060,7 +1062,7 @@ leaving the gate to find living prose about dead code.
 
 ## The overview file (`00_overview.md`)
 
-Always the first file. It is **read-first context, never an executed todo** — `/execute-todos` loads it into every worker's prompt so each slice knows the whole it plugs into, and never runs a worker for it. It carries bundle metadata such as `todo_run_personality`.
+Always the first file. It is **read-first context, never an executed todo** — `/execute-todos` loads it into every worker's prompt so each slice knows the whole it plugs into, and never runs a worker for it. It carries bundle metadata such as `todo_run_personality` and, for bundles that change a web UI, `frontend: true` (see "Front-end bundles").
 
 It also carries a mandatory `## Exact user wording` section. Preserve the
 initial user request and every later amendment as separate, ordered, verbatim
@@ -1339,13 +1341,35 @@ the code is the thing that was requested.
 - Your branch carries no product commits. That is the expected shape.
 ```
 
+## Front-end bundles
+
+A bundle is **front-end** when any slice's `touches:` set includes a path
+ending in `.css`, `.scss`, `.html`, `.jsx`, `.tsx`, `.vue`, or `.svelte`, or
+lying under a directory named `web/`, `ui/`, `frontend/`, or `components/`.
+Decide this in step 2, from the `touches:` sets you have already settled; it
+is deterministic and costs nothing, unlike diffing at gate time. Stamp
+`frontend: true` in `00_overview.md`'s frontmatter and include the front-end
+critique block in `99b`. A bundle that turns out front-end only during
+execution (a slice touched markup the plan did not foresee) is an amendment:
+`00` gains the stamp and `99b` gains the block before `99b` runs.
+
+The rule exists because passing tests and a correct DOM do not prove a UI
+looks right. On 2026-09-08 a link that met every Playwright assertion still
+sat one to two pixels below its neighbours, and the Lord had to notice,
+describe, and prescribe the fix. The throne-local `frontend-critic` skill is
+the measured review that catches that before he sees it; `99b` is where it
+runs for campaign work, because `99b` is the only moment the assembled UI
+exists to be looked at.
+
 ## The verify todo (`99b_verify_<topic>.md`)
 
 Always the second terminal executable todo and always a fresh real Shadow. It
 runs only after `99a` returns an explicit `**Conformance outcome:** PASS`, and
 does exactly one job: run the
 bundle's tests and lint/static analysis against the assembled candidate, fix
-whatever fails, and re-run until green. It is a fixing gate, not a verdict
+whatever fails, and re-run until green. For a front-end bundle that job
+includes the `frontend-critic` review, and every defect it reports is a
+failure to fix. It is a fixing gate, not a verdict
 gate — it commits its own repairs on the campaign branch. In `no-git` mode it
 runs whatever checks are naturally applicable and records the rest as N/A with
 the classifier evidence.
@@ -1379,11 +1403,24 @@ For the suite command specifically, do not credit exit 0 alone: read
 truncated log, a signal death, or a completed run reporting `tests executed: 0`
 or `tests executed: unknown` is never a PASS, whatever the exit code says.
 
+<!-- Include the block below only when 00_overview.md stamps frontend: true. -->
+## Front-end critique
+
+This bundle changes a web UI. Rebuild and serve the assembled candidate,
+confirm the served bytes carry the change, then run the throne-local
+`/frontend-critic` skill against every surface the bundle touched, in every
+state it names (default, hover, focus, fallback), in Chromium, Firefox and
+WebKit. Each defect it reports (a baseline off by more than 0.5px, a shifted
+neighbour, a clipped or overlapping box, an undersized click target) is a
+failure you fix here and commit, exactly like a red test. Re-run the critic
+after each fix and finish on an empty report.
+
 ## Deliverable
 
 - End with exactly one `**Verify outcome:** PASS` or `**Verify outcome:** FAIL`.
 - PASS requires a final clean run of every applicable command, cited with its
-  exit code and the suite's `tests executed: N` line.
+  exit code and the suite's `tests executed: N` line, and for a front-end
+  bundle the critic's final empty report with the browsers measured.
 - FAIL only when repair is genuinely impossible for you — a requirement nobody
   wrote, two slices whose designs contradict, or an environment you cannot fix.
   Name that precise blocker; never forward a raw test or lint failure as one.

@@ -114,6 +114,56 @@ case "$subcommand" in
         ;;
 esac
 
+if [ "$subcommand" = push ]; then
+    push_remote=""
+    for ((j = i + 1; j <= $#; j++)); do
+        push_arg="${!j}"
+        case "$push_arg" in
+            --repo=*|--receive-pack=*|--exec=*|--push-option=*|-o=*) ;;
+            --repo|--receive-pack|--exec|--push-option|-o) ((j++)) ;;
+            -*) ;;
+            *) push_remote="$push_arg"; break ;;
+        esac
+    done
+    [ -n "$push_remote" ] || push_remote=origin
+    case "$push_remote" in
+        /*|file://*|./*|../*) push_remote_is_local=true ;;
+        *) push_remote_is_local=false ;;
+    esac
+    if [ "$push_remote_is_local" = false ]; then
+        push_repo_dir=$("$real_git" "${@:1:$((i-1))}" rev-parse --show-toplevel 2>/dev/null || pwd -P)
+        push_agent_name=$(basename "$push_repo_dir")
+        throne_data_home="${THRONE_DATA_HOME:-$HOME/.throne}"
+        push_ledger="$throne_data_home/data/$push_agent_name"
+        case "$push_repo_dir" in
+            "$throne_data_home"/worktrees/*) push_from_throne_worktree=true ;;
+            *) push_from_throne_worktree=false ;;
+        esac
+        if [ "$push_from_throne_worktree" = true ] && [ -f "$push_ledger/identity.md" ] && grep -q '^- \*\*Role:\*\* Alpha$' "$push_ledger/identity.md"; then
+            latest_bundle=$(ls -d "$push_ledger"/todo-*/ 2>/dev/null | sort | tail -1 || true)
+            conformance_passed=false
+            verify_passed=false
+            if [ -n "$latest_bundle" ]; then
+                grep -qs '^\*\*Conformance outcome:\*\* PASS[[:space:]]*$' "$latest_bundle"99a_*.md && conformance_passed=true
+                grep -qs '^\*\*Verify outcome:\*\* PASS[[:space:]]*$' "$latest_bundle"99b_*.md && verify_passed=true
+            fi
+            if [ "$conformance_passed" != true ] || [ "$verify_passed" != true ]; then
+                if [ -z "$latest_bundle" ]; then
+                    gate_state="no todo bundle exists in $push_ledger"
+                elif [ "$conformance_passed" != true ]; then
+                    gate_state="99a has not recorded '**Conformance outcome:** PASS' in $latest_bundle"
+                else
+                    gate_state="99b has not recorded '**Verify outcome:** PASS' in $latest_bundle"
+                fi
+                echo "throne git guard: STOP RIGHT THERE — $push_agent_name is an Alpha pushing to '$push_remote' before its gate chain passed ($gate_state)." >&2
+                echo "An Alpha delivers only through /write-and-execute-todos: a real Shadow for 99a conformance, a real Shadow for 99b verify-and-fix, then 99c delivers. Writing, testing and pushing the change yourself is the process deviation AGENTS.md forbids, however small the diff." >&2
+                echo "Do NOT bypass this. Run the chain on your current branch, then push. If delivery is genuinely blocked, tell the Regent: throne send-agent Regent <what blocked you>." >&2
+                exit 66
+            fi
+        fi
+    fi
+fi
+
 if [ "$subcommand" != commit ]; then
     exec "$real_git" "$@"
 fi

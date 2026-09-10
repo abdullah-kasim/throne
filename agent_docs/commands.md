@@ -243,18 +243,18 @@ authority. There is no treeless bypass.
 
 ## Run a custom harness to process exit
 
-`create-agent --run-custom-harness-to-exit` is the custom-executable-only, non-resident path. It uses the caller's exact `--harness-executable` and every token after the first standalone `--`; `--prompt` is refused because composer delivery remains resident-only. The mode requires `--clear-environment`, accepts unique `--env KEY=VALUE` entries without inheriting ambient variables and refuses duplicate keys, honors `--cwd`, uses the exact caller-supplied `--name` as its visible Herdr tab label, and closes that tab after real process exit. It writes stdout, stderr, numeric exit status (`124` on timeout), wall milliseconds, and scrubbed JSON launcher evidence with requested and filesystem-resolved executable paths to the five explicit path flags. `--timeout-ms` terminates the child process group. It creates no `~/.throne/data/<name>` registration, has no resume recipe, does not participate in worktree-stranding detection, and refuses an already-visible tab with the same label. Every one-shot-only flag is refused when the mode flag is absent, before policy or lifecycle effects. The `--model` is resolved through the canonical model registry, which supplies the harness; caller-supplied `--harness` is refused. Effort, plan admission, steering, capability, quota, and their normal bypass flags are still evaluated as policy evidence; the custom executable replaces only configured launcher argv. Resident custom recipes remain registered, composer-prompted, startup-reconciled, and exactly resumable from `spawn.json`; legacy records without custom fields retain configured-launcher reconstruction.
+`create-agent --run-custom-harness-to-exit` is the custom-executable-only, non-resident path. It leaves no registered, watchable agent in herdr, so it is gated on the Lord's explicit authorization: every invocation must also pass `--bypass-run-custom-harness-to-exit`, and that flag is passed only when the Lord asked for a one-shot cell (Lord, 2026-09-08). Without it the command refuses before anything launches and tells the caller to spawn a resident agent instead. It uses the caller's exact `--harness-executable` and every token after the first standalone `--`; `--prompt` is refused because composer delivery remains resident-only. The mode requires `--clear-environment`, accepts unique `--env KEY=VALUE` entries without inheriting ambient variables and refuses duplicate keys, honors `--cwd`, uses the exact caller-supplied `--name` as its visible Herdr tab label, and closes that tab after real process exit. It writes stdout, stderr, numeric exit status (`124` on timeout), wall milliseconds, and scrubbed JSON launcher evidence with requested and filesystem-resolved executable paths to the five explicit path flags. `--timeout-ms` terminates the child process group. It creates no `~/.throne/data/<name>` registration, has no resume recipe, does not participate in worktree-stranding detection, and refuses an already-visible tab with the same label. Every one-shot-only flag is refused when the mode flag is absent, before policy or lifecycle effects. The `--model` is resolved through the canonical model registry, which supplies the harness; caller-supplied `--harness` is refused. Effort, plan admission, steering, capability, quota, and their normal bypass flags are still evaluated as policy evidence; the custom executable replaces only configured launcher argv. Resident custom recipes remain registered, composer-prompted, startup-reconciled, and exactly resumable from `spawn.json`; legacy records without custom fields retain configured-launcher reconstruction.
 
 Claude CMO cell:
 
 ```bash
-./bin/throne-cli create-agent --model fable --effort 1 --name cmo-claude-cell --supervisor alpha-cmo-claude-md-optimization --role Agent --cwd "$CELL_HOME/work" --non-campaign --bypass-preset-agent --harness-executable /absolute/path/to/claude --run-custom-harness-to-exit --clear-environment --env "HOME=$CELL_HOME" --env PATH=/usr/local/bin:/usr/bin:/bin --env TERM=dumb --env "CLAUDE_CONFIG_DIR=$CELL_HOME/.claude" --stdout-path "$CELL_HOME/result.jsonl" --stderr-path "$CELL_HOME/result.stderr" --exit-status-path "$CELL_HOME/result.rc" --wall-time-path "$CELL_HOME/result.wallms" --launcher-evidence-path "$CELL_HOME/result.launcher.json" --timeout-ms 120000 -- -p "$PROMPT" --output-format stream-json --verbose
+./bin/throne-cli create-agent --model fable --effort 1 --name cmo-claude-cell --supervisor alpha-cmo-claude-md-optimization --role Agent --cwd "$CELL_HOME/work" --non-campaign --bypass-preset-agent --harness-executable /absolute/path/to/claude --run-custom-harness-to-exit --bypass-run-custom-harness-to-exit --clear-environment --env "HOME=$CELL_HOME" --env PATH=/usr/local/bin:/usr/bin:/bin --env TERM=dumb --env "CLAUDE_CONFIG_DIR=$CELL_HOME/.claude" --stdout-path "$CELL_HOME/result.jsonl" --stderr-path "$CELL_HOME/result.stderr" --exit-status-path "$CELL_HOME/result.rc" --wall-time-path "$CELL_HOME/result.wallms" --launcher-evidence-path "$CELL_HOME/result.launcher.json" --timeout-ms 120000 -- -p "$PROMPT" --output-format stream-json --verbose
 ```
 
 Codex CMO cell:
 
 ```bash
-./bin/throne-cli create-agent --model gpt-5.4 --effort 1 --name cmo-codex-cell --supervisor alpha-cmo-claude-md-optimization --role Agent --cwd "$CELL_HOME/work" --non-campaign --bypass-preset-agent --harness-executable /absolute/path/to/codex --run-custom-harness-to-exit --clear-environment --env "HOME=$CELL_HOME" --env PATH=/usr/local/bin:/usr/bin:/bin --env TERM=dumb --env "CODEX_HOME=$CELL_HOME/.codex" --stdout-path "$CELL_HOME/result.jsonl" --stderr-path "$CELL_HOME/result.stderr" --exit-status-path "$CELL_HOME/result.rc" --wall-time-path "$CELL_HOME/result.wallms" --launcher-evidence-path "$CELL_HOME/result.launcher.json" --timeout-ms 120000 -- exec --json "$PROMPT"
+./bin/throne-cli create-agent --model gpt-5.4 --effort 1 --name cmo-codex-cell --supervisor alpha-cmo-claude-md-optimization --role Agent --cwd "$CELL_HOME/work" --non-campaign --bypass-preset-agent --harness-executable /absolute/path/to/codex --run-custom-harness-to-exit --bypass-run-custom-harness-to-exit --clear-environment --env "HOME=$CELL_HOME" --env PATH=/usr/local/bin:/usr/bin:/bin --env TERM=dumb --env "CODEX_HOME=$CELL_HOME/.codex" --stdout-path "$CELL_HOME/result.jsonl" --stderr-path "$CELL_HOME/result.stderr" --exit-status-path "$CELL_HOME/result.rc" --wall-time-path "$CELL_HOME/result.wallms" --launcher-evidence-path "$CELL_HOME/result.launcher.json" --timeout-ms 120000 -- exec --json "$PROMPT"
 ```
 
 Under Throne, CMO uses this seam for live cells. CMO's throne-less staging and analysis mode remains CMO-owned.
@@ -278,7 +278,7 @@ Under Throne, CMO uses this seam for live cells. CMO's throne-less staging and a
   [--bypass-alpha-guardrail] \
   [--bypass-preset-agent] \
   [--harness-executable <absolute-path> [-- <complete harness argv…>]] \
-  [--run-custom-harness-to-exit …]
+  [--run-custom-harness-to-exit --bypass-run-custom-harness-to-exit …]
 ```
 
 There is no `--bypass-harness` flag. `--harness` itself is refused outright for
@@ -1279,7 +1279,7 @@ else. A non-Regent `--name` target never receives a band advisory.
 ## add-to-queue
 
 ```bash
-./bin/throne-cli add-to-queue [--objective-code <code>] <body words...>
+./bin/throne-cli add-to-queue [--objective-code <code>] [--shadowless] <body words...>
 ```
 
 Writes one new `open`-status item to the SQLite-backed Regent queue store
@@ -1436,6 +1436,26 @@ THERE** that tells the agent to ask the Lord (via its supervisor) for the two
 lines, exactly as a missing `gh` login is handled (Lord, 2026-09-08). An
 explicit `GIT_AUTHOR_EMAIL`/`GIT_COMMITTER_EMAIL` in the environment is
 honoured and skips the guard.
+
+**The shim also closes the fast route to origin for an Alpha (Lord, 2026-09-10).**
+Before `push`, when the repository's top level lies under
+`$THRONE_DATA_HOME/worktrees/` and the ledger at
+`$THRONE_DATA_HOME/data/<basename>/identity.md` says `- **Role:** Alpha`, the
+push to any named remote or URL is refused with exit 66 unless the newest
+`todo-*` bundle in that ledger holds a `99a_*.md` whose execution log recorded
+`**Conformance outcome:** PASS` and a `99b_*.md` that recorded
+`**Verify outcome:** PASS` (line-anchored, so the template's own mention of
+the line does not count). Pushes to a local path (`/…`, `./…`, `file://…`),
+which is how the yolo checkpoint reaches `$CLAUDE_BACKUP_PATH`, are never
+guarded; nor are Shadow worktrees or checkouts outside the throne's worktree
+root. The refusal names the missing gate and tells the Alpha to run the
+chain or message the Regent. It exists because on 2026-09-10 an Alpha
+skipped `/write-and-execute-todos` entirely, wrote, tested and pushed a fix
+inline four minutes after spawning, and only the Regent's review caught it:
+a brief is prose and can be skipped whole, a refused push cannot. The same
+incident added the `Execution mode:` line to every Alpha's identity.md,
+stated both ways (`shadowless (Lord-authorized)` or `shadowed (default)`), so
+the mode is never implied by absence.
 
 ## memory-dir
 
@@ -1672,11 +1692,16 @@ machine-consumable `source`, `harness`, `as_of`, `windows[]`, and optional
 carry `scope_model`. A window the endpoint reports as not applicable is omitted
 rather than fabricated as zero.
 
-It is a pure reader of `~/.claude/.credentials.json`: it never writes that
-file. When the stored access token is at or near expiry it refreshes it via
-the OAuth token endpoint, but only in memory for the one usage call — the live
-Claude session owns that file's refresh lifecycle, and a second writer would
-race and corrupt it.
+It is a pure reader of `~/.claude/.credentials.json` (the macOS Keychain
+item on darwin): it never writes the store and it NEVER refreshes the token.
+An expired access token is reported as an honest failure and the last-good
+cache serves the numbers marked stale until a Claude Code session refreshes
+it on its own next request. The refresh it used to perform "only in memory"
+was the cause of the Lord's recurring logouts (found 2026-09-10): Anthropic
+rotates the refresh token on every grant, the throne never wrote the rotated
+token back, so every Claude Code session was left holding a dead refresh
+token and was logged out at its next refresh. The same rule the Codex reader
+always followed now binds this one.
 
 A successful read is cached at `~/.throne/usage-cache/claude.json` (the same
 shared last-good cache `codex-usage-remaining` below uses, one file per
@@ -1696,7 +1721,7 @@ non-future rows no older than eight days and then applies one global newest-
 sensor ledger rather than an unbounded log.
 
 Every failure mode with no cached reading to fall back on —
-missing/unreadable/malformed credentials, a failed token refresh, a failed
+missing/unreadable/malformed credentials, an expired access token, a failed
 usage request, or a response that doesn't match the expected usage schema —
 exits non-zero with a clear cause: a stderr line in the default mode, or a
 `{"source":"error",...}` object in `--json` mode. It never prints a
