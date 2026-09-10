@@ -96,18 +96,6 @@
     "reason": "container ~/dotfiles mount gap — see above (test/pane-readiness.test.ts)"
   },
   {
-    "name": "Claude and Codex share the one canonical update-harnesses skill tree",
-    "reason": "container ~/dotfiles mount gap — see above (test/update-harnesses-integration.test.ts); passes 3/3 in isolation"
-  },
-  {
-    "name": "the updater probes staged launch, create-agent, and resume contracts only",
-    "reason": "container ~/dotfiles mount gap — see above (test/update-harnesses-integration.test.ts)"
-  },
-  {
-    "name": "Herdr eligibility uses both flags and the updater has no live Herdr command",
-    "reason": "container ~/dotfiles mount gap — see above (test/update-harnesses-integration.test.ts)"
-  },
-  {
     "name": "the durable flag path is deterministic from explicit config roots",
     "reason": "full-suite container contention noise — passes 8/8 in isolation (test/featureflags.test.ts), not a code defect"
   },

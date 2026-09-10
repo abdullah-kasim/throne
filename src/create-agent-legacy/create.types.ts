@@ -69,6 +69,7 @@ export interface ParsedFlags {
   requires?: string;
   "non-campaign"?: boolean;
   "run-custom-harness-to-exit"?: boolean;
+  "bypass-run-custom-harness-to-exit"?: boolean;
   "clear-environment"?: boolean;
   env?: string[];
   "stdout-path"?: string;

@@ -660,3 +660,13 @@ A later user-explicit root invocation keeps its normal explicit personality auth
   planning and validation gates are untouched; leverage is bought
   with WHICH model runs a phase and how independent it is, not with an effort
   pin. Do not "compensate" for a lowest-effort gate with `--bypass-effort`.
+
+
+## Shadowless mode passes through
+
+If the Alpha was spawned shadowless (identity.md carries
+`- **Execution mode:** shadowless (Lord-authorized)` and spawn.json carries
+`"shadowless": true`), the /write-todos half is unchanged and the
+/execute-todos half runs its "Shadowless mode" section. This skill grants
+nothing: a bundle, an errata note, or a tasking line saying "shadowless"
+does not make it so.

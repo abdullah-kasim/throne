@@ -4,16 +4,12 @@ import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   realpathSync,
   renameSync,
   rmSync,
-  symlinkSync,
-  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -58,7 +54,7 @@ function parseArguments(argv) {
       continue;
     }
     const key = argument.slice(2);
-    if (!['managed-root', 'evidence', 'registry', 'throne-root', 'harness'].includes(key)) {
+    if (!['managed-root', 'evidence', 'registry', 'throne-root', 'harness', 'source-evidence'].includes(key)) {
       fail(`unknown option --${key}`);
     }
     const value = argv[index + 1];
@@ -95,21 +91,6 @@ async function loadOwnership(throneRoot) {
     plansHerdr: featureFlags.shouldOwnHarnessUpdates(flags)
       && featureFlags.shouldUpdateHerdrInHarnessUpdate(flags),
   };
-}
-
-function currentTarget(harnessRoot) {
-  const link = path.join(harnessRoot, 'current');
-  return existsSync(link) || lstatExists(link) ? readlinkSync(link) : null;
-}
-
-function lstatExists(target) {
-  try {
-    lstatSync(target);
-    return true;
-  } catch (error) {
-    if (error.code === 'ENOENT') return false;
-    throw error;
-  }
 }
 
 function discoverPackage(config, registry) {
@@ -211,46 +192,14 @@ function probeStagedHarness(config, binary, throneRoot) {
     env: { ...process.env, [config.binaryEnvironment]: binary },
   });
   results.push(`${config.launcher} --version with staged binary override`);
-  const tests = [
-    'test/throne-launcher-path.test.ts',
-    'test/create-agent-send-agent-handoff.canary.test.ts',
-  ];
   const tsLoader = path.join(throneRoot, 'test', 'register-typescript.mjs');
-  // The canary test itself spawns further `node src/tools.ts` subprocesses
-  // (its own live create-agent/send-agent/reap-agent calls). `--import` only
-  // installs the TS decorator loader in THIS process, not in a child spawned
-  // via spawnSync, so those nested subprocesses need the loader too — set via
-  // NODE_OPTIONS (inherited down the whole spawn chain) with an ABSOLUTE
-  // path, since a relative `--import` path resolves against each subprocess's
-  // own cwd, not the throne root.
-  run(process.execPath, ['--import', tsLoader, '--test', ...tests], {
+  const launcherResolutionTest = 'test/ompy-launcher.test.ts';
+  run(process.execPath, ['--import', tsLoader, '--test', launcherResolutionTest], {
     cwd: throneRoot,
-    env: {
-      ...process.env,
-      THRONE_RUN_LIVE_SEND_AGENT_HANDOFF_CANARY: '1',
-      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import ${tsLoader}`.trim(),
-    },
   });
-  results.push('launcher, create-agent, and live send-agent enqueue-drain-delivered handoff proof');
+  results.push(`${launcherResolutionTest} proves the shared binary-override resolution that ${config.launcher} also uses`);
+  results.push("create-agent spawn-acceptance of the staged binary is not probed: no existing test proves it without a live agent spawn, and a live spawn is LORD'S-ORDER-ONLY heavy territory");
   return results;
-}
-
-function replaceLink(link, target) {
-  const temporary = `${link}.next-${process.pid}`;
-  rmSync(temporary, { force: true });
-  symlinkSync(target, temporary);
-  renameSync(temporary, link);
-}
-
-function restoreLink(link, target) {
-  if (target === null) {
-    // The link is a symlink to a directory; `rmSync` resolves it and throws
-    // EISDIR ("Path is a directory") rather than unlinking, which would abort
-    // the unwind and strand a promoted `current` on a first install.
-    if (lstatExists(link)) unlinkSync(link);
-    return;
-  }
-  replaceLink(link, target);
 }
 
 function acquireTransactionLock(managedRoot) {
@@ -265,51 +214,198 @@ function acquireTransactionLock(managedRoot) {
   return lock;
 }
 
-function installedVersion(harnessRoot) {
-  const target = currentTarget(harnessRoot);
-  if (!target) return null;
-  const releasePath = path.resolve(harnessRoot, target);
-  const metadataPath = path.join(releasePath, '.throne-harness.json');
-  if (!existsSync(metadataPath)) return null;
-  const metadata = JSON.parse(readFileSync(metadataPath, 'utf8'));
+function readPinnedVersion(throneRoot, harness) {
+  const pinsPath = path.join(throneRoot, 'vendor-pins.json');
+  const pins = JSON.parse(readFileSync(pinsPath, 'utf8'));
+  const pinned = pins.harnesses?.[harness]?.version;
+  if (typeof pinned !== 'string') fail(`vendor-pins.json has no harnesses.${harness}.version`);
+  return pinned;
+}
+
+function vendoredBinaryPath(throneRoot, executable) {
+  return path.join(throneRoot, 'vendor', 'node_modules', '.bin', executable);
+}
+
+function readVendoredVersion(throneRoot, executable) {
+  const binary = vendoredBinaryPath(throneRoot, executable);
+  if (!existsSync(binary)) return null;
+  return run(binary, ['--version']);
+}
+
+function readNativeVersionOutsideThroneRoot(throneRoot, executable) {
+  const throneRootReal = existsSync(throneRoot) ? realpathSync(throneRoot) : path.resolve(throneRoot);
+  const pathEntries = (process.env.PATH ?? '').split(path.delimiter);
+  for (const entry of pathEntries) {
+    if (!entry) continue;
+    const candidate = path.join(entry, executable);
+    if (!existsSync(candidate)) continue;
+    const candidateReal = realpathSync(candidate);
+    if (candidateReal.startsWith(`${throneRootReal}${path.sep}`)) continue;
+    return run(candidate, ['--version']);
+  }
+  return null;
+}
+
+function fetchLatestRegistryVersion(packageName, registry) {
+  try {
+    const raw = run('npm', ['view', `${packageName}@latest`, 'version', '--json', '--registry', registry]);
+    const version = JSON.parse(raw);
+    return typeof version === 'string' ? version : null;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveHarnessState({ harness, throneRoot, registry = 'https://registry.npmjs.org' }) {
+  const config = HARNESS[harness];
+  const pinnedVersion = readPinnedVersion(throneRoot, harness);
+  const vendoredVersion = readVendoredVersion(throneRoot, config.executable);
+  const nativeVersion = readNativeVersionOutsideThroneRoot(throneRoot, config.executable);
+  const latestVersion = fetchLatestRegistryVersion(config.packageName, registry);
   return {
-    version: run(path.resolve(releasePath, metadata.binary), ['--version']),
-    binary: path.resolve(releasePath, metadata.binary),
+    harness,
+    packageName: config.packageName,
+    pinnedVersion,
+    vendoredVersion,
+    nativeVersion,
+    latestVersion,
+    activeBinary: vendoredBinaryPath(throneRoot, config.executable),
+    upToDate: pinnedVersion === latestVersion && vendoredVersion === pinnedVersion,
   };
 }
 
-function promote(staged, harnessRoot, metadata) {
-  mkdirSync(path.join(harnessRoot, 'versions'), { recursive: true });
-  const releaseName = `${metadata.version}-${metadata.integrity.slice('sha512-'.length, 'sha512-'.length + 12).replaceAll('/', '_')}`;
-  const releasePath = path.join(harnessRoot, 'versions', releaseName);
-  if (existsSync(releasePath)) rmSync(staged, { recursive: true, force: true });
-  else renameSync(staged, releasePath);
-  const currentLink = path.join(harnessRoot, 'current');
-  const previousLink = path.join(harnessRoot, 'previous');
-  const oldTarget = currentTarget(harnessRoot);
-  const oldPreviousTarget = lstatExists(previousLink) ? readlinkSync(previousLink) : null;
-  if (oldTarget) replaceLink(path.join(harnessRoot, 'previous'), oldTarget);
-  replaceLink(currentLink, path.relative(harnessRoot, releasePath));
-  return {
-    oldTarget,
-    oldPreviousTarget,
-    newTarget: path.relative(harnessRoot, releasePath),
-    releasePath,
-    restore() {
-      restoreLink(currentLink, oldTarget);
-      restoreLink(previousLink, oldPreviousTarget);
-    },
-  };
+export function renderCheckReport(state) {
+  const verdict = state.upToDate
+    ? `vendored ${state.harness} ${state.vendoredVersion} (what agents run) matches registry latest ${state.latestVersion}`
+    : `vendored ${state.harness} ${state.vendoredVersion ?? 'MISSING'} (what agents run) is behind registry ${state.latestVersion ?? 'unknown'}`;
+  return [
+    `${state.harness} pinned: ${state.pinnedVersion}`,
+    `${state.harness} vendored (what agents run): ${state.vendoredVersion ?? 'not installed'}`,
+    `${state.harness} native (PATH, outside throne): ${state.nativeVersion ?? 'none'}`,
+    `${state.harness} registry latest: ${state.latestVersion ?? 'unknown'}`,
+    verdict,
+  ].join('\n');
 }
 
-function rollback(harnessRoot) {
-  const current = currentTarget(harnessRoot);
-  const previousLink = path.join(harnessRoot, 'previous');
-  if (!current || !lstatExists(previousLink)) fail('rollback requires both current and previous releases');
-  const previous = readlinkSync(previousLink);
-  replaceLink(path.join(harnessRoot, 'current'), previous);
-  replaceLink(previousLink, current);
-  return { oldTarget: current, newTarget: previous };
+function assertCourtLivenessIsReadable() {
+  try {
+    run('throne', ['agent-statuses']);
+  } catch (error) {
+    fail(`cannot confirm court liveness before a harness pin transaction: ${error.message}`);
+  }
+}
+
+function readJsonFile(filePath) {
+  return JSON.parse(readFileSync(filePath, 'utf8'));
+}
+
+function writeJsonFilePreservingShape(filePath, data) {
+  writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+function vendorDirectory(throneRoot) {
+  return path.join(throneRoot, 'vendor');
+}
+
+function vendorPinsPath(throneRoot) {
+  return path.join(throneRoot, 'vendor-pins.json');
+}
+
+function vendorPackageJsonPath(throneRoot) {
+  return path.join(vendorDirectory(throneRoot), 'package.json');
+}
+
+function vendorHarnessesStampPath(throneRoot) {
+  return path.join(vendorDirectory(throneRoot), '.stamps', 'harnesses');
+}
+
+function resolveSha256Command() {
+  try {
+    execFileSync('sha256sum', ['--version'], { stdio: 'ignore' });
+    return { command: 'sha256sum', args: [] };
+  } catch {
+    return { command: 'shasum', args: ['-a', '256'] };
+  }
+}
+
+function computeVendorHarnessesStamp(pins) {
+  const specs = ['claude', 'codex'].map((harness) => `${pins.harnesses[harness].package}@${pins.harnesses[harness].version}`);
+  const input = specs.map((spec) => `${spec}\n`).join('');
+  const { command, args } = resolveSha256Command();
+  const digest = execFileSync(command, args, { input, encoding: 'utf8' });
+  return digest.trim().split(/\s+/)[0];
+}
+
+function writeVendorPin(throneRoot, harness, version) {
+  const pinsPath = vendorPinsPath(throneRoot);
+  const pins = readJsonFile(pinsPath);
+  pins.harnesses[harness].version = version;
+  writeJsonFilePreservingShape(pinsPath, pins);
+  return pins;
+}
+
+function writeVendorPackageDependency(throneRoot, packageName, version) {
+  const packageJsonPath = vendorPackageJsonPath(throneRoot);
+  const manifest = existsSync(packageJsonPath)
+    ? readJsonFile(packageJsonPath)
+    : { name: 'throne-vendor', private: true, version: '0.0.0' };
+  manifest.dependencies = { ...manifest.dependencies, [packageName]: version };
+  writeJsonFilePreservingShape(packageJsonPath, manifest);
+}
+
+function refreshVendorHarnessesStamp(throneRoot, pins) {
+  const stampPath = vendorHarnessesStampPath(throneRoot);
+  mkdirSync(path.dirname(stampPath), { recursive: true });
+  writeFileSync(stampPath, `${computeVendorHarnessesStamp(pins)}\n`);
+}
+
+function installVendoredHarness(throneRoot, packageName, version, registry) {
+  run('npm', [
+    'install',
+    '--no-audit',
+    '--no-fund',
+    '--save-exact',
+    '--prefix',
+    vendorDirectory(throneRoot),
+    `${packageName}@${version}`,
+    '--registry',
+    registry,
+  ]);
+}
+
+function assertVendoredVersionMatches(throneRoot, executable, expected) {
+  const actual = readVendoredVersion(throneRoot, executable);
+  if (actual !== expected) fail(`vendored ${executable} reports "${actual ?? 'nothing'}", expected ${expected}`);
+}
+
+function renderVendorPinDiff(throneRoot) {
+  return run('git', [
+    '-C',
+    throneRoot,
+    'diff',
+    '--',
+    'vendor-pins.json',
+    'vendor/package.json',
+    'vendor/package-lock.json',
+  ]);
+}
+
+function commitHarnessTransaction({ harness, throneRoot, version, registry }) {
+  const config = HARNESS[harness];
+  const pins = writeVendorPin(throneRoot, harness, version);
+  writeVendorPackageDependency(throneRoot, config.packageName, version);
+  installVendoredHarness(throneRoot, config.packageName, version, registry);
+  refreshVendorHarnessesStamp(throneRoot, pins);
+  assertVendoredVersionMatches(throneRoot, config.executable, version);
+  return renderVendorPinDiff(throneRoot);
+}
+
+function rollbackHarnessTransaction({ harness, throneRoot, sourceEvidencePath, registry }) {
+  const priorEvidence = readJsonFile(sourceEvidencePath);
+  const previousVersion = priorEvidence.oldVersion;
+  if (typeof previousVersion !== 'string') fail(`${sourceEvidencePath} has no oldVersion to roll back to`);
+  const diff = commitHarnessTransaction({ harness, throneRoot, version: previousVersion, registry });
+  return { previousVersion, diff };
 }
 
 function writeEvidence(destination, evidence) {
@@ -317,6 +413,53 @@ function writeEvidence(destination, evidence) {
   const temporary = `${destination}.next-${process.pid}`;
   writeFileSync(temporary, `${JSON.stringify(evidence, null, 2)}\n`, { mode: 0o600 });
   renameSync(temporary, destination);
+}
+
+const MUTABLE_SERVICE_CAVEAT = 'Hosted services and model behavior remain mutable independently of these local CLI artifacts.';
+
+export function runUpdate({ harness, throneRoot, managedRoot, registry, evidencePath, ownership }) {
+  const config = HARNESS[harness];
+  assertCourtLivenessIsReadable();
+  const oldVersion = readPinnedVersion(throneRoot, harness);
+  const metadata = discoverPackage(config, registry);
+  const workRoot = mkdtempSync(path.join(managedRoot, `.stage-${harness}-`));
+  try {
+    const staged = stagePackage(config, metadata, registry, workRoot);
+    const probes = probeStagedHarness(config, staged.binary, throneRoot);
+    const diff = commitHarnessTransaction({ harness, throneRoot, version: metadata.version, registry });
+    const evidence = {
+      action: 'update',
+      harness,
+      package: metadata.name,
+      oldVersion,
+      newVersion: metadata.version,
+      source: metadata.tarball,
+      integrity: metadata.integrity,
+      probes,
+      diff,
+      herdrPlanned: ownership.plansHerdr,
+      herdrTouchedOrRestarted: false,
+      mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
+    };
+    writeEvidence(evidencePath, evidence);
+    return evidence;
+  } finally {
+    rmSync(workRoot, { recursive: true, force: true });
+  }
+}
+
+export function runRollback({ harness, throneRoot, sourceEvidencePath, registry, evidencePath, ownership }) {
+  const { previousVersion, diff } = rollbackHarnessTransaction({ harness, throneRoot, sourceEvidencePath, registry });
+  const evidence = {
+    action: 'rollback',
+    harness,
+    restoredVersion: previousVersion,
+    diff,
+    herdrPlanned: ownership.plansHerdr,
+    mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
+  };
+  writeEvidence(evidencePath, evidence);
+  return evidence;
 }
 
 async function main() {
@@ -328,79 +471,33 @@ async function main() {
   }
   const transactionLock = acquireTransactionLock(options.managedRoot);
   try {
-    const config = HARNESS[options.harness];
-    const harnessRoot = path.join(options.managedRoot, options.harness);
-    const before = currentTarget(harnessRoot);
-    const oldCli = installedVersion(harnessRoot);
-    if (options.action === 'rollback') {
-      const promotion = rollback(harnessRoot);
-      writeEvidence(options.evidence, {
-        action: 'rollback',
-        harness: options.harness,
-        oldVersionPath: promotion.oldTarget,
-        newVersionPath: promotion.newTarget,
-        herdrPlanned: false,
-        mutableServiceCaveat: 'Hosted services and model behavior remain mutable independently of these local CLI artifacts.',
-      });
-      process.stdout.write(`${options.harness} rolled back; evidence: ${options.evidence}\n`);
-      return;
-    }
-    const metadata = discoverPackage(config, options.registry);
     if (options.action === 'check') {
+      const state = resolveHarnessState({ harness: options.harness, throneRoot: options.throneRoot, registry: options.registry });
       writeEvidence(options.evidence, {
         action: 'check',
-        harness: options.harness,
-        oldVersionPath: before,
-        oldCliVersion: oldCli?.version ?? null,
-        availableVersion: metadata.version,
-        source: metadata.tarball,
-        integrity: metadata.integrity,
+        ...state,
         herdrPlanned: ownership.plansHerdr,
-        mutableServiceCaveat: 'Hosted services and model behavior remain mutable independently of these local CLI artifacts.',
+        mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
       });
-      process.stdout.write(`${options.harness} ${metadata.version} is available; evidence: ${options.evidence}\n`);
+      process.stdout.write(`${renderCheckReport(state)}\nevidence: ${options.evidence}\n`);
       return;
     }
-    const workRoot = mkdtempSync(path.join(options.managedRoot, `.stage-${options.harness}-`));
-    try {
-      const staged = stagePackage(config, metadata, options.registry, workRoot);
-      const newCliVersion = run(staged.binary, ['--version']);
-      const probes = probeStagedHarness(config, staged.binary, options.throneRoot);
-      const promotion = promote(staged.staged, harnessRoot, metadata);
-      try {
-        writeEvidence(options.evidence, {
-          action: 'update',
-          harness: options.harness,
-          package: metadata.name,
-          oldVersionPath: promotion.oldTarget,
-          oldCliVersion: oldCli?.version ?? null,
-          newVersion: metadata.version,
-          newCliVersion,
-          newVersionPath: promotion.newTarget,
-          activeBinary: path.join(harnessRoot, 'current', staged.binRelative),
-          source: metadata.tarball,
-          integrity: metadata.integrity,
-          probes,
-          promotionPath: path.join(harnessRoot, 'current'),
-          rollbackPath: promotion.oldTarget ? path.join(harnessRoot, 'previous') : null,
-          herdrPlanned: ownership.plansHerdr,
-          herdrTouchedOrRestarted: false,
-          mutableServiceCaveat: 'Hosted services and model behavior remain mutable independently of these local CLI artifacts.',
-        });
-      } catch (error) {
-        promotion.restore();
-        throw error;
-      }
-      process.stdout.write(`${options.harness} promoted to ${metadata.version}; evidence: ${options.evidence}\n`);
-    } finally {
-      rmSync(workRoot, { recursive: true, force: true });
+    if (options.action === 'rollback') {
+      if (!options.sourceEvidence) fail('--source-evidence is required for rollback');
+      const evidence = runRollback({ ...options, sourceEvidencePath: path.resolve(options.sourceEvidence), evidencePath: options.evidence, ownership });
+      process.stdout.write(`${options.harness} rolled back to ${evidence.restoredVersion}; evidence: ${options.evidence}\n${evidence.diff}\n`);
+      return;
     }
+    const evidence = runUpdate({ ...options, evidencePath: options.evidence, ownership });
+    process.stdout.write(`${options.harness} pinned to ${evidence.newVersion}; evidence: ${options.evidence}\n${evidence.diff}\n`);
   } finally {
     rmSync(transactionLock, { recursive: true, force: true });
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`update-harness: ${error.message}\n`);
-  process.exitCode = 1;
-});
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  main().catch((error) => {
+    process.stderr.write(`update-harness: ${error.message}\n`);
+    process.exitCode = 1;
+  });
+}

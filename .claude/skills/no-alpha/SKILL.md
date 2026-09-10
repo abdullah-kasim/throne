@@ -36,6 +36,10 @@ inferred one.
    confirmation above (WHICH task, step 0); it is never repeated for
    implementation choices (HOW is yours to decide).
 5. Verify the requested outcome with the smallest relevant focused checks.
+   When the change touches CSS, markup, or component rendering, the
+   throne-local `/frontend-critic` skill is one of those checks: run it
+   against the served build and fix until its report is empty (Lord,
+   2026-09-09; no-alpha work has no `99b` gate, so this is where it runs).
 6. For every file edit, commit immediately with a descriptive message and
    update the YOLO checkpoint before making another edit.
 7. Report the direct changes, validation evidence, and any precise residual

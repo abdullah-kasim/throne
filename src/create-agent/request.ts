@@ -45,12 +45,13 @@ const USAGE =
   "[--bypass-opencode-telemetry-unavailable] " +
   "[--objective-code <code> | --non-campaign] " +
   "[--empty-worktree] " +
+  "[--shadowless (Alpha only; the Lord authorized this campaign to execute its slices without Shadows)] " +
   "[--deliverable-shape verdict-only (declares this agent's correct completion " +
   "is a judgement, not a diff; refused for a 99a/99e-shaped --name)] " +
   "[--bypass-effort] [--bypass-alpha-guardrail] [--bypass-preset-agent] " +
   "[--bypass-usage (pin the explicit route against usage steering; requires durable Lord or Regent authorization)] " +
   "[--harness-executable <absolute-path> [-- <complete harness argv…>]] " +
-  "[--run-custom-harness-to-exit --clear-environment --env KEY=VALUE… " +
+  "[--run-custom-harness-to-exit --bypass-run-custom-harness-to-exit --clear-environment --env KEY=VALUE… " +
   "--stdout-path <path> --stderr-path <path> --exit-status-path <path> " +
   "--wall-time-path <path> --launcher-evidence-path <path> --timeout-ms <ms>]\n";
 
@@ -96,6 +97,12 @@ function validateOneShotFlags(
   requestedExecutable: string | undefined,
   writeStderr: (text: string) => void,
 ): boolean {
+  if (flags["bypass-run-custom-harness-to-exit"] !== true) {
+    writeStderr(
+      "create-agent: --run-custom-harness-to-exit runs a one-shot cell that leaves no registered, watchable agent in herdr, so it needs the Lord's explicit authorization for this invocation: pass --bypass-run-custom-harness-to-exit only when the Lord asked for a one-shot cell (Lord, 2026-09-08). Otherwise spawn a resident agent. Nothing was launched.\n",
+    );
+    return false;
+  }
   if (requestedExecutable === undefined) {
     writeStderr(
       "create-agent: --run-custom-harness-to-exit requires --harness-executable. Nothing was launched.\n",
@@ -198,6 +205,7 @@ export async function prepareCreateAgentRequest(
 
   const oneShot = flags["run-custom-harness-to-exit"] === true;
   const oneShotOnlyFlags = [
+    "bypass-run-custom-harness-to-exit",
     "clear-environment",
     "env",
     "stdout-path",
@@ -388,6 +396,16 @@ export async function prepareCreateAgentRequest(
     }
     deliverableShape = "verdict-only";
   }
+  let shadowless: true | undefined;
+  if (flags.shadowless === true) {
+    if (role !== "Alpha") {
+      writeStderr(
+        `create-agent: --shadowless is refused for role "${role}" — only a campaign Alpha may run shadowless, and only when the Lord authorized it at filing (add-to-queue --shadowless, forwarded by the autoscaler). Nothing was registered or launched.\n`,
+      );
+      return { ok: false, code: 1 };
+    }
+    shadowless = true;
+  }
 
   return {
     ok: true,
@@ -405,6 +423,7 @@ export async function prepareCreateAgentRequest(
       requestedCwd,
       emptyWorktree,
       ...(deliverableShape === undefined ? {} : { deliverableShape }),
+      ...(shadowless === undefined ? {} : { shadowless }),
     },
   };
 }

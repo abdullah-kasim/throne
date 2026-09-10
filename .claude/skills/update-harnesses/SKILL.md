@@ -17,16 +17,24 @@ Use `scripts/update-harness.mjs` for every transaction. Do not reproduce its dis
 ## Preconditions
 
 1. Locate the live throne root containing `src/shared-policy/feature-flags.service.ts`.
-2. Read the strict feature file at `${XDG_CONFIG_HOME:-$HOME/.config}/throne/features.json`.
-3. Treat missing or false `harness-decouple` as OFF. Run the requested script command anyway so the canonical gate produces the no-action result; do not perform any separate release query or filesystem preparation first.
-4. Stop on malformed feature data. Do not repair or reinterpret it.
-5. Never update or restart Herdr. Treat Herdr as eligible for separate planning only when both `shouldOwnHarnessUpdates()` and `shouldUpdateHerdrInHarnessUpdate()` return true.
+2. Read `vendor-pins.json`'s `harnesses.<h>.version` for the pin, then run the
+   vendored binary's own `--version` (`$throneRoot/vendor/node_modules/.bin/<bin>
+   --version`). This pair — pinned and vendored — is the harness the court
+   actually runs; resolve it first, before touching PATH or any native
+   install. `bin/claude`/`bin/codex` export `CLAUDE_BIN`/`CODEX_BIN` pointing
+   at this same vendored binary, so no other resolution order reflects what
+   agents execute.
+3. Read the strict feature file at `${XDG_CONFIG_HOME:-$HOME/.config}/throne/features.json`.
+4. Treat missing or false `harness-decouple` as OFF. Run the requested script command anyway so the canonical gate produces the no-action result; do not perform any separate release query or filesystem preparation first.
+5. Stop on malformed feature data. Do not repair or reinterpret it.
+6. Never update or restart Herdr. Treat Herdr as eligible for separate planning only when both `shouldOwnHarnessUpdates()` and `shouldUpdateHerdrInHarnessUpdate()` return true.
 
 ## Workflow
 
 Process Claude and Codex serially. Never run two harness transactions concurrently.
 
-Run a non-mutating release check:
+Run a non-mutating release check. It resolves the pinned, vendored, native,
+and registry-latest versions and states which one agents actually run:
 
 ```bash
 node <skill-dir>/scripts/update-harness.mjs check \
@@ -34,7 +42,7 @@ node <skill-dir>/scripts/update-harness.mjs check \
   --throne-root <live-throne-root>
 ```
 
-Run an isolated stage, probe, and atomic promotion:
+Run an isolated stage, probe, and atomic pin transaction:
 
 ```bash
 node <skill-dir>/scripts/update-harness.mjs update \
@@ -42,11 +50,29 @@ node <skill-dir>/scripts/update-harness.mjs update \
   --throne-root <live-throne-root>
 ```
 
-Use `--harness codex` for Codex. The updater obtains `@anthropic-ai/claude-code` or `@openai/codex` metadata from the authoritative npm registry, requires matching package identity, registry-hosted tarball provenance, and SHA-512 integrity, then extracts outside active paths. It probes version, help, auth/login help, resume, remote/cloud help, the matching `claudey`/`codexy` launcher with a staged-binary override, and hermetic throne launcher/create-agent/stored-resume tests. None of these probes may create a live agent, authenticate, mutate a remote session, touch Herdr, or mutate GitHub.
+Use `--harness codex` for Codex. The updater obtains `@anthropic-ai/claude-code` or `@openai/codex` metadata from the authoritative npm registry, requires matching package identity, registry-hosted tarball provenance, and SHA-512 integrity, then extracts outside active paths. It probes version, help, auth/login help, resume, remote/cloud help, the matching `claudey`/`codexy` launcher with a staged-binary override, and hermetic throne launcher/create-agent tests that exist at HEAD. None of these probes may create a live agent, authenticate, mutate a remote session, touch Herdr, or mutate GitHub.
 
-Promotion replaces only the harness `current` symlink after every probe passes. It preserves the immediately prior target as `previous`. Configure `CLAUDE_BIN` or `CODEX_BIN` to the `activeBinary` path in the emitted evidence record; do not replace launcher architecture or PATH packages.
+On a passing probe, `update` rewrites `vendor-pins.json` (preserving its
+`_comment` array byte-for-byte) and `vendor/package.json` to the new version,
+runs `npm install --prefix vendor`, refreshes the `install.sh` vendor stamp,
+and reverifies the vendored binary's `--version` before printing the
+resulting git diff for the caller to commit. On any probe or integrity
+failure, none of `vendor-pins.json`, `vendor/package.json`, or the stamp are
+touched — the prior pin remains the source of truth.
 
-**This managed tree is not on the live agent-resolution path today.** `~/.local/share/throne/harnesses/` is not on `PATH`, and the throne's own `claudey`/`codexy` launchers resolve the real binary via `yolo_resolve_real_bin` (`bin/agent-launcher-lib.sh`), which consults `$CLAUDE_BIN`/`$CODEX_BIN` or a `PATH` walk only — it has no knowledge of this managed tree. Promoting through this mechanism as written changes nothing about what agents actually execute. The real, live update path for each harness is its own native mechanism: Claude Code self-manages a versioned install under `~/.local/share/claude/versions/` (with its own `claude update|upgrade` subcommand and built-in rollback via the `current` symlink) and Codex is installed via its platform package manager (e.g. Homebrew's `codex` cask). This script's `check`/`update`/`rollback` remain correct and independently useful — for staging, probing (including a real send-agent-through-the-queue proof once the process-tree TS-loader propagation is set up, see `probeStagedHarness`), and integrity verification — but do not treat a `promote()` here as equivalent to updating the harness every agent runs on until the launchers are deliberately wired to consult it.
+`npm install --prefix vendor` rewrites files under `vendor/node_modules/`
+that a resident agent's process may currently have open. `update` does not
+refuse merely because agents are live: it refuses only when
+`throne agent-statuses` itself cannot be read. A running agent keeps
+executing the version it already loaded until it restarts; only a fresh
+spawn picks up the newly vendored binary. Document this in the transaction's
+evidence rather than blocking on it.
+
+`~/.local/bin/claude` — Claude Code's own self-managed install under
+`~/.local/share/claude/versions/` — is not managed by this skill at all. It
+is read only as the "native" column in `check`'s report, for contrast
+against the pinned/vendored versions the court runs; `update` and `rollback`
+never touch it.
 
 Roll back one harness:
 
@@ -56,10 +82,30 @@ node <skill-dir>/scripts/update-harness.mjs rollback \
   --throne-root <live-throne-root>
 ```
 
-Rollback atomically swaps `current` and `previous` and performs no registry access.
+Rollback restores the previous pin recorded in evidence and re-runs the same
+`npm install --prefix vendor` — it is not a symlink swap and it does access
+the registry to reinstall the prior version's tarball.
 
 ## Evidence and reporting
 
-Retain the JSON evidence path printed by the command. Report the old and new local CLI versions, registry package/tarball/integrity provenance, every probe, active and rollback paths, and whether dual flags make Herdr separately eligible. State explicitly that this workflow neither touched nor restarted Herdr and that hosted services and model behavior remain mutable independently of the pinned local CLI artifacts.
+Retain the JSON evidence path printed by the command. Every report of `check`,
+`update`, or `rollback` must include the four-version table `check` produces:
 
-Do not claim success when any probe or integrity check fails. The prior `current` target remains active at that boundary.
+| pinned | vendored (what agents run) | native (PATH, outside throne) | registry latest |
+| --- | --- | --- | --- |
+
+State in words which version agents actually run (the vendored one) and
+never call the native PATH binary "the harness". Also report registry
+package/tarball/integrity provenance, every probe, and whether dual flags
+make Herdr separately eligible. State explicitly that this workflow neither
+touched nor restarted Herdr and that hosted services and model behavior
+remain mutable independently of the pinned local CLI artifacts.
+
+Do not claim success when any probe or integrity check fails. The prior pin
+and vendored install remain active at that boundary.
+
+When a transaction succeeds, close it out by committing exactly
+`vendor-pins.json`, `vendor/package.json` and `vendor/package-lock.json` with
+the message `Pin <harness> to <version>` — the Lord's own documented
+procedure from `vendor-pins.json`'s `_comment` array. Do not invent a
+different commit convention.

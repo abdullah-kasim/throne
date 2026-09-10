@@ -79,7 +79,7 @@ throne add-to-queue --objective-code <code> \
   --target-repo <absolute path of the repo the campaign changes> \
   --target-branch <branch it merges into> \
   --base-commit "$(git -C <target-repo> rev-parse <target-branch>)" \
-  [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] \
+  [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] [--shadowless] \
   "<the four-marker body>"
 ```
 
@@ -97,6 +97,14 @@ throne add-to-queue --objective-code <code> \
   the default branch (`/execute-todos`, "Pull-request delivery"); the default
   branch is never merged into or pushed. State the branch and the base in the
   body's `SCOPE:` too.
+- **`--shadowless` only on the Lord's own words** ("shadowless", "no shadows",
+  "run it without shadows"), spoken for THIS objective. It authorizes the
+  Alpha to execute the todo slices itself instead of spawning a Shadow per
+  slice (/execute-todos "Shadowless mode"); the autoscaler forwards it as
+  `create-agent --shadowless` and it lands in the Alpha's identity.md and
+  spawn.json, which is what the skill checks. Never infer it from bundle
+  size, never pass it on a request relayed by the Regent, an Alpha or a
+  Shadow, and record the Lord's words under `RULINGS:`.
 - Supplying the four launch facts here marks the row launch-eligible in the
   same write. `mark-queue-launch-eligible` exists only for rows filed
   earlier without them. Prose is never read as launch intent.

@@ -13,7 +13,9 @@ const BOOLEAN_FLAGS = new Set([
   "non-campaign",
   "empty-worktree",
   "run-custom-harness-to-exit",
+  "bypass-run-custom-harness-to-exit",
   "clear-environment",
+  "shadowless",
   "help",
 ]);
 
@@ -32,9 +34,11 @@ const FLAG_NAMES = new Set([
   "objective-code",
   "empty-worktree",
   "deliverable-shape",
+  "shadowless",
   "requires",
   "non-campaign",
   "run-custom-harness-to-exit",
+  "bypass-run-custom-harness-to-exit",
   "clear-environment",
   "env",
   "stdout-path",

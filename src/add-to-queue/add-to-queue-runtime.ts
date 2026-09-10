@@ -57,6 +57,7 @@ const PR_BRANCH_FLAG = "--pr-branch";
 const PRIORITY_FLAG = "--priority";
 const MODEL_HINT_FLAG = "--model-hint";
 const DELIVERABLE_SHAPE_FLAG = "--deliverable-shape";
+const SHADOWLESS_FLAG = "--shadowless";
 
 export interface LaunchMetadata {
   alphaName: string;
@@ -82,6 +83,7 @@ export interface ParsedAddToQueueArgs {
    *  `create-agent --deliverable-shape` so `reap-agent --reason completed`
    *  can close the row without a delivery commit. */
   deliverableShape?: QueueDeliverableShape;
+  shadowless?: boolean;
   body: string;
 }
 
@@ -104,6 +106,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
   let priority: number | undefined;
   let modelHint: ModelPair | undefined;
   let deliverableShape: QueueDeliverableShape | undefined;
+  let shadowless: boolean | undefined;
   const launchValues: Record<string, string> = {};
   const bodyWords: string[] = [];
   for (let i = 0; i < args.length; i++) {
@@ -125,6 +128,10 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
           `add-to-queue: ${PR_BRANCH_FLAG} requires a branch name`,
         );
       prBranch = value.trim();
+      continue;
+    }
+    if (args[i] === SHADOWLESS_FLAG) {
+      shadowless = true;
       continue;
     }
     if (args[i] === PRIORITY_FLAG) {
@@ -227,6 +234,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
     ...(priority === undefined ? {} : { priority }),
     ...(modelHint === undefined ? {} : { modelHint }),
     ...(deliverableShape === undefined ? {} : { deliverableShape }),
+    ...(shadowless === undefined ? {} : { shadowless }),
     launchOverrides,
   };
 }
@@ -392,6 +400,7 @@ export async function run(
       ...(parsed.deliverableShape === undefined
         ? {}
         : { deliverableShape: parsed.deliverableShape }),
+      ...(parsed.shadowless === undefined ? {} : { shadowless: parsed.shadowless }),
       launch,
       deliveryMirror: {
         verdict: "not-started",
@@ -406,7 +415,8 @@ export async function run(
     process.stdout.write(
       `add-to-queue: added item "${item.id}" (status: ${item.status}, ` +
         `launch-eligible as ${launch.alphaName} against ` +
-        `${launch.targetRepo} ${launch.targetBranch} @ ${launch.baseCommit.slice(0, 12)}).\n`,
+        `${launch.targetRepo} ${launch.targetBranch} @ ${launch.baseCommit.slice(0, 12)}` +
+        `${item.shadowless === true ? "; SHADOWLESS, Lord-authorized" : ""}).\n`,
     );
     return 0;
   } catch (err) {

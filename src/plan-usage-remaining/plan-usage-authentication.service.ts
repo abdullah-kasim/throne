@@ -7,10 +7,7 @@ function isJsonRecord(value: unknown): value is Record<string, unknown> {
 }
 import { PlanUsagePlatformService } from './plan-usage-platform.service.ts';
 
-const TOKEN_ENDPOINT = 'https://platform.claude.com/v1/oauth/token';
 const USAGE_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
-const OAUTH_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
-const REFRESH_SKEW_MS = 60_000;
 
 interface OauthCredentials {
   accessToken: string;
@@ -78,30 +75,13 @@ export class PlanUsageAuthenticationService {
   }
 
   private async resolveAccessToken(credentials: OauthCredentials): Promise<string> {
-    if (credentials.expiresAt - this.runtime.now().getTime() > REFRESH_SKEW_MS) {
+    const expiresAt = new Date(credentials.expiresAt);
+    if (expiresAt.getTime() > this.runtime.now().getTime()) {
       return credentials.accessToken;
     }
-    const response = await this.runtime.httpJson({
-      method: 'POST',
-      url: TOKEN_ENDPOINT,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'refresh_token',
-        refresh_token: credentials.refreshToken,
-        client_id: OAUTH_CLIENT_ID,
-        scope: credentials.scopes.join(' '),
-      }),
-    });
-    if (response.status !== 200) {
-      throw new Error(`Claude token refresh failed (HTTP ${response.status})`);
-    }
-    const accessToken = isJsonRecord(response.json)
-      ? response.json.access_token
-      : undefined;
-    if (typeof accessToken !== 'string' || accessToken.length === 0) {
-      throw new Error('Claude token refresh returned no access_token');
-    }
-    return accessToken;
+    throw new Error(
+      `Claude access token expired at ${expiresAt.toISOString()}; the throne never refreshes it, because a refresh rotates the refresh token shared with every Claude Code session and logs them all out. Any Claude Code session refreshes it on its next request; until then the last-good usage numbers are served as stale.`,
+    );
   }
 
   private usageResponseBody(response: HttpJsonResponse): Record<string, unknown> {
