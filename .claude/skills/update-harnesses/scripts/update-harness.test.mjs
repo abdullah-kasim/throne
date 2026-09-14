@@ -18,6 +18,7 @@ import {
   resolveHarnessState,
   runRollback,
   runUpdate,
+  versionOutputReports,
 } from './update-harness.mjs';
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'update-harness.mjs');
@@ -30,7 +31,7 @@ const CLAUDE_VENDOR_PINS = {
     'This is a fixture copy for update-harness.test.mjs; byte-preservation of',
     'this array is exactly what the atomicity tests assert on.',
   ],
-  tools: { ntfy: { image: 'binwiederhier/ntfy:v2.28.0' } },
+  tools: { ntfy: { image: 'docker.io/binwiederhier/ntfy:v2.28.0' } },
   harnesses: {
     claude: { package: '@anthropic-ai/claude-code', version: '2.1.226', bin: 'claude' },
     codex: { package: '@openai/codex', version: '0.147.0', bin: 'codex' },
@@ -104,7 +105,7 @@ function writePathBinary(dir, executable, version) {
   );
 }
 
-function fakeNpmDir(root, { latestVersion = '2.1.267', failingProbe = false } = {}) {
+function fakeNpmDir(root, { latestVersion = '2.1.267', failingProbe = false, vendoredVersionOverride = null } = {}) {
   const dir = path.join(root, 'fake-npm-bin');
   mkdirSync(dir, { recursive: true });
   writeExecutable(path.join(dir, 'npm'), `#!/usr/bin/env node
@@ -116,6 +117,7 @@ import path from 'node:path';
 const argv = process.argv.slice(2);
 const latest = ${JSON.stringify(latestVersion)};
 const failingProbe = ${JSON.stringify(failingProbe)};
+const vendoredVersionOverride = ${JSON.stringify(vendoredVersionOverride)};
 
 if (argv[0] === 'view') {
   const spec = argv[1];
@@ -162,8 +164,10 @@ process.stdout.write(${JSON.stringify(latestVersion)} + '\\\\n');
   const executable = packageName.includes('codex') ? 'codex' : 'claude';
   const binDir = path.join(prefixDir, 'node_modules', '.bin');
   mkdirSync(binDir, { recursive: true });
+  const reportedVersion = vendoredVersionOverride ?? version;
+  const versionOutput = executable === 'codex' ? \`codex-cli \${reportedVersion}\` : \`\${reportedVersion} (Claude Code)\`;
   writeFileSync(path.join(binDir, executable), \`#!/usr/bin/env node
-process.stdout.write(\${JSON.stringify(version)} + '\\\\n');
+process.stdout.write(\${JSON.stringify(versionOutput)} + '\\\\n');
 \`);
   chmodSync(path.join(binDir, executable), 0o755);
 } else if (argv[0] === 'install') {
@@ -311,7 +315,65 @@ test("update rewrites vendor-pins.json (byte-preserving _comment), vendor/packag
     assert.equal(vendorPackage.dependencies['@anthropic-ai/claude-code'], '2.1.267');
     assert.equal(existsSync(path.join(throneRoot, 'vendor', '.stamps', 'harnesses')), true);
     const vendoredVersion = execFileSync(path.join(throneRoot, 'vendor', 'node_modules', '.bin', 'claude'), ['--version'], { encoding: 'utf8' }).trim();
-    assert.equal(vendoredVersion, '2.1.267');
+    assert.equal(vendoredVersion, '2.1.267 (Claude Code)');
+    assert.equal(evidence.vendoredVersion, '2.1.267 (Claude Code)');
+  } finally {
+    process.env.PATH = originalPath;
+  }
+});
+
+test("check's verdict reads up to date when the vendored binary reports the pinned version in its real --version shape", () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'update-harness-verdict-shape-'));
+  const throneRoot = makeThroneRoot(root, { pinnedVersion: '2.1.267' });
+  writeVendoredClaude(throneRoot, '2.1.267 (Claude Code)');
+  const npmDir = fakeNpmDir(root, { latestVersion: '2.1.267' });
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${npmDir}:${originalPath}`;
+  try {
+    const state = resolveHarnessState({ harness: 'claude', throneRoot });
+    assert.equal(state.upToDate, true);
+    assert.match(renderCheckReport(state), /matches registry latest 2\.1\.267/);
+  } finally {
+    process.env.PATH = originalPath;
+  }
+});
+
+test('the reverify accepts the real --version shapes of both harnesses and rejects a different version', () => {
+  assert.equal(versionOutputReports('2.1.268 (Claude Code)', '2.1.268'), true);
+  assert.equal(versionOutputReports('codex-cli 0.154.0', '0.154.0'), true);
+  assert.equal(versionOutputReports('2.1.268', '2.1.268'), true);
+  assert.equal(versionOutputReports('2.1.2680 (Claude Code)', '2.1.268'), false);
+  assert.equal(versionOutputReports('2.1.226 (Claude Code)', '2.1.268'), false);
+  assert.equal(versionOutputReports(null, '2.1.268'), false);
+});
+
+test('a vendored binary that reports the wrong version fails the update after the evidence is written, so rollback has a source', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'update-harness-reverify-failure-'));
+  const throneRoot = makeThroneRoot(root, { pinnedVersion: '2.1.226' });
+  writeVendoredClaude(throneRoot, '2.1.226');
+  const npmDir = fakeNpmDir(root, { latestVersion: '2.1.267', vendoredVersionOverride: '2.1.226' });
+  const throneDir = fakeThroneDir(root);
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${npmDir}:${throneDir}:${originalPath}`;
+  const managedRoot = path.join(root, 'managed');
+  mkdirSync(managedRoot, { recursive: true });
+  const evidencePath = path.join(root, 'evidence.json');
+  try {
+    assert.throws(
+      () => runUpdate({
+        harness: 'claude',
+        throneRoot,
+        managedRoot,
+        registry: 'https://registry.npmjs.org',
+        evidencePath,
+        ownership: ownership(),
+      }),
+      /vendored claude reports "2\.1\.226 \(Claude Code\)", expected 2\.1\.267/,
+    );
+    const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'));
+    assert.equal(evidence.oldVersion, '2.1.226');
+    assert.equal(evidence.newVersion, '2.1.267');
+    assert.equal(evidence.vendoredVersion, '2.1.226 (Claude Code)');
   } finally {
     process.env.PATH = originalPath;
   }
@@ -369,7 +431,8 @@ test('rollback restores the previous pin from evidence and re-vendors it', () =>
     const pins = JSON.parse(readFileSync(path.join(throneRoot, 'vendor-pins.json'), 'utf8'));
     assert.equal(pins.harnesses.claude.version, '2.1.226');
     const vendoredVersion = execFileSync(path.join(throneRoot, 'vendor', 'node_modules', '.bin', 'claude'), ['--version'], { encoding: 'utf8' }).trim();
-    assert.equal(vendoredVersion, '2.1.226');
+    assert.equal(vendoredVersion, '2.1.226 (Claude Code)');
+    assert.equal(evidence.vendoredVersion, '2.1.226 (Claude Code)');
     assert.equal(evidence.mutableServiceCaveat.includes('registry access'), false);
   } finally {
     process.env.PATH = originalPath;

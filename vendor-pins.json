@@ -12,18 +12,18 @@
   ],
   "tools": {
     "ntfy": {
-      "image": "binwiederhier/ntfy:v2.28.0"
+      "image": "docker.io/binwiederhier/ntfy:v2.28.0"
     }
   },
   "harnesses": {
     "claude": {
       "package": "@anthropic-ai/claude-code",
-      "version": "2.1.226",
+      "version": "2.1.268",
       "bin": "claude"
     },
     "codex": {
       "package": "@openai/codex",
-      "version": "0.147.0",
+      "version": "0.154.0",
       "bin": "codex"
     }
   }

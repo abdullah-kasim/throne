@@ -270,7 +270,7 @@ export function resolveHarnessState({ harness, throneRoot, registry = 'https://r
     nativeVersion,
     latestVersion,
     activeBinary: vendoredBinaryPath(throneRoot, config.executable),
-    upToDate: pinnedVersion === latestVersion && vendoredVersion === pinnedVersion,
+    upToDate: pinnedVersion === latestVersion && versionOutputReports(vendoredVersion, pinnedVersion),
   };
 }
 
@@ -373,9 +373,15 @@ function installVendoredHarness(throneRoot, packageName, version, registry) {
   ]);
 }
 
-function assertVendoredVersionMatches(throneRoot, executable, expected) {
-  const actual = readVendoredVersion(throneRoot, executable);
-  if (actual !== expected) fail(`vendored ${executable} reports "${actual ?? 'nothing'}", expected ${expected}`);
+export function versionOutputReports(versionOutput, expected) {
+  if (typeof versionOutput !== 'string') return false;
+  return versionOutput.trim().split(/\s+/).includes(expected);
+}
+
+function assertVendoredVersionMatches(vendoredVersion, executable, expected) {
+  if (!versionOutputReports(vendoredVersion, expected)) {
+    fail(`vendored ${executable} reports "${vendoredVersion ?? 'nothing'}", expected ${expected}`);
+  }
 }
 
 function renderVendorPinDiff(throneRoot) {
@@ -396,16 +402,18 @@ function commitHarnessTransaction({ harness, throneRoot, version, registry }) {
   writeVendorPackageDependency(throneRoot, config.packageName, version);
   installVendoredHarness(throneRoot, config.packageName, version, registry);
   refreshVendorHarnessesStamp(throneRoot, pins);
-  assertVendoredVersionMatches(throneRoot, config.executable, version);
-  return renderVendorPinDiff(throneRoot);
+  return {
+    diff: renderVendorPinDiff(throneRoot),
+    vendoredVersion: readVendoredVersion(throneRoot, config.executable),
+  };
 }
 
 function rollbackHarnessTransaction({ harness, throneRoot, sourceEvidencePath, registry }) {
   const priorEvidence = readJsonFile(sourceEvidencePath);
   const previousVersion = priorEvidence.oldVersion;
   if (typeof previousVersion !== 'string') fail(`${sourceEvidencePath} has no oldVersion to roll back to`);
-  const diff = commitHarnessTransaction({ harness, throneRoot, version: previousVersion, registry });
-  return { previousVersion, diff };
+  const { diff, vendoredVersion } = commitHarnessTransaction({ harness, throneRoot, version: previousVersion, registry });
+  return { previousVersion, diff, vendoredVersion };
 }
 
 function writeEvidence(destination, evidence) {
@@ -426,13 +434,14 @@ export function runUpdate({ harness, throneRoot, managedRoot, registry, evidence
   try {
     const staged = stagePackage(config, metadata, registry, workRoot);
     const probes = probeStagedHarness(config, staged.binary, throneRoot);
-    const diff = commitHarnessTransaction({ harness, throneRoot, version: metadata.version, registry });
+    const { diff, vendoredVersion } = commitHarnessTransaction({ harness, throneRoot, version: metadata.version, registry });
     const evidence = {
       action: 'update',
       harness,
       package: metadata.name,
       oldVersion,
       newVersion: metadata.version,
+      vendoredVersion,
       source: metadata.tarball,
       integrity: metadata.integrity,
       probes,
@@ -442,6 +451,7 @@ export function runUpdate({ harness, throneRoot, managedRoot, registry, evidence
       mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
     };
     writeEvidence(evidencePath, evidence);
+    assertVendoredVersionMatches(vendoredVersion, config.executable, metadata.version);
     return evidence;
   } finally {
     rmSync(workRoot, { recursive: true, force: true });
@@ -449,16 +459,18 @@ export function runUpdate({ harness, throneRoot, managedRoot, registry, evidence
 }
 
 export function runRollback({ harness, throneRoot, sourceEvidencePath, registry, evidencePath, ownership }) {
-  const { previousVersion, diff } = rollbackHarnessTransaction({ harness, throneRoot, sourceEvidencePath, registry });
+  const { previousVersion, diff, vendoredVersion } = rollbackHarnessTransaction({ harness, throneRoot, sourceEvidencePath, registry });
   const evidence = {
     action: 'rollback',
     harness,
     restoredVersion: previousVersion,
+    vendoredVersion,
     diff,
     herdrPlanned: ownership.plansHerdr,
     mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
   };
   writeEvidence(evidencePath, evidence);
+  assertVendoredVersionMatches(vendoredVersion, HARNESS[harness].executable, previousVersion);
   return evidence;
 }
 
