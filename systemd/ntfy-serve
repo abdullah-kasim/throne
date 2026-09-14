@@ -57,7 +57,7 @@ fi
 # there) refuses the container access to the mounts without a relabel.
 mount_label=""
 if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled 2>/dev/null; then
-    mount_label=":Z"
+    mount_label="Z"
 fi
 
 # The tailscale CLI: on linux it is on PATH; on a mac the App Store /
@@ -124,8 +124,8 @@ while :; do
                 "$runtime" rm -f throne-ntfy >/dev/null 2>&1 || true
                 exec "$runtime" run --rm --name throne-ntfy \
                     -p "${tailnet_ip}:8410:80" \
-                    -v "${server_config}:/etc/ntfy/server.yml:ro${mount_label}" \
-                    -v "${cache_dir}:/var/cache/ntfy${mount_label}" \
+                    -v "${server_config}:/etc/ntfy/server.yml:ro${mount_label:+,$mount_label}" \
+                    -v "${cache_dir}:/var/cache/ntfy${mount_label:+:$mount_label}" \
                     "$ntfy_image" serve \
                     --config /etc/ntfy/server.yml \
                     --listen-http ":80" \

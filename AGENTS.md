@@ -169,6 +169,12 @@ Regent's schedule — which is the whole point, since a Stager exists so that
 reaching someone never blocks on Regent load, and a Stager that waits for a
 reply has reintroduced the block it was created to remove.
 
+**A Regent-spawned Stager defaults to `fable` (Lord, 2026-09-11).** His
+words: "every time you spawn a stager, default to fable please." When the
+Lord orders a Stager and names no model, the Regent spawns it with
+`--model fable`; a model he names wins. The autoscale floor's own recipe
+(`src/alpha-autoscale/stager-floor.ts`) is unchanged by this order.
+
 **A Stager runs whatever model the Lord puts it on (Lord, 2026-09-07).** The
 runtime-model quarantine that refuses `send-agent` to a campaign pane on the
 wrong model does not apply to a Stager or to the Regent: both are

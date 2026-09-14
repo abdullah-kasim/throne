@@ -457,8 +457,25 @@ else
           const decision = floor.decideStagerFloorAction(desired, await roster.getAgentStatusesRoster());
           const stager = decision.action === "present" ? `present ${decision.name}`
             : decision.action === "refuse" ? `refuse ${decision.reason}` : decision.action;
+          let resurrectionState = "-";
+          let resurrectionReason = "";
+          try {
+            const mq = await import("./dist/src/message-queue/message-queue.store.js");
+            const { DatabaseSync } = await import("node:sqlite");
+            const db = new DatabaseSync(mq.resolveMessageQueueDatabasePath(), { readOnly: true });
+            try {
+              const row = db.prepare(
+                "SELECT state, failure_reason FROM work_items WHERE kind = ? ORDER BY id DESC LIMIT 1",
+              ).get("regent-resurrection");
+              if (row !== undefined) {
+                resurrectionState = String(row.state);
+                resurrectionReason = String(row.failure_reason ?? "").replace(/\s+/g, " ");
+              }
+            } finally { db.close(); }
+          } catch {}
           process.stdout.write([desired, regent, stager, rs.REGENT_NAME,
-            PERSONA_CONFIG.tierTitles.regent, PERSONA_CONFIG.addressTitle].join("\n") + "\n");
+            PERSONA_CONFIG.tierTitles.regent, PERSONA_CONFIG.addressTitle,
+            resurrectionState, resurrectionReason].join("\n") + "\n");
         ' 2>/dev/null
     }
     read_probe() {
@@ -470,6 +487,17 @@ else
         regent_name=$(printf '%s\n' "$probe" | sed -n 4p)
         regent_title=$(printf '%s\n' "$probe" | sed -n 5p)
         lord_title=$(printf '%s\n' "$probe" | sed -n 6p)
+        resurrection_state=$(printf '%s\n' "$probe" | sed -n 7p)
+        resurrection_reason=$(printf '%s\n' "$probe" | sed -n 8p)
+    }
+    dump_retained_pane() {
+        local reason="$1" pane
+        pane=$(printf '%s' "$reason" | sed -n 's/.*pane "\([^"]*\)".*/\1/p')
+        [ -n "$pane" ] || return 0
+        [ -n "${herdr_bin:-}" ] && [ -x "$herdr_bin" ] || return 0
+        printf '      retained pane %s, last lines:\n' "$pane"
+        "$herdr_bin" --session throne pane read "$pane" --source recent --lines 25 --format text 2>/dev/null |
+            sed '/^[[:space:]]*$/d' | tail -15 | sed 's/^/        | /' || true
     }
     # Runs a CLI command, printing its output indented and without node's
     # SQLite experimental-warning noise; returns the command's exit status.
@@ -494,13 +522,18 @@ else
         else
             did "asked throne-backend to resurrect the $regent_name (keep-going)"
             waited=0
+            resurrection_state=-
             while [ "$waited" -lt 120 ]; do
                 read_probe || true
                 [ "$regent_live" = "live" ] && break
+                [ "$resurrection_state" = "failed" ] && break
                 sleep 2
                 waited=$((waited + 2))
             done
-            if [ "$regent_live" != "live" ]; then
+            if [ "$regent_live" != "live" ] && [ "$resurrection_state" = "failed" ]; then
+                warn "$regent_name launch failed after ${waited}s: $resurrection_reason"
+                dump_retained_pane "$resurrection_reason"
+            elif [ "$regent_live" != "live" ]; then
                 warn "no live $regent_name after ${waited}s; inspect the throne-backend log (linux: journalctl --user -u throne-backend; macOS: ~/Library/Logs/throne/throne-backend.log)"
             else
                 did "$regent_name is live (after ${waited}s)"
@@ -515,12 +548,15 @@ else
 
         # The Stager: wait for the Regent's startup hook to raise one.
         waited=0
-        while [ "$waited" -lt 180 ]; do
-            read_probe || true
-            case "$stager_state" in present*|stay-down|refuse*) break ;; esac
-            sleep 3
-            waited=$((waited + 3))
-        done
+        read_probe || true
+        if [ "$regent_live" = "live" ]; then
+            while [ "$waited" -lt 180 ]; do
+                case "$stager_state" in present*|stay-down|refuse*) break ;; esac
+                sleep 3
+                waited=$((waited + 3))
+                read_probe || true
+            done
+        fi
         case "$stager_state" in
             present*)
                 ok "Stager live: ${stager_state#present }"
@@ -530,6 +566,7 @@ else
                 ;;
             refuse*)
                 warn "Stager floor refused: ${stager_state#refuse }"
+                dump_retained_pane "${stager_state#refuse }"
                 ;;
             *)
                 # The hook did not deliver within the wait; apply the floor here.
@@ -541,6 +578,8 @@ else
                 read_probe || true
                 case "$stager_state" in
                     present*) did "raised the Stager directly: ${stager_state#present } (the $regent_name's startup hook had not within ${waited}s)" ;;
+                    refuse*)  warn "Stager floor refused: ${stager_state#refuse }"
+                              dump_retained_pane "${stager_state#refuse }" ;;
                     *)        warn "no live Stager after ${waited}s and a direct floor pass (state: $stager_state); inspect: node ./dist/src/tools.js agent-statuses" ;;
                 esac
                 ;;

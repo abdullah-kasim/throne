@@ -58,11 +58,14 @@ yolo_resolve_real_bin() {
     real_bin_ref=""
 
     if [[ -n "$env_bin" ]]; then
-        if ! yolo_path_recurses_into_wrapper "$env_bin" "$self_path"; then
+        if [[ ! -x "$env_bin" ]]; then
+            echo "warning: \$${name^^}_BIN ($env_bin) is not an executable file; ignoring it" >&2
+        elif ! yolo_path_recurses_into_wrapper "$env_bin" "$self_path"; then
             real_bin_ref="$env_bin"
             return 0
+        else
+            echo "warning: \$${name^^}_BIN ($env_bin) resolves back into the yolo wrapper; ignoring it" >&2
         fi
-        echo "warning: \$${name^^}_BIN ($env_bin) resolves back into the yolo wrapper; ignoring it" >&2
     fi
 
     local candidate
