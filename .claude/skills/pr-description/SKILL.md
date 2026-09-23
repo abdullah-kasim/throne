@@ -28,7 +28,7 @@ ticket prefix in titles) layer on top and never replace it.
 ## Title
 
 One line, imperative or present-tense verb first, describing the outcome:
-"Adds a script that installs the beacon agent into a running acme dev-env".
+"Adds a --dry-run flag to the deploy command".
 No period, no scope prefix like `feat:` unless the repo already uses it,
 no "WIP", no agent or tool names.
 
@@ -42,8 +42,8 @@ ticket's own view of the PR carries the backlink:
 Ticket: [ABC-123](https://<tracker>/issue/ABC-123/<slug>)
 ```
 
-Resolve the URL from the tracker, never by hand: for Linear, `get_issue`
-on the MCP server returns the canonical link with its slug. Several tickets get
+Resolve the URL from the tracker, never by hand: a tracker's own API or MCP
+server can return the canonical link with its slug. Several tickets get
 several links on the same line. No ticket means no line; never invent
 one, and never write a bare identifier that does not link.
 
@@ -102,13 +102,14 @@ Layout, top to bottom:
 
 1. A `> [!NOTE]` alert headed **Before you start:** with the environment
    setup, stated generically and deferring to the repo's own docs
-   ("follow `README.md` ... then check out this branch"). Never assume a
-   configured machine; never paste a setup recipe the README already has.
+   ("follow `README.md` to start the app locally, then check out this
+   branch"). Never assume a configured machine; never paste a setup
+   recipe the README already has.
    The same alert ends with a **Starting over:** fenced block that
-   destroys everything the walkthrough creates or fills (the dev-env,
-   copied-in helpers, build caches, and the backend's stored data, so
-   `docker compose down -v && docker compose up -d` rather than
-   stopping one container) so a reviewer can retry from nothing and
+   destroys everything the walkthrough creates or fills (any local
+   service started for the walkthrough, copied-in helpers, build caches,
+   and stored data, so stopping and restarting the whole local service
+   rather than one piece of it) so a reviewer can retry from nothing and
    never reads a previous run's rows as this run's result. It must be safe to paste when none of it
    exists yet: `2>/dev/null || true` on the destroy, `rm -f`, `rm -rf`.
    Run it yourself against a clean state before publishing. The final
@@ -126,13 +127,13 @@ Layout, top to bottom:
 Format of a step, exactly:
 
 ````markdown
-**Step 2.** Run the installer with your dev-env slug:
+**Step 2.** Run the deploy command with the dry-run flag:
 
 ```sh
-scripts/dev-env-install-beacon.sh --slug <your-slug>
+scripts/deploy --dry-run --target staging
 ```
 
-**Expect:** the last line reads `ok: http://<your-slug>.acmedev.example.test/ emitted X-Trace-Id <hex>`.
+**Expect:** the last line reads `would deploy 3 changed files to staging (no changes applied)`.
 ````
 
 - **`**Step N.**` in bold**, then one sentence with one action: open a
@@ -160,44 +161,43 @@ scripts/dev-env-install-beacon.sh --slug <your-slug>
   shows nothing changed. An absence-only walkthrough proves nothing,
   because unchanged code passes it too. If the present branch needs a
   fixture nobody has (a ticket, a site, a record), the scenario does
-  not create it in the external service (that needs the Lord's explicit
-  order) and does not go under **Not tested**: it mocks the one call
-  where that fixture enters the code, between `// MOCK START` and
+  not create it in the external service (that needs an explicit decision
+  from the team first) and does not go under **Not tested**: it mocks the
+  one call where that fixture enters the code, between `// MOCK START` and
   `// MOCK END` marker lines in the served copy, and ships the mock as
   a `git apply` patch inside the scenario so the reviewer renders the
   same thing. The scenario heading says it is mocked, and a separate
   scenario reads the real signal from the real service, so the reader
-  sees which half each proves. `testing.md` "A fixture an external
-  service cannot give you" has the procedure; the patch never reaches
-  a commit. PR 69 of the ticket-helper bot shipped an
-  trace-link bullet with a scenario that only rendered a site without traces
-  and was sent back for it.
+  sees which half each proves. A prior PR shipped a status-link bullet
+  with a scenario that only rendered a page with the link absent and
+  was sent back for it.
 - **A visual change gets a visual step.** Screenshots show the reviewer
   what it should look like; the walkthrough has to make them see it on
   their own screen. After the steps that produce the data, add a step
   that names the page to open and, in plain words, what is now visibly
   different there: which element is new, what it links to, what appears
   when it is clicked. One step per place the change shows, or one step
-  listing every place when they are alike ("You can now view traces for
-  copy B and copy C at `http://localhost:4321/sites/1` and `/sites/2`
-  respectively. The Path column is now clickable and links to each
-  copy. Clicking a transaction also shows the path in the header").
-  A PR 99 revision had every API check in place and no step that
+  listing every place when they are alike ("You can now view the status
+  for record A and record B at `http://localhost:4321/records/1` and
+  `/records/2` respectively. The Status column is now clickable and links
+  to each record's history. Clicking an entry also shows its timestamp in
+  the header").
+  A prior revision had every API check in place and no step that
   told the reviewer to look at the page the PR was about.
 - **A page a phone can reach gets a phone step.** The walkthrough names
   the phone viewport the reviewer sets before looking, and it is a modern
   one: iPhone 16, 393x852 (DevTools device toolbar, or `agent-browser set
   viewport 393 852`), with the **Expect** written for that width (what
-  wraps, what stacks, what is hidden). Not 320x720: the Lord ruled on
-  2026-09-14 that it was too small and limiting. Where the PR is about
-  narrow layouts, the phone step is a scenario of its own, and the
-  desktop step proves nothing moved there.
+  wraps, what stacks, what is hidden). A smaller viewport such as
+  320x720 is too small to be representative and should be avoided. Where
+  the PR is about narrow layouts, the phone step is a scenario of its
+  own, and the desktop step proves nothing moved there.
 - **Never assume the reviewer's machine is yours.** Assume only a Mac.
-  Anything that varies per machine (a dev-env slug, a hostname, a port,
-  a path) is set once as a shell variable in **Before you start**, in a
+  Anything that varies per machine (an environment name, a hostname, a
+  port, a path) is set once as a shell variable in **Before you start**, in a
   fenced block the reviewer pastes into the terminal they will use
-  (`export TRACE_SLUG=acme-widgets-php-1`), and every command references
-  it (`--slug "$TRACE_SLUG"`). Where a shell variable cannot reach, such as
+  (`export APP_ENV=staging-1`), and every command references
+  it (`--env "$APP_ENV"`). Where a shell variable cannot reach, such as
   a URL to open in a browser, a value typed into a UI, or an **Expect**
   line quoting output, spell out the default value the variable was
   given, and say in **Before you start** that those steps assume the
@@ -208,12 +208,12 @@ scripts/dev-env-install-beacon.sh --slug <your-slug>
   it there: run the command yourself with stdin attached to a real TTY.
   A run with stdin from `/dev/null` or through a tool harness lets a
   wizard silently take its defaults and looks non-interactive when it
-  is not; that is how an `acme dev-env create --app-code demo` step was
+  is not; that is how a `project init --name demo` step was
   shipped that crashed the reviewer's readline. When a CLI has a config
-  file that suppresses its wizard (`.acme-dev-env.yml` for the Acme CLI),
-  write it to a scratch directory outside the repo with a heredoc that
-  expands the shell variables, and run the command from there. A name nothing in the walkthrough
-  created (your own slug, `acme-widgets-php-1`, a path under your
+  file that suppresses its wizard, write it to a scratch directory
+  outside the repo with a heredoc that expands the shell variables, and
+  run the command from there. A name nothing in the walkthrough
+  created (your own environment name, `staging-1`, a path under your
   home, a tool only you installed) must not appear at all. If a step
   depends on a helper that only exists on another open PR, add a
   `> [!IMPORTANT]` saying so and a step that copies the file in without
@@ -259,9 +259,9 @@ mandatory.
 - **No programmer jargon in the body.** Banned outright: "sentinel" (write
   "placeholder" or "marker value", and say what it signals). The same goes
   for any word a reviewer outside the codebase would have to look up:
-  "idempotent", "oracle", "monotonic", "canonical" as a verb. The Lord
-  ruled this on 2026-09-11 after a PR body read "the forged-Host sentinel
-  against a served page" and nobody could say what it meant.
+  "idempotent", "oracle", "monotonic", "canonical" as a verb. A PR body
+  once read "the forged-Host sentinel against a served page" and nobody
+  could say what it meant.
 - **Code goes in backticks; commands in fenced blocks.** One named
   file, flag, or function per sentence.
 - **Draft by default when asked for a draft; otherwise ask nothing** and
@@ -276,23 +276,22 @@ mandatory.
 ## Reference example
 
 ````markdown
-Ticket: [ABC-540](https://<tracker>/issue/ABC-540/install-the-beacon-agent-into-a-dev-env)
+Ticket: [ABC-540](https://issues.example.test/browse/ABC-540)
 
 ## What
 
-`scripts/dev-env-install-beacon.sh --slug <dev-env-slug>` installs the beacon agent into a running `acme dev-env` so browsing that site produces data in the local trace stack. The README gains a section documenting it.
+`scripts/deploy --dry-run` prints the files a deploy would change without applying them, so a reviewer can check a deploy's scope before running it for real. The README gains a section documenting the flag.
 
 ## Why
 
-An Acme local development environment runs a stock `php-fpm` image with no agent in it; the extension is baked into production PHP images by the platform and never ships as a plugin or mu-plugin. The Quick start said to point an instrumented site at the collector and stopped there, so exercising the local pipeline meant hand-building the extension for the dev-env image.
+`scripts/deploy` always applied its changes immediately; there was no way to preview what a deploy would touch before committing to it. Anyone who wanted to check a deploy's scope first had to read the diff by hand or run it against a throwaway environment.
 
 ## How
 
-- Finds the php container by compose labels derived from the slug (name-pattern fallback for older compose naming).
-- Reads image, PHP minor and architecture from the container and compiles `beacon.so` once inside that image; cached under `agent/beacon/modules/dev-env-php<ver>-<arch>/` (already gitignored). `--rebuild` and `--so` override.
-- Copies the extension, `beacon-prepend.php` and a generated `99-beacon.ini` (fpm and cli), reloads php-fpm, and verifies the site emits `X-Trace-Id`.
-- Docker preferred, Podman fallback. On plain Docker on Linux, where `host.docker.internal` does not resolve, it uses the container gateway. Refuses early if the container cannot reach the collector.
-- Bash 3.2 compatible for macOS.
+- Reads the same manifest the real deploy reads and diffs it against the target environment's current state.
+- Prints each file that would change, added, or removed, with a summary count, then exits without writing anything.
+- Reuses the existing manifest-validation and target-resolution code paths so a dry run and a real run agree on scope.
+- Refuses early with a clear message when the target environment does not exist or credentials are missing, the same as a real deploy would.
 
 ## Testing
 
@@ -300,45 +299,45 @@ An Acme local development environment runs a stock `php-fpm` image with no agent
 <summary>Steps to test</summary>
 
 > [!NOTE]
-> **Before you start:** follow `README.md` to bring the backend up (`docker compose up -d` in this repo) and have an `acme dev-env` site running. Check out this branch. Every command below runs from the repo root.
+> **Before you start:** follow `README.md` to start the app locally, then check out this branch. Every command below runs from the repo root.
+>
+> **Starting over:** `scripts/deploy --reset --target staging 2>/dev/null || true` clears any state a prior run left in the staging target.
 
-### 🧪 Scenario 1: install the agent into a dev-env
+### 🧪 Scenario 1: dry run reports scope without applying it
 
-**Step 1.** Run the installer with your dev-env slug:
+**Step 1.** Run the deploy command with the dry-run flag:
 
 ```sh
-scripts/dev-env-install-beacon.sh --slug <your-slug>
+scripts/deploy --dry-run --target staging
 ```
 
-**Expect:** the output ends with `ok: http://<your-slug>.acmedev.example.test/ emitted X-Trace-Id <hex>` followed by a dashboard URL.
+**Expect:** the last line reads `would deploy 3 changed files to staging (no changes applied)`.
 
 > [!TIP]
-> The first run compiles the extension and takes about half a minute. Later runs finish in seconds.
+> The manifest diff takes a few seconds the first time it runs; later runs are cached.
 
-**Step 2.** Open `http://<your-slug>.acmedev.example.test/` in a browser and load the home page three or four times.
+**Step 2.** Run `scripts/deploy --target staging` without `--dry-run` and confirm it applies exactly the 3 files the dry run listed.
 
-**Step 3.** Open `http://localhost:4321/sites/1`.
-
-**Expect:** the Routes table lists `front-page` with a request count matching your page loads.
+**Expect:** the command reports `deployed 3 files to staging`, matching the dry run's file list.
 
 ---
 
-### 🚫 Scenario 2: the wrong slug fails clearly
+### 🚫 Scenario 2: a missing target fails clearly
 
-**Step 1.** Run the installer with a slug that does not exist:
+**Step 1.** Run the dry run against a target that does not exist:
 
 ```sh
-scripts/dev-env-install-beacon.sh --slug nope
+scripts/deploy --dry-run --target nope
 ```
 
-**Expect:** it exits with `ERROR: no running php container for dev-env 'nope'`.
+**Expect:** it exits with `ERROR: no environment named 'nope'` and applies nothing.
 
 ---
 
 > [!WARNING]
 > **Not tested:**
-> - the reinstall after an `acme dev-env stop` and `start` cycle (verified only by reinstalling into a live container)
-> - the Linux Docker gateway fallback (no Linux Docker host available)
+> - a deploy manifest larger than 500 files (no environment with a manifest that size available)
+> - the production target (dry run only exercised against staging)
 
 </details>
 ````

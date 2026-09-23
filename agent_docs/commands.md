@@ -1899,6 +1899,19 @@ for another checkout's copy, is replaced so only one guard runs, and a
 (`claude-hooks/test_scratch_path_guard.py`) and run under `npm test` through
 `test/claude-guard-hook.test.ts`.
 
+The same install pass also registers `claude-hooks/skill-write-guard.py`, the
+companion enforcement hook for the `/skill-writer` skill, in
+`~/.claude/settings.json` as a `PostToolUse` entry with matcher `Edit|Write`
+(`src/install-services/skill-write-guard-hook.ts`). It fires on any write,
+edit, port, move, or copy of a `SKILL.md` file and reminds the writer to run
+`/skill-writer`. Registration appends into the same matcher's `hooks` array
+that already carries `comment-guard.py`, creating the matcher entry only if
+genuinely absent, and is idempotent the same way the guard hook above is: a
+stale prior registration for this hook file is replaced in place, and a
+second run reports `unchanged`. Its own tests live beside it
+(`claude-hooks/test_skill_write_guard.py`) and run under `npm test` through
+`test/skill-write-guard-hook.test.ts`.
+
 Before rendering, each platform retires whatever pre-consolidation unit is
 still on the box — `herdr-server`, `throne-keep-going`, `throne-no-idling`,
 `throne-work` and `throne-build` on linux (`RETIRED_LINUX_UNITS`: stop,

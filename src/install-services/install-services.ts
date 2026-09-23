@@ -26,6 +26,10 @@ import {
   installClaudeGuardHook,
   type GuardHookOutcome,
 } from './claude-guard-hook.ts';
+import {
+  installSkillWriteGuardHook,
+  type SkillWriteGuardOutcome,
+} from './skill-write-guard-hook.ts';
 import { prepareOwnedHerdr } from './herdr-installation.ts';
 import { writeInstallServicesLine } from './output.ts';
 import { REAL_DEPS } from './platform.ts';
@@ -163,6 +167,17 @@ export async function installServices(
     );
     guardHookOutcome = 'error';
   }
+  let skillWriteGuardHookOutcome: SkillWriteGuardOutcome;
+  try {
+    skillWriteGuardHookOutcome = await installSkillWriteGuardHook(deps, options);
+  } catch (error) {
+    process.stderr.write(
+      `install-services: skill write guard hook registration failed: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`,
+    );
+    skillWriteGuardHookOutcome = 'error';
+  }
   try {
     await ensurePathSymlinks(options, deps);
   } catch (error) {
@@ -229,6 +244,9 @@ export async function installServices(
     return { ...result, code: 1, status: 'error' };
   }
   if (guardHookOutcome === 'error' && result.code === 0) {
+    return { ...result, code: 1, status: 'error' };
+  }
+  if (skillWriteGuardHookOutcome === 'error' && result.code === 0) {
     return { ...result, code: 1, status: 'error' };
   }
   if (throneCommandOutcome === 'collision' && result.code === 0) {

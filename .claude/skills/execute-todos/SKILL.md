@@ -625,8 +625,8 @@ Sliceless mode lets a campaign Alpha work straight from the queue body with
 no todo bundle at all: no /write-todos, no `todo-*` directory, no
 `ASSIGNMENT.md`, no Shadows, no `99a`/`99b`/`99c` files. It exists for the
 objective a Stager judges single-seam — one bug, one file, one function, one
-skill edit — where even a one-slice bundle with its `00`/`99` scaffolding
-costs more than the work. **Sliceless implies shadowless.** There is no such
+skill edit (run `/skill-writer` for it) — where even a one-slice bundle with
+its `00`/`99` scaffolding costs more than the work. **Sliceless implies shadowless.** There is no such
 thing as sliceless-with-Shadows: the queue row, spawn.json, identity.md and
 the autoscaler's `create-agent` flags all carry `shadowless` alongside
 `sliceless`, so every shadowless check in this file stays true for a

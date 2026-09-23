@@ -398,6 +398,9 @@ CREATE**. This inventory is FILE granularity only: naming a file is not naming a
 function, and an inventory item must not prescribe function names, signatures,
 call graphs, line-by-line algorithms, or code sketches.
 
+A slice whose inventory creates, edits, ports, moves, or copies a `SKILL.md`
+points its worker at `/skill-writer` for that step.
+
 The suspected file inventory is a search-starting **HYPOTHESIS**, explicitly not
 an execution allowlist. The plan states that the executor may refine it after
 recon; an unlisted file is never off-limits when the evidence requires reading,
