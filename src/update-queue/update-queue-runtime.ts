@@ -67,6 +67,7 @@ const LOAD_BEARING_BODY_MARKERS: readonly string[] = [
   "SCOPE:",
   "RULINGS:",
   "VERIFIED-NOUNS:",
+  "REUSE:",
 ];
 
 /** What a replace is about to destroy, as a human sentence, or `undefined`

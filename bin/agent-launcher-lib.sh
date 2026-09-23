@@ -199,6 +199,63 @@ claudey_build_add_dir_args() {
     fi
 }
 
+throne_harness_hook_gaps() {
+    local -n hook_gaps_ref="$1"
+    local throne_root="$2"
+    local settings_path="$HOME/.claude/settings.json"
+    hook_gaps_ref=()
+    local hook_name hook_path
+    for hook_name in scratch-path-guard.py skill-write-guard.py; do
+        hook_path="$throne_root/claude-hooks/$hook_name"
+        if ! grep -qF "$hook_path" "$settings_path" 2>/dev/null; then
+            hook_gaps_ref+=("$hook_name is not registered in $settings_path")
+        fi
+    done
+    if ! grep -qF "$throne_root/bin/throne-cli throne-startup" "$throne_root/.codex/hooks.json" 2>/dev/null; then
+        hook_gaps_ref+=("the codex session start hook is not registered in $throne_root/.codex/hooks.json")
+    fi
+}
+
+throne_launch_check() {
+    local launcher_name="$1"
+    local throne_root="$2"
+    local hook_name
+    for hook_name in scratch-path-guard.py skill-write-guard.py; do
+        if [[ ! -f "$throne_root/claude-hooks/$hook_name" ]]; then
+            echo "$launcher_name: launch check: $throne_root/claude-hooks/$hook_name is missing from the throne checkout" >&2
+        fi
+    done
+
+    local hook_gaps=()
+    if [[ -d "$throne_root/.git" ]]; then
+        throne_harness_hook_gaps hook_gaps "$throne_root"
+    fi
+    if (( ${#hook_gaps[@]} > 0 )); then
+        local gap
+        for gap in "${hook_gaps[@]}"; do
+            echo "$launcher_name: launch check: $gap; repairing" >&2
+        done
+        if ! "$throne_root/bin/throne-cli" ensure-harness-setup --throne-root "$throne_root" >&2; then
+            echo "$launcher_name: launch check: harness hook repair failed; launching anyway" >&2
+        fi
+    fi
+
+    local global_skills_link="$HOME/.claude/skills"
+    if [[ -L "$global_skills_link" && ! -e "$global_skills_link" ]]; then
+        echo "$launcher_name: launch check: $global_skills_link is a link that resolves to nothing" >&2
+    fi
+
+    local manifest_path="$throne_root/.claude/skill-dependencies.tsv"
+    local skill_name skill_kind
+    if [[ -f "$manifest_path" ]]; then
+        while IFS=$'\t' read -r skill_name skill_kind; do
+            if [[ "$skill_kind" == "global" && ! -f "$global_skills_link/$skill_name/SKILL.md" ]]; then
+                echo "$launcher_name: launch check: throne expects the global skill $skill_name at $global_skills_link/$skill_name, and it is not there" >&2
+            fi
+        done < "$manifest_path"
+    fi
+}
+
 codexy_ensure_prompt_arg() {
     local -n codex_args_ref="$1"
     local backup_msg="$2"

@@ -48,6 +48,7 @@ import type { ActiveAlphaCapacityInputs } from "./active-alpha-roster.ts";
 import type { CliInvocationOutcome } from "./retryable-cli-invoke.ts";
 import {
   ALPHA_AUTOSCALE_BOUNDS,
+  alphaLaunchBudgetForPressure,
   effectiveAlphaCapacity,
 } from "./alpha-autoscale-bounds.ts";
 import { decideAutoscaleActionWithFloor } from "./decide-autoscale-action.ts";
@@ -237,7 +238,32 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     if (recoveryNotice !== undefined) {
       await this.dependencies.notifyOfIdleRecovery(recoveryNotice);
     }
-    const pressure = this.dependencies.readPressure();
+    let launchBudget: number | undefined;
+    const launchedThisTick = new Set<string>();
+    for (
+      let launchesThisTick = 0;
+      launchesThisTick < ALPHA_AUTOSCALE_BOUNDS.hardMaximum;
+      launchesThisTick += 1
+    ) {
+      const pressure = this.dependencies.readPressure();
+      launchBudget ??= alphaLaunchBudgetForPressure(pressure.pressure);
+      const launched = await this.launchNextAlpha(
+        pressure,
+        launchedThisTick,
+        launchBudget,
+      );
+      if (!launched) return;
+    }
+    this.dependencies.log(
+      `stop: this tick launched the hard maximum of ${ALPHA_AUTOSCALE_BOUNDS.hardMaximum} Alphas`,
+    );
+  }
+
+  private async launchNextAlpha(
+    pressure: PressureClassification,
+    launchedThisTick: Set<string>,
+    launchBudget: number,
+  ): Promise<boolean> {
     const readyQueue = this.dependencies.readReadyQueue();
     const killSwitchOn = this.dependencies.readKillSwitch();
     const cooldown = this.dependencies.readSpawnCooldown();
@@ -250,7 +276,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       const ledger = await this.dependencies.readLaunchLedger(objectiveCode);
       if (ledger.state === "unknown") {
         this.dependencies.log(`skip: launch ledger unknown: ${ledger.reason}`);
-        return;
+        return false;
       }
       selectedCandidateLedgerEntry = ledger.entries.find(
         (entry) => entry.objectiveCode === objectiveCode,
@@ -303,14 +329,28 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
           : decision.reason;
       this.dependencies.log(`skip: ${reason}`);
       await reportBreach();
-      return;
+      return false;
     }
     if (decision.action === "unresolved") {
       this.dependencies.log(
         `launch history unresolved for "${decision.name}" -- refusing to spawn (distinct from an empty queue)`,
       );
       await reportBreach();
-      return;
+      return false;
+    }
+
+    const stopReason =
+      launchedThisTick.size >= launchBudget
+        ? `launch budget of ${launchBudget} for tick pressure ${pressure.pressure ?? "unknown"} is spent`
+        : launchedThisTick.has(decision.candidate.name)
+          ? `"${decision.candidate.name}" was already launched this tick and is still offered by the ready queue`
+          : undefined;
+    if (stopReason !== undefined) {
+      this.dependencies.log(`skip: ${stopReason}`);
+      if (launchedThisTick.size === 0) {
+        await reportBreach({ kind: "refused", reason: stopReason });
+      }
+      return false;
     }
 
     const resolved = this.dependencies.resolvePublishedRuntime();
@@ -323,7 +363,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         stage: "resolving this worker's own published dist location",
         detail: "resolvePublishedRuntime returned nothing",
       });
-      return;
+      return false;
     }
     const cliEntrypoint = path.join(
       resolved.repoRoot,
@@ -369,7 +409,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         kind: "refused",
         reason: `dispatch pressure re-check said ${dispatchDecision.reason}`,
       });
-      return;
+      return false;
     }
     if (dispatchDecision.action === "unresolved") {
       this.dependencies.log(
@@ -379,7 +419,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         kind: "refused",
         reason: `launch history unresolved for "${dispatchDecision.name}" at the dispatch pressure re-check`,
       });
-      return;
+      return false;
     }
 
     const treeOutcome = await this.dependencies.invokeCli(
@@ -399,7 +439,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         stage: "spawn-git-tree",
         detail: `exit ${result.exitCode}: ${result.stderr.trim()}`,
       });
-      return;
+      return false;
     }
     const candidateCwd = treeOutcome.result.stdout.trim().split("\n").at(-1);
     if (!candidateCwd) {
@@ -411,7 +451,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         stage: "spawn-git-tree",
         detail: "succeeded but printed no worktree path",
       });
-      return;
+      return false;
     }
 
     const authorizedBypassFlags =
@@ -456,11 +496,11 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         stage: "create-agent (retryable, exhausted after two attempts)",
         detail: outcome.lastResult.stderr.trim(),
       });
-      return;
+      return false;
     }
     if (outcome.outcome === "failure") {
       // A failed spawn attempt is logged and picked up again on this
-      // worker's next tick after its cooldown, not retried inline -- out of
+      // worker's next tick, not retried inline -- out of
       // scope for this worker.
       this.dependencies.log(
         `spawn attempt for "${candidate.name}" failed (exit ${outcome.result.exitCode}): ${outcome.result.stderr.trim()}`,
@@ -470,7 +510,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         stage: "create-agent",
         detail: `exit ${outcome.result.exitCode}: ${outcome.result.stderr.trim()}`,
       });
-      return;
+      return false;
     }
 
     try {
@@ -485,11 +525,13 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       // direction, and would have the Regent hunt for an Alpha that is
       // running.
       await reportBreach({ kind: "spawned" });
-      return;
+      return false;
     }
+    launchedThisTick.add(candidate.name);
     this.dependencies.log(
       `spawned "${candidate.name}" for objective "${candidate.objectiveCode}"`,
     );
     await reportBreach({ kind: "spawned" });
+    return true;
   }
 }

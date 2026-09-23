@@ -145,8 +145,8 @@ export function resolveForkOrigin(
       reason:
         `--fork-of ${parent} is refused — a forked pane inherits no ` +
         `conversation, so "${name}" needs its brief at ${briefPath}. Write the ` +
-        `brief in the four-marker shape (INTENT, SCOPE, RULINGS, ` +
-        `VERIFIED-NOUNS), check it with \`throne lint-queue-plan --body-file ` +
+        `brief in the five-marker shape (INTENT, SCOPE, RULINGS, ` +
+        `VERIFIED-NOUNS, REUSE), check it with \`throne lint-queue-plan --body-file ` +
         `${briefPath}\`, then re-run`,
     };
   }

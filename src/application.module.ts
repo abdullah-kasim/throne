@@ -58,6 +58,7 @@ import { ReconcileQueueCommand } from "./reconcile-queue/reconcile-queue.command
 import { StageLaunchBriefCommand } from "./stage-launch-brief/stage-launch-brief.command.ts";
 import { RegentQueueRenderCommand } from "./regent-queue/regent-queue-render.command.ts";
 import { InstallServicesCommand } from "./install-services/install-services.command.ts";
+import { EnsureHarnessSetupCommand } from "./ensure-harness-setup/ensure-harness-setup.command.ts";
 import { AttachThroneHerdrCommand } from "./attach-throne-herdr/attach-throne-herdr.command.ts";
 import { ThroneStartupCommand } from "./throne-startup/throne-startup.command.ts";
 import { DismissRegentCommand } from "./dismiss-regent/dismiss-regent.command.ts";
@@ -283,6 +284,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     StageLaunchBriefCommand,
     RegentQueueRenderCommand,
     InstallServicesCommand,
+    EnsureHarnessSetupCommand,
     AttachThroneHerdrCommand,
     ThroneStartupCommand,
     DismissRegentCommand,

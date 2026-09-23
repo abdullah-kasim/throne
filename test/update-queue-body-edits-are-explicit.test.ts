@@ -66,8 +66,8 @@ test("a replace reports the load-bearing markers it dropped", () => {
   // The exact 2026-08-25 shape: a HELD banner plus a plan body, replaced by a
   // plan body alone.
   const notice = describeReplacedBody(
-    "HELD — not launch-eligible.\n\nINTENT: x\nSCOPE: y\nRULINGS: z\nVERIFIED-NOUNS: w",
-    "INTENT: x\nSCOPE: y\nRULINGS: z\nVERIFIED-NOUNS: w",
+    "HELD — not launch-eligible.\n\nINTENT: x\nSCOPE: y\nRULINGS: z\nVERIFIED-NOUNS: w\nREUSE: v",
+    "INTENT: x\nSCOPE: y\nRULINGS: z\nVERIFIED-NOUNS: w\nREUSE: v",
   );
   assert.match(notice ?? "", /DROPPED 1 load-bearing marker/);
   assert.match(notice ?? "", /HELD/);

@@ -3,6 +3,8 @@ import { Command, CommandRunner } from "nest-commander";
 import { THRONE_BACKEND_SERVICE_UNIT_NAME } from "../status/service-health.ts";
 import { writeServiceGenerationMarkerSafely } from "../status/service-generation-marker.ts";
 import { runThroneBackendForever } from "./throne-backend-app.ts";
+import { ensureHarnessSetup } from "../ensure-harness-setup/ensure-harness-setup.ts";
+import { isMainCheckoutRoot, RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 
 /**
  * `throne-backend`: the long-running server hosting no-idling and the
@@ -37,6 +39,17 @@ export class ThroneBackendCommand extends CommandRunner {
       new Date().toISOString(),
       process.pid,
     );
+    if (isMainCheckoutRoot(RUNTIME_THRONE_ROOT)) {
+      try {
+        await ensureHarnessSetup(RUNTIME_THRONE_ROOT);
+      } catch (error) {
+        process.stderr.write(
+          `throne-backend: harness hook check failed: ${
+            error instanceof Error ? error.message : String(error)
+          }\n`,
+        );
+      }
+    }
     await runThroneBackendForever();
   }
 }

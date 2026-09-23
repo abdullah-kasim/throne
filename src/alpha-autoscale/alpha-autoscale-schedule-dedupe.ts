@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
 
-export const ALPHA_AUTOSCALE_SPAWN_INTERVAL_MS = 5 * 60 * 1000;
+export const ALPHA_AUTOSCALE_SPAWN_INTERVAL_MS = 0;
 
 interface AlphaAutoscaleSpawnState {
   readonly lastSuccessfulSpawnAtMs: number;

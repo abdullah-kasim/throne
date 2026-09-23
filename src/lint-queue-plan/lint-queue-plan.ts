@@ -18,7 +18,7 @@ export interface QueuePlanMarkerSpec {
 }
 
 /**
- * The four canonical section markers, exact strings, uppercase with a
+ * The five canonical section markers, exact strings, uppercase with a
  * trailing colon. Exactness is the point: a weak model can grep for these;
  * "a rulings-ish paragraph somewhere" it cannot.
  */
@@ -46,6 +46,12 @@ export const QUEUE_PLAN_MARKERS: readonly QueuePlanMarkerSpec[] = [
     whatBelongs:
       "the exact code nouns (model aliases, command names, file paths, preset names) that were grep-verified against the live tree before filing",
     example: "VERIFIED-NOUNS: codex/gpt-5.6-terra, plan-usage-remaining, SonnetLow, config.user.ts.",
+  },
+  {
+    marker: "REUSE:",
+    whatBelongs:
+      "the existing functions, types and modules in the target tree that this work must build on or extend instead of duplicating, each as path:line and what it already does, or the literal words 'none found' with the grep that proved it",
+    example: "REUSE: web/money.ts:12 formatMoney(amount, options) already formats prices; add a discount option, do not add a formatter.",
   },
 ];
 

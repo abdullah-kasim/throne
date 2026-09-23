@@ -3,7 +3,10 @@ import type {
   InstallServicesDeps,
   InstallServicesOptions,
 } from './install-services.types.ts';
-import { writeInstallServicesLine } from './output.ts';
+import {
+  writeInstallServicesError,
+  writeInstallServicesLine,
+} from './output.ts';
 
 export const SKILL_WRITE_GUARD_HOOK_FILE_NAME = 'skill-write-guard.py';
 const SKILL_WRITE_GUARD_MATCHER = 'Edit|Write';
@@ -103,7 +106,7 @@ export async function installSkillWriteGuardHook(
     try {
       existing = JSON.parse(existingText);
     } catch (error) {
-      process.stderr.write(
+      writeInstallServicesError(
         `install-services: ${settingsPath} is not valid JSON, so the skill write guard hook was not registered: ${
           error instanceof Error ? error.message : String(error)
         }\n`,
@@ -112,7 +115,7 @@ export async function installSkillWriteGuardHook(
     }
   }
   if (!isJsonObject(existing)) {
-    process.stderr.write(
+    writeInstallServicesError(
       `install-services: ${settingsPath} does not hold a JSON object, so the skill write guard hook was not registered\n`,
     );
     return 'error';

@@ -10,8 +10,6 @@ import {
   recordSuccessfulAlphaAutoscaleSpawn,
 } from "../src/alpha-autoscale/alpha-autoscale-schedule-dedupe.ts";
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000;
-
 test("the autoscaler keeps five Alphas live and stops at seven, below the hard maximum of eight", () => {
   assert.equal(ALPHA_AUTOSCALE_BOUNDS.floor, 5);
   assert.equal(ALPHA_AUTOSCALE_BOUNDS.ceiling, 7);
@@ -21,22 +19,15 @@ test("the autoscaler keeps five Alphas live and stops at seven, below the hard m
   );
 });
 
-test("the Alpha spawn cooldown lasts one five-minute worker tick", () => {
-  assert.equal(ALPHA_AUTOSCALE_SPAWN_INTERVAL_MS, FIVE_MINUTES_MS);
+test("the Alpha spawn cooldown is zero, so a launch is never held back by the last one", () => {
+  assert.equal(ALPHA_AUTOSCALE_SPAWN_INTERVAL_MS, 0);
   const statePath = path.join(
     mkdtempSync(path.join(tmpdir(), "cooldown-")),
     "last-spawn.json",
   );
   recordSuccessfulAlphaAutoscaleSpawn(1_000_000, statePath);
-  assert.equal(
-    readAlphaAutoscaleCooldown(1_000_000 + FIVE_MINUTES_MS - 1, statePath)
-      .elapsed,
-    false,
-  );
-  assert.equal(
-    readAlphaAutoscaleCooldown(1_000_000 + FIVE_MINUTES_MS, statePath).elapsed,
-    true,
-  );
+  assert.equal(readAlphaAutoscaleCooldown(1_000_000, statePath).elapsed, true);
+  assert.equal(readAlphaAutoscaleCooldown(999_999, statePath).elapsed, false);
 });
 
 function sourceFiles(directory: string): string[] {

@@ -9,6 +9,7 @@ import { ReconcileQueueCommand } from "../reconcile-queue/reconcile-queue.comman
 import { StageLaunchBriefCommand } from "../stage-launch-brief/stage-launch-brief.command.ts";
 import { RegentQueueMigrateCommand } from "../regent-queue/regent-queue-migrate.command.ts";
 import { InstallServicesCommand } from "../install-services/install-services.command.ts";
+import { EnsureHarnessSetupCommand } from "../ensure-harness-setup/ensure-harness-setup.command.ts";
 import { AttachThroneHerdrCommand } from "../attach-throne-herdr/attach-throne-herdr.command.ts";
 import type { CommandRegistryEntry } from "./command-registry-entry.ts";
 
@@ -98,6 +99,13 @@ export const QUEUE_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: true,
     description: "Install throne hooks and services.",
+  },
+  {
+    name: "ensure-harness-setup",
+    provider: EnsureHarnessSetupCommand,
+    visibility: "public",
+    migrated: true,
+    description: "Re-register the throne's Claude and Codex harness hooks for the live root.",
   },
   {
     name: "attach-throne-herdr",

@@ -1,7 +1,7 @@
 // `lint-queue-plan` — gate for the Stager consolidation checklist
 // (AGENTS.md, "The Stager"): before filing a queue objective and notifying
 // as launch-ready, the filing Stager runs this against the objective code.
-// It reads the queue item's body from the SQLite store and checks the four
+// It reads the queue item's body from the SQLite store and checks the five
 // canonical section markers (see lint-queue-plan.ts, which owns the marker
 // list and the teaching-grade failure text). Read-only against the store;
 // judgment (decisions genuinely closed, nouns genuinely verified) is
@@ -19,7 +19,7 @@ const USAGE =
   "Usage: ./bin/throne-cli lint-queue-plan --objective-code <code> | --body-file <path>\n";
 
 const PASS_DISCLAIMER =
-  "structure ok: all four markers present (INTENT:, SCOPE:, RULINGS:, VERIFIED-NOUNS:). " +
+  "structure ok: all five markers present (INTENT:, SCOPE:, RULINGS:, VERIFIED-NOUNS:, REUSE:). " +
   "This proves structure only — it is NOT evidence that decisions were genuinely closed " +
   "with the Lord or that nouns were genuinely grep-verified; that judgment remains the " +
   "filing Stager's duty.\n";

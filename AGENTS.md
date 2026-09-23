@@ -229,7 +229,7 @@ something ought to be done is not authority to file it.
 already did this by hand: copy the context out of one Stager, paste it into
 another, tell that one to work, and go back to the first to keep talking.
 `create-agent --fork-of <parent>` automates the handoff. The parent writes the
-brief to `~/.throne/data/<fork-name>/brief.md` in the four-marker shape, spawns
+brief to `~/.throne/data/<fork-name>/brief.md` in the five-marker shape, spawns
 a FRESH Stager named `<parent>-<task-slug>` (`stager-tenth-prmedia` — never
 `<parent>-01`, and never a reused idle Stager) in its own worktree, and stays
 in the conversation. The fork inherits the parent's live model unless `--model`
@@ -1420,6 +1420,14 @@ objective before its dependencies land, or losing an in-flight thread.
   7, hard maximum 8), whose floor constant the advisory now reads. On
   2026-09-21 the Regent was still holding launches to two Alphas on the
   strength of nudges from 2026-09-18.
+- **The autoscaler has no spawn cooldown; pressure paces it.** One tick
+  launches Alphas back to back until a gate refuses (kill switch, pressure
+  verdict, capacity, no eligible row) or its launch budget is spent. The
+  budget is read once per tick from pressure, assuming each launch adds 20
+  points: `floor((80 - pressure) / 20)`, so pressure 0 launches up to 4,
+  pressure 40 up to 2, 60 one, and above 60 nothing
+  (`alphaLaunchBudgetForPressure` in `alpha-autoscale-bounds.ts`). The Lord
+  removed the five-minute cooldown on 2026-09-23.
 - **Record every full-suite hold and release.** Whenever the Regent holds a
   campaign for full-suite access or releases one, it calls
   `record-suite-hold --campaign <name> --reason <why>` or

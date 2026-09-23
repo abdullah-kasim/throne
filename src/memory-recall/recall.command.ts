@@ -148,6 +148,12 @@ function parseArguments(commandArguments: readonly string[]): ParsedArguments {
   return { hook, status, taskText, sessionId, directory };
 }
 
+const RELAYED_AGENT_MESSAGE = /^\s*[\w-]+ said:[\s\S]*\[message \d+\]\s*$/i;
+
+export function isRelayedAgentMessage(prompt: string): boolean {
+  return RELAYED_AGENT_MESSAGE.test(prompt);
+}
+
 export function recallRequestFromHookPayload(
   payloadText: string,
 ): RecallRequest | undefined {
@@ -160,6 +166,7 @@ export function recallRequestFromHookPayload(
   if (typeof payload !== 'object' || payload === null) return undefined;
   const { prompt, session_id: sessionId, cwd } = payload as Record<string, unknown>;
   if (typeof prompt !== 'string' || prompt.trim().length === 0) return undefined;
+  if (isRelayedAgentMessage(prompt)) return undefined;
   return {
     taskText: prompt,
     ...(typeof sessionId === 'string' ? { sessionId } : {}),

@@ -3,7 +3,10 @@ import type {
   InstallServicesDeps,
   InstallServicesOptions,
 } from './install-services.types.ts';
-import { writeInstallServicesLine } from './output.ts';
+import {
+  writeInstallServicesError,
+  writeInstallServicesLine,
+} from './output.ts';
 
 export const GUARD_HOOK_FILE_NAME = 'scratch-path-guard.py';
 export const RETIRED_GUARD_HOOK_FILE_NAME = 'rm-literal-home-guard.py';
@@ -104,7 +107,7 @@ export async function installClaudeGuardHook(
     try {
       existing = JSON.parse(existingText);
     } catch (error) {
-      process.stderr.write(
+      writeInstallServicesError(
         `install-services: ${settingsPath} is not valid JSON, so the Claude guard hook was not registered: ${
           error instanceof Error ? error.message : String(error)
         }\n`,
@@ -113,7 +116,7 @@ export async function installClaudeGuardHook(
     }
   }
   if (!isJsonObject(existing)) {
-    process.stderr.write(
+    writeInstallServicesError(
       `install-services: ${settingsPath} does not hold a JSON object, so the Claude guard hook was not registered\n`,
     );
     return 'error';

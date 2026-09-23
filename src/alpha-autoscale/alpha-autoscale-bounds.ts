@@ -8,6 +8,8 @@ export const ALPHA_LIVE_FLOOR_MINIMUM = 5;
 export const ALPHA_AUTOSCALE_HEADROOM = 2;
 export const ALPHA_AUTOSCALE_HARD_MAXIMUM = 8;
 export const LOW_PRESSURE_CAPACITY_THRESHOLD = 20;
+export const ASSUMED_PRESSURE_PER_ALPHA_LAUNCH = 20;
+export const LAUNCH_BUDGET_PRESSURE_CEILING = 80;
 
 if (ALPHA_AUTOSCALE_HEADROOM <= 0) {
   throw new Error("Alpha autoscale headroom must be positive");
@@ -34,4 +36,13 @@ export function effectiveAlphaCapacity(
     pressure.pressure <= LOW_PRESSURE_CAPACITY_THRESHOLD
     ? ALPHA_AUTOSCALE_BOUNDS.hardMaximum
     : ALPHA_AUTOSCALE_BOUNDS.ceiling;
+}
+
+export function alphaLaunchBudgetForPressure(pressure: number | null): number {
+  if (pressure === null) return 0;
+  const budget = Math.floor(
+    (LAUNCH_BUDGET_PRESSURE_CEILING - pressure) /
+      ASSUMED_PRESSURE_PER_ALPHA_LAUNCH,
+  );
+  return Math.min(Math.max(budget, 0), ALPHA_AUTOSCALE_HARD_MAXIMUM);
 }

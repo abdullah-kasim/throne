@@ -145,27 +145,22 @@ stack, the words that ordered the stacking.
 > missing endpoint in the page, run in a real browser and pasted as
 > observed). Open the PR through the sanctioned delivery route, as a draft.
 
-## Landing a stack: unstack, then merge
+## Landing a stack: roll up, then squash-merge the root
 
-The stack exists for review. Once every PR in it is approved, unstack from
-the bottom so each PR lands as its own merge on the default branch and can
-be reverted alone (Lord, 2026-09-23: "once PRs are approved, unstack, then
-merge. We can then revert easily"):
+The stack exists for review. It lands as ONE commit: roll every upper pull
+request into the root, prove the human scenario the Lord names on the rolled
+branch, and squash-merge the root through GitHub. One commit on the default
+branch means one revert when a feature is ever unwanted in full (Lord,
+2026-09-23: "We prefer stacking, and we prefer rolling up before merging for
+easy rollbacks. I don't want to revert 3 commits ... in case where we did a
+complete 180 on a feature and want all the code annihilated"). This replaces
+the earlier unstack-from-the-bottom rule recorded here the same day; the
+Lord chose roll-up when the two were put side by side.
 
-1. Merge the lowest PR into the default branch and delete its branch.
-2. GitHub retargets the next PR onto the default branch by itself; check
-   that it did, and that its Files changed now shows only its own share.
-   It will, because every file it carries from below is byte-identical
-   (the execution contract); a conflict here means a layer edited a file it
-   did not own.
-3. Wait for that PR's checks to re-run on the new base. On GitHub
-   Enterprise Server the secret-scan gate and the AI review dispatch only
-   for a PR whose base is the default branch (observed 2026-09-21 on PRs
-   159 and 139): a stacked PR has had neither until it is retargeted.
-4. Merge it, and repeat for the next layer.
-
-Never merge an upper PR into the one below it, and never squash the stack
-into one merge: either turns three revertable steps into one.
+The procedure, the three questions the Lord answers (which pull request,
+whether it may merge, the criteria that allows the merge) and the queue row
+shape are in `/pr-merge`; it identifies the whole stack from any one pull
+request in it.
 
 ## What the first split looked like (2026-09-21)
 

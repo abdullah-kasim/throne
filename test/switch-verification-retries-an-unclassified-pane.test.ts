@@ -32,7 +32,7 @@ test("a cwd mismatch stays a real refusal", () => {
     isTransientVerificationReadiness({
       outcome: "refused",
       code: "cwd-mismatch",
-      reason: 'running cwd "/Users/theuser/dotfiles" is not the registered cwd "/x"',
+      reason: 'running cwd "/tmp/example-checkout" is not the registered cwd "/x"',
     }),
     false,
   );

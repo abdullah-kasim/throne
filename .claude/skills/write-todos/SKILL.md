@@ -429,13 +429,26 @@ single-use comparison require no plan sentence, named predicate, or extraction
 obligation. Planning owns the semantic contract; after recon, execution owns
 the concrete vocabulary and mechanics that satisfy it.
 
-## Platform-first audit — inventory before proposing machinery
+## Repository-first, then platform-first audit — inventory before proposing machinery
 
-Before the plan proposes a new tool, transport, parser, wrapper, or state
-machine, it must inventory the current stdlib, platform, and installed-
-dependency primitives that could satisfy the needed guarantees. The audit is
-evidence, not a vibe check: name the candidate primitive, the guarantee it
-already provides, and the exact guarantee still missing.
+Before the plan proposes a new function, tool, transport, parser, wrapper, or
+state machine, it must inventory what already exists, in this order: the
+target repository's own functions, types and modules in and around the touched
+area; then the stdlib, platform, and installed-dependency primitives. The
+audit is evidence, not a vibe check: name the candidate primitive, the
+guarantee it already provides, and the exact guarantee still missing.
+
+The repository half is not optional and it is where duplication actually
+happens: on one pull request a slice wrote a second currency formatter four functions
+away from the existing `formatMoney` because nothing had put that name in front
+of it; the fix was one field on the existing formatter. Start from the
+queue row's `REUSE:` entries, then grep the touched module for every verb the
+objective uses (`git grep -n -E "func (sign|verify)|function retry" -- <module>`)
+and record every hit in the overview's reuse ledger: `path:line — what it
+does — reuse / extend / not applicable, and why`. A slice may extend an
+existing function's contract (a new optional field, a new parameter with a
+default) when that is what reuse needs; it may not copy the body. Code reuse
+decreases complexity (Lord, 2026-09-23).
 
 The decision order is strict:
 

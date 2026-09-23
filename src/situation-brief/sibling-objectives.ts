@@ -5,7 +5,7 @@ import type { BriefSection } from "./brief-command-runner.ts";
 export const RECENTLY_FINISHED_WINDOW_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 const RULING_LINES_PER_SIBLING = 5;
 const RULING_LINE_LENGTH = 200;
-const PLAN_MARKERS = ["INTENT:", "SCOPE:", "RULINGS:", "VERIFIED-NOUNS:"];
+const PLAN_MARKERS = ["INTENT:", "SCOPE:", "RULINGS:", "VERIFIED-NOUNS:", "REUSE:"];
 
 export function deliveryBranchOf(row: RegentQueueItemRow): string | null {
   return row.prBranch ?? row.launchEligibility?.targetBranch ?? null;

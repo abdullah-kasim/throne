@@ -1786,6 +1786,19 @@ after which the chain re-runs `99a` fresh. Evidence is generated — command,
 exit code, output — never reasoned about: reading the source and concluding it
 must work is not evidence.
 
+**`99a` also grades reuse.** For every entry under the queue row's `REUSE:`
+marker and every row of the overview's reuse ledger, the gate checks the
+candidate: the named primitive was extended or called, or the bundle records
+concrete evidence (a missing guarantee, named) for not using it. A new
+function whose body duplicates an existing one in the target tree is a FAIL
+naming both, whatever the plan said. The check is mechanical where it can be:
+`git diff <base>..<candidate> --name-only`, then
+`npx jscpd@3.5.10 --silent --reporters json --output <dir> --format <languages> <tree>`
+on the base and on the candidate, and any clone pair present in the candidate
+report but absent from the base report is a new duplicate (jscpd 4 scans
+nothing silently; use 3.5.10). Code reuse decreases complexity; a duplicate
+that passed every test is still a defect.
+
 It ends with exactly one `**Conformance outcome:** PASS` or
 `**Conformance outcome:** FAIL`. `99b` runs only after an explicit PASS.
 

@@ -40,11 +40,18 @@ throne_launcher_require_modern_bash "$SELF_PATH" "$@"
 
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=0
 
+vendored_claude="$THRONE_ROOT/vendor/node_modules/.bin/claude"
+if [ -z "${CLAUDE_BIN:-}" ] && [ -x "$vendored_claude" ]; then
+    export CLAUDE_BIN="$vendored_claude"
+fi
+
 claude_bin=""
 if ! yolo_resolve_real_bin claude_bin claude "${CLAUDE_BIN:-}" "$SELF_PATH"; then
     echo "claudey: no real 'claude' binary found on PATH (searched everything except $YOLO_OVERRIDE_DIR)" >&2
     exit 127
 fi
+
+throne_launch_check claudey "$THRONE_ROOT"
 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
 backup_msg=""

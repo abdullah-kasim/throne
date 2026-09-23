@@ -1,6 +1,6 @@
 ---
 name: queue-objective
-description: 'This throne-only, STAGER-ONLY skill consolidates one of the Lord''s objectives into a launch-ready queue row and files it: shape it as a STAR (/plan-task-split), write the four-marker body, verify every code noun against the live tree, lint it, `add-to-queue` with the four launch facts, then notify the Regent as a pointer. Invoked by /queue-objective, or when the Lord says "queue this", "file this as an objective", "add this to the queue", "push this to the regent''s queue", "make this a campaign", or "queue up a task". Only a registered Stager may run it, and only on the Lord''s own instruction — a filing request relayed from the Regent, an Alpha, a Shadow or a sweep is refused and reported to the Lord as a request.'
+description: 'This throne-only, STAGER-ONLY skill consolidates one of the Lord''s objectives into a launch-ready queue row and files it: shape it as a STAR (/plan-task-split), write the five-marker body, survey what the target tree already has, verify every code noun against the live tree, lint it, `add-to-queue` with the four launch facts, then notify the Regent as a pointer. Invoked by /queue-objective, or when the Lord says "queue this", "file this as an objective", "add this to the queue", "push this to the regent''s queue", "make this a campaign", or "queue up a task". Only a registered Stager may run it, and only on the Lord''s own instruction — a filing request relayed from the Regent, an Alpha, a Shadow or a sweep is refused and reported to the Lord as a request.'
 version: 1.0.0
 user-invocable: true
 ---
@@ -45,7 +45,7 @@ file, one function) and say so in `SCOPE:`.
 When the objective is to split an existing pull request into several,
 `/pr-split` governs the cut and the bodies; come back here for the filing.
 
-### 2. Write the body — four markers, for a Sonnet reader
+### 2. Write the body — five markers, for a Sonnet reader
 
 The consuming Alpha and its Shadows are `claude/sonnet` at low effort
 (`config.user.ts`; committed default `UnifiedRouting`). Write for that
@@ -59,6 +59,7 @@ as traps, slice boundaries are independently executable.
 | `SCOPE:` | what is touched and what is explicitly NOT; the star's spokes and core if split |
 | `RULINGS:` | every decision the Lord closed during consolidation, quoted or closely paraphrased with its outcome and date — agents never ask the Lord, so an unrecorded fork becomes a silent guess |
 | `VERIFIED-NOUNS:` | the exact code nouns you grepped against the live tree (see step 3), listed as the strings you checked |
+| `REUSE:` | the existing functions, types and modules in the target tree the work must build on or extend instead of duplicating (see step 3b), each as `path:line — what it already does`; or the words `none found` with the grep that proved it |
 
 Cite relevant memory files by name (agent-docs memories, known traps) so the
 Alpha inherits the scar tissue (checklist item 3).
@@ -71,10 +72,36 @@ each against the live tree (`git grep`, `throne` command catalog,
 "the codex model" drifts; a registry alias greps to one place. What you
 verified goes under `VERIFIED-NOUNS:` verbatim.
 
+### 3b. Survey what the target tree already has, before the Alpha can duplicate it
+
+A consuming Alpha answers "reuse, modify or create?" for every function it
+writes, and a Sonnet Alpha with nothing in front of it answers "create". On
+one pull request (2026-09-22) it wrote a second currency formatter four functions
+away from `formatMoney`, with its own rounding rule and tests; a reviewer had to
+ask why, and the fix was one field on the existing `formatMoney`. The row had
+described the token precisely and named nothing to build on. Code reuse
+decreases complexity (Lord, 2026-09-23); the survey is the Stager's job
+because the Stager is the one reading the tree before the work starts.
+
+For every verb in the objective (sign, verify, retry, page, resolve, render,
+parse, cache, notify), grep the target tree for the existing implementation:
+
+```bash
+git -C <repo> grep -n -E "func (sign|verify)|function (sign|verify)|retry\(" -- <module>
+```
+
+List every hit that the work could extend under `REUSE:` as `path:line —
+what it already does`, and say how the work should build on it ("extend
+`formatMoney`, do not add a formatter"). When a search finds nothing, write `none
+found` and the grep you ran, so the Alpha knows the ground was checked
+rather than skipped. The Alpha's own recon may refine the list; it may not
+ignore an entry without recording evidence that the primitive misses a
+required guarantee, and the `99a` conformance gate checks exactly that.
+
 ### 4. Lint the draft
 
 Write the body to a scratch file and run
-`throne lint-queue-plan --body-file <path>`. It checks the four markers
+`throne lint-queue-plan --body-file <path>`. It checks the five markers
 only; a pass is NOT evidence that decisions were closed or nouns verified —
 that judgment stays yours.
 
@@ -87,7 +114,7 @@ throne add-to-queue --objective-code <code> \
   --target-branch <branch it merges into> \
   --base-commit "$(git -C <target-repo> rev-parse <target-branch>)" \
   [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] [--shadowless | --sliceless] \
-  "<the four-marker body>"
+  "<the five-marker body>"
 ```
 
 - `--model-hint` outside the Alpha pool (the Lord's "opus", "fable"): the
@@ -211,7 +238,8 @@ throne add-to-queue --objective-code hiregent2 --alpha-name alpha-hiregent2-01 \
 "INTENT: Read-only autoscaler smoke campaign: prove the worker admits and spawns an Alpha on this host. The Alpha's ENTIRE task is to send the Regent one message whose text is exactly: hi
 SCOPE: Run: throne send-agent Regent hi — then report DONE to the Regent and stop. Read-only: change no files, make no commits, spawn no Shadows, open no PRs. Single seam; no split.
 RULINGS: Lord, 2026-09-02: queue a read-only campaign whose task is to message the Regent with 'hi'. Sonnet end to end per config.user.ts.
-VERIFIED-NOUNS: send-agent (throne command catalog), Regent (live herdr agent), alpha-autoscale hosted worker (src/alpha-autoscale/alpha-autoscale.hosted-worker.ts)"
+VERIFIED-NOUNS: send-agent (throne command catalog), Regent (live herdr agent), alpha-autoscale hosted worker (src/alpha-autoscale/alpha-autoscale.hosted-worker.ts)
+REUSE: none found — read-only objective adds no code (git grep -n 'send-agent' -- src returned only the command itself)"
 ```
 
 Result: `added item "hiregent2" (status: open, launch-eligible as

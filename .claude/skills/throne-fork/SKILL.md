@@ -31,7 +31,7 @@ Only a Stager may take this path; the Regent cannot fork itself.
 f0. Confirm the exact scope with the Lord, the same mandatory confirmation
     `/no-alpha` step 0 requires. Forking does not waive it.
 f1. Write the brief to `~/.throne/data/<fork-name>/brief.md` in the
-    four-marker shape (INTENT, SCOPE, RULINGS, VERIFIED-NOUNS) and check it
+    five-marker shape (INTENT, SCOPE, RULINGS, VERIFIED-NOUNS, REUSE) and check it
     with `throne lint-queue-plan --body-file <that path>`. THE FORKED PANE
     INHERITS NONE OF THIS CONVERSATION. Everything settled here — the
     rulings, the paths, the file names, the things ruled out — is lost

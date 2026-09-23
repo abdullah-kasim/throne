@@ -10,7 +10,12 @@ import {
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
 import { RULES_BACKEND } from '../relevance-classifier/rules-backend.ts';
-import { runRecall, type RecallDependencies } from './recall.command.ts';
+import {
+  recallRequestFromHookPayload,
+  runRecall,
+  type RecallDependencies,
+} from './recall.command.ts';
+import { LOWEST_PROBABILITY_WORTH_SERVING } from './select-memories.ts';
 import { RECALL_LEDGER_FILE_NAME } from './recall-records.ts';
 
 const PROJECT_SCOPE = '-home-someone-project';
@@ -318,4 +323,29 @@ test('the model backend is given the task and the repository as named fields', a
   await runRecall([PULL_REQUEST_TASK], fixture.dependencies);
   assert.deepEqual(states, [{ task: PULL_REQUEST_TASK, repository: 'project' }]);
   assert.match(fixture.stdout.join(''), /NEVER_REPUBLISH\.md/);
+});
+
+test('a relayed agent message ending in its message number is not recalled for, and a prompt typed by the Lord still is', () => {
+  const relayed = JSON.stringify({
+    prompt: 'regent said: launchcheck launched: alpha-launchcheck-01 LIVE on claude/opus, sliceless. [message 4101]',
+    session_id: 'session',
+  });
+  const ownPrompt = JSON.stringify({ prompt: 'how do we publish a pull request body?', session_id: 'session' });
+  assert.equal(recallRequestFromHookPayload(relayed), undefined);
+  assert.equal(recallRequestFromHookPayload(ownPrompt)?.taskText, 'how do we publish a pull request body?');
+});
+
+test('a yes answered below the serving probability is judged but not served', async () => {
+  const unsure: ClassifierBackend = {
+    name: RULES_BACKEND.name,
+    answer: async (_state, questions) =>
+      questions.map((question) => ({
+        questionId: question.id,
+        pick: 'yes',
+        probability: LOWEST_PROBABILITY_WORTH_SERVING - 0.1,
+      })),
+  };
+  const fixture = harness({}, { backend: unsure });
+  assert.equal(await runRecall([PULL_REQUEST_TASK], fixture.dependencies), 0);
+  assert.equal(fixture.stdout.join(''), '');
 });

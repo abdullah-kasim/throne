@@ -14,6 +14,7 @@ import { RULES_BACKEND } from '../relevance-classifier/rules-backend.ts';
 import { GLOBAL_SCOPE, type Memory } from './memory-frontmatter.types.ts';
 
 const SHARED_WORDS_FOR_CERTAINTY = 3;
+export const LOWEST_PROBABILITY_WORTH_SERVING = 0.65;
 export const TASK_STATE_FIELD = 'task';
 export const REPOSITORY_STATE_FIELD = 'repository';
 
@@ -139,7 +140,10 @@ export async function selectMemories(
     request.config.maximumInjectedCharacters - RECALLED_MEMORIES_HEADING.length;
   return answered.map(({ memory, answer }) => {
     const fits = renderedMemory(memory).length <= charactersLeft;
-    const served = answer.pick === YES && fits;
+    const served =
+      answer.pick === YES &&
+      answer.probability >= LOWEST_PROBABILITY_WORTH_SERVING &&
+      fits;
     if (served) charactersLeft -= renderedMemory(memory).length;
     return { memory, answer, served };
   });

@@ -314,7 +314,7 @@ was used. The fork gets its own worktree like every other agent — pointing
 `--cwd` at the parent's tree trips the existing borrowed-worktree refusal.
 
 A forked pane inherits NO conversation, so the parent writes the brief to
-`~/.throne/data/<fork-name>/brief.md` in the four-marker shape (INTENT, SCOPE,
+`~/.throne/data/<fork-name>/brief.md` in the five-marker shape (INTENT, SCOPE,
 RULINGS, VERIFIED-NOUNS), checks it with `throne lint-queue-plan --body-file`,
 and `--fork-of` seeds it as the fork's opening prompt. Anything settled in the
 parent's conversation and left out of that file is lost.
@@ -1911,6 +1911,40 @@ stale prior registration for this hook file is replaced in place, and a
 second run reports `unchanged`. Its own tests live beside it
 (`claude-hooks/test_skill_write_guard.py`) and run under `npm test` through
 `test/skill-write-guard-hook.test.ts`.
+
+## ensure-harness-setup
+
+```bash
+./bin/throne-cli ensure-harness-setup [--throne-root <absolute path>]
+```
+
+Re-registers only the harness hooks: the two Claude guard hooks above and the
+Codex `SessionStart` hook in `.codex/hooks.json`, through the same functions
+`install-services` calls. It renders no service unit and restarts nothing.
+It prints one line per hook, `unchanged`, `added`, or `failed: <reason>`, and
+on any failure exits 1 and sends the Lord an ntfy message. Without
+`--throne-root` it registers the running checkout, and refuses when that is
+a linked worktree.
+
+Three callers run it:
+
+- `bin/claudey` and `bin/codexy`, before the harness starts
+  (`throne_launch_check` in `bin/agent-launcher-lib.sh`). A shell check greps
+  `~/.claude/settings.json` and `.codex/hooks.json` for the launcher's own
+  root first, so a healthy launch starts no node process; only a gap runs the
+  command, with `--throne-root` set to the launcher's `bin/` parent. A failed
+  repair never stops the launch. The check is skipped when that root is a
+  linked worktree. The same check reports a `~/.claude/skills` link that
+  resolves to nothing and every `global` entry of
+  `.claude/skill-dependencies.tsv` missing under `~/.claude/skills`; it
+  never creates or edits either.
+- `throne-backend`, once on startup, when it runs from the live checkout.
+
+`.claude/skill-dependencies.tsv` records every skill that `AGENTS.md` or a
+shipped `SKILL.md` names, as `shipped`, `global`, `harness`, `generated`, or
+`not-a-skill`;
+`test/every-skill-a-throne-skill-names-is-in-the-dependency-manifest.test.ts`
+fails on a named skill it does not record.
 
 Before rendering, each platform retires whatever pre-consolidation unit is
 still on the box — `herdr-server`, `throne-keep-going`, `throne-no-idling`,

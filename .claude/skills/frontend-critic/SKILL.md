@@ -1,6 +1,6 @@
 ---
 name: frontend-critic
-description: This throne-locally discovered skill should be used after any visual or layout change to a web UI, before the change is declared done or shown to the Lord. Trigger on "critique the UI", "check the alignment", "does this look right", "review the layout", "front-end review", or whenever a diff touches CSS, markup, or component rendering. The `99b` verify gate runs it for every bundle stamped `frontend: true`; a Stager or a no-alpha session runs it directly. It renders the change in a real browser, measures it, and reports every visual defect with the fix, so the Lord is never the one who has to notice that something is a pixel off.
+description: This throne-locally discovered skill should be used after any visual or layout change to a web UI, before the change is declared done or shown to the Lord. Trigger on "critique the UI", "check the alignment", "does this look right", "review the layout", "front-end review", or whenever a diff touches CSS, markup, or component rendering. The `99b` verify gate runs it for every bundle stamped `frontend: true`; a Stager or a no-alpha session runs it directly. It renders the change in a real browser, measures it, operates every new control by keyboard, and reports every visual or keyboard defect with the fix, so the Lord is never the one who has to notice that something is a pixel off.
 version: 0.1.0
 user-invocable: true
 ---
@@ -19,8 +19,9 @@ verify gate whenever `00_overview.md` carries `frontend: true` (see
 `write-todos`, "Front-end bundles"). Outside a bundle, a Stager or a
 no-alpha session runs it itself before reporting a UI change done. Run it
 twice at least: after the first implementation, and again after every fix
-until the report is empty. Use the global `agent-browser` skill for the
-browser and the global `pr-media` skill's capture techniques.
+until the report is empty. Use the `agent-browser` skill, which the throne
+ships in its own `.claude/skills`, for the browser, and the `pr-media`
+skill's capture techniques, shipped the same way.
 
 ## 1. Render the real thing
 
@@ -107,6 +108,58 @@ an element the change did not touch is listed under a separate heading,
 Widening the audit to the whole page, or fixing the neighbours, turns a
 slice into an accessibility campaign nobody planned.
 
+## 3c. Operate every control by keyboard
+
+Axe and a tab pass prove that focus reaches a control and that it has a
+name. They prove nothing about whether the control works once focused.
+On 2026-09-23 a colour-swatch grid passed both and a teammate reported that
+arrow keys did nothing in it and typing digits no longer jumped to the
+matching order number. The rule is not about dropdowns. Anything the change
+adds or edits that a user can operate is driven end to end with the
+keyboard, and the keyboard path must end in the same state as the mouse
+path. That covers single controls (buttons, links, inputs, toggles,
+dialogs) and, above all, **navigable sets**: any group of items a user
+moves through and picks from, wherever it renders. A select, a combobox,
+an autocomplete, a menu, a tab list, a list of search results, a table
+of rows, a tree, a grid, a sidebar of folders, a pager, a command palette,
+a set of chips or a row of cards are all navigable sets. If a mouse
+user can walk it and pick from it, a keyboard user must be able to walk
+it with the arrows, jump in it by typing, and pick from it with Enter.
+
+For each control or set, in order, with the focused element and the
+current item read back after every step from `agent-browser snapshot -i`
+and `agent-browser eval "document.activeElement.outerHTML"`:
+
+1. **Reach and leave.** `agent-browser press Tab` lands on it in a
+   sensible order; `agent-browser press Shift+Tab` leaves it backwards.
+   A set is one tab stop, not one per item; the arrows move inside it.
+2. **Open and close.** For anything that expands, `agent-browser press
+   Enter` and `agent-browser press Space` open it; `agent-browser press
+   Escape` closes it and leaves focus on the control, not on the body.
+3. **Move.** `agent-browser press ArrowDown` and `ArrowUp` move the
+   current item one step at a time (`ArrowRight` and `ArrowLeft` across
+   a horizontal set, both axes in a grid or table); `Home` and `End`
+   jump to the first and last item; `PageDown` and `PageUp` move a
+   screenful in a long set. The current item must be visibly marked and
+   must scroll into view.
+4. **Jump by typing.** `agent-browser type 12` (the first characters of
+   an item, digits included) moves the current item to the first one
+   whose text starts with what was typed; a set with a filter box
+   narrows to the matches instead. Numeric identifiers count as text
+   here: a user who knows the order number types it and expects to land on
+   it.
+5. **Commit.** `agent-browser press Enter` on the current item selects
+   or activates it. Read the control's value and the page that depends
+   on it: the same change a mouse click produces (a fetch, a route
+   change, a re-rendered table) must have happened.
+
+Record the result for every control and set in the report: one PASS
+line naming it and the keys exercised, or one defect line in the
+section 5 format (Where, Measurement, Cause, Fix), where Measurement is
+the key pressed and what did or did not move. A control or set that any
+of these keys cannot operate is a defect of the change, never
+"Pre-existing": the change put it there.
+
 ## 4. Check the other browsers
 
 Chromium, Firefox and WebKit round text metrics differently. A baseline
@@ -148,3 +201,10 @@ report, with the browsers named, is part of the PASS evidence.
   0.5px on text edges.
 - Element screenshots inside a scrolling container paint the clipped
   region black; crop the viewport screenshot instead.
+- Any widget built from `div`s in place of a native `select`, `button`,
+  link or list loses every native key: arrows, Home and End, jump by
+  typing, Enter and Escape. Each one has to be reimplemented, and axe
+  does not notice when they are not, because the roles and names can
+  be correct while the keys are dead. Section 3c is the only check
+  that finds it, and it applies to every navigable set, not only to
+  things shaped like a dropdown.

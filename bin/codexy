@@ -31,6 +31,7 @@ while [ -L "$launcher_source" ] && [ "$launcher_hops" -lt 32 ]; do
 done
 LAUNCHER_BIN_DIR=$(cd -P "$(dirname "$launcher_source")" && pwd -P)
 SELF_PATH="$LAUNCHER_BIN_DIR/$(basename "$launcher_source")"
+THRONE_ROOT=$(cd -P "$LAUNCHER_BIN_DIR/.." && pwd -P)
 
 . "$LAUNCHER_BIN_DIR/launcher-bash-guard.sh" || exit 1
 throne_launcher_require_modern_bash "$SELF_PATH" "$@"
@@ -42,6 +43,8 @@ if ! yolo_resolve_real_bin codex_bin codex "${CODEX_BIN:-}" "$SELF_PATH"; then
     echo "codexy: no real 'codex' binary found on PATH (searched everything except $YOLO_OVERRIDE_DIR)" >&2
     exit 127
 fi
+
+throne_launch_check codexy "$THRONE_ROOT"
 
 backup_msg=""
 codex_git_commit_msg="Please commit after every edit, thanks"

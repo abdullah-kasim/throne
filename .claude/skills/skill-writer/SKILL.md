@@ -98,6 +98,16 @@ Prove the appended line actually gates something: run `./publish.sh
 --dry-run` against a tree that still contains the old term somewhere and
 confirm it refuses, citing the newly appended line as the reason.
 
+## Naming another skill from a throne skill
+
+A throne skill that names another skill, as `/<name>` or as "the <name>
+skill", records that dependency in `.claude/skill-dependencies.tsv`: one
+line per skill, a tab, then `shipped` when the throne carries it in
+`.claude/skills`, or `global` when it must come from the machine's own
+skills tree. A test fails on any named skill the file does not record, and
+every launch reports a `global` entry the machine does not have. Prefer
+shipping a dependency over marking it `global`.
+
 ## What this skill is not
 
 A companion `skill-write-guard.py` hook watches every `SKILL.md` write and

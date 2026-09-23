@@ -801,7 +801,7 @@ court-wide `STAY DOWN` exemption.
 
 Every signal the autoscale family reads is dual-platform (the Lord's order of
 2026-09-02: "all of the signals need to support both linux and mac"). The
-queue, ledger, roster, kill switch, cooldown and launch-ledger inputs never
+queue, ledger, roster, kill switch, spawn-limiter and launch-ledger inputs never
 touched the host. The two that did were Linux-only until that day: the
 capacity-pressure verdict read `/proc/pressure/*` (PSI) and so was `unknown` on
 every tick on a Mac — the gate failed closed and spawned nothing — and

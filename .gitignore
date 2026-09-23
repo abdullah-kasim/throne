@@ -60,3 +60,6 @@
 .throne-hydration-provenance.json
 
 # Local machine rules for publish.sh (private identifiers live here, never committed).
+
+__pycache__/
+*.pyc
