@@ -1807,7 +1807,7 @@ Finds which files in one or more repos are likely to answer a task, before
 you start opening them by hand. Gathers candidate files under each `--root`,
 then scores each against the task the same way `rank` scores items, and
 prints a ranked list, most likely first: path, probability, and a short
-reason (`path  p=0.87  matches:revoke path:demo-app history:revokeDemoAppAccessForUser`).
+reason (`path  p=0.87  matches:revoke path:widget-store history:revokeWidgetStoreAccessForUser`).
 `--budget N` caps how many gathered candidates are sent into scoring, keeping
 cost bounded on large repos; `--top`/`--min`/`--json` behave as in `rank`.
 `--status` must appear alone and prints the resolved classifier backend, the

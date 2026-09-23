@@ -48,6 +48,13 @@ above the ranker's threshold in full, skim the rest. Record every finding as
 `file:line`, the phrase, and a general replacement that keeps the same shape
 (what the passage teaches) while removing what leaks (the specific domain).
 
+A narrative "read clean" is never sufficient completion evidence for this
+step. After the read, grep the staged snapshot from (a) for every `# verify:`
+pattern in `publish-scrub.sed` plus the plain identity words (product name in
+any case, internal dev domain, ticket prefixes, employer, colleague names)
+and report the resulting count as an integer. The step is only complete when
+that count is exactly 0.
+
 ### (c) Fix at the private source
 
 Edit the private source files, never the staged snapshot — the snapshot is

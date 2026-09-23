@@ -44,6 +44,9 @@ const COMPOSER_MARKERS: Readonly<Record<RuntimeHarness, string>> = {
   [HARNESS_NAMES.OMP]: "╰",
 };
 
+export const COMPOSER_MARKER_GLYPHS: readonly string[] =
+  Object.values(COMPOSER_MARKERS);
+
 const BORDER_CHARACTER_PATTERN = /^[\s─━╌╍┄┅┈┉╴╶╸╺│┃┆┇┊┋╎╏┌┐└┘├┤┬┴┼╭╮╰╯]+$/u;
 
 const CODEX_PLAN_HINT = "Create a plan? shift + tab use Plan mode esc dismiss";

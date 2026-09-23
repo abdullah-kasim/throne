@@ -28,7 +28,7 @@ ticket prefix in titles) layer on top and never replace it.
 ## Title
 
 One line, imperative or present-tense verb first, describing the outcome:
-"Adds a script that installs the beacon agent into a running local dev-env".
+"Adds a script that installs the beacon agent into a running acme dev-env".
 No period, no scope prefix like `feat:` unless the repo already uses it,
 no "WIP", no agent or tool names.
 
@@ -132,7 +132,7 @@ Format of a step, exactly:
 scripts/dev-env-install-beacon.sh --slug <your-slug>
 ```
 
-**Expect:** the last line reads `ok: http://<your-slug>.example.test/ emitted X-Trace-Id <hex>`.
+**Expect:** the last line reads `ok: http://<your-slug>.acmedev.example.test/ emitted X-Trace-Id <hex>`.
 ````
 
 - **`**Step N.**` in bold**, then one sentence with one action: open a
@@ -170,7 +170,7 @@ scripts/dev-env-install-beacon.sh --slug <your-slug>
   sees which half each proves. `testing.md` "A fixture an external
   service cannot give you" has the procedure; the patch never reaches
   a commit. PR 69 of the ticket-helper bot shipped an
-  trace-link bullet with a scenario that only rendered a site without tracing
+  trace-link bullet with a scenario that only rendered a site without traces
   and was sent back for it.
 - **A visual change gets a visual step.** Screenshots show the reviewer
   what it should look like; the walkthrough has to make them see it on
@@ -178,7 +178,7 @@ scripts/dev-env-install-beacon.sh --slug <your-slug>
   that names the page to open and, in plain words, what is now visibly
   different there: which element is new, what it links to, what appears
   when it is clicked. One step per place the change shows, or one step
-  listing every place when they are alike ("You can now view tracing for
+  listing every place when they are alike ("You can now view traces for
   copy B and copy C at `http://localhost:4321/sites/1` and `/sites/2`
   respectively. The Path column is now clickable and links to each
   copy. Clicking a transaction also shows the path in the header").
@@ -196,8 +196,8 @@ scripts/dev-env-install-beacon.sh --slug <your-slug>
   Anything that varies per machine (a dev-env slug, a hostname, a port,
   a path) is set once as a shell variable in **Before you start**, in a
   fenced block the reviewer pastes into the terminal they will use
-  (`export SITE_SLUG=acme-widgets-php-1`), and every command references
-  it (`--slug "$SITE_SLUG"`). Where a shell variable cannot reach, such as
+  (`export TRACE_SLUG=acme-widgets-php-1`), and every command references
+  it (`--slug "$TRACE_SLUG"`). Where a shell variable cannot reach, such as
   a URL to open in a browser, a value typed into a UI, or an **Expect**
   line quoting output, spell out the default value the variable was
   given, and say in **Before you start** that those steps assume the
@@ -208,12 +208,12 @@ scripts/dev-env-install-beacon.sh --slug <your-slug>
   it there: run the command yourself with stdin attached to a real TTY.
   A run with stdin from `/dev/null` or through a tool harness lets a
   wizard silently take its defaults and looks non-interactive when it
-  is not; that is how a `local dev-env create --app-code demo` step was
+  is not; that is how an `acme dev-env create --app-code demo` step was
   shipped that crashed the reviewer's readline. When a CLI has a config
-  file that suppresses its wizard (`.vip-dev-env.yml` for VIP-CLI),
+  file that suppresses its wizard (`.acme-dev-env.yml` for the Acme CLI),
   write it to a scratch directory outside the repo with a heredoc that
   expands the shell variables, and run the command from there. A name nothing in the walkthrough
-  created (your own slug, `acmewidgets-php-1`, a path under your
+  created (your own slug, `acme-widgets-php-1`, a path under your
   home, a tool only you installed) must not appear at all. If a step
   depends on a helper that only exists on another open PR, add a
   `> [!IMPORTANT]` saying so and a step that copies the file in without
@@ -280,11 +280,11 @@ Ticket: [ABC-540](https://<tracker>/issue/ABC-540/install-the-beacon-agent-into-
 
 ## What
 
-`scripts/dev-env-install-beacon.sh --slug <dev-env-slug>` installs the beacon agent into a running `local dev-env` so browsing that site produces data in the local tracing stack. The README gains a section documenting it.
+`scripts/dev-env-install-beacon.sh --slug <dev-env-slug>` installs the beacon agent into a running `acme dev-env` so browsing that site produces data in the local trace stack. The README gains a section documenting it.
 
 ## Why
 
-A VIP local development environment runs a stock `php-fpm` image with no agent in it; the extension is baked into production PHP images by the platform and never ships as a plugin or mu-plugin. The Quick start said to point an instrumented site at the collector and stopped there, so exercising the local pipeline meant hand-building the extension for the dev-env image.
+An Acme local development environment runs a stock `php-fpm` image with no agent in it; the extension is baked into production PHP images by the platform and never ships as a plugin or mu-plugin. The Quick start said to point an instrumented site at the collector and stopped there, so exercising the local pipeline meant hand-building the extension for the dev-env image.
 
 ## How
 
@@ -300,7 +300,7 @@ A VIP local development environment runs a stock `php-fpm` image with no agent i
 <summary>Steps to test</summary>
 
 > [!NOTE]
-> **Before you start:** follow `README.md` to bring the backend up (`docker compose up -d` in this repo) and have a `local dev-env` site running. Check out this branch. Every command below runs from the repo root.
+> **Before you start:** follow `README.md` to bring the backend up (`docker compose up -d` in this repo) and have an `acme dev-env` site running. Check out this branch. Every command below runs from the repo root.
 
 ### 🧪 Scenario 1: install the agent into a dev-env
 
@@ -310,12 +310,12 @@ A VIP local development environment runs a stock `php-fpm` image with no agent i
 scripts/dev-env-install-beacon.sh --slug <your-slug>
 ```
 
-**Expect:** the output ends with `ok: http://<your-slug>.example.test/ emitted X-Trace-Id <hex>` followed by a dashboard URL.
+**Expect:** the output ends with `ok: http://<your-slug>.acmedev.example.test/ emitted X-Trace-Id <hex>` followed by a dashboard URL.
 
 > [!TIP]
 > The first run compiles the extension and takes about half a minute. Later runs finish in seconds.
 
-**Step 2.** Open `http://<your-slug>.example.test/` in a browser and load the home page three or four times.
+**Step 2.** Open `http://<your-slug>.acmedev.example.test/` in a browser and load the home page three or four times.
 
 **Step 3.** Open `http://localhost:4321/sites/1`.
 
@@ -337,7 +337,7 @@ scripts/dev-env-install-beacon.sh --slug nope
 
 > [!WARNING]
 > **Not tested:**
-> - the reinstall after a `local dev-env stop` and `start` cycle (verified only by reinstalling into a live container)
+> - the reinstall after an `acme dev-env stop` and `start` cycle (verified only by reinstalling into a live container)
 > - the Linux Docker gateway fallback (no Linux Docker host available)
 
 </details>

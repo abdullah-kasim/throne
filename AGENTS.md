@@ -1413,11 +1413,11 @@ objective before its dependencies land, or losing an in-flight thread.
   noticed. Confirm the Alpha is LIVE in `agent-statuses`, or report to the
   filing Stager exactly which refusal remains.
 - **A throttle advisory lasts only as long as the nudge that carried it.** The
-  keep-going heartbeat may end with a usage advisory such as "pace to ≤4
+  keep-going heartbeat may end with a usage advisory such as "pace to ≤5
   concurrent Alphas". It describes the band evaluated for THAT nudge; a later
   nudge without it withdraws it. It is never a standing ceiling and never
-  outranks `src/alpha-autoscale/alpha-autoscale-bounds.ts` (floor 4, ceiling
-  6, hard maximum 8), whose floor constant the advisory now reads. On
+  outranks `src/alpha-autoscale/alpha-autoscale-bounds.ts` (floor 5, ceiling
+  7, hard maximum 8), whose floor constant the advisory now reads. On
   2026-09-21 the Regent was still holding launches to two Alphas on the
   strength of nudges from 2026-09-18.
 - **Record every full-suite hold and release.** Whenever the Regent holds a

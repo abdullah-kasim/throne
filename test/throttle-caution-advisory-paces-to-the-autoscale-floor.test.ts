@@ -13,5 +13,5 @@ test("the caution advisory paces the Regent to the same Alpha count the autoscal
     caution?.advisory,
     `pace to ≤${ALPHA_AUTOSCALE_BOUNDS.floor} concurrent Alphas`,
   );
-  assert.equal(caution?.advisory, "pace to ≤4 concurrent Alphas");
+  assert.equal(caution?.advisory, "pace to ≤5 concurrent Alphas");
 });

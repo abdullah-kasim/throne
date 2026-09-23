@@ -123,12 +123,12 @@ own subagent mechanism — see the distinction above.
 mkdir -p ~/.throne/data/stager-tenth-prmedia
 cat > ~/.throne/data/stager-tenth-prmedia/brief.md <<'EOF'
 INTENT: publish the PR 214 screenshots and video.
-SCOPE: repo demo-app, PR 214, media capture and publish only.
+SCOPE: repo widget-store, PR 214, media capture and publish only.
 RULINGS: none beyond the standing pr-media contract.
 VERIFIED-NOUNS: .claude/skills/pr-media/SKILL.md, PR 214.
 EOF
 throne lint-queue-plan --body-file ~/.throne/data/stager-tenth-prmedia/brief.md
-spawn-git-tree stager-tenth-prmedia --repo demo-app --non-campaign
+spawn-git-tree stager-tenth-prmedia --repo widget-store --non-campaign
 create-agent --fork-of stager-tenth --role Stager --supervisor stager-tenth \
   --name stager-tenth-prmedia --cwd <the worktree spawn-git-tree printed> \
   --non-campaign

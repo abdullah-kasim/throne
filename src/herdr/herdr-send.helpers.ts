@@ -1,4 +1,5 @@
 import { HARNESS_NAMES } from '../harness-routing/harness.ts';
+import { COMPOSER_MARKER_GLYPHS } from '../codex-screen/composer/prompt-region.ts';
 import type { SupportedComposerHarness } from '../codex-screen/composer/composer.types.ts';
 import { claudeTextboxClearance } from './herdr-claude.service.ts';
 import { codexTextboxClearance } from './herdr-codex.service.ts';
@@ -29,11 +30,40 @@ export function messageIdSuffix(messageId: number | undefined): string {
   return messageId === undefined ? '' : ` [message ${messageId}]`;
 }
 
+const LINE_STARTING_WITH_COMPOSER_MARKER = new RegExp(
+  `^([^\\S\\n]*)[${COMPOSER_MARKER_GLYPHS.join('')}]`,
+  'gmu',
+);
+
+export const COMPOSER_MARKER_REPLACEMENT = '>';
+
+export function replaceLineStartComposerMarkers(text: string): {
+  text: string;
+  replacements: number;
+} {
+  let replacements = 0;
+  const replaced = text.replace(
+    LINE_STARTING_WITH_COMPOSER_MARKER,
+    (_match, indentation: string) => {
+      replacements += 1;
+      return `${indentation}${COMPOSER_MARKER_REPLACEMENT}`;
+    },
+  );
+  return { text: replaced, replacements };
+}
+
 export function submittedPayload(
   senderName: string,
-  prompt: string,
+  rawPrompt: string,
   options: SubmitToAgentOptions,
 ): string {
+  const { text: prompt, replacements } = replaceLineStartComposerMarkers(rawPrompt);
+  if (replacements > 0) {
+    process.stderr.write(
+      `send-agent: replaced ${replacements} line-start composer marker ` +
+        `glyph(s) with "${COMPOSER_MARKER_REPLACEMENT}" before typing\n`,
+    );
+  }
   const suffix = messageIdSuffix(options.messageId);
   if (options.omitSenderAttribution === true) return `${prompt}${suffix}`;
   if (senderName.length === 0) return `${prompt}${suffix}`;

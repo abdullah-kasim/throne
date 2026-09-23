@@ -116,6 +116,30 @@ export interface StrandedSpawnReport {
   readonly classification: StrandedSpawnClassification;
 }
 
+export interface UnreadablePaneReport {
+  readonly label: string;
+  readonly tabId: string;
+  readonly paneId: string;
+  readonly error: string;
+}
+
+type CandidateClassification =
+  | { readonly kind: 'stranded'; readonly report: StrandedSpawnReport }
+  | { readonly kind: 'unreadable'; readonly report: UnreadablePaneReport }
+  | { readonly kind: 'none' };
+
+export interface CandidatePaneReads {
+  readVisibleAnsi(paneId: string): Promise<string>;
+  fileExists(filePath: string): Promise<boolean>;
+  readSpawnSpec: typeof readSpawnSpec;
+}
+
+const REAL_CANDIDATE_PANE_READS: CandidatePaneReads = {
+  readVisibleAnsi,
+  fileExists,
+  readSpawnSpec,
+};
+
 /**
  * Only a tab whose label exactly matches a ledger AGENT name can be a
  * stranded spawn -- `opening-prompt.md` and the composer state are both
@@ -124,24 +148,44 @@ export interface StrandedSpawnReport {
  * lists any pane for is left as a generic stale-tab candidate (nothing to
  * classify).
  */
-async function classifyCandidateThroneTab(
+export async function classifyCandidateThroneTab(
   candidate: StaleTabReport,
   ledgerNames: ReadonlySet<string>,
   panes: readonly HerdrPane[],
   dataDir: string | undefined,
-): Promise<StrandedSpawnReport | undefined> {
+  reads: CandidatePaneReads = REAL_CANDIDATE_PANE_READS,
+): Promise<CandidateClassification> {
   if (!ledgerNames.has(candidate.label)) {
-    return undefined;
+    return { kind: 'none' };
   }
   const pane = panes.find((candidatePane) => candidatePane.tabId === candidate.tabId);
   if (pane === undefined) {
-    return undefined;
+    return { kind: 'none' };
   }
-  const [paneAnsi, openingPromptExists, spawnSpec] = await Promise.all([
-    readVisibleAnsi(pane.paneId),
-    fileExists(openingPromptPath(candidate.label, dataDir)),
-    readSpawnSpec(candidate.label, dataDir),
-  ]);
+  let paneAnsi: string;
+  let openingPromptExists: boolean;
+  let spawnSpec: Awaited<ReturnType<typeof readSpawnSpec>>;
+  try {
+    [paneAnsi, openingPromptExists, spawnSpec] = await Promise.all([
+      reads.readVisibleAnsi(pane.paneId),
+      reads.fileExists(openingPromptPath(candidate.label, dataDir)),
+      reads.readSpawnSpec(candidate.label, dataDir),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      `stale-tab-report: unreadable pane ${candidate.label} (${pane.paneId}): ${message}`,
+    );
+    return {
+      kind: 'unreadable',
+      report: {
+        label: candidate.label,
+        tabId: candidate.tabId,
+        paneId: pane.paneId,
+        error: message,
+      },
+    };
+  }
   const classification = classifyStrandedSpawnPane(
     HARNESS_NAMES.CLAUDE,
     paneAnsi,
@@ -152,8 +196,11 @@ async function classifyCandidateThroneTab(
     },
   );
   return classification === undefined
-    ? undefined
-    : { agentName: candidate.label, tabId: candidate.tabId, classification };
+    ? { kind: 'none' }
+    : {
+        kind: 'stranded',
+        report: { agentName: candidate.label, tabId: candidate.tabId, classification },
+      };
 }
 
 /**
@@ -163,29 +210,40 @@ async function classifyCandidateThroneTab(
  * provisioned spawn stuck behind a modal or a never/partially-submitted
  * opening prompt -- those must never reach the close-inviting report.
  */
-async function splitStaleAndStrandedThroneTabs(
+export async function splitStaleAndStrandedThroneTabs(
   candidates: readonly StaleTabReport[],
   ledgerNames: ReadonlySet<string>,
   panes: readonly HerdrPane[],
   dataDir: string | undefined,
+  reads: CandidatePaneReads = REAL_CANDIDATE_PANE_READS,
 ): Promise<{
   staleTabs: StaleTabReport[];
   strandedSpawns: StrandedSpawnReport[];
+  unreadablePanes: UnreadablePaneReport[];
 }> {
   if (candidates.length === 0) {
-    return { staleTabs: [], strandedSpawns: [] };
+    return { staleTabs: [], strandedSpawns: [], unreadablePanes: [] };
   }
   const staleTabs: StaleTabReport[] = [];
   const strandedSpawns: StrandedSpawnReport[] = [];
+  const unreadablePanes: UnreadablePaneReport[] = [];
   for (const candidate of candidates) {
-    const stranded = await classifyCandidateThroneTab(candidate, ledgerNames, panes, dataDir);
-    if (stranded === undefined) {
-      staleTabs.push(candidate);
+    const classified = await classifyCandidateThroneTab(
+      candidate,
+      ledgerNames,
+      panes,
+      dataDir,
+      reads,
+    );
+    if (classified.kind === 'stranded') {
+      strandedSpawns.push(classified.report);
+    } else if (classified.kind === 'unreadable') {
+      unreadablePanes.push(classified.report);
     } else {
-      strandedSpawns.push(stranded);
+      staleTabs.push(candidate);
     }
   }
-  return { staleTabs, strandedSpawns };
+  return { staleTabs, strandedSpawns, unreadablePanes };
 }
 
 export async function collectThroneLedgerNames(
@@ -205,7 +263,11 @@ export async function collectThroneLedgerNames(
 async function classifiedThroneTabs(
   ledgerData: LedgerDataService,
   dataDir: string | undefined,
-): Promise<{ staleTabs: StaleTabReport[]; strandedSpawns: StrandedSpawnReport[] }> {
+): Promise<{
+  staleTabs: StaleTabReport[];
+  strandedSpawns: StrandedSpawnReport[];
+  unreadablePanes: UnreadablePaneReport[];
+}> {
   const [tabs, panes, liveAgents, ledgerNames] = await Promise.all([
     listTabs(),
     listPanes(),
@@ -248,4 +310,12 @@ export async function detectStrandedSpawns(
 ): Promise<StrandedSpawnReport[]> {
   const { strandedSpawns } = await classifiedThroneTabs(ledgerData, dataDir);
   return strandedSpawns;
+}
+
+export async function detectUnreadableThroneTabPanes(
+  ledgerData: LedgerDataService = new LedgerDataService(),
+  dataDir?: string,
+): Promise<UnreadablePaneReport[]> {
+  const { unreadablePanes } = await classifiedThroneTabs(ledgerData, dataDir);
+  return unreadablePanes;
 }
