@@ -57,13 +57,13 @@ done against the assumed answer: re-do the reversible bits, flag the irreversibl
 ## Filled example
 
 ```markdown
-## Q3 — Provisional settle defaults for the order-confirmation email sender (slice 01)
+## Q3 — Provisional retry delays for the order-confirmation email sender (slice 01)
 
-**Question:** The upstream sensor's rate-limit documentation aren't in hand, so the FET/relay
-settle delays can't be pinned. What defaults should ship?
-**Assumed answer:** `FIRST_RETRY_DELAY = 50 ms`, `LAST_RETRY_DELAY = 100 ms` (relay larger to cover
-coil pull-in + bounce). Conservative placeholders, overridable via `RetryDelays`.
-**Reversible?** yes — single consts, one-line change once measured at bring-up.
+**Question:** The mail provider's rate-limit documentation isn't in hand, so the retry
+delays can't be pinned. What defaults should ship?
+**Assumed answer:** `FIRST_RETRY_DELAY = 30 s`, `LAST_RETRY_DELAY = 10 min` (the last one
+larger to ride out a provider outage). Conservative placeholders, overridable via `RetryDelays`.
+**Reversible?** yes — single constants, one-line change once the real limit is known.
 **Status:** assumed (user may override)
 **User answer:**
 ```

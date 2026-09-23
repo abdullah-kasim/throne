@@ -75,11 +75,12 @@ verified goes under `VERIFIED-NOUNS:` verbatim.
 ### 3b. Survey what the target tree already has, before the Alpha can duplicate it
 
 A consuming Alpha answers "reuse, modify or create?" for every function it
-writes, and a Sonnet Alpha with nothing in front of it answers "create". On
-one pull request (2026-09-22) it wrote a second currency formatter four functions
-away from `formatMoney`, with its own rounding rule and tests; a reviewer had to
-ask why, and the fix was one field on the existing `formatMoney`. The row had
-described the token precisely and named nothing to build on. Code reuse
+writes, and a Sonnet Alpha with nothing in front of it answers "create".
+Picture a row that asks for a discount line on an invoice: the Alpha writes
+a second currency formatter two files away from the existing `formatMoney`,
+with its own rounding rule and its own tests, and a reviewer has to ask why,
+when the fix was one option on `formatMoney`. The row described the
+discount precisely and named nothing to build on. Code reuse
 decreases complexity (Lord, 2026-09-23); the survey is the Stager's job
 because the Stager is the one reading the tree before the work starts.
 
@@ -135,8 +136,8 @@ throne add-to-queue --objective-code <code> \
   don't need to know about 'Consolidation after merge'. Remove it, that's
   noise") — a reviewer reads the PR to judge the change, not to learn the
   court's branch bookkeeping. A
-  stacked PR cannot merge until its parent does, and one pull request sat blocked
-  behind its parent's flaky tests for that reason. If a stacked branch already
+  stacked PR cannot merge until its parent does, so a child can sit blocked
+  for days behind its parent's flaky tests. If a stacked branch already
   exists, unstacking it (rebase onto the default branch, duplicate, force
   push, retarget the PR base) is its own objective.
 - **A pull request as deliverable (Lord, 2026-09-08): name the branch like a
@@ -196,9 +197,8 @@ throne add-to-queue --objective-code <code> \
   merge --ff-only origin/<branch>` when it is checked out with `git status
   --porcelain` empty; file with `--base-commit` from `git rev-parse <branch>`
   taken after the move, and tell the Lord the branch was moved — this is the
-  harmless case he ruled on (Lord, 2026-09-21: "fast-forward my local one pull request
-  branch for me then. what's stopping you? :)" / "I view this command as
-  harmless"). For every other case — local ahead of origin, diverged both
+  harmless case he ruled on (Lord, 2026-09-21: a fast-forward of a local pull
+  request branch is harmless and the Stager does it). For every other case — local ahead of origin, diverged both
   ways, or checked out in a dirty worktree — move nothing, never reset,
   never force: say so in `SCOPE:` and tell the Lord (Lord, 2026-09-21: "whose
   role is it to move your branch?").

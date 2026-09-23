@@ -107,8 +107,8 @@ leaves them (`--delete-branch=false`) so a revert can be re-derived.
 ## Worked shape
 
 A three-layer stack: root `add/saved-search-store` (base `main`), then
-`add/saved-search-page` (base the root's branch), then `add/saved-search-endpoint` (base the
-second). Invoked with the top pull request's url; the script names the root
+`add/saved-search-page` (base the root's branch), then
+`add/saved-search-endpoint` (base the second). Invoked with the top pull request's url; the script names the root
 and prints `roll-up order into #<root>: #<second>, #<top>`. The Lord's
 criteria: "Scenario 1 of the top pull request passes". The row merges the
 top's head into the root (it already contains the second), runs Scenario 1,

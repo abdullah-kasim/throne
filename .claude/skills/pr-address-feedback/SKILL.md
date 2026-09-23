@@ -25,10 +25,9 @@ reviews) on the pull request, then does the same for every MERGED pull
 request whose base was this one's head branch. Feedback does not only live
 in line threads: automated reviewers post their findings as conversation
 comments, and a reviewer's approval often carries its points in the review
-body. On 2026-09-23 the first run of this skill read only the threads,
-reported "nothing left to fix", and missed two unaddressed findings an
-automated reviewer had repeated three times in the conversation tab (Lord:
-"you didn't check the non-review comments"). For an automated reviewer
+body. A run that reads only the threads can report "nothing left to fix"
+while an automated reviewer has repeated the same finding three times in
+the conversation tab. For an automated reviewer
 only its latest report is printed, since each one supersedes the last; read
 it for findings marked "still present" or "fix here".
 
@@ -91,15 +90,14 @@ The throne gh guard denies mutations by default. The Lord's order to
 respond authorizes `--bypass` on replying and resolving, and nothing else;
 re-read after every mutation, never trust a silent exit.
 
-## What the first run looked like (2026-09-23)
+## A worked shape
 
-An endpoint pull request with six unresolved threads: four from an automated
-reviewer (an email sent twice, missing response validation, an
-missing null check, a date parsed without a time
-zone) and two from a colleague (a query that could be one, a wrong
-button label). All six were sound; the automated ones
-needed reading against the code before that was certain, because such
-reviewers also produce confident noise. The sibling pull request had "no
-unresolved threads" while the layer rolled into it held five, two of them
-with the Lord's reply as the last word and no resolution: those got a
-closing line, and the one that was a live design conversation stayed open.
+A pull request with five unresolved threads: three from an automated
+reviewer (a loop that sends the same email twice, a date parsed without a
+time zone, a missing null check) and two from a colleague (a button label
+that says the wrong thing, a query that could be one instead of two). Four
+are sound; the automated null check does not hold, because the caller two
+lines up already returns early, and the reply quotes that line. A second
+pull request rolled into this one holds three more threads, one with the
+Lord's reply as the last word and no resolution: it gets a closing line,
+and a thread that is still a live design conversation stays open.

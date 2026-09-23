@@ -60,11 +60,22 @@ count rather than asserting the result is clean:
 A narrative "looks clean" is not evidence. Print the number of hits; the
 number must be zero before the skill ships.
 
+## 3b. Invent every example; never adapt a real one
+
+Anonymizing a real incident is not generalizing it. A function name, a
+data type, a file count, the order things broke in, the shape of a stack
+of pull requests: each survives renaming and still points at the project
+it came from. So every example, worked shape and "picture this" scenario
+in a skill is invented from scratch, in a domain unrelated to any project
+the author works on (a shop, a recipe app, a theme editor), even when a
+real incident is what taught the rule. State the rule the incident taught;
+do not retell the incident. Dates and the owner's own rulings may stay;
+the project nouns around them may not.
+
 ## 4. Rule of doubt
 
 Unsure whether something is general enough to keep as written? Generalize
-it. Need an example and none of the real ones survive generalization?
-Invent one instead of reaching for a real name.
+it. Need an example? Invent one; never start from a real one (see 3b).
 
 ## 5. Stranger-read self-check
 

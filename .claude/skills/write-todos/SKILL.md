@@ -439,9 +439,10 @@ audit is evidence, not a vibe check: name the candidate primitive, the
 guarantee it already provides, and the exact guarantee still missing.
 
 The repository half is not optional and it is where duplication actually
-happens: on one pull request a slice wrote a second currency formatter four functions
-away from the existing `formatMoney` because nothing had put that name in front
-of it; the fix was one field on the existing formatter. Start from the
+happens. Picture a slice asked for a discount line on an invoice that writes
+a second currency formatter two files away from the existing `formatMoney`,
+because nothing put that name in front of it; the fix is one option on
+`formatMoney`. Start from the
 queue row's `REUSE:` entries, then grep the touched module for every verb the
 objective uses (`git grep -n -E "func (sign|verify)|function retry" -- <module>`)
 and record every hit in the overview's reuse ledger: `path:line — what it
@@ -779,7 +780,7 @@ mechanics, and call-graph shape to the executing Shadow after recon.>
 ## Deliverable
 
 - <User-visible / contract-visible outcome>
-- <Verification command, e.g. `pnpm -C web exec vitest run` exits 0>
+- <Verification command, e.g. `npm --prefix web test` exits 0>
 - The slice's focused tests and mutation checks pass, and the file-size and
   lint/static-analysis/duplicate mechanical checks pass over the slice's OWN
   diff, before it reports DONE.
@@ -1613,10 +1614,10 @@ Every todo with non-obvious boundaries gets an explicit `## Out of scope` sectio
 
 State both:
 - The visible outcome (`/recipes route shows the cuisine filter`).
-- The verification command (`pnpm exec vitest run` exits 0; `cargo build --release` exits 0).
+- The verification command (`npm test` exits 0; `npm run build` exits 0).
 
 Without the verification command, the executor self-grades and the bar drifts. The same rule scales up: `00`'s `## Done when` is the whole bundle's deliverable, `99b` runs the tests and lint and fixes what fails, and `99c` merges the latest target and delivers the result to it.
 
 ### Match the project's naming style
 
-Action-shaped titles, targets baked in: `Implement recipe page`, `Wire pnpm build into gate.sh`, `Audit orders table for missing index`. No padding verbs (`Implement`, not `Go ahead and implement`). The user's "name user-facing actions" rule applies to todo titles too.
+Action-shaped titles, targets baked in: `Implement recipe page`, `Wire the release build into the pre-commit gate`, `Audit the orders table for a missing index`. No padding verbs (`Implement`, not `Go ahead and implement`). The user's "name user-facing actions" rule applies to todo titles too.

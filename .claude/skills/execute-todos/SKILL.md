@@ -1460,7 +1460,7 @@ for each todo in execution order (NOT necessarily numerical order):
 
 ### Out-of-order execution is OK when natural deps require it
 
-If todo N is a hard prerequisite for N+1 but ordered later, pull it forward. Document the reorder in the execution log of both todos. Example: build/flash workflow (toolchain config, orders table) often gets pulled before any firmware-side todo because every subsequent task needs a working build.
+If todo N is a hard prerequisite for N+1 but ordered later, pull it forward. Document the reorder in the execution log of both todos. Example: the build and test setup (package config, test runner) often gets pulled before any feature todo because every subsequent task needs a working build.
 
 ### Hybrid duplicate detection — the `99b` static-analysis contract
 
@@ -2554,15 +2554,15 @@ If a todo's wire-format / external-API contract isn't pinned but its public API 
 
 When a route depends on infrastructure that doesn't exist yet, return `501 Not Implemented` with a `{"error": "not_implemented", "blocked_by": ["todo NN"]}` body. **Never return 200 with placeholder data** — it pollutes the API contract with lies and makes future debugging painful.
 
-### Pre-commit gate must include release build (embedded)
+### Pre-commit gate must include the release build
 
-For embedded targets (`wasm32-unknown-unknown`, `x86_64-unknown-linux-musl`, etc.), `cargo check` is dev-profile and silently masks release-only issues:
+When the release build differs from the development build (a production bundler step, an optimizing compiler profile, minification, a link step that only runs for release), the fast development check silently masks release-only failures:
 
-- `queries overflow the depth limit` (needs `recursion_limit = "N"`).
-- Monomorphisation explosions that only manifest under `--release` optimization passes.
-- Linker errors from `lto = true` profiles.
+- An import the production bundler drops, so a page renders blank only in production.
+- A minifier renaming a function that something else looks up by name.
+- A link or packaging error that only the release profile reaches.
 
-Add `cargo build --release` to the pre-commit gate. It's slower (~30 s on a clean build) but catches the bug class that would otherwise fire only when after deploy.
+Add the release build to the pre-commit gate. It is slower but catches the bug class that would otherwise fire only after deploy.
 
 ### When a Shadow dies or is rate-limited mid-run
 
@@ -2629,4 +2629,4 @@ also carry:
 7. **Real follow-ups** — partial work, infrastructure gaps the workers flagged, things the user owns next.
 8. **Open questions digest** — the full `000_current_questions.md` (or a digest of it), leading with the blocking / irreversible ones, so the user knows what assumptions the run rode on.
 
-Be honest about what's NOT verified — runtime panics from `todo!()` bodies, hardware behavior, memory budget under load. Mismatched optimism here costs trust and debugging time later.
+Be honest about what's NOT verified — runtime errors from placeholder bodies, behaviour against the real third-party service, memory use under load. Mismatched optimism here costs trust and debugging time later.

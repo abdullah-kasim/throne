@@ -4,8 +4,8 @@ import { submittedPayload } from "../src/herdr/herdr-send.helpers.ts";
 
 test("a queued message arrives as sender said text, then its queue id last", () => {
   assert.equal(
-    submittedPayload("stager-eleventh", "one pull request is green", { messageId: 3362 }),
-    "stager-eleventh said: one pull request is green [message 3362]",
+    submittedPayload("stager-eleventh", "PR 157 is green", { messageId: 3362 }),
+    "stager-eleventh said: PR 157 is green [message 3362]",
   );
 });
 
@@ -49,16 +49,16 @@ test("the queue handler hands the pane the work item's own id as the message id"
   try {
     const queued = store.insertWorkItem({
       kind: "delivery",
-      payload: { recipientName: "regent", senderName: "stager-eleventh", prompt: "one pull request is green" },
+      payload: { recipientName: "regent", senderName: "stager-eleventh", prompt: "PR 157 is green" },
       maximumAttempts: 1,
     });
     const claimed = store.claimDueWorkItem(queued.id);
     assert.ok(claimed);
     await deliverMessageWorkItem(store, claimed, deps);
-    assert.deepEqual(seen, [{ prompt: "one pull request is green", messageId: queued.id }]);
+    assert.deepEqual(seen, [{ prompt: "PR 157 is green", messageId: queued.id }]);
     assert.equal(
       submittedPayload("stager-eleventh", seen[0]!.prompt, { messageId: seen[0]!.messageId }),
-      `stager-eleventh said: one pull request is green [message ${queued.id}]`,
+      `stager-eleventh said: PR 157 is green [message ${queued.id}]`,
     );
   } finally {
     store.close?.();

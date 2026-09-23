@@ -162,15 +162,13 @@ whether it may merge, the criteria that allows the merge) and the queue row
 shape are in `/pr-merge`; it identifies the whole stack from any one pull
 request in it.
 
-## What the first split looked like (2026-09-21)
+## A worked shape
 
-33 files, one branch. Cut into: one pull request, the storage layer and
-the storage client with unit tests only, 12 files, base trunk; one pull request, the
-saved search page front-end and its browser tests, 12 files, stacked on
-157, with a dev-console snippet standing in for the endpoint; one pull request
-itself, the endpoint, the wiring, compose and the local stub with every
-manual scenario, 9 files, retargeted onto 159 and merged last. The Lord
-ordered the stack ("Make it stacked. 1 < 2 < 3 - 3 should be merged last"). Two files
-(`store.ts`, `types.ts`) the plan had given to 139 moved whole into 157
-because the package would not build without their struct field; the Alpha
-reported the move instead of editing them, and 139's diff simply lost them.
+Thirty files on one branch that add saved searches to a shop. Cut into three
+pull requests: the storage layer and its unit tests, cut from the default
+branch; the search page and its browser tests, stacked on the first, with a
+fixture standing in for the endpoint; and the endpoint, the wiring and the
+manual scenarios, stacked on the second and merged last. Two files the plan
+gave to the top layer turn out to hold a type the bottom layer needs to
+build; the carving agent reports the move instead of editing them, and they
+travel whole into the bottom layer.

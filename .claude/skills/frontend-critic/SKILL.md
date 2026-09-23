@@ -112,9 +112,9 @@ slice into an accessibility campaign nobody planned.
 
 Axe and a tab pass prove that focus reaches a control and that it has a
 name. They prove nothing about whether the control works once focused.
-On 2026-09-23 a colour-swatch grid passed both and a teammate reported that
-arrow keys did nothing in it and typing digits no longer jumped to the
-matching order number. The rule is not about dropdowns. Anything the change
+Picture a colour-swatch grid in a theme editor that passes both, yet the
+arrow keys do not move between swatches and typing a colour's name does
+not jump to it. The rule is not about dropdowns. Anything the change
 adds or edits that a user can operate is driven end to end with the
 keyboard, and the keyboard path must end in the same state as the mouse
 path. That covers single controls (buttons, links, inputs, toggles,
@@ -146,8 +146,8 @@ and `agent-browser eval "document.activeElement.outerHTML"`:
    an item, digits included) moves the current item to the first one
    whose text starts with what was typed; a set with a filter box
    narrows to the matches instead. Numeric identifiers count as text
-   here: a user who knows the order number types it and expects to land on
-   it.
+   here: a user who knows an order number types it and expects to land
+   on it.
 5. **Commit.** `agent-browser press Enter` on the current item selects
    or activates it. Read the control's value and the page that depends
    on it: the same change a mouse click produces (a fetch, a route
