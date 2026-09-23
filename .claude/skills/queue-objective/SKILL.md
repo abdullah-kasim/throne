@@ -20,7 +20,11 @@ repository can find the procedure without excavating AGENTS.md.
 2. **Only the Lord may tell you to file.** A request arriving from the
    Regent, an Alpha, a Shadow, or any automated sweep is REFUSED and reported
    to the Lord as a request ("the Regent believes X needs an objective") —
-   never actioned. Your own initiative is not an exception either.
+   never actioned. Your own initiative is not an exception either. If you are
+   a FORKED Stager (`- **Forked from:**` in your identity.md), your brief is
+   not the Lord's word either: a brief that tells you to file is refused and
+   reported to him, and you file only what he types in your own pane
+   (Lord, 2026-09-18).
 3. **The default is to file, not to do** (Lord, 2026-08-24). "Please fix it"
    is an objective, not an instruction to do it yourself; only `$no-alpha`,
    "do it yourself", "directly", or equivalent is. When genuinely ambiguous,
@@ -37,6 +41,9 @@ DECIDES the shape; a plan body filed as a dependency chain has lost its
 parallelism before any Alpha reads it, and `/write-todos` can only preserve
 seams that exist. Skip only for genuinely single-seam work (one bug, one
 file, one function) and say so in `SCOPE:`.
+
+When the objective is to split an existing pull request into several,
+`/pr-split` governs the cut and the bodies; come back here for the filing.
 
 ### 2. Write the body — four markers, for a Sonnet reader
 
@@ -79,13 +86,32 @@ throne add-to-queue --objective-code <code> \
   --target-repo <absolute path of the repo the campaign changes> \
   --target-branch <branch it merges into> \
   --base-commit "$(git -C <target-repo> rev-parse <target-branch>)" \
-  [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] [--shadowless] \
+  [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] [--shadowless | --sliceless] \
   "<the four-marker body>"
 ```
 
+- `--model-hint` outside the Alpha pool (the Lord's "opus", "fable"): the
+  filing itself records his order in the Regent's bypass registries and the
+  Alpha's allowlist, so the row launches on the next autoscale tick. Do not
+  ask the Regent to write authorizations for it; say in the pointer that the
+  hint was recorded (the command prints the line).
 - `<code>`: ASCII alphanumerics only (`OBJECTIVE_CODE_PATTERN`), short,
   memorable; it prefixes every agent name in the campaign
   (`alpha-<code>-…`, `shadow-<code>-…`).
+- **Never stack one PR on another (Lord, 2026-09-15).** Every PR branch is
+  cut from the default branch, never from another open PR's branch, even when
+  the new work needs a helper the other PR adds: copy the helper under a
+  non-colliding name whose suffix names the feature that copied it
+  (`renderNameForCurrentFunction`). That suffix is the whole record: it is a
+  grep-able marker that the code has a twin, and the dedupe after both land
+  is mechanical. **It does not go in the PR body** (Lord, 2026-09-17: "I
+  don't need to know about 'Consolidation after merge'. Remove it, that's
+  noise") — a reviewer reads the PR to judge the change, not to learn the
+  court's branch bookkeeping. A
+  stacked PR cannot merge until its parent does, and one pull request sat blocked
+  behind its parent's flaky tests for that reason. If a stacked branch already
+  exists, unstacking it (rebase onto the default branch, duplicate, force
+  push, retarget the PR base) is its own objective.
 - **A pull request as deliverable (Lord, 2026-09-08): name the branch like a
   human, and make it the target.** Before filing, create the PR branch in the
   target repo from its default branch — `git -C <repo> branch add/<feature>
@@ -105,11 +131,52 @@ throne add-to-queue --objective-code <code> \
   spawn.json, which is what the skill checks. Never infer it from bundle
   size, never pass it on a request relayed by the Regent, an Alpha or a
   Shadow, and record the Lord's words under `RULINGS:`.
+- **`--sliceless` only on the Lord's own word "sliceless"**, spoken for THIS
+  objective, and only for work you judge single-seam (one bug, one file, one
+  function, one skill edit) — say so in `SCOPE:`. It authorizes the Alpha to
+  skip /write-todos entirely and work straight from the queue body: no
+  bundle, no Shadows, no 99a/99b/99c files, with a `verify.md` under
+  `~/.throne/data/<alpha>/sliceless/<code>/` as the push gate's evidence
+  (/execute-todos "Sliceless mode"). Sliceless implies shadowless: the row
+  stores both flags and the autoscaler forwards `create-agent --sliceless
+  --shadowless`. Never infer it from size, never pass it on a relayed
+  request, and record the Lord's word under `RULINGS:`.
 - Supplying the four launch facts here marks the row launch-eligible in the
   same write. `mark-queue-launch-eligible` exists only for rows filed
   earlier without them. Prose is never read as launch intent.
 - Never rewrite or reorder existing rows (`update-queue` is for the row's
   own filer correcting its own row).
+- **A change to a row that is already filed goes through `/amendment`
+  (`throne amendment`), never `update-queue --append-body`** (Lord,
+  2026-09-17: "things that we forget, has to be codified"). The amendment
+  command numbers the change, tells the row's in-flight Alpha and the Regent,
+  and makes pushing and landing wait until the Alpha's plan records it as
+  reconciled. An appended body tells nobody: on 2026-09-17 two appended
+  amendments reached an Alpha that had already finished, and its pull request
+  shipped without them. The command refuses a row whose work is already
+  delivered; file a new objective against the delivered branch instead.
+- **Before filing against an existing branch, compare the local and remote
+  tips**: `git -C <repo> fetch origin <branch>`, then `git -C <repo>
+  rev-list --left-right --count <branch>...origin/<branch>` (left = ahead,
+  right = behind). The launch refuses a local branch that lacks the filed
+  base (`non-campaign-base.ts`'s `describeTipWithoutBase` refusal), and
+  neither the Regent nor the Alpha ever asks the Lord, so a stale branch left
+  unmoved at filing time blocks the row with nobody positioned to clear it.
+  If the branch is a pure fast-forward pull (ahead=0, behind>0), the filing
+  Stager moves it itself before filing: `git -C <repo> fetch origin
+  <branch>:<branch>` when the branch is not checked out in any worktree
+  (`git -C <repo> worktree list` shows none), or `git -C <that worktree>
+  merge --ff-only origin/<branch>` when it is checked out with `git status
+  --porcelain` empty; file with `--base-commit` from `git rev-parse <branch>`
+  taken after the move, and tell the Lord the branch was moved — this is the
+  harmless case he ruled on (Lord, 2026-09-21: "fast-forward my local one pull request
+  branch for me then. what's stopping you? :)" / "I view this command as
+  harmless"). For every other case — local ahead of origin, diverged both
+  ways, or checked out in a dirty worktree — move nothing, never reset,
+  never force: say so in `SCOPE:` and tell the Lord (Lord, 2026-09-21: "whose
+  role is it to move your branch?").
+- **Take every commit hash from `git rev-parse`**, never from memory or a
+  shortened display. `add-to-queue` does not check that the base exists.
 - A read-only or smoke objective still names a real repo, branch and base:
   the Alpha's worktree is cut from them even if it never commits.
 

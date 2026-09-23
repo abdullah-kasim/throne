@@ -52,6 +52,7 @@ import {
 } from "./alpha-autoscale-bounds.ts";
 import { decideAutoscaleActionWithFloor } from "./decide-autoscale-action.ts";
 import { alphaAutoscaleExecutionGate } from "./alpha-autoscale-execution-gate.ts";
+import { readBypassFlagsAuthorizedForAlpha } from "./authorized-bypass-flags.ts";
 
 export const ALPHA_AUTOSCALE_HOSTED_WORKER_NAME = "alpha-autoscale";
 
@@ -93,6 +94,10 @@ export interface AlphaAutoscaleDependencies {
     executablePath: string,
     argv: readonly string[],
   ) => Promise<CliInvocationOutcome>;
+  readAuthorizedBypassFlags?: (
+    objectiveCode: string,
+    alphaName: string,
+  ) => Promise<readonly string[]>;
 }
 
 let productionDependencies: AlphaAutoscaleDependencies | undefined;
@@ -156,6 +161,7 @@ export const ALPHA_AUTOSCALE_DEFAULT_DEPENDENCIES: AlphaAutoscaleDependencies = 
   resolvePublishedRuntime: () =>
     resolveRepoRootAndGenerationFromModuleUrl(import.meta.url),
   invokeCli: invokeThroneCliWithRetry,
+  readAuthorizedBypassFlags: readBypassFlagsAuthorizedForAlpha,
 };
 
 /**
@@ -408,18 +414,25 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       return;
     }
 
+    const authorizedBypassFlags =
+      (await this.dependencies.readAuthorizedBypassFlags?.(
+        candidate.objectiveCode,
+        candidate.name,
+      )) ?? [];
     const outcome = await this.dependencies.invokeCli(process.execPath, [
       cliEntrypoint,
       "create-agent",
       "--model",
       candidate.model,
+      ...authorizedBypassFlags,
       ...(candidate.modelHint === null || candidate.modelHint === undefined
         ? []
         : ["--model-hint", `${candidate.modelHint.harness}/${candidate.modelHint.model}`]),
       ...(candidate.deliverableShape === null || candidate.deliverableShape === undefined
         ? []
         : ["--deliverable-shape", candidate.deliverableShape]),
-      ...(candidate.shadowless === true ? ["--shadowless"] : []),
+      ...(candidate.sliceless === true ? ["--sliceless"] : []),
+      ...(candidate.shadowless === true || candidate.sliceless === true ? ["--shadowless"] : []),
       "--role",
       "Alpha",
       "--supervisor",

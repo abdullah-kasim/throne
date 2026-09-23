@@ -7,8 +7,7 @@ export interface SliceEvidenceResult {
   /** Present only on failure: which piece is missing. */
   reason?:
     | "delivery-not-proven"
-    | "own-worktree-dirty"
-    | "runtime-model-unverified";
+    | "own-worktree-dirty";
   /** The exact command extracted from the slice's "Evidence required:" line. */
   command?: string;
   /** Present only for a machine-checked precondition failure: the specific,
@@ -25,6 +24,14 @@ export interface SliceEvidenceResult {
     | "exempt-terminal-delivery"
     | "exempt-no-tree-base"
     | "exempt-verdict-only-supervisor";
+  runtimeModelMismatch?: RuntimeModelMismatch;
+}
+
+export interface RuntimeModelMismatch {
+  requestedModel?: string;
+  observedModels: string[];
+  detail: string;
+  evidencePath: string;
 }
 
 import path from "node:path";
@@ -236,10 +243,10 @@ export async function checkOwnWorktreeCommittedPrecondition(
 
 /**
  * The single production entrypoint both `complete-agent` and `reap-agent`
- * inject as their `checkEvidenceRequirement` dependency. Three machine-checked
- * preconditions, all of which must hold: the agent's observed runtime model is
- * verified, its delivery is proven by git state, and its own worktree carries
- * no uncommitted tracked changes.
+ * inject as their `checkEvidenceRequirement` dependency. Two machine-checked
+ * preconditions, both of which must hold: its delivery is proven by git state,
+ * and its own worktree carries no uncommitted tracked changes. The observed
+ * runtime model is attested and reported alongside, never refused on.
  *
  * THE STATED-EVIDENCE CHECK WAS REMOVED ON THE LORD'S ORDER, 2026-08-25.
  *
@@ -282,16 +289,37 @@ export async function checkAgentEvidenceRequirementByName(
   ) => Promise<RuntimeModelAcceptance> = checkAgentRuntimeModelAcceptance,
 ): Promise<SliceEvidenceResult> {
   const runtimeModel = await checkRuntimeModel(name, "verdict", baseDir);
-  if (!runtimeModel.ok) {
-    return {
-      ok: false,
-      reason: "runtime-model-unverified",
-      detail: runtimeModel.detail,
-    };
-  }
   const delivery = await checkTerminalDeliveryPrecondition(name, baseDir);
-  if (!delivery.ok) return delivery;
-  return checkOwnWorktreeCommittedPrecondition(name, baseDir);
+  const result = delivery.ok
+    ? await checkOwnWorktreeCommittedPrecondition(name, baseDir)
+    : delivery;
+  if (runtimeModel.ok) return result;
+  return {
+    ...result,
+    runtimeModelMismatch: {
+      requestedModel: runtimeModel.requestedModel,
+      observedModels: runtimeModel.observedModels ?? [],
+      detail: runtimeModel.detail,
+      evidencePath: runtimeModel.evidencePath,
+    },
+  };
+}
+
+export function describeRuntimeModelMismatch(
+  name: string,
+  result: SliceEvidenceResult,
+): string | undefined {
+  const mismatch = result.runtimeModelMismatch;
+  if (mismatch === undefined) return undefined;
+  const requested = mismatch.requestedModel ?? "an unknown model";
+  const ran =
+    mismatch.observedModels.length > 0
+      ? `ran on ${mismatch.observedModels.join(", ")}`
+      : `has no observed runtime model (${mismatch.detail})`;
+  return (
+    `warning: "${name}" ${ran}, spawn.json says ${requested}; ` +
+    `recorded at ${mismatch.evidencePath}`
+  );
 }
 
 const UNMET_EVIDENCE_REASON_TEXT: Record<
@@ -300,7 +328,6 @@ const UNMET_EVIDENCE_REASON_TEXT: Record<
 > = {
   "delivery-not-proven": "delivery is not proven by git state",
   "own-worktree-dirty": "its own worktree has uncommitted tracked changes",
-  "runtime-model-unverified": "its observed runtime model is not verified",
 };
 
 /** The single message shape both `complete-agent` and `reap-agent --reason
@@ -321,13 +348,6 @@ export function describeUnmetEvidenceRefusal(
   }
   if (result.reason === "own-worktree-dirty") {
     return `${result.detail} — refusing. (Commit before report survives a crash mid-verify; a report cannot substitute for it.)`;
-  }
-  if (result.reason === "runtime-model-unverified") {
-    return (
-      `"${name}" has no matching observed-runtime-model attestation: ` +
-      `${result.detail} — refusing verdict acceptance. (Launch intent in ` +
-      "spawn.json cannot prove which model produced the verdict.)"
-    );
   }
   const reasonText = UNMET_EVIDENCE_REASON_TEXT[result.reason!];
   return (
@@ -359,13 +379,6 @@ export function describeUnmetEvidenceForceSkip(
       "If its own worktree carries real, uncommitted work, this is exactly " +
       "the silent-loss shape --force must never be used to paper over " +
       "without checking the worktree yourself first."
-    );
-  }
-  if (result.reason === "runtime-model-unverified") {
-    return (
-      `"${name}" has no matching observed-runtime-model attestation: ` +
-      `${result.detail} --force is skipping the runtime-model quarantine ` +
-      "and discarding its preserved evidence."
     );
   }
   const reasonText = UNMET_EVIDENCE_REASON_TEXT[result.reason!];

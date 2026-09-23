@@ -36,6 +36,7 @@ import type { TreeMergeTarget } from "./merge-git-tree-contracts.ts";
 export type { TreeMergeTarget } from "./merge-git-tree-contracts.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { DEFAULT_DATA_DIR } from "../agentdata/spawn-data-contracts.ts";
+import { refuseUnreconciledQueueAmendments } from "../amendment/merge-refusal.ts";
 import {
   decideReportBackedNoChangePublication,
   type ReportBackedNoChangeDecision,
@@ -235,6 +236,10 @@ export interface MergeGitTreeDeps {
     dataDir: string | undefined,
   ) => Promise<void>;
   notifyValidationRequired?: (name: string) => Promise<void>;
+  refuseUnreconciledQueueAmendments?: (
+    name: string,
+    dataDir: string | undefined,
+  ) => Promise<string | undefined>;
   validateDelivery?: (
     repoPath: string,
     commitHash: string,
@@ -321,6 +326,14 @@ export async function run(
         `${name}/tree-base.json (fields: repo, branch) and re-run, or merge ` +
         "by hand. Nothing was merged.\n",
     );
+    return 1;
+  }
+
+  const amendmentRefusal = await (
+    deps.refuseUnreconciledQueueAmendments ?? refuseUnreconciledQueueAmendments
+  )(name, parsed.dataDir);
+  if (amendmentRefusal !== undefined) {
+    err(`merge-git-tree: ${amendmentRefusal} Nothing was merged.\n`);
     return 1;
   }
 

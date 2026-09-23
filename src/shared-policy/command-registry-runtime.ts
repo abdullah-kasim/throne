@@ -4,6 +4,7 @@ import { AgentStatusesCommand } from "../agent-statuses/agent-statuses.command.t
 import { AgentStatsCommand } from "../agent-stats/agent-stats.command.ts";
 import { ReadPayloadCommand } from "../read-payload/read-payload.command.ts";
 import { SendAgentCommand } from "../send-agent/send-agent.command.ts";
+import { McqCommand } from "../pane-prompts/mcq.command.ts";
 import { SendAgentLegacyCommand } from "../send-agent-legacy/send-agent-legacy.command.ts";
 import { MessageStatusCommand } from "../message-status/message-status.command.ts";
 import { CancelMessageCommand } from "../cancel-message/cancel-message.command.ts";
@@ -62,6 +63,14 @@ export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: true,
     description:
       "Send one resident-draft-safe message to a named agent (then Enter unless suppressed).",
+  },
+  {
+    name: "mcq",
+    provider: McqCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Answer (--answer <n>) or dismiss (--dismiss) the interactive prompt held up in a named agent's pane; Regent or Stager only.",
   },
   {
     name: "send-agent-legacy",

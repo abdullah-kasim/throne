@@ -46,6 +46,7 @@ export interface StartInTabDeps {
   runHerdr: typeof import('./herdr-client.ts').runHerdr;
   now: () => number;
   sleep: (milliseconds: number) => Promise<void>;
+  vendoredHarnessBinaryDirectory?: string;
 }
 export interface StartFailureAnnotation {
   phase: StartEvidencePhase;

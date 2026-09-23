@@ -1126,6 +1126,7 @@ explicitly asked for it.
 > <later amendment, verbatim>
 
 **Amendments reconciled through:** Source turn 2
+**Queue amendments reconciled through:** <highest AMENDMENT number reconciled, 0 when the row has none>
 
 | Exact clause | Interpretation (if needed) | Planned final-state evidence | Status |
 | --- | --- | --- | --- |
@@ -1215,7 +1216,13 @@ may append scope only when it relays the Lord's exact wording verbatim and keeps
 that direct-Lord provenance explicit. Regent may clarify existing requested
 scope and coordinate the minimum correction of a candidate-caused regression or
 a defect demonstrably blocking the requested outcome; those actions do not add
-new acceptance scope. A Regent-originated feature, unrelated bug, robustness
+new acceptance scope. A numbered queue amendment recorded with
+`throne amendment` carries the Lord's verbatim words with their provenance, so
+it has the same standing as a Regent relay of them, whichever of a Stager or
+the Regent recorded it. It reaches the Alpha as a short pointer message, and
+every amendment recorded before launch is listed in full under
+`## Situation at launch` in the opening prompt; fold each one in as a source
+turn during authoring. A Regent-originated feature, unrelated bug, robustness
 goal, cleanup outcome, or new acceptance criterion is a separate finding: queue
 it as a separate objective with a new Alpha, and never append it to the active
 bundle.
@@ -1248,7 +1255,12 @@ numbered corrective slice rather than a silent edit to landed work. An answered
 question drives this same surface sweep, and records its reconciliation by citing
 the answered question's own entry — it never advances the source-turn count.
 Finish by setting `**Amendments reconciled through:** Source turn N` to the
-highest-numbered recorded turn.
+highest-numbered recorded turn. When any of those turns came from a numbered
+queue amendment, also set `**Queue amendments reconciled through:** <n>` to the
+highest amendment number reconciled. That line is read by code:
+`throne check-queue-amendments-reconciled` compares it with the queue row, and
+the push guard and `merge-git-tree` refuse delivery while it is lower than the
+row's highest amendment.
 
 **A late amendment staleness-kills a terminal PASS.** An amendment recorded
 after `99a` or `99b` has already passed makes that PASS stale: completion
@@ -1369,7 +1381,9 @@ does exactly one job: run the
 bundle's tests and lint/static analysis against the assembled candidate, fix
 whatever fails, and re-run until green. For a front-end bundle that job
 includes the `frontend-critic` review, and every defect it reports is a
-failure to fix. It is a fixing gate, not a verdict
+failure to fix; when the deliverable is a PR it also captures the change with
+`/pr-media` (screenshots and a click recording through `/agent-browser`) into
+`~/tmp/pr-media-<pr>/` for `99c`'s `## Screenshots` section. It is a fixing gate, not a verdict
 gate — it commits its own repairs on the campaign branch. In `no-git` mode it
 runs whatever checks are naturally applicable and records the rest as N/A with
 the classifier evidence.

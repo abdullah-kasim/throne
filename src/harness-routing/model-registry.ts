@@ -124,11 +124,11 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
   // `no-non-native-primary-harness.test.ts` enforces this; if it fails, the
   // fix is to revert the row, not to relax the test.
   entry(MODEL_NAMES.FABLE, CLAUDE, undefined, {
-    aliases: ["fable-5", "claude-fable-5"],
+    aliases: ["fable-5", "claude-fable-5", "fable-5.1", "claude-fable-5-1"],
     harnessAliases: { [OMP]: "claude-fable-5" },
   }),
   entry(MODEL_NAMES.OPUS, CLAUDE, undefined, {
-    aliases: ["opus-4.8", "opus4.8", "claude-opus-4-8", "claude-opus-5"],
+    aliases: ["opus-4.8", "opus4.8", "claude-opus-4-8", "claude-opus-5", "claude-opus-5-5", "opus-5.5", "opus-5-5"],
     harnessAliases: { [OMP]: "claude-opus-5" },
   }),
   entry(MODEL_NAMES.SONNET, CLAUDE, undefined, {

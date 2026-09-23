@@ -30,6 +30,7 @@
 // replace.
 
 import type { PersonaConfigOverride } from './src/application-config.service.ts';
+import type { RecallConfig } from './src/relevance-classifier/recall-user-config.ts';
 import type { SteeringConfigOverride } from './src/steering-user-config.ts';
 
 interface UserConfigFileOverride extends PersonaConfigOverride {
@@ -45,6 +46,7 @@ interface UserConfigFileOverride extends PersonaConfigOverride {
     >;
     readonly remotes?: Record<string, string>;
   };
+  readonly recall?: Partial<RecallConfig>;
 }
 
 const userConfig: UserConfigFileOverride = {
@@ -171,6 +173,57 @@ const userConfig: UserConfigFileOverride = {
     // `host:owner`; `host:owner` wins; 'default' names the pair above).
     // identities: { work: { name: 'Your Name', email: 'you@work.example' } },
     // remotes: { 'github.com:your-org': 'work', 'git.work.example': 'work' },
+  },
+
+  // --- Memory recall and log sift (docs/CONFIG.md, "recall") ---
+  // `throne recall` picks which recorded memories apply to a task and prints
+  // their bodies; `throne sift` prints only the chunks of a long command
+  // output that matter. Both decide with plain keyword rules unless Jev is on.
+  recall: {
+    // PRIVACY: with jevEnabled true, the task text (your prompt), every
+    // candidate memory's `ask` line and, for sift, the RAW LOG TEXT piped in
+    // are sent to TypeSafe (api.typesafe.ai). Memory bodies are never sent.
+    // With jevEnabled false the TypeSafe SDK is never called and the key
+    // file is never read. Default false.
+    jevEnabled: false,
+    // TO SWITCH JEV OFF AGAIN: set this back to false (or delete it). The very
+    // next `throne recall` / `sift` / `rank` run obeys; nothing to rebuild,
+    // restart or clear. For one process or shell, THRONE_JEV_DISABLED=1 wins
+    // over this file; it can only switch Jev off, never on. A missing,
+    // unreadable or empty key file also means off, with one stderr line.
+    // `throne recall --status` (also on sift and rank) says which backend would
+    // answer right now and why, without ever printing the key.
+    // Read only at call time, only when jevEnabled is true. Keep it mode 600.
+    jevKeyFile: '~/.jev-key',
+
+    // `throne rank` sends FILE CONTENTS to TypeSafe when Jev is on, but only
+    // for files under one of these directories. Anything else is ranked by
+    // word matching on this machine and named on stderr as not sent. Stdin
+    // items are sent only with --allow-stdin-to-jev. Empty by default, so
+    // nothing leaves until you list a root here. `~/` expands.
+    rankAllowedRoots: [],
+
+    // The prompt-submit hook asks `throne recall --hook` on every prompt of
+    // every session on this machine. While false that call prints nothing.
+    hookEnabled: false,
+    // How long the hook may wait for the classifier before the rules answer.
+    hookTimeoutMilliseconds: 2500,
+
+    // A memory is served when the probability that it applies is at least
+    // this. Jev's confidence is uncalibrated, so these are knobs, not facts.
+    serveThreshold: 0.5,
+    // The lower bar for a memory marked `cost_if_missed: high`.
+    serveThresholdWhenCostIsHigh: 0.3,
+    // A log chunk is kept when the probability that it matters is at least this.
+    siftKeepThreshold: 0.5,
+
+    // Total characters of memory text one recall may print. Claude Code
+    // spills hook output over 10,000 characters to a file, so stay under it.
+    maximumInjectedCharacters: 8000,
+
+    // Memory directories shared by every project, read in addition to the
+    // project's own memory directory (`throne memory-dir .`). Empty by default.
+    globalMemoryDirectories: [],
   },
 };
 

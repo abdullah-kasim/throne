@@ -18,3 +18,8 @@ strings of its own — it reads its pattern list from an external file outside
 the repo (`${THRONE_PRIVATE_REFS:-$HOME/.config/throne/private-refs.txt}`) so
 the guard is never itself an inventory of what it's hiding. No file present
 means the check skips green; a public clone stays green with no configuration.
+
+Before any real publish, run the `.claude/skills/publish/SKILL.md` procedure:
+it reads the staged, post-scrub snapshot's prose in full (not just the
+pattern list) for content that is general only in shape, fixes it at the
+private source, and only then lets the real publish run.

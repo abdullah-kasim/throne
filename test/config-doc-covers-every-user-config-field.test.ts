@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import {
   IDENTITY_SECTION_FIELDS,
   PERSONA_SECTION_FIELDS,
+  RECALL_SECTION_FIELDS,
   STEERING_SECTION_FIELDS,
 } from '../src/user-config-loader.ts';
 import { NTFY_FIELDS } from '../src/shared-policy/ntfy-user-config.ts';
@@ -25,6 +26,7 @@ test('docs/CONFIG.md documents every key the loader knows', async () => {
     ...NTFY_FIELDS,
     ...STEERING_SECTION_FIELDS,
     ...IDENTITY_SECTION_FIELDS,
+    ...RECALL_SECTION_FIELDS,
     'alpha', 'shadow', 'shadowSlice99',
     'regent',
     ...PLAN_PRESET_NAMES,

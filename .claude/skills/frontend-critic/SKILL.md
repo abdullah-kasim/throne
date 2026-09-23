@@ -31,7 +31,13 @@ image does not replace the running container without `--force-recreate`.
 
 Open every place the change is visible, at the viewport the Lord works
 at (1400x900 unless told otherwise), in the theme he uses (dark unless
-told otherwise). Wait for async data; `networkidle` is not enough for a
+told otherwise). Any page a phone can reach is ALSO critiqued at the
+phone viewport: iPhone 16, 393x852 (`agent-browser set viewport 393 852`;
+in Playwright `devices['iPhone 16']`). Measure and report at both; a
+defect at either fails the report. Do not use 320x720 as the phone: the
+Lord ruled on 2026-09-14 that it was too small and limiting, and a layout
+tuned to it wastes the width of every real phone. 320 may be an extra
+floor check when a ticket names it, never the acceptance viewport. Wait for async data; `networkidle` is not enough for a
 table that fills later. Make sure the data the view needs exists in the
 current time window, and mint some if it does not.
 

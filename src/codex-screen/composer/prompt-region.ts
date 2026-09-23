@@ -48,8 +48,11 @@ const BORDER_CHARACTER_PATTERN = /^[\s─━╌╍┄┅┈┉╴╶╸╺│┃
 
 const CODEX_PLAN_HINT = "Create a plan? shift + tab use Plan mode esc dismiss";
 
-const CLAUDE_INTERACTIVE_MENU_HINT =
+export const CLAUDE_INTERACTIVE_MENU_HINT =
   "Enter to select · ↑/↓ to navigate · Esc to cancel";
+
+export const CLAUDE_PERMISSION_PROMPT_HINT = "Esc to cancel · Tab to amend";
+export const CLAUDE_PERMISSION_PROMPT_HINT_OFF_FIRST_ROW = "Esc to cancel";
 
 /**
  * Claude renders its own interactive numbered-choice prompts (e.g. a

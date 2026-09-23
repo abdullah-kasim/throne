@@ -6,7 +6,10 @@ import { REAP_REASON, type ReapReason } from "../agent-timings/reap-reason.ts";
 import { sameAgentName } from "../herdr/herdr-identity-contracts.ts";
 import { REGENT_NAME } from "../regent-state/regent-state.service.ts";
 import type { SliceEvidenceResult } from "../slice-evidence/agent-evidence-gate.ts";
-import { describeUnmetEvidenceRefusal } from "../slice-evidence/agent-evidence-gate.ts";
+import {
+  describeRuntimeModelMismatch,
+  describeUnmetEvidenceRefusal,
+} from "../slice-evidence/agent-evidence-gate.ts";
 import type { readAgent } from "../herdr/herdr-runtime.service.ts";
 import type { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import {
@@ -104,6 +107,15 @@ function evidenceUnmetMessage(name: string, result: SliceEvidenceResult): string
   return `complete-agent: ${describeUnmetEvidenceRefusal(name, result)}\n`;
 }
 
+function reportRuntimeModelMismatch(
+  name: string,
+  result: SliceEvidenceResult | undefined,
+  dependencies: CompleteAgentDependencies,
+): void {
+  const mismatch = result && describeRuntimeModelMismatch(name, result);
+  if (mismatch !== undefined) dependencies.writeStderr(`complete-agent: ${mismatch}\n`);
+}
+
 /** Applies the stated-evidence gate, then reaps and announces readiness only
  *  when it holds — every existing reap path funnels through here so no call
  *  site can bypass the check. */
@@ -113,6 +125,7 @@ async function reapWithEvidenceGate(
   announceReady: () => void,
 ): Promise<number> {
   const evidenceResult = await dependencies.checkEvidenceRequirement?.(name);
+  reportRuntimeModelMismatch(name, evidenceResult, dependencies);
   if (evidenceResult !== undefined && !evidenceResult.ok) {
     dependencies.writeStderr(evidenceUnmetMessage(name, evidenceResult));
     return 1;
@@ -320,6 +333,7 @@ export async function runCompleteAgent(
   let failures = 0;
   for (const entry of ready) {
     const evidenceResult = await dependencies.checkEvidenceRequirement?.(entry.name);
+    reportRuntimeModelMismatch(entry.name, evidenceResult, dependencies);
     if (evidenceResult !== undefined && !evidenceResult.ok) {
       failures++;
       dependencies.writeStderr(evidenceUnmetMessage(entry.name, evidenceResult));

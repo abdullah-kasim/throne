@@ -47,6 +47,7 @@ export default userConfig;
 | `ntfy` (top level) | `serverUrl`, `topic` | `notify-lord` phone pushes (`agent_docs/ntfy-phone-notifications.md`) |
 | `steering` | `activePlanPresetName`, `activeTargetEffort`, `activeHarness`, `messageQueueTransport`, `customPlanPresets`, `stagerPool`, `tokenBalanceEnabled`, `autoscaleEnabled` | every fresh spawn's harness/model/effort, the Stager pool, the autoscaler, the token balancer (`agent_docs/MODEL_POLICY.md`) |
 | `identity` | `name`, `email`, `signingKey`, `signingFormat`, `identities`, `remotes` | every git commit the court makes (`throne git-identity`, the `bin/git` shim, tab creation; `agent_docs/commands.md`) |
+| `recall` | `jevEnabled`, `jevKeyFile`, `hookEnabled`, `hookTimeoutMilliseconds`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `globalMemoryDirectories`, `rankAllowedRoots` | `throne recall`, `throne sift` and `throne rank` (`agent_docs/commands.md`) |
 
 ## Persona — how the court speaks
 
@@ -167,6 +168,47 @@ throne git-identity --remote git@github.com:ExampleCorp/some-repo.git
 
 Exit 3 means nothing applies (and says whether it is the identity or the
 signing key that is missing).
+
+## `recall` — which memories and log lines reach an agent
+
+`throne recall "<task>"` prints the bodies of the recorded memories that apply
+to a task; `throne sift "<query>"` prints only the chunks of a long command
+output that matter. Both decide with plain keyword rules unless Jev is on.
+
+**Privacy.** With `jevEnabled: true`, the task text (the prompt), every
+candidate memory's `ask` line and, for `sift`, the raw log text piped in are
+sent to TypeSafe (`api.typesafe.ai`). Memory bodies are never sent. With
+`jevEnabled: false` the TypeSafe SDK is never called and the key file is never
+read.
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `jevEnabled` | boolean | `false` | Ask the Jev classifier instead of the keyword rules. Any Jev failure (timeout, HTTP 429, missing key, any error) falls back: recall asks the rules, sift keeps the chunk. |
+| `jevKeyFile` | string | `'~/.jev-key'` | File holding the TypeSafe API key. Read only at call time and only when `jevEnabled` is true. Keep it mode 600. |
+| `rankAllowedRoots` | string[] | `[]` | With Jev on, `throne rank` sends FILE CONTENTS to TypeSafe only for files under one of these directories; every other file is ranked by word matching locally and named on stderr as not sent. Stdin items are sent only with `--allow-stdin-to-jev`. Empty means nothing is ever sent by `rank`. |
+| `hookEnabled` | boolean | `false` | While false, `throne recall --hook` prints nothing. The prompt-submit hook is shared by every session on the machine, so this is the one switch. |
+| `hookTimeoutMilliseconds` | integer >= 1 | `2500` | How long hook mode waits for the classifier before the rules answer instead. |
+| `serveThreshold` | number 0..1 | `0.5` | A memory is served when the probability that it applies is at least this. |
+| `serveThresholdWhenCostIsHigh` | number 0..1 | `0.3` | The lower bar for a memory whose frontmatter says `cost_if_missed: high`. |
+| `siftKeepThreshold` | number 0..1 | `0.5` | A log chunk is kept when the probability that it matters is at least this. |
+| `maximumInjectedCharacters` | integer >= 1 | `8000` | Total characters one recall may print. Claude Code spills hook output over 10,000 characters to a file. |
+| `globalMemoryDirectories` | string[] | `[]` | Memory directories shared by every project, read in addition to the project's own (`throne memory-dir .`). `~/` expands. |
+
+**Switching Jev off again.** Set `jevEnabled: false` (or delete it): the very
+next `recall`, `sift` or `rank` run obeys, with nothing to rebuild, restart or
+clear. `THRONE_JEV_DISABLED=1` in the environment wins over the file for that
+process and can only switch Jev off, never on. A missing, unreadable or empty
+key file also means off, with one stderr line. When off by any route there is
+no network call, no SDK client is constructed and the key file is not opened.
+`throne recall --status` (also `sift --status`, `rank --status`) prints which
+backend would answer now and why, never the key. Every ledger line names the
+backend that answered.
+
+Memory frontmatter keys, all optional: `ask` (a yes/no test of WHEN the lesson
+applies), `scope` (`global` or the project memory directory's name), `kind`
+(`trap`, `ruling`, `preference`, `procedure`, `fact`), `learned` (ISO date),
+`status` (`active`, `superseded`), `superseded_by` (file name),
+`cost_if_missed` (`low`, `high`). A superseded memory is never served.
 
 ## How the file is loaded
 

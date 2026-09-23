@@ -12,6 +12,10 @@ import {
   type SpawnSpec,
 } from "../agentdata/spawn-data-contracts.ts";
 import { LedgerDataService } from "../agentdata/ledger-data.service.ts";
+import {
+  IdentityLineReadStatus,
+  readAgentRole,
+} from "../agentdata/identity-data.service.ts";
 import { switchAgentModel } from "./switch-agent-model.ts";
 import type {
   PreservedBytes,
@@ -352,6 +356,12 @@ export async function run(
     now: () => deps.now().toISOString(),
   };
   const readers = usageReaders(usageDeps);
+  const identityRoleRead = await readAgentRole(parsed.agentName, deps.dataDir);
+  const identityRole =
+    identityRoleRead.status === IdentityLineReadStatus.Found
+      ? identityRoleRead.value
+      : undefined;
+
   let admittedRequest: SwitchRequest;
   try {
     const admission = await resolveRegisteredSwitchPolicy({
@@ -359,6 +369,7 @@ export async function run(
       spawn,
       requested: parsed.request,
       bypass: parsed.bypass,
+      ...(identityRole === undefined ? {} : { identityRole }),
       deps: {
         readClaudeUsage: readers.claude,
         readCodexUsage: readers.codex,

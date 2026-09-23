@@ -129,7 +129,7 @@ export function cwdMismatchReason(
     : base;
 }
 
-function isTransientVerificationReadiness(
+export function isTransientVerificationReadiness(
   inspection: SwitchRecipientInspection,
 ): boolean {
   const missingLiveHarnessProcess =
@@ -141,10 +141,15 @@ function isTransientVerificationReadiness(
     /^herdr pane process-info: process row \d+ is missing name \/ argv$/u.test(
       inspection.reason,
     );
+  const statusNotYetClassified =
+    inspection.outcome === "refused" &&
+    inspection.code === "status-rejects-input" &&
+    /\bis unknown and does not accept input$/u.test(inspection.reason);
   return (
     inspection.outcome === "refused" &&
     (inspection.code === "screen-unusable" ||
       inspection.code === "composer-unavailable" ||
+      statusNotYetClassified ||
       (inspection.code === "unresolved" &&
         (missingLiveHarnessProcess || incompletePaneProcessRow)))
   );

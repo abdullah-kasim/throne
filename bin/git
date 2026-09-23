@@ -140,25 +140,59 @@ if [ "$subcommand" = push ]; then
             *) push_from_throne_worktree=false ;;
         esac
         if [ "$push_from_throne_worktree" = true ] && [ -f "$push_ledger/identity.md" ] && grep -q '^- \*\*Role:\*\* Alpha$' "$push_ledger/identity.md"; then
-            latest_bundle=$(ls -d "$push_ledger"/todo-*/ 2>/dev/null | sort | tail -1 || true)
             conformance_passed=false
             verify_passed=false
-            if [ -n "$latest_bundle" ]; then
-                grep -qs '^\*\*Conformance outcome:\*\* PASS[[:space:]]*$' "$latest_bundle"99a_*.md && conformance_passed=true
-                grep -qs '^\*\*Verify outcome:\*\* PASS[[:space:]]*$' "$latest_bundle"99b_*.md && verify_passed=true
-            fi
-            if [ "$conformance_passed" != true ] || [ "$verify_passed" != true ]; then
-                if [ -z "$latest_bundle" ]; then
-                    gate_state="no todo bundle exists in $push_ledger"
-                elif [ "$conformance_passed" != true ]; then
-                    gate_state="99a has not recorded '**Conformance outcome:** PASS' in $latest_bundle"
-                else
-                    gate_state="99b has not recorded '**Verify outcome:** PASS' in $latest_bundle"
+            if grep -q '^- \*\*Execution mode:\*\* sliceless (Lord-authorized; implies shadowless)$' "$push_ledger/identity.md"; then
+                sliceless_objective_code=$(sed -n 's/^[[:space:]]*"objective_code":[[:space:]]*"\([^"]*\)".*/\1/p' "$push_ledger/spawn.json" 2>/dev/null | head -1 || true)
+                sliceless_verify_file="$push_ledger/sliceless/$sliceless_objective_code/verify.md"
+                if [ -n "$sliceless_objective_code" ] && [ -f "$sliceless_verify_file" ]; then
+                    grep -qs '^\*\*Conformance outcome:\*\* PASS[[:space:]]*$' "$sliceless_verify_file" && conformance_passed=true
+                    grep -qs '^\*\*Verify outcome:\*\* PASS[[:space:]]*$' "$sliceless_verify_file" && verify_passed=true
                 fi
-                echo "throne git guard: STOP RIGHT THERE — $push_agent_name is an Alpha pushing to '$push_remote' before its gate chain passed ($gate_state)." >&2
-                echo "An Alpha delivers only through /write-and-execute-todos: a real Shadow for 99a conformance, a real Shadow for 99b verify-and-fix, then 99c delivers. Writing, testing and pushing the change yourself is the process deviation AGENTS.md forbids, however small the diff." >&2
-                echo "Do NOT bypass this. Run the chain on your current branch, then push. If delivery is genuinely blocked, tell the Regent: throne send-agent Regent <what blocked you>." >&2
-                exit 66
+                if [ "$conformance_passed" != true ] || [ "$verify_passed" != true ]; then
+                    if [ -z "$sliceless_objective_code" ]; then
+                        gate_state="$push_ledger/spawn.json carries no objective_code, so the verify.md path cannot be resolved"
+                    elif [ ! -f "$sliceless_verify_file" ]; then
+                        gate_state="$sliceless_verify_file does not exist"
+                    elif [ "$conformance_passed" != true ]; then
+                        gate_state="$sliceless_verify_file has not recorded '**Conformance outcome:** PASS'"
+                    else
+                        gate_state="$sliceless_verify_file has not recorded '**Verify outcome:** PASS'"
+                    fi
+                    echo "throne git guard: STOP RIGHT THERE — $push_agent_name is a sliceless Alpha pushing to '$push_remote' before recording its verification evidence ($gate_state)." >&2
+                    echo "A sliceless Alpha delivers only after writing $sliceless_verify_file with its conformance check, its verification record and its delivery note, ending in both '**Conformance outcome:** PASS' and '**Verify outcome:** PASS' on their own lines — see /execute-todos, 'Sliceless mode'. Pushing before that evidence exists is the process deviation AGENTS.md forbids, however small the diff." >&2
+                    echo "Do NOT bypass this. Write the evidence, then push. If delivery is genuinely blocked, tell the Regent: throne send-agent Regent <what blocked you>." >&2
+                    exit 66
+                fi
+            else
+                latest_bundle=$(ls -d "$push_ledger"/todo-*/ 2>/dev/null | sort | tail -1 || true)
+                if [ -n "$latest_bundle" ]; then
+                    grep -qs '^\*\*Conformance outcome:\*\* PASS[[:space:]]*$' "$latest_bundle"99a_*.md && conformance_passed=true
+                    grep -qs '^\*\*Verify outcome:\*\* PASS[[:space:]]*$' "$latest_bundle"99b_*.md && verify_passed=true
+                fi
+                if [ "$conformance_passed" != true ] || [ "$verify_passed" != true ]; then
+                    if [ -z "$latest_bundle" ]; then
+                        gate_state="no todo bundle exists in $push_ledger"
+                    elif [ "$conformance_passed" != true ]; then
+                        gate_state="99a has not recorded '**Conformance outcome:** PASS' in $latest_bundle"
+                    else
+                        gate_state="99b has not recorded '**Verify outcome:** PASS' in $latest_bundle"
+                    fi
+                    echo "throne git guard: STOP RIGHT THERE — $push_agent_name is an Alpha pushing to '$push_remote' before its gate chain passed ($gate_state)." >&2
+                    echo "An Alpha delivers only through /write-and-execute-todos: a real Shadow for 99a conformance, a real Shadow for 99b verify-and-fix, then 99c delivers. Writing, testing and pushing the change yourself is the process deviation AGENTS.md forbids, however small the diff." >&2
+                    echo "Do NOT bypass this. Run the chain on your current branch, then push. If delivery is genuinely blocked, tell the Regent: throne send-agent Regent <what blocked you>." >&2
+                    exit 66
+                fi
+            fi
+            if [ -x "$shim_dir/throne-cli" ]; then
+                if ! amendment_report=$(THRONE_DATA_HOME="$throne_data_home" "$shim_dir/throne-cli" check-queue-amendments-reconciled --agent "$push_agent_name" 2>&1); then
+                    echo "throne git guard: STOP RIGHT THERE — $push_agent_name is an Alpha pushing to '$push_remote' past a queue amendment its plan has not reconciled." >&2
+                    echo "$amendment_report" >&2
+                    echo "Do NOT bypass this. Reconcile the amendment into your plan, re-run whichever checks it invalidates, record the reconciled-through line, then push. If delivery is genuinely blocked, tell the Regent: throne send-agent Regent <what blocked you>." >&2
+                    exit 66
+                fi
+            else
+                echo "throne git guard: WARNING — $shim_dir/throne-cli is missing, so this push was NOT checked for unreconciled queue amendments." >&2
             fi
         fi
     fi

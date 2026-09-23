@@ -1,0 +1,18 @@
+⏺ Running 1 shell command…
+  ⎿  $ rm -rf /private/tmp/dbgrepo; cd /Users/theuser/.throne/worktrees/throne/shadow-locate-01-gather && node --test
+     --test-name-pattern='.*' src/file-locate/gather-candidates.test.ts 2>&1 | tail -60
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command
+
+   │ rm -rf /private/tmp/dbgrepo; cd /Users/theuser/.throne/worktrees/throne/shadow-locate-01-gather && node --test
+   │ --test-name-pattern='.*' src/file-locate/gather-candidates.test.ts 2>&1 | tail -60
+   Run shell command
+
+ │ Dangerous rm operation on working directory or its ancestor: /private/tmp/dbgrepo
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. No
+
+ Esc to cancel · Tab to amend

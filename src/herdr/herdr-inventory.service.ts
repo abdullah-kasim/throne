@@ -86,6 +86,16 @@ function toAgentStatus(value: unknown): AgentStatus {
     : 'unknown';
 }
 
+function nativeSessionId(agentSession: unknown): string | undefined {
+  if (typeof agentSession !== 'object' || agentSession === null) {
+    return undefined;
+  }
+  const session = agentSession as Record<string, unknown>;
+  return session.kind === 'id' && typeof session.value === 'string'
+    ? session.value
+    : undefined;
+}
+
 function toHerdrAgent(raw: unknown): HerdrAgent | null {
   if (typeof raw !== 'object' || raw === null) {
     return null;
@@ -103,6 +113,9 @@ function toHerdrAgent(raw: unknown): HerdrAgent | null {
     name: typeof row.name === 'string' ? row.name : undefined,
     ...(typeof row.tab_label === 'string' ? { tabLabel: row.tab_label } : {}),
     agentStatus: toAgentStatus(row.agent_status),
+    ...(nativeSessionId(row.agent_session) === undefined
+      ? {}
+      : { sessionId: nativeSessionId(row.agent_session) }),
     cwd: typeof row.cwd === 'string' ? row.cwd : '',
     focused: row.focused === true,
     paneId: typeof row.pane_id === 'string' ? row.pane_id : '',

@@ -90,6 +90,8 @@ export interface SpawnSpec {
   // never tamper-proof or cryptographically enforced.
   deliverable_shape?: "verdict-only";
   shadowless?: true;
+  sliceless?: true;
+  forked_from?: string;
 }
 
 /** Historical records remain readable while score evidence is retired. */
@@ -196,6 +198,9 @@ function isSpawnSpec(value: unknown): value is SpawnSpec {
     (record.deliverable_shape === undefined ||
       record.deliverable_shape === "verdict-only") &&
     (record.shadowless === undefined || record.shadowless === true) &&
+    (record.sliceless === undefined || record.sliceless === true) &&
+    (record.forked_from === undefined ||
+      (typeof record.forked_from === "string" && record.forked_from !== "")) &&
     (record.token_balance_lane === undefined ||
       typeof record.token_balance_lane === "string") &&
     (record.token_balance_mandate === undefined ||

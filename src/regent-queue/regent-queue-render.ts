@@ -8,6 +8,7 @@ import {
   isActiveQueueAbsorption,
   orderQueueItemsForDispatch,
 } from "./regent-queue-dispatch.ts";
+import type { QueueAmendment } from "./regent-queue-amendments.ts";
 
 /** One status marker per queue-item status, familiar to a reader of the old `QUEUE.md`
  *  bullets (⚪ open, 🔵 in-flight, ✅ complete, ⚫ abandoned) without needing to reproduce
@@ -86,7 +87,17 @@ function itemSurvivesFilter(
   return true;
 }
 
-function renderItem(item: RegentQueueItemRow): string {
+export function renderQueueAmendment(amendment: QueueAmendment): string {
+  return (
+    `AMENDMENT ${amendment.number} (words of ${amendment.wordsOf}, relayed by ` +
+    `${amendment.relayedBy}, recorded while ${amendment.rowStatusWhenRecorded}):\n\n${amendment.text}`
+  );
+}
+
+function renderItem(
+  item: RegentQueueItemRow,
+  amendments: readonly QueueAmendment[],
+): string {
   const marker = STATUS_MARKERS[item.status];
   const label = item.objectiveCode ?? item.id;
   const lifecycleBits = [
@@ -132,7 +143,10 @@ function renderItem(item: RegentQueueItemRow): string {
   ].filter((bit): bit is string => bit !== undefined);
   const evidenceSuffix =
     evidenceBits.length === 0 ? "" : ` _(${evidenceBits.join(", ")})_`;
-  return `- ${marker} **${label}** (${item.status})${lifecycleSuffix}${eligibility}${decisionSuffix}${evidenceSuffix}\n\n  ${item.body}`;
+  const renderedAmendments = amendments
+    .map((amendment) => `\n\n  ${renderQueueAmendment(amendment)}`)
+    .join("");
+  return `- ${marker} **${label}** (${item.status})${lifecycleSuffix}${eligibility}${decisionSuffix}${evidenceSuffix}\n\n  ${item.body}${renderedAmendments}`;
 }
 
 /**
@@ -145,6 +159,7 @@ function renderItem(item: RegentQueueItemRow): string {
 export function renderRegentQueueAsMarkdown(
   result: RegentQueueReadResult,
   filter: RegentQueueRenderFilter = {},
+  amendmentsByObjective: ReadonlyMap<string, readonly QueueAmendment[]> = new Map(),
 ): string {
   if (result.state === "unknown") {
     return (
@@ -162,6 +177,10 @@ export function renderRegentQueueAsMarkdown(
   if (items.length === 0) {
     return `# Regent queue\n\nNo items — the queue is confirmed empty.\n`;
   }
-  const rendered = items.map(renderItem).join("\n\n");
+  const rendered = items
+    .map((item) =>
+      renderItem(item, amendmentsByObjective.get(item.objectiveCode ?? "") ?? []),
+    )
+    .join("\n\n");
   return `# Regent queue (${items.length} item(s))\n\n${rendered}\n`;
 }

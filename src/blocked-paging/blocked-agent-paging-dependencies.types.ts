@@ -16,6 +16,7 @@ export interface BlockedAgentPagingDependencies {
   readonly getRoster: (dataDir: string) => Promise<AgentStatusesRosterEntry[]>;
   readonly readAgentSupervisor: (name: string, dataDir: string) => Promise<string>;
   readonly readAgent: (name: string) => Promise<string>;
+  readonly readVisiblePaneText: (paneId: string) => Promise<string>;
   readonly blockedMarkerLedger: BlockedMarkerLedger;
   readonly resolveAgent: (name: string) => Promise<HerdrAgent>;
   readonly submitToAgent: (

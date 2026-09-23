@@ -209,11 +209,11 @@ export async function resolveMemoryDir(
 export function formatMemoryStandingInstruction(
   resolution: MemoryResolution | undefined,
 ): string {
-  const command = '`throne memory-dir --json`';
+  const command = '`throne memory-dir --json .`';
   if (resolution === undefined) {
     return (
       `Your durable cross-session memory directory was not resolved at spawn: ` +
-      `run ${command} from your cwd before acting, \`ls\` the directory it names ` +
+      `run ${command} from your cwd before acting (pass the other repository's path instead of \`.\` when a lesson is about a repository you are not standing in), \`ls\` the directory it names ` +
       `and read anything relevant, and write every correction, busted ` +
       `assumption, or dead end there the moment it happens.`
     );

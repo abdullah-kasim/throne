@@ -227,6 +227,26 @@ else
     did "installed node dependencies"
 fi
 
+step "agent-browser (pr-media captures)"
+
+if command -v agent-browser >/dev/null 2>&1; then
+    ok "agent-browser $(agent-browser --version 2>/dev/null | head -n1) on PATH"
+else
+    npm install -g agent-browser --no-audit --no-fund
+    did "installed agent-browser globally with npm (unpinned by the Lord's word, 2026-09-14)"
+fi
+if agent-browser doctor >/dev/null 2>&1; then
+    ok "agent-browser doctor passes"
+else
+    agent-browser install
+    did "installed agent-browser's browser"
+fi
+if command -v ffmpeg >/dev/null 2>&1; then
+    ok "ffmpeg on PATH (pr-media recordings)"
+else
+    warn "ffmpeg not on PATH: pr-media screenshots work, recordings do not (brew install ffmpeg / apt install ffmpeg)"
+fi
+
 # --- compile --------------------------------------------------------------
 # Production runs compiled JavaScript from dist/. Node's native type stripping
 # does NOT apply the Nest decorator transform, so an uncompiled tree cannot

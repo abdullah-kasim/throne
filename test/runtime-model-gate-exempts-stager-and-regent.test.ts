@@ -8,6 +8,7 @@ import { checkAgentRuntimeModelAcceptance } from "../src/session/runtime-model-a
 
 const RECORDED_MODEL = "opus";
 const STEERED_MODEL = "claude-fable-5-1";
+const STEERED_MODEL_REGISTRY_NAME = "fable";
 
 async function agentFixture(role: string, name: string) {
   const root = await mkdtemp(path.join(tmpdir(), "runtime-model-gate-"));
@@ -41,7 +42,7 @@ for (const [role, name] of [["Stager", "stager-probe"], ["Regent", "regent-probe
     assert.equal(acceptance.outcome, "exempt-human-steered-role");
     if (acceptance.outcome !== "exempt-human-steered-role") return;
     assert.equal(acceptance.role, role);
-    assert.ok(acceptance.observedModels.includes(STEERED_MODEL));
+    assert.ok(acceptance.observedModels.includes(STEERED_MODEL_REGISTRY_NAME));
     assert.equal(acceptance.evidencePath, path.join(evidenceDir, "task-exempt.json"));
     const evidence = JSON.parse(await readFile(acceptance.evidencePath, "utf8"));
     assert.equal(evidence.exemptRole, role);

@@ -45,6 +45,10 @@ import { readModelBypassAuthorizationRegistry } from "./model-bypass-authorizati
 import { readStagerRouteAuthorizationRegistry } from "./stager-route-authorization.ts";
 import { readModelAllowlist, writeModelAllowlist } from "./model-allowlist.ts";
 import {
+  readForkBriefFile,
+  readForkParentEvidenceFromLedger,
+} from "./fork-origin.ts";
+import {
   managedWorktreeRoot,
   treeNameFromPath,
   worktreesHome,
@@ -430,5 +434,8 @@ export async function run(
       readStagerRouteAuthorizationRegistry(dataDir),
     readModelAllowlist: (ownerAlphaName) =>
       readModelAllowlist(ownerAlphaName, dataDir),
+    readForkParentEvidence: (parentName) =>
+      readForkParentEvidenceFromLedger(parentName, dataDir),
+    readForkBrief: (forkName) => readForkBriefFile(forkName, dataDir),
   });
 }

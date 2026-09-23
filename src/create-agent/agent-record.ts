@@ -11,6 +11,9 @@ import { appendLaunchLedgerEntry as appendLaunchLedgerEntryDefault } from "../al
 import { DEFAULT_LAUNCH_LEDGER_PATH } from "../alpha-launch-queue/paths.ts";
 import { TREE_BASE_DATA } from "../agentdata/tree-base-data.service.ts";
 import type { MemoryResolution } from "../memory-dir/memory-dir-resolver.ts";
+import { composeSituationBriefForObjective } from "../situation-brief/situation-brief-runtime.ts";
+import { SITUATION_BRIEF_HEADING } from "../situation-brief/situation-brief-composer.ts";
+import { readForkBriefFile, type ReadForkBrief } from "./fork-origin.ts";
 
 export interface AgentOpeningPrompts {
   complete: string;
@@ -42,19 +45,69 @@ export function createAgentIdentity(
     ...(policyOverride === "" ? {} : { policyOverride }),
     ...(request.emptyWorktree ? { emptyWorktree: true as const } : {}),
     ...(request.shadowless === true ? { shadowless: true as const } : {}),
+    ...(request.sliceless === true ? { sliceless: true as const } : {}),
+    ...(request.forkedFrom === undefined ? {} : { forkedFrom: request.forkedFrom }),
     ...(spawnedTabLabel === undefined ? {} : { spawnedTabLabel }),
     ...(memory === undefined ? {} : { memory }),
   };
 }
 
+export type SituationBriefComposer = (objectiveCode: string) => Promise<string>;
+
+function queuedObjectiveOfFreshAlpha(request: PolicyResolution): string | undefined {
+  if (request.resuming || request.role.trim().toLowerCase() !== "alpha") return undefined;
+  return request.objectiveContract?.kind === "campaign"
+    ? request.objectiveContract.objectiveCode
+    : undefined;
+}
+
+async function situationBriefOrNotice(
+  objectiveCode: string,
+  composeBrief: SituationBriefComposer,
+): Promise<string> {
+  try {
+    return await composeBrief(objectiveCode);
+  } catch (error) {
+    return (
+      `${SITUATION_BRIEF_HEADING}\n\nUnavailable at launch (${error instanceof Error ? error.message : String(error)}). ` +
+      `Run \`throne situation-brief --objective-code ${objectiveCode}\` yourself before you plan.`
+    );
+  }
+}
+
+async function promptWithSituationBrief(
+  request: PolicyResolution,
+  composeBrief: SituationBriefComposer,
+): Promise<string | undefined> {
+  const objectiveCode = queuedObjectiveOfFreshAlpha(request);
+  if (objectiveCode === undefined) return request.flags.prompt;
+  const brief = await situationBriefOrNotice(objectiveCode, composeBrief);
+  const prompt = request.flags.prompt ?? "";
+  return prompt === "" ? brief : `${prompt}\n\n${brief}`;
+}
+
+async function promptWithForkBrief(
+  request: PolicyResolution,
+  readBrief: ReadForkBrief,
+): Promise<string | undefined> {
+  if (request.forkedFrom === undefined) return undefined;
+  const brief = await readBrief(request.name);
+  if (brief === undefined) return undefined;
+  const prompt = request.flags.prompt ?? "";
+  return prompt === "" ? brief : `${prompt}\n\n${brief}`;
+}
+
 export async function createAgentOpeningPrompts(
   request: PolicyResolution,
   identity: AgentIdentity,
+  composeBrief: SituationBriefComposer = composeSituationBriefForObjective,
+  readBrief: ReadForkBrief = readForkBriefFile,
 ): Promise<AgentOpeningPrompts> {
   const complete = composeOpeningPrompt(
     request.name,
     identity,
-    request.flags.prompt,
+    (await promptWithForkBrief(request, readBrief)) ??
+      (await promptWithSituationBrief(request, composeBrief)),
   );
   const hasDurableOpeningPrompt =
     !request.resuming || (await readOpeningPrompt(request.name)) !== null;
@@ -149,6 +202,10 @@ export async function persistNewAgentRecord(
         ? {}
         : { deliverable_shape: request.deliverableShape }),
       ...(request.shadowless === true ? { shadowless: true as const } : {}),
+      ...(request.sliceless === true ? { sliceless: true as const } : {}),
+      ...(request.forkedFrom === undefined
+        ? {}
+        : { forked_from: request.forkedFrom }),
       ...(request.laneEvidence === undefined
         ? {}
         : "lane" in request.laneEvidence
@@ -171,6 +228,7 @@ export async function persistNewAgentRecord(
       supervisor: request.flags.supervisor as string | undefined,
       objectiveContract: request.objectiveContract,
       preset: deps.planPresetName,
+      ...(request.modelHint === undefined ? {} : { modelHint: request.modelHint }),
     });
     await recordCampaignLaunch(request, deps);
   } catch (error) {

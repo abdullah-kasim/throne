@@ -82,6 +82,7 @@ export interface KeepGoingDependencies {
    * that doesn't override it.
    */
   evaluateRegentFence?: () => Promise<RegentFenceAction>;
+  isRegentHeartbeatNudgeEnabled?: () => Promise<boolean>;
   /** Composes the dismiss/summon/ledger/notify sequence for a `fence`
    *  verdict. Defaults to the real orchestration; tests inject a fake to
    *  assert call order without touching real herdr/filesystem state. */

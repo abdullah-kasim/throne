@@ -4,6 +4,8 @@ import { launcherHarnessKind } from "./herdr-launch-command.ts";
 import type { StartInTabDeps, StartOptions } from "./herdr-create.contracts.ts";
 import {
   REAL_START_IN_TAB_DEPS,
+  VENDORED_HARNESS_BINARY_DIRECTORY,
+  pinnedHarnessBinaryEnv,
   translatedLaunchContext,
   launchScriptText,
   waitForDetectedAgentInPane,
@@ -25,7 +27,13 @@ export async function startInTab(
   deps: StartInTabDeps = REAL_START_IN_TAB_DEPS,
 ): Promise<string> {
   const expectedKind = launcherHarnessKind(opts);
-  const launch = translatedLaunchContext(opts);
+  const launch = translatedLaunchContext(
+    opts,
+    pinnedHarnessBinaryEnv(
+      expectedKind,
+      deps.vendoredHarnessBinaryDirectory ?? VENDORED_HARNESS_BINARY_DIRECTORY,
+    ),
+  );
   let launchDir: string | undefined;
   const stagedArtifactPaths = [...(launch.stagedArtifactPaths ?? [])];
   let launchIssued = false;

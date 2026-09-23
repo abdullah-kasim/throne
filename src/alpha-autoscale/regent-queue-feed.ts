@@ -285,6 +285,7 @@ export function readAutoscaleQueue(
       deliverableShape:
         itemByObjective.get(brief.objectiveCode)?.deliverableShape ?? null,
       shadowless: itemByObjective.get(brief.objectiveCode)?.shadowless === true,
+      sliceless: itemByObjective.get(brief.objectiveCode)?.sliceless === true,
     }));
   return candidates.length === 0
     ? {

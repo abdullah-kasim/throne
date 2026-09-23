@@ -6,11 +6,30 @@ import {
   repoRoot,
   runGit,
 } from "../git-lifecycle/git-command.service.ts";
-import { localBranchTip } from "../git-lifecycle/branch-authority.ts";
+import {
+  localBranchTip,
+  readReachability,
+} from "../git-lifecycle/branch-authority.ts";
 
 interface NonCampaignBase {
   record: TreeBase;
   creationBase?: string;
+}
+
+function describeTipWithoutBase(facts: {
+  projectDir: string;
+  targetBranch: string;
+  branchTip: string;
+  requestedCommit: string;
+}): string {
+  return (
+    `target branch "${facts.targetBranch}" in ${facts.projectDir} is at ${facts.branchTip}, ` +
+    `which does not contain the filed base ${facts.requestedCommit}: the local branch is stale ` +
+    `or has diverged from what was filed, and a worktree cut from it would build on the wrong ` +
+    `code. Nothing was created. Bring the local branch to the filed base first — when it is ` +
+    `not checked out anywhere: git -C ${facts.projectDir} branch -f ${facts.targetBranch} ` +
+    `${facts.requestedCommit} — or correct the filed base, then launch again.`
+  );
 }
 
 export async function resolveNonCampaignBase(opts: {
@@ -51,6 +70,22 @@ export async function resolveNonCampaignBase(opts: {
       };
     }
     if (requestedCommit !== branchTip) {
+      const tipContainsBase = await readReachability(
+        opts.projectDir,
+        requestedCommit,
+        branchTip,
+      );
+      if (tipContainsBase.code !== 0) {
+        return {
+          ok: false,
+          reason: describeTipWithoutBase({
+            projectDir: opts.projectDir,
+            targetBranch: opts.targetBranch!,
+            branchTip,
+            requestedCommit,
+          }),
+        };
+      }
       process.stderr.write(
         `spawn-git-tree: requested base ${requestedCommit} is behind the current tip ` +
           `${branchTip} of target branch "${opts.targetBranch}"; forking from the tip instead\n`,

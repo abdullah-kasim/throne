@@ -26,10 +26,10 @@ interface ClaudeTranscriptRecord {
   };
 }
 
-const HARNESS_SENTINEL_MODEL_PATTERN = /^<.+>$/;
+const HARNESS_PLACEHOLDER_MODEL_PATTERN = /^<.+>$/;
 
-function isHarnessSentinelModel(model: string): boolean {
-  return HARNESS_SENTINEL_MODEL_PATTERN.test(model);
+function isHarnessPlaceholderModel(model: string): boolean {
+  return HARNESS_PLACEHOLDER_MODEL_PATTERN.test(model);
 }
 
 function observedClaudeModel(
@@ -44,7 +44,7 @@ function observedClaudeModel(
     return undefined;
   }
   const rawModel = record.message.model.trim();
-  if (isHarnessSentinelModel(rawModel)) {
+  if (isHarnessPlaceholderModel(rawModel)) {
     return undefined;
   }
   try {
@@ -52,6 +52,10 @@ function observedClaudeModel(
   } catch {
     return rawModel.toLowerCase();
   }
+}
+
+export function latestObservedClaudeModel(transcript: string): string | undefined {
+  return observedClaudeModels(transcript).at(-1);
 }
 
 function observedClaudeModels(transcript: string): string[] {

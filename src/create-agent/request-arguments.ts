@@ -16,10 +16,12 @@ const BOOLEAN_FLAGS = new Set([
   "bypass-run-custom-harness-to-exit",
   "clear-environment",
   "shadowless",
+  "sliceless",
   "help",
 ]);
 
 const FLAG_NAMES = new Set([
+  "fork-of",
   "harness",
   "harness-executable",
   "model",
@@ -35,6 +37,7 @@ const FLAG_NAMES = new Set([
   "empty-worktree",
   "deliverable-shape",
   "shadowless",
+  "sliceless",
   "requires",
   "non-campaign",
   "run-custom-harness-to-exit",

@@ -1,6 +1,7 @@
 import { ThroneStartupCommand } from "../throne-startup/throne-startup.command.ts";
 import { DismissRegentCommand } from "../dismiss-regent/dismiss-regent.command.ts";
 import { SummonRegentCommand } from "../summon-regent/summon-regent.command.ts";
+import { RestartHarnessesCommand } from "../restart-harnesses/restart-harnesses.command.ts";
 import { OpenCodeGoUsageRemainingCommand } from "../opencode-go-usage-remaining/opencode-go-usage-remaining.command.ts";
 import { PlanUsageRemainingCommand } from "../plan-usage-remaining/plan-usage-remaining.command.ts";
 import { CodexUsageRemainingCommand } from "../codex-usage-remaining/codex-usage-remaining.command.ts";
@@ -9,6 +10,10 @@ import { TokenBalanceCommand } from "../token-balance/token-balance.command.ts";
 import { CampaignEvidenceCommand } from "../campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "../sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
 import { MemoryDirCommand } from "../memory-dir/memory-dir.command.ts";
+import { RecallCommand } from "../memory-recall/recall.command.ts";
+import { RankCommand } from "../item-rank/rank.command.ts";
+import { LocateCommand } from "../file-locate/locate.command.ts";
+import { SiftCommand } from "../log-sift/sift.command.ts";
 import { GitIdentityCommand } from "../git-identity/git-identity.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "../reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
 import {
@@ -43,6 +48,14 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: true,
     description: "Bring the Regent back.",
+  },
+  {
+    name: "restart-harnesses",
+    provider: RestartHarnessesCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Restart every live agent's harness process in place onto the currently vendored binary, resuming each exact native session and keeping its herdr name. Run after update-harnesses.",
   },
   {
     name: "opencode-go-usage-remaining",
@@ -112,6 +125,42 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Print the durable cross-session memory directory for the project containing DIR, deferring to any memory convention already in force.",
+    ownHelp: true,
+  },
+  {
+    name: "recall",
+    provider: RecallCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Print the bodies of the recorded memories that apply to a task, most relevant first and capped in size; --hook serves a prompt-submit hook payload from stdin.",
+    ownHelp: true,
+  },
+  {
+    name: "rank",
+    provider: RankCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Rank files or stdin items by how likely each answers yes to a question, most likely first, so only the top few get opened; item contents are never printed.",
+    ownHelp: true,
+  },
+  {
+    name: "locate",
+    provider: LocateCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Print the files most likely to matter for a stated task, ranked with a probability and a one-line reason each.",
+    ownHelp: true,
+  },
+  {
+    name: "sift",
+    provider: SiftCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Read command output on stdin, save the full copy under ~/tmp, and print only the chunks that matter to what you are looking for, with line numbers.",
     ownHelp: true,
   },
   {

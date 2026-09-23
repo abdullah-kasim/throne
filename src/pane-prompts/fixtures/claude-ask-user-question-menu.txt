@@ -1,0 +1,13 @@
+⏺ I need one decision before continuing.
+
+ ☐ Library choice
+
+ Which date library should the report use?
+
+ ❯ 1. date-fns (Recommended)
+     Tree-shakeable, already a dependency
+   2. dayjs
+     Smaller bundle, immutable API
+   3. Type something.
+
+ Enter to select · ↑/↓ to navigate · Esc to cancel

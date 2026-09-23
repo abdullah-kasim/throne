@@ -1,7 +1,8 @@
 // Requirement: `throne memory-dir` always prints exactly one absolute
 // directory on stdout in text mode so `ls "$(throne memory-dir)"` composes,
 // `--json` carries the mode and evidence, `--create` is the only thing that
-// mkdirs, warnings go to stderr, and bad input is a steered exit 2.
+// mkdirs, warnings go to stderr, DIR is never defaulted from the cwd, and bad
+// input is a steered exit 2.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
@@ -30,23 +31,34 @@ function harness(resolution: MemoryResolution | Error = RESOLVED) {
     createDirectory: async (dir) => {
       created.push(dir);
     },
-    cwd: () => '/home/op/repos/app/src',
     writeStdout: (text) => out.push(text),
     writeStderr: (text) => err.push(text),
   };
   return { dependencies, out, err, created, resolvedFrom };
 }
 
-test('text mode prints the path alone and resolves from cwd by default', async () => {
+test('text mode prints the path alone for the DIR given', async () => {
   const h = harness();
-  assert.equal(await runMemoryDir([], h.dependencies), 0);
+  assert.equal(await runMemoryDir(['.'], h.dependencies), 0);
   assert.deepEqual(h.out, [`${RESOLVED.path}\n`]);
   assert.deepEqual(h.err, []);
-  assert.deepEqual(h.resolvedFrom, ['/home/op/repos/app/src']);
+  assert.deepEqual(h.resolvedFrom, ['.']);
   assert.deepEqual(h.created, []);
 });
 
-test('DIR argument replaces cwd; --json prints the whole resolution; --create mkdirs', async () => {
+test('a missing DIR is a steered exit 2 that names the omission, never a silent cwd', async () => {
+  for (const args of [[], ['--json'], ['--create']]) {
+    const h = harness();
+    assert.equal(await runMemoryDir(args, h.dependencies), 2, args.join(' '));
+    assert.match(h.err.join(''), /DIR is required/);
+    assert.match(h.err.join(''), /pass \. for the current directory/);
+    assert.match(h.err.join(''), /supervisor/);
+    assert.deepEqual(h.resolvedFrom, []);
+    assert.deepEqual(h.out, []);
+  }
+});
+
+test('--json prints the whole resolution; --create mkdirs', async () => {
   const h = harness();
   assert.equal(await runMemoryDir(['--json', '--create', '/elsewhere'], h.dependencies), 0);
   assert.deepEqual(h.resolvedFrom, ['/elsewhere']);
@@ -56,7 +68,7 @@ test('DIR argument replaces cwd; --json prints the whole resolution; --create mk
 
 test('a warning goes to stderr while stdout still carries exactly the path', async () => {
   const h = harness({ ...RESOLVED, mode: 'project-declared', warning: 'read AGENTS.md:3' });
-  assert.equal(await runMemoryDir([], h.dependencies), 0);
+  assert.equal(await runMemoryDir(['.'], h.dependencies), 0);
   assert.deepEqual(h.out, [`${RESOLVED.path}\n`]);
   assert.match(h.err.join(''), /WARNING: read AGENTS.md:3/);
 });

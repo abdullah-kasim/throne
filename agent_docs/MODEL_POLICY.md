@@ -65,6 +65,14 @@ On the standard installation, the data home is `~/.throne/data`, so Alpha
 The file has this exact JSON shape: a top-level `version` of `1` and a `pairs`
 array whose entries contain only non-empty `harness` and `model` strings.
 
+When the Alpha's queue row carries a `--model-hint`, create-agent appends
+that pair to the role-pool pairs it writes at the Alpha's registration, so an
+opus or fable campaign's Shadows can use the model the Lord ordered. Filing
+such a row also records the Lord's authorization in both Regent bypass
+registries with recipient `*` for the objective code (`agent_docs/commands.md`,
+add-to-queue). The hand edit below is now the fallback, for rows filed before
+2026-09-23 or a pair the hint does not name.
+
 For a Regent-approved exception that permits `fable` for the Alpha, ordinary
 Shadow, and terminal `ShadowSlice99` pools, edit the owning Alpha's file to:
 
@@ -86,7 +94,7 @@ Alpha's file. Include every pair that the campaign must be able to launch;
 once a valid non-empty file exists, it overrides the preset pool and no bypass
 flag can admit an omitted pair.
 
-There is deliberately no separate override command or automatic backfill. A
+There is deliberately no separate override command or backfill beyond the model hint. A
 missing file, malformed JSON, any unexpected or malformed field, or an empty
 `pairs` array degrades to **no campaign allowlist**; normal preset admission
 continues rather than becoming deny-all. This is a compatibility fallback, not

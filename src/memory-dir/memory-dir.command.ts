@@ -13,14 +13,15 @@ export interface MemoryDirDependencies {
   resolve(dir: string, deps: MemoryResolverDeps): Promise<MemoryResolution>;
   resolverDeps: MemoryResolverDeps;
   createDirectory(dir: string): Promise<void>;
-  cwd(): string;
   writeStdout(text: string): void;
   writeStderr(text: string): void;
 }
 
 export const USAGE =
-  'Usage: ./bin/throne-cli memory-dir [--json] [--create] [DIR]\n' +
-  'Prints the durable cross-session memory directory for the project containing DIR (default: cwd).\n' +
+  'Usage: ./bin/throne-cli memory-dir [--json] [--create] DIR\n' +
+  'Prints the durable cross-session memory directory for the project containing DIR.\n' +
+  'DIR is required: name the repository the memory is ABOUT, which is not always the one\n' +
+  'you are standing in; pass . when it is.\n' +
   'Precedence: an in-tree agent_docs/MEMORY, then a memory directive in the project AGENTS.md/CLAUDE.md,\n' +
   'then a `memory-dir` executable on PATH, then the throne-native ~/.throne/memories/<slug>.\n' +
   '--json prints {mode, path, repoRoot, evidence, warning?}; --create also mkdir -p\'s the directory.\n';
@@ -31,7 +32,6 @@ const PRODUCTION_DEPENDENCIES: MemoryDirDependencies = {
   createDirectory: async (dir) => {
     await mkdir(dir, { recursive: true });
   },
-  cwd: () => process.cwd(),
   writeStdout: (text) => process.stdout.write(text),
   writeStderr: (text) => process.stderr.write(text),
 };
@@ -50,6 +50,9 @@ function parseArgs(args: string[]): ParsedArgs {
     else if (arg.startsWith('-')) throw new Error(`unknown flag "${arg}"`);
     else if (parsed.dir === undefined) parsed.dir = arg;
     else throw new Error(`unexpected argument "${arg}"`);
+  }
+  if (parsed.dir === undefined) {
+    throw new Error('DIR is required: name the repository the memory is about (pass . for the current directory)');
   }
   return parsed;
 }
@@ -72,7 +75,7 @@ export async function runMemoryDir(
     );
     return 2;
   }
-  const dir = parsed.dir ?? dependencies.cwd();
+  const dir = parsed.dir as string;
   let resolution: MemoryResolution;
   try {
     resolution = await dependencies.resolve(dir, dependencies.resolverDeps);

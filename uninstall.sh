@@ -313,6 +313,32 @@ else
     ok "no rendered Codex hook registration"
 fi
 
+claude_settings="$HOME/.claude/settings.json"
+guard_hook="$THRONE_ROOT/claude-hooks/scratch-path-guard.py"
+if [ -f "$claude_settings" ] && grep -qF "$guard_hook" "$claude_settings"; then
+    python3 - "$claude_settings" "$guard_hook" <<'PYTHON'
+import json
+import sys
+
+settings_path, guard_hook = sys.argv[1], sys.argv[2]
+with open(settings_path) as settings_file:
+    settings = json.load(settings_file)
+entries = settings.get("hooks", {}).get("PreToolUse", [])
+kept = []
+for entry in entries:
+    hooks = [hook for hook in entry.get("hooks", []) if guard_hook not in hook.get("command", "")]
+    if hooks:
+        kept.append(dict(entry, hooks=hooks))
+settings["hooks"]["PreToolUse"] = kept
+with open(settings_path, "w") as settings_file:
+    json.dump(settings, settings_file, indent=2)
+    settings_file.write("\n")
+PYTHON
+    did "removed the Claude guard hook registration from $claude_settings"
+else
+    ok "no Claude guard hook registration"
+fi
+
 # --- downloaded dependencies ----------------------------------------------
 
 step "Downloaded dependencies"

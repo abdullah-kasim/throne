@@ -22,6 +22,10 @@ import {
   resolveCodexHookTargetPath,
   type ThroneCommandOutcome,
 } from './hook-and-command.ts';
+import {
+  installClaudeGuardHook,
+  type GuardHookOutcome,
+} from './claude-guard-hook.ts';
 import { prepareOwnedHerdr } from './herdr-installation.ts';
 import { writeInstallServicesLine } from './output.ts';
 import { REAL_DEPS } from './platform.ts';
@@ -148,6 +152,17 @@ export async function installServices(
   }
 
   const hookOutcome = await installCodexHookRegistration(deps, options);
+  let guardHookOutcome: GuardHookOutcome;
+  try {
+    guardHookOutcome = await installClaudeGuardHook(deps, options);
+  } catch (error) {
+    process.stderr.write(
+      `install-services: claude guard hook registration failed: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`,
+    );
+    guardHookOutcome = 'error';
+  }
   try {
     await ensurePathSymlinks(options, deps);
   } catch (error) {
@@ -211,6 +226,9 @@ export async function installServices(
     !options.dryRun &&
     result.code === 0
   ) {
+    return { ...result, code: 1, status: 'error' };
+  }
+  if (guardHookOutcome === 'error' && result.code === 0) {
     return { ...result, code: 1, status: 'error' };
   }
   if (throneCommandOutcome === 'collision' && result.code === 0) {

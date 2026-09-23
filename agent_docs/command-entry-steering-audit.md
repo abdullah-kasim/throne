@@ -174,6 +174,18 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `update-queue` | missing argument | PASS | Executable evidence: `src/command-entry-steering-batch-b.spec.ts` — `queue command entrance refusals state WHY, no bypass, HUMAN ROUTE, status, and no effect`. |
 | `update-queue` | invalid value | PASS | Executable evidence: `src/command-entry-steering-batch-b.spec.ts` — `queue command entrance refusals state WHY, no bypass, HUMAN ROUTE, status, and no effect`. |
 | `update-queue`                   | policy refusal   | N/A     | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; operational or mutation policy occurs only after argument admission.                                                                                                                                       |
+| `amendment` | unknown flag | PASS | Executable evidence: `src/amendment/amendment-runtime.test.ts` — `malformed invocations are refused before anything is read or written`. |
+| `amendment` | missing argument | PASS | Executable evidence: `src/amendment/amendment-runtime.test.ts` — `malformed invocations are refused before anything is read or written`. |
+| `amendment` | invalid value | PASS | Executable evidence: `src/amendment/amendment-runtime.test.ts` — `malformed invocations are refused before anything is read or written`. |
+| `amendment` | policy refusal | PASS | Executable evidence: `src/amendment/amendment-runtime.test.ts` — `an Alpha may not record an amendment; nothing is recorded or sent`. |
+| `check-queue-amendments-reconciled` | unknown flag | PASS | Executable evidence: `src/amendment/check-reconciled-runtime.test.ts` — `a malformed invocation is refused`. |
+| `check-queue-amendments-reconciled` | missing argument | PASS | Executable evidence: `src/amendment/check-reconciled-runtime.test.ts` — `a malformed invocation is refused`. |
+| `check-queue-amendments-reconciled` | invalid value | PASS | Executable evidence: `src/amendment/check-reconciled-runtime.test.ts` — `a malformed invocation is refused`. |
+| `check-queue-amendments-reconciled` | policy refusal | N/A | Read-only verdict with no entrance policy gate; its refusal of delivery is the product, reported by exit code 66. |
+| `situation-brief` | unknown flag | N/A | Accepts exactly `--objective-code <code>`; any other shape is the missing/invalid case below. |
+| `situation-brief` | missing argument | PASS | Executable evidence: `test/situation-brief.test.ts` — `situation-brief refuses anything but exactly --objective-code <code>`. |
+| `situation-brief` | invalid value | PASS | Executable evidence: `test/situation-brief.test.ts` — `situation-brief refuses anything but exactly --objective-code <code>`. |
+| `situation-brief` | policy refusal | N/A | Read-only report with no entrance policy gate. |
 | `lint-queue-plan`                | unknown flag     | N/A     | `allowUnknownOptions: true`; option-shaped tokens are rejected by the same exactly-one-subject admission rule, not a per-flag parser.                                                                                                                                                                                     |
 | `lint-queue-plan` | missing argument | PASS | Executable evidence: `src/lint-queue-plan/lint-queue-plan.command.test.ts` — `entrance refusal on malformed invocations, before any read`. |
 | `lint-queue-plan`                | invalid value    | N/A     | No enum or value domain exists beyond the two subject forms; a malformed subject is the missing-argument refusal above.                                                                                                                                                                                                   |
@@ -214,6 +226,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `summon-regent` | missing argument | N/A | The command deliberately forwards arbitrary parameters without command-local parsing; failures occur after dispatch. |
 | `summon-regent` | invalid value | N/A | The command deliberately forwards arbitrary parameters without command-local parsing; failures occur after dispatch. |
 | `summon-regent`                  | policy refusal   | N/A     | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; operational or mutation policy occurs only after argument admission.                                                                                                                                       |
+| `restart-harnesses` | unknown flag | PASS | Executable evidence: `test/restart-harnesses-restarts-live-agents-in-place.test.ts` — `run exits 2 on a bad argument, 1 when any restart failed, 0 otherwise`. |
+| `restart-harnesses` | missing argument | PASS | Executable evidence: `test/restart-harnesses-restarts-live-agents-in-place.test.ts` — `argument parsing accepts repeated --only and rejects a dangling one`. |
+| `restart-harnesses` | invalid value | N/A | `--only` takes any agent name; an unknown name selects nothing and the command reports no targets rather than refusing at entry. |
+| `restart-harnesses` | policy refusal | PASS | Executable evidence: `test/restart-harnesses-restarts-live-agents-in-place.test.ts` — `the plan skips the invoking pane, unnamed panes and working agents, and puts the Regent last`. |
 | `opencode-go-usage-remaining`    | unknown flag     | N/A     | Usage sensor has no command-local value parser; unknown options are admitted by its command wrapper.                                                                                                                                                                                                                     |
 | `opencode-go-usage-remaining`    | missing argument | N/A     | Usage sensor takes no required arguments.                                                                                                                                                                                                                                                                                |
 | `opencode-go-usage-remaining`    | invalid value    | N/A     | No command-local value domain.                                                                                                                                                                                                                                                                                           |
@@ -247,9 +263,21 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `git-identity` | invalid value | N/A | No value-bearing option exists. |
 | `git-identity` | policy refusal | N/A | An unset identity is a status (exit 3), not an entrance policy gate. |
 | `memory-dir` | unknown flag | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `an unknown flag or a second DIR is a steered exit 2`. |
-| `memory-dir` | missing argument | N/A | DIR is optional; the cwd is the default. |
+| `memory-dir` | missing argument | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `a missing DIR is a steered exit 2 that names the omission, never a silent cwd`. |
 | `memory-dir` | invalid value | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `a resolver failure is a steered exit 2 with the cause`. |
 | `memory-dir` | policy refusal | N/A | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; resolution has no policy gate. |
+| `recall` | unknown flag | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `an unknown flag is a steered exit 2`. |
+| `recall` | missing argument | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `recall without task text is refused with the usage`. |
+| `recall` | invalid value | N/A | `--session` and `--directory` accept any string; an unresolvable directory degrades to the global memory directories. |
+| `recall` | policy refusal | N/A | No entrance policy gate; `--hook` with `recall.hookEnabled` false is a silent exit 0 by design, never a refusal. |
+| `rank` | unknown flag | PASS | Executable evidence: `src/item-rank/rank.command.spec.ts` — `rank without a question, or with an unknown flag, is a steered exit 2`. |
+| `rank` | missing argument | PASS | Executable evidence: `src/item-rank/rank.command.spec.ts` — `rank without a question, or with an unknown flag, is a steered exit 2`. |
+| `rank` | invalid value | PASS | Executable evidence: same spec — `--top many` is a steered exit 2. |
+| `rank` | policy refusal | N/A | No entrance policy gate; an item outside `recall.rankAllowedRoots` is ranked locally, never refused. |
+| `sift` | unknown flag | PASS | Executable evidence: `src/log-sift/sift.command.spec.ts` — `an unknown flag is a steered exit 2`. |
+| `sift` | missing argument | PASS | Executable evidence: `src/log-sift/sift.command.spec.ts` — `sift without a query is refused with the usage and reads nothing`. |
+| `sift` | invalid value | N/A | The query is free text. |
+| `sift` | policy refusal | N/A | No entrance policy gate exists. |
 | `reclaim-agent-scratchpads` | unknown flag | PASS | Executable evidence: `src/command-entry-steering-batch-b.spec.ts` — `reclaim-agent-scratchpads entrance refusals state WHY, no bypass, HUMAN ROUTE, status, and no effect`. |
 | `reclaim-agent-scratchpads` | missing argument | N/A | All options are optional; dry-run is the default. |
 | `reclaim-agent-scratchpads` | invalid value | N/A | No enum/numeric value domain exists; `--tmp-root`/`--worktrees-root`/`--data-dir` accept any string path. |

@@ -48,6 +48,7 @@ import {
   classifyRegentLiveness,
 } from "./regent-liveness.ts";
 import type { RegentLivenessClassification } from "./regent-liveness.ts";
+import { installHerdrOperatorSkill } from "../herdr/herdr-operator-skill.ts";
 import {
   DEFAULT_SPAWN_MARKER_WINDOW_MS,
   readSpawnMarkerAgeMs,
@@ -235,6 +236,7 @@ export interface ResurrectDeps {
   readRegentHarness: (dir?: string) => Promise<RegentHarness>;
   readRegentRoute: (dir?: string) => Promise<RegentRoute | undefined>;
   findLiveRegent: typeof findLiveRegent;
+  installHerdrOperatorSkill: typeof installHerdrOperatorSkill;
   writeStderr: (text: string) => void;
   throneRoot: string;
   regentDir: string;
@@ -250,6 +252,7 @@ const REAL_RESURRECT_DEPS: ResurrectDeps = {
   readRegentHarness,
   readRegentRoute,
   findLiveRegent,
+  installHerdrOperatorSkill,
   writeStderr: (text) => process.stderr.write(text),
   throneRoot: REPO_ROOT,
   regentDir: REGENT_DIR,
@@ -358,6 +361,13 @@ export async function resurrectRegent(
       cwd: deps.throneRoot,
       argv,
     };
+    const skill = await deps.installHerdrOperatorSkill("Regent", deps.throneRoot);
+    if (skill.kind === "failed") {
+      deps.writeStderr(
+        `resurrectRegent: herdr operator skill not written to ${skill.filePath} ` +
+          `(${skill.message}); the Regent can still run herdr through bin/herdr.\n`,
+      );
+    }
     await deps.startAgent(REGENT_NAME, opts);
     await deps.deliverOpeningPrompt(REGENT_NAME, RESURRECT_PROMPT, {
       composerWaitMilliseconds: REGENT_RESURRECTION_COMPOSER_WAIT_MS,

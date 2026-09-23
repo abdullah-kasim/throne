@@ -1,5 +1,13 @@
 import { existsSync } from 'node:fs';
-import { lstat, mkdir, readlink, rm, symlink } from 'node:fs/promises';
+import {
+  lstat,
+  mkdir,
+  readFile,
+  readlink,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { REAL_FEATURE_FLAGS_SERVICE } from '../shared-policy/feature-flags.service.ts';
@@ -96,5 +104,20 @@ export const REAL_DEPS: InstallServicesDeps = {
   },
   removeUnitFile: async (targetPath) => {
     await rm(targetPath, { force: true });
+  },
+  claudeSettingsPath: () => path.join(os.homedir(), '.claude', 'settings.json'),
+  readClaudeSettings: async (settingsPath) => {
+    try {
+      return await readFile(settingsPath, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return null;
+      }
+      throw error;
+    }
+  },
+  writeClaudeSettings: async (settingsPath, content) => {
+    await mkdir(path.dirname(settingsPath), { recursive: true });
+    await writeFile(settingsPath, content);
   },
 };

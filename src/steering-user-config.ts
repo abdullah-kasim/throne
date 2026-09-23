@@ -143,6 +143,7 @@ export interface SteeringConfig {
    *  Lord ordered the autoscaler armed by default and a fresh clone must not
    *  quietly stand the court down. Flip it with the `/autoscaler` skill. */
   readonly autoscaleEnabled: boolean;
+  readonly regentHeartbeatNudgeEnabled: boolean;
 }
 
 /** The shape a `config.user.ts` default export may take: every field
@@ -160,6 +161,7 @@ export interface SteeringConfigOverride {
   readonly tokenBalanceEnabled?: boolean;
   /** See `SteeringConfig.autoscaleEnabled`. */
   readonly autoscaleEnabled?: boolean;
+  readonly regentHeartbeatNudgeEnabled?: boolean;
 }
 
 /** The committed, deliberately conservative default: the values
@@ -170,6 +172,7 @@ export const DEFAULT_STEERING_CONFIG: SteeringConfig = {
   customPlanPresets: {},
   tokenBalanceEnabled: false,
   autoscaleEnabled: true,
+  regentHeartbeatNudgeEnabled: false,
 };
 
 /** Delegates to the merged file's path (`user-config-loader.ts`) — steering no
@@ -424,6 +427,17 @@ export function validateSteeringOverride(
     }
     override.autoscaleEnabled = autoscaleEnabled;
   }
+  if ('regentHeartbeatNudgeEnabled' in value) {
+    const regentHeartbeatNudgeEnabled = value.regentHeartbeatNudgeEnabled;
+    if (typeof regentHeartbeatNudgeEnabled !== 'boolean') {
+      throw invalidSteeringConfig(
+        sourcePath,
+        'regentHeartbeatNudgeEnabled',
+        `must be a boolean (got ${describeValue(regentHeartbeatNudgeEnabled)})`,
+      );
+    }
+    override.regentHeartbeatNudgeEnabled = regentHeartbeatNudgeEnabled;
+  }
   return override;
 }
 
@@ -458,6 +472,8 @@ function mergeSteeringConfig(
     tokenBalanceEnabled:
       override.tokenBalanceEnabled ?? base.tokenBalanceEnabled,
     autoscaleEnabled: override.autoscaleEnabled ?? base.autoscaleEnabled,
+    regentHeartbeatNudgeEnabled:
+      override.regentHeartbeatNudgeEnabled ?? base.regentHeartbeatNudgeEnabled,
   };
 }
 

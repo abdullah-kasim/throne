@@ -18,12 +18,12 @@
   "harnesses": {
     "claude": {
       "package": "@anthropic-ai/claude-code",
-      "version": "2.1.268",
+      "version": "2.1.280",
       "bin": "claude"
     },
     "codex": {
       "package": "@openai/codex",
-      "version": "0.154.0",
+      "version": "0.156.0",
       "bin": "codex"
     }
   }

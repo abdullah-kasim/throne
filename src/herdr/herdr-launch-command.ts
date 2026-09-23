@@ -1,5 +1,7 @@
 import {
+  accessSync,
   chmodSync,
+  constants as fsConstants,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -8,6 +10,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { HARNESS_NAMES, runtimeHarness } from "../harness-routing/harness.ts";
+import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 import {
   argvExecutableCandidates,
   executableName,
@@ -185,7 +188,14 @@ function claudeyLaunchContext(opts: StartOptions): LaunchContext {
   return { argv };
 }
 
-export function translatedLaunchContext(opts: StartOptions): LaunchContext {
+export function translatedLaunchContext(
+  opts: StartOptions,
+  pinnedBinaryEnv: NodeJS.ProcessEnv = {},
+): LaunchContext {
+  return { ...untranslatedLaunchContext(opts), env: pinnedBinaryEnv };
+}
+
+function untranslatedLaunchContext(opts: StartOptions): LaunchContext {
   const launcher = opts.argv[0]?.split("/").at(-1);
   if (launcher === "claudey") {
     return claudeyLaunchContext(opts);
@@ -220,6 +230,47 @@ export function translatedLaunchContext(opts: StartOptions): LaunchContext {
       wrapperName: "claudey-all",
     },
   };
+}
+
+export const VENDORED_HARNESS_BINARY_DIRECTORY = path.join(
+  RUNTIME_THRONE_ROOT,
+  "vendor",
+  "node_modules",
+  ".bin",
+);
+
+const PINNED_BINARY_OVERRIDE_VARIABLES: Readonly<
+  Partial<Record<SupportedComposerHarness, "CLAUDE_BIN" | "CODEX_BIN">>
+> = {
+  [HARNESS_NAMES.CLAUDE]: "CLAUDE_BIN",
+  [HARNESS_NAMES.CODEX]: "CODEX_BIN",
+};
+
+export class PinnedHarnessBinaryMissingError extends Error {
+  readonly name = "PinnedHarnessBinaryMissingError";
+  readonly binaryPath: string;
+
+  constructor(kind: SupportedComposerHarness, binaryPath: string) {
+    super(
+      `no vendored ${kind} binary at ${binaryPath}; the throne launches agents only on its pinned harness (vendor-pins.json) — run ./install.sh or update-harnesses to vendor it`,
+    );
+    this.binaryPath = binaryPath;
+  }
+}
+
+export function pinnedHarnessBinaryEnv(
+  kind: SupportedComposerHarness,
+  vendoredHarnessBinaryDirectory: string,
+): NodeJS.ProcessEnv {
+  const overrideVariable = PINNED_BINARY_OVERRIDE_VARIABLES[kind];
+  if (overrideVariable === undefined) return {};
+  const binaryPath = path.join(vendoredHarnessBinaryDirectory, kind);
+  try {
+    accessSync(binaryPath, fsConstants.X_OK);
+  } catch {
+    throw new PinnedHarnessBinaryMissingError(kind, binaryPath);
+  }
+  return { [overrideVariable]: binaryPath };
 }
 
 export function shellQuote(value: string): string {
@@ -342,6 +393,7 @@ export const REAL_START_IN_TAB_DEPS: StartInTabDeps = {
   runHerdr,
   now: Date.now,
   sleep,
+  vendoredHarnessBinaryDirectory: VENDORED_HARNESS_BINARY_DIRECTORY,
 };
 
 export function isIndeterminateAgentStartError(error: unknown): boolean {

@@ -103,6 +103,7 @@ export interface SubmitToAgentOptions {
   textOnly?: boolean;
   skipText?: boolean;
   omitSenderAttribution?: boolean;
+  messageId?: number;
   forceFileBackedDelivery?: boolean;
   disableFileBackedDelivery?: boolean;
   /**

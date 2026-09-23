@@ -10,6 +10,7 @@ import { REGENT_DIR } from "../regent-state/regent-state.service.ts";
 import { readRegentRoute, type RegentRoute } from "../regent-state/regent-state.service.ts";
 import { HARNESSES, HARNESS_NAMES, type Harness } from "../harness-routing/harness.ts";
 import { registryEntry } from "../harness-routing/model-registry.ts";
+import { ALPHA_LIVE_FLOOR_MINIMUM } from "../alpha-autoscale/alpha-autoscale-bounds.ts";
 
 const REAL_USAGE_READERS = new UsageReadersService(
   undefined,
@@ -43,7 +44,7 @@ export const THROTTLE_BANDS: readonly ThrottleBand[] = [
     enterAtOrBelow: 25,
     exitAbove: 30,
     minIntervalMs: 55 * 60 * 1000,
-    advisory: "pace to ≤2 concurrent Alphas",
+    advisory: `pace to ≤${ALPHA_LIVE_FLOOR_MINIMUM} concurrent Alphas`,
   },
   {
     name: "LOW",

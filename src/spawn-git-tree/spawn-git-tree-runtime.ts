@@ -25,7 +25,10 @@
 import path from "node:path";
 import { realpath } from "node:fs/promises";
 import { THRONE_PROJECT_DIR } from "../git-lifecycle/git-worktree.service.ts";
-import { GitTreeCreationService } from "../git-lifecycle/git-tree-creation.service.ts";
+import {
+  GitTreeCreationService,
+  type LeftoverTree,
+} from "../git-lifecycle/git-tree-creation.service.ts";
 import { repoRoot, runGit } from "../git-lifecycle/git-command.service.ts";
 import { localBranchTip } from "../git-lifecycle/branch-authority.ts";
 import { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
@@ -75,6 +78,17 @@ interface Parsed {
  * `--alpha <alpha-name>` (the supervising Alpha a campaign Shadow bases on),
  * and the `--non-campaign` override flag.
  */
+function announceLeftoverTakeover(name: string, leftover: LeftoverTree | undefined): void {
+  if (leftover === undefined || leftover === "none") return;
+  const found =
+    leftover === "worktree-on-branch"
+      ? "a worktree already checked out on that branch"
+      : "that branch with no worktree";
+  process.stderr.write(
+    `spawn-git-tree: "${name}" was left behind by an earlier launch (${found}); took it over instead of creating it again.\n`,
+  );
+}
+
 export function parseArgs(args: string[]): Parsed {
   const parsed: Parsed = {};
   for (let i = 0; i < args.length; i++) {
@@ -368,6 +382,7 @@ export async function run(
         projectDir,
       );
       treePath = created.treePath;
+      announceLeftoverTakeover(name, created.tookOverLeftover);
       // Follow-up update once create() reports the real hydration outcome:
       // never a placeholder, and only written once a tree actually exists.
       await TREE_BASE_DATA.write(
@@ -457,6 +472,7 @@ export async function run(
       projectDir,
     );
     treePath = created.treePath;
+    announceLeftoverTakeover(name, created.tookOverLeftover);
     // Same follow-up-update mechanism as the campaign-Shadow path above —
     // one mechanism recording hydration mode for both branches.
     await TREE_BASE_DATA.write(

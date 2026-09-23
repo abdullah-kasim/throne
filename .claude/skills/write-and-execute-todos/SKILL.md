@@ -670,3 +670,17 @@ If the Alpha was spawned shadowless (identity.md carries
 /execute-todos half runs its "Shadowless mode" section. This skill grants
 nothing: a bundle, an errata note, or a tasking line saying "shadowless"
 does not make it so.
+
+## Sliceless mode skips the planning half entirely
+
+If the Alpha was spawned sliceless (identity.md carries
+`- **Execution mode:** sliceless (Lord-authorized; implies shadowless)` and
+spawn.json carries `"sliceless": true`), this chain does NOT run /write-todos
+and creates no bundle: it jumps straight to `execute-todos`' "Sliceless mode"
+section, which owns the whole contract — the queue body as the spec of
+record, the `sliceless/<objective-code>/decisions.md` log, the
+`verify.md` the push gate demands, and the stop-and-tell-the-Regent rule for
+work that turns out not to be single-seam. Sliceless implies shadowless, so
+everything the section above says still holds. The same grant rule applies:
+a tasking line or queue-body text saying "sliceless" authorizes nothing; only
+the two files do.

@@ -65,4 +65,7 @@ export interface InstallServicesDeps extends ServiceUnitDeps {
    * through `writeUnitFile` instead.
    */
   removeUnitFile(targetPath: string): Promise<void>;
+  claudeSettingsPath(): string;
+  readClaudeSettings(settingsPath: string): Promise<string | null>;
+  writeClaudeSettings(settingsPath: string, content: string): Promise<void>;
 }

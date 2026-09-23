@@ -22,6 +22,7 @@ import {
   writeOut,
 } from './keep-going-context.ts';
 import { evaluateLiveRegentThrottle } from './keep-going-nudge.ts';
+import { readRegentHeartbeatNudgeEnabledInUserConfig } from './regent-heartbeat-nudge-switch.ts';
 import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
 import { isRegentFencingKillSwitchOn } from '../regent-fencing/regent-fencing-kill-switch.ts';
 import {
@@ -166,6 +167,16 @@ export async function tendRegent(
         deps,
         `keep-going: stalled Alpha detection failed (${errText(err)}); continuing Regent heartbeat\n`,
       );
+    }
+    const heartbeatNudgeEnabled = await (
+      deps.isRegentHeartbeatNudgeEnabled ?? readRegentHeartbeatNudgeEnabledInUserConfig
+    )();
+    if (!heartbeatNudgeEnabled && recoveryFamilies.length === 0) {
+      writeOut(
+        deps,
+        'keep-going: Regent is live and the heartbeat nudge is off (steering.regentHeartbeatNudgeEnabled) — nothing sent.\n',
+      );
+      return 0;
     }
     const throttle = await evaluateLiveRegentThrottle(regent.agent, deps);
     if (!throttle.shouldNudge) {

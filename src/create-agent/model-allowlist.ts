@@ -93,12 +93,29 @@ export function campaignModelAllowlistPairs(
   );
 }
 
+function withModelHint(
+  pairs: ModelPairPool,
+  modelHint: ModelPair | undefined,
+): ModelPairPool {
+  if (
+    modelHint === undefined ||
+    pairs.some(
+      (pair) =>
+        pair.harness === modelHint.harness && pair.model === modelHint.model,
+    )
+  ) {
+    return pairs;
+  }
+  return [...pairs, { harness: modelHint.harness, model: modelHint.model }];
+}
+
 export async function writeModelAllowlist(opts: {
   role: string;
   name: string;
   supervisor: string | undefined;
   objectiveContract: ObjectiveContract | undefined;
   preset?: PlanPresetName;
+  modelHint?: ModelPair;
   dataDir?: string;
 }): Promise<void> {
   const owner = modelAllowlistOwner(opts);
@@ -109,7 +126,10 @@ export async function writeModelAllowlist(opts: {
   await writeFile(
     file,
     `${JSON.stringify(
-      { version: ALLOWLIST_VERSION, pairs: campaignModelAllowlistPairs(opts.preset) },
+      {
+        version: ALLOWLIST_VERSION,
+        pairs: withModelHint(campaignModelAllowlistPairs(opts.preset), opts.modelHint),
+      },
       null,
       2,
     )}\n`,

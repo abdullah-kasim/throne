@@ -25,14 +25,19 @@ export function recipientIdentityText(agent: HerdrAgent): string {
   return `${agent.terminalId}/${agent.tabId}/${agent.paneId}/${agent.agent}`;
 }
 
+export function messageIdSuffix(messageId: number | undefined): string {
+  return messageId === undefined ? '' : ` [message ${messageId}]`;
+}
+
 export function submittedPayload(
   senderName: string,
   prompt: string,
   options: SubmitToAgentOptions,
 ): string {
-  if (options.omitSenderAttribution === true) return prompt;
-  if (senderName.length === 0) return prompt;
-  return `${senderName} said: ${prompt}`;
+  const suffix = messageIdSuffix(options.messageId);
+  if (options.omitSenderAttribution === true) return `${prompt}${suffix}`;
+  if (senderName.length === 0) return `${prompt}${suffix}`;
+  return `${senderName} said: ${prompt}${suffix}`;
 }
 
 /**

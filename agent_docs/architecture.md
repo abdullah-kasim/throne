@@ -90,6 +90,14 @@ bare-PATH Herdr and its implicit/default session. ON selects the verified owned
 client and isolated named `throne` session. Changing the flag never touches a
 live server; service handoff is a separate operator action.
 
+The Lord-facing roles (Stager, Regent) carry a generated `herdr` skill in
+their cwd so they can focus tabs and read panes on request; it is rendered at
+spawn from the pinned client's `--skill` output by
+`src/herdr/herdr-operator-skill.ts` with the court's delivery law on top, and
+`bin/herdr` makes bare `herdr` resolve to the pinned client in every tab.
+Alpha and Shadow never get the skill: their only way into another pane is
+`send-agent`. See `agent_docs/commands.md` under create-agent.
+
 - **List/status:** `herdr agent list` returns JSON
   (`{result:{agents:[{agent, agent_status, cwd, focused, pane_id, terminal_id,
 ...}]}}`). `agent_status` is one of `idle|working|blocked|done|unknown`.
@@ -113,7 +121,7 @@ recent-unwrapped] [--lines N] [--format text|ansi]` returns a JSON envelope
 forceFileBackedDelivery, promptWaitTimeoutMilliseconds,
 onDeliveredWhileLocked})` is the thin throne wrapper around that primitive,
   and both `send-agent` and `keep-going` route through it. It formats exactly
-  `<sender-name> said: <prompt>` and delivers that logical body to the resolved
+  `<sender-name> said: <prompt> [message <id>]` and delivers that logical body to the resolved
   recipient through the platform call.
 
   `filebackeddelivery.ts` splits transport at 4096 UTF-8 bytes. The classification

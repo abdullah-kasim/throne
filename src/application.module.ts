@@ -6,6 +6,7 @@ import { AgentLogsCommand } from "./agent-logs/agent-logs.command.ts";
 import { AssertHerdrCommand } from "./assert-herdr/assert-herdr.command.ts";
 import { ReadPayloadCommand } from "./read-payload/read-payload.command.ts";
 import { SendAgentCommand } from "./send-agent/send-agent.command.ts";
+import { McqCommand } from "./pane-prompts/mcq.command.ts";
 import { SendAgentLegacyCommand } from "./send-agent-legacy/send-agent-legacy.command.ts";
 import { MessageStatusCommand } from "./message-status/message-status.command.ts";
 import { CancelMessageCommand } from "./cancel-message/cancel-message.command.ts";
@@ -49,6 +50,9 @@ import { TrimQueueCommand } from "./trim-queue/trim-queue.command.ts";
 import { RegentQueueMigrateCommand } from "./regent-queue/regent-queue-migrate.command.ts";
 import { AddToQueueCommand } from "./add-to-queue/add-to-queue.command.ts";
 import { UpdateQueueCommand } from "./update-queue/update-queue.command.ts";
+import { AmendmentCommand } from "./amendment/amendment.command.ts";
+import { CheckQueueAmendmentsReconciledCommand } from "./amendment/check-reconciled.command.ts";
+import { SituationBriefCommand } from "./situation-brief/situation-brief.command.ts";
 import { MarkQueueLaunchEligibleCommand } from "./mark-queue-launch-eligible/mark-queue-launch-eligible.command.ts";
 import { ReconcileQueueCommand } from "./reconcile-queue/reconcile-queue.command.ts";
 import { StageLaunchBriefCommand } from "./stage-launch-brief/stage-launch-brief.command.ts";
@@ -58,6 +62,7 @@ import { AttachThroneHerdrCommand } from "./attach-throne-herdr/attach-throne-he
 import { ThroneStartupCommand } from "./throne-startup/throne-startup.command.ts";
 import { DismissRegentCommand } from "./dismiss-regent/dismiss-regent.command.ts";
 import { SummonRegentCommand } from "./summon-regent/summon-regent.command.ts";
+import { RestartHarnessesCommand } from "./restart-harnesses/restart-harnesses.command.ts";
 import { RecordSuiteHoldCommand } from "./regent-fencing/record-suite-hold.command.ts";
 import { RecordSuiteReleaseCommand } from "./regent-fencing/record-suite-release.command.ts";
 import { ReadSuiteArbitrationCommand } from "./regent-fencing/read-suite-arbitration.command.ts";
@@ -70,6 +75,10 @@ import { PlanUsageHistoryService } from "./plan-usage-remaining/plan-usage-histo
 import { CampaignEvidenceCommand } from "./campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "./sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
 import { MemoryDirCommand } from "./memory-dir/memory-dir.command.ts";
+import { RecallCommand } from "./memory-recall/recall.command.ts";
+import { RankCommand } from "./item-rank/rank.command.ts";
+import { LocateCommand } from "./file-locate/locate.command.ts";
+import { SiftCommand } from "./log-sift/sift.command.ts";
 import { GitIdentityCommand } from "./git-identity/git-identity.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "./reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
 import {
@@ -192,6 +201,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
       provide: SendAgentCommand,
       useFactory: () => new SendAgentCommand(),
     },
+    McqCommand,
     {
       provide: SendAgentLegacyCommand,
       useFactory: () => new SendAgentLegacyCommand(),
@@ -265,6 +275,9 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     RegentQueueMigrateCommand,
     AddToQueueCommand,
     UpdateQueueCommand,
+    AmendmentCommand,
+    CheckQueueAmendmentsReconciledCommand,
+    SituationBriefCommand,
     MarkQueueLaunchEligibleCommand,
     ReconcileQueueCommand,
     StageLaunchBriefCommand,
@@ -274,6 +287,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     ThroneStartupCommand,
     DismissRegentCommand,
     SummonRegentCommand,
+    RestartHarnessesCommand,
     RecordSuiteHoldCommand,
     RecordSuiteReleaseCommand,
     ReadSuiteArbitrationCommand,
@@ -296,6 +310,10 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     CampaignEvidenceCommand,
     SweepTmpScratchCommand,
     MemoryDirCommand,
+    RecallCommand,
+    RankCommand,
+    LocateCommand,
+    SiftCommand,
     GitIdentityCommand,
     ReclaimAgentScratchpadsCommand,
     SwitchPersonaCommand,

@@ -1,0 +1,158 @@
+[
+  {
+    "id": "cf14c84",
+    "text": "Add memory recall and log sift commands with a rules classifier and an optional Jev classifier off by default",
+    "truth": [
+      "agent_docs/command-entry-steering-audit.md",
+      "agent_docs/commands.md",
+      "config.user.example.ts",
+      "docs/CONFIG.md",
+      "package-lock.json",
+      "package.json",
+      "src/application.module.ts",
+      "src/log-sift/chunks.ts",
+      "src/log-sift/sift.command.spec.ts",
+      "src/log-sift/sift.command.ts",
+      "src/memory-recall/memory-files.ts",
+      "src/memory-recall/memory-frontmatter.spec.ts",
+      "src/memory-recall/memory-frontmatter.ts",
+      "src/memory-recall/memory-frontmatter.types.ts",
+      "src/memory-recall/recall-records.spec.ts",
+      "src/memory-recall/recall-records.ts",
+      "src/memory-recall/recall.command.spec.ts",
+      "src/memory-recall/recall.command.ts",
+      "src/memory-recall/select-memories.ts",
+      "src/relevance-classifier/choose-backend.ts",
+      "src/relevance-classifier/classifier.types.ts",
+      "src/relevance-classifier/fail-open-classifier.spec.ts",
+      "src/relevance-classifier/fail-open-classifier.ts",
+      "src/relevance-classifier/jev-backend.spec.ts",
+      "src/relevance-classifier/jev-backend.ts",
+      "src/relevance-classifier/recall-user-config.spec.ts",
+      "src/relevance-classifier/recall-user-config.ts",
+      "src/relevance-classifier/rules-backend.spec.ts",
+      "src/relevance-classifier/rules-backend.ts",
+      "src/shared-policy/command-registry-platform.ts",
+      "src/user-config-loader.ts",
+      "test/config-doc-covers-every-user-config-field.test.ts"
+    ]
+  },
+  {
+    "id": "49be307",
+    "text": "Add a Jev off switch and a rank command that orders files by a yes-or-no question",
+    "truth": [
+      "agent_docs/command-entry-steering-audit.md",
+      "agent_docs/commands.md",
+      "config.user.example.ts",
+      "docs/CONFIG.md",
+      "src/application.module.ts",
+      "src/item-rank/rank-items.ts",
+      "src/item-rank/rank-requests.ts",
+      "src/item-rank/rank.command.spec.ts",
+      "src/item-rank/rank.command.ts",
+      "src/log-sift/sift.command.spec.ts",
+      "src/log-sift/sift.command.ts",
+      "src/memory-recall/recall-records.ts",
+      "src/memory-recall/recall.command.spec.ts",
+      "src/memory-recall/recall.command.ts",
+      "src/memory-recall/select-memories.ts",
+      "src/relevance-classifier/choose-backend.ts",
+      "src/relevance-classifier/classifier.types.ts",
+      "src/relevance-classifier/fail-open-classifier.ts",
+      "src/relevance-classifier/jev-backend.spec.ts",
+      "src/relevance-classifier/jev-backend.ts",
+      "src/relevance-classifier/jev-switch.spec.ts",
+      "src/relevance-classifier/jev-switch.ts",
+      "src/relevance-classifier/recall-user-config.ts",
+      "src/relevance-classifier/rules-backend.ts",
+      "src/shared-policy/command-registry-platform.ts",
+      "src/user-config-loader.ts"
+    ]
+  },
+  {
+    "id": "0fc6e5b",
+    "text": "Tell a forked Stager that numbered addendum files from its parent are genuine",
+    "truth": [
+      ".claude/skills/throne-fork/SKILL.md",
+      "agent_docs/commands.md",
+      "src/agentdata/identity-data.service.ts",
+      "src/create-agent/fork-of.spec.ts"
+    ]
+  },
+  {
+    "id": "ba91cbb",
+    "text": "Wrap PR Screenshots and Testing sections in collapsible spoilers",
+    "truth": [
+      ".claude/skills/pr-description/SKILL.md",
+      ".claude/skills/pr-media/SKILL.md",
+      ".claude/skills/pr-media/publish.mjs",
+      "test/vendored-review-skills.test.ts"
+    ]
+  },
+  {
+    "id": "971d1a0",
+    "text": "End every queued message with its queue id so a clipped head can still be re-read in full",
+    "truth": [
+      "AGENTS.md",
+      "agent_docs/architecture.md",
+      "agent_docs/commands.md",
+      "agent_docs/prompt-publication.md",
+      "src/herdr/herdr-send.helpers.ts",
+      "src/herdr/herdr-send.types.ts",
+      "src/throne-work/message-delivery-handler.ts",
+      "test/delivered-messages-end-with-their-queue-id.test.ts"
+    ]
+  },
+  {
+    "id": "10d883a",
+    "text": "Pin codex to a newer vendored version",
+    "truth": [
+      "vendor-pins.json"
+    ]
+  },
+  {
+    "id": "17de6fa",
+    "text": "Pin claude to a newer vendored version",
+    "truth": [
+      "vendor-pins.json"
+    ]
+  },
+  {
+    "id": "31666c9",
+    "text": "Stop the half-hourly heartbeat message to a live court leader unless switched on",
+    "truth": [
+      "agent_docs/commands.md",
+      "src/keep-going/keep-going-context.ts",
+      "src/keep-going/keep-going-regent-tending.ts",
+      "src/keep-going/regent-heartbeat-nudge-switch.ts",
+      "src/steering-user-config.ts",
+      "src/user-config-loader.ts",
+      "test/keep-going-heartbeat-nudge-switch.test.ts"
+    ]
+  },
+  {
+    "id": "3109deb",
+    "text": "Write the fork skill and trim its two pointers",
+    "truth": [
+      ".claude/skills/no-alpha/SKILL.md",
+      ".claude/skills/throne-fork/SKILL.md",
+      "agent_docs/commands.md"
+    ]
+  },
+  {
+    "id": "8342f40",
+    "text": "Name a filed base that is not a commit as a wrong hash",
+    "truth": [
+      "src/situation-brief/repository-situation.ts",
+      "test/situation-brief.test.ts"
+    ]
+  },
+  {
+    "id": "55cf650",
+    "text": "List a cited commit once when the body names it both short and full",
+    "truth": [
+      "src/situation-brief/cited-commits.ts",
+      "test/situation-brief.test.ts"
+    ]
+  }
+]

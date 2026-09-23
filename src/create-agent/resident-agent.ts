@@ -22,12 +22,16 @@ import {
   prepareCodexLaunchTrust,
   verifyCodexLaunchTrust,
 } from "./codex-launch-trust.ts";
-import { deliverAgentOpeningPrompt } from "./opening-prompt.ts";
+import {
+  deliverAgentOpeningPrompt,
+  type OpeningPromptReceiptOutcome,
+} from "./opening-prompt.ts";
 import {
   resolveMemoryDir,
   type MemoryResolution,
 } from "../memory-dir/memory-dir-resolver.ts";
 import { PRODUCTION_MEMORY_RESOLVER_DEPS } from "../memory-dir/memory-dir-runtime.ts";
+import { installHerdrOperatorSkill } from "../herdr/herdr-operator-skill.ts";
 
 /**
  * Resolved once at spawn so the identity record states where memory lives
@@ -52,9 +56,24 @@ async function resolveSpawnMemory(
     stderrWriter(deps)(
       `create-agent: memory directory for "${request.name}" not resolved from ` +
         `${request.cwd} (${error instanceof Error ? error.message : String(error)}); ` +
-        `its identity tells it to run \`throne memory-dir\` itself.\n`,
+        `its identity tells it to run \`throne memory-dir --json .\` itself.\n`,
     );
     return undefined;
+  }
+}
+
+async function installOperatorSkill(
+  request: PolicyResolution,
+  deps: CreateAgentDeps,
+): Promise<void> {
+  const install = deps.installHerdrOperatorSkill ?? installHerdrOperatorSkill;
+  const outcome = await install(request.role, request.cwd);
+  if (outcome.kind === "failed") {
+    stderrWriter(deps)(
+      `create-agent: herdr operator skill for "${request.name}" not written to ` +
+        `${outcome.filePath} (${outcome.message}); the agent can still run herdr ` +
+        `through bin/herdr but carries no skill for it.\n`,
+    );
   }
 }
 
@@ -145,6 +164,7 @@ function reportResidentAgent(
   request: PolicyResolution,
   deps: CreateAgentDeps,
   taskingOutcome: SpawnTaskingOutcome,
+  receipt: OpeningPromptReceiptOutcome,
 ): void {
   const routed =
     request.routingNote === "" ? "" : ` — routed: ${request.routingNote}`;
@@ -170,7 +190,7 @@ function reportResidentAgent(
       `[${request.launchModel} / effort ${request.launchEffort}] ` +
       `— supervisor ${supervisor}, escalation ${escalation}${routed}${policy}.\n`,
   );
-  write(`Spawn tasking: ${taskingOutcome}.\n`);
+  write(`Spawn tasking: ${taskingOutcome}. Opening prompt receipt: ${receipt}.\n`);
 }
 
 export async function runResidentAgent(
@@ -188,7 +208,12 @@ export async function runResidentAgent(
     spawnedTabLabel,
     await resolveSpawnMemory(request, deps),
   );
-  const prompts = await createAgentOpeningPrompts(request, identity);
+  const prompts = await createAgentOpeningPrompts(
+    request,
+    identity,
+    deps.composeSituationBrief,
+    deps.readForkBrief,
+  );
   const argv = launchArgv(request);
   if (!(await prepareCodexLaunchTrust(request, deps))) {
     return 1;
@@ -198,6 +223,7 @@ export async function runResidentAgent(
   ) {
     return 1;
   }
+  await installOperatorSkill(request, deps);
   const start = await startOrResumeAgent(request, deps, argv, spawnedTabLabel);
   if (!start.ok) {
     return start.code;
@@ -214,6 +240,6 @@ export async function runResidentAgent(
   if (!delivery.delivered) {
     return 1;
   }
-  reportResidentAgent(request, deps, delivery.outcome);
+  reportResidentAgent(request, deps, delivery.outcome, delivery.receipt);
   return 0;
 }

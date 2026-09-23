@@ -7,6 +7,7 @@
 !.claude/
 .claude/*
 !.claude/skills/
+.claude/skills/herdr/
 # The throne registers its OWN SessionStart hook rather than leaning on the
 # operator's user-level settings, so this one file is a tracked deliverable.
 !.claude/settings.json
@@ -59,4 +60,3 @@
 .throne-hydration-provenance.json
 
 # Local machine rules for publish.sh (private identifiers live here, never committed).
-/publish-scrub.sed

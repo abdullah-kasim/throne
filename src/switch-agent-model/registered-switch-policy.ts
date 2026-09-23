@@ -19,6 +19,7 @@ import {
   LIVE_ROLE_WORD_UNION,
   resolveCanonicalRoleWord,
 } from "../shared-policy/role-word-union.ts";
+import { isStagerRole } from "../no-idling/idle-family.ts";
 import { finalQuotaGate } from "../create-agent/native-availability.ts";
 import { resolveModelBypassAuthorization } from "../create-agent/model-bypass-authorization.ts";
 import type { RegisteredSwitchBypass } from "./command-arguments.ts";
@@ -46,13 +47,23 @@ export type RegisteredSwitchPolicyResult =
   | { ok: true; request: SwitchRequest; notes: readonly string[] }
   | { ok: false; reason: string };
 
-type RegisteredRole = "alpha" | "shadow" | "agent";
+type RegisteredRole = "alpha" | "shadow" | "agent" | "stager";
 
-function registeredRole(agentName: string): RegisteredRole | undefined {
+function registeredRole(
+  agentName: string,
+  identityRole: string | undefined,
+): RegisteredRole | undefined {
+  if (isStagerRole(identityRole)) return "stager";
   const resolved = resolveCanonicalRoleWord(agentName, LIVE_ROLE_WORD_UNION);
   if (resolved !== null) return resolved.role;
   if (agentName.startsWith("agent-")) return "agent";
   return undefined;
+}
+
+function roleCarriesAnObjectiveContract(
+  role: RegisteredRole,
+): role is "alpha" | "shadow" {
+  return role === "alpha" || role === "shadow";
 }
 
 function supportedHarness(spawn: SpawnSpec): Harness | undefined {
@@ -66,9 +77,10 @@ export async function resolveRegisteredSwitchPolicy(opts: {
   spawn: SpawnSpec;
   requested: SwitchRequest;
   bypass: RegisteredSwitchBypass;
+  identityRole?: string;
   deps: RegisteredSwitchPolicyDeps;
 }): Promise<RegisteredSwitchPolicyResult> {
-  const role = registeredRole(opts.agentName);
+  const role = registeredRole(opts.agentName, opts.identityRole);
   if (role === undefined) {
     return {
       ok: false,
@@ -76,7 +88,7 @@ export async function resolveRegisteredSwitchPolicy(opts: {
     };
   }
   let objectiveCode: string | undefined;
-  if (role !== "agent") {
+  if (roleCarriesAnObjectiveContract(role)) {
     const objective = objectiveContractFromStoredEvidence({
       agentName: opts.agentName,
       role,

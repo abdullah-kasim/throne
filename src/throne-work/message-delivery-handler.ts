@@ -41,6 +41,7 @@ export interface MessageDeliveryHandlerDeps {
       omitSenderAttribution?: boolean;
       waitForStartupQuiescence?: boolean;
       disableFileBackedDelivery?: boolean;
+      messageId?: number;
     },
   ) => Promise<void>;
   clearBlockedMarker: (name: string) => Promise<void>;
@@ -183,7 +184,7 @@ export async function deliverMessageWorkItem(
         recipient,
         payload.senderName,
         payload.prompt,
-        forwardedSubmitOptions(payload),
+        { ...forwardedSubmitOptions(payload), messageId: item.id },
       );
       await recordAttributedDelivery(payload, deps);
       if (item.dueAt !== null) {

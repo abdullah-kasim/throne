@@ -7,6 +7,7 @@ import {
   type RegentQueueRenderFilter,
 } from "./regent-queue-render.ts";
 import { openRegentQueueStore } from "./regent-queue.store.ts";
+import { openRegentQueueAmendments } from "./regent-queue-amendments.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 
 const KNOWN_STATUSES: readonly string[] = Object.values(RegentQueueItemStatus);
@@ -76,10 +77,18 @@ export class RegentQueueRenderCommand extends CommandRunner {
 
   async run(_passedParams: string[], options: RenderQueueCommandOptions = {}): Promise<void> {
     const store = openRegentQueueStore();
+    const amendments = openRegentQueueAmendments();
     try {
       const filter = parseRenderQueueStatusFlags(options);
-      console.log(renderRegentQueueAsMarkdown(store.readAll(), filter));
+      console.log(
+        renderRegentQueueAsMarkdown(
+          store.readAll(),
+          filter,
+          amendments.readAllByObjective(),
+        ),
+      );
     } finally {
+      amendments.close();
       store.close();
     }
   }

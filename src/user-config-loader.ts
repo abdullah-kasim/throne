@@ -56,16 +56,31 @@ export const STEERING_SECTION_FIELDS = [
   'stagerPool',
   'tokenBalanceEnabled',
   'autoscaleEnabled',
+  'regentHeartbeatNudgeEnabled',
 ] as const;
 /** `name`/`email` are the default identity; `identities` names alternatives
  *  and `remotes` maps a remote pattern (`host` or `host:owner`) to one of
  *  those names — see `git-identity/git-identity.command.ts`. */
 export const IDENTITY_SECTION_FIELDS = ['name', 'email', 'signingKey', 'signingFormat', 'identities', 'remotes'] as const;
 
+export const RECALL_SECTION_FIELDS = [
+  'jevEnabled',
+  'hookEnabled',
+  'serveThreshold',
+  'serveThresholdWhenCostIsHigh',
+  'siftKeepThreshold',
+  'maximumInjectedCharacters',
+  'hookTimeoutMilliseconds',
+  'globalMemoryDirectories',
+  'rankAllowedRoots',
+  'jevKeyFile',
+] as const;
+
 const TOP_LEVEL_FIELDS = [
   ...PERSONA_SECTION_FIELDS,
   'steering',
   'identity',
+  'recall',
 ] as const;
 
 /** The merged file's default export, split into its three independently
@@ -77,6 +92,7 @@ export interface UserConfigFile {
   readonly persona: Readonly<Record<string, unknown>>;
   readonly steering: Readonly<Record<string, unknown>>;
   readonly identity: Readonly<Record<string, unknown>>;
+  readonly recall: Readonly<Record<string, unknown>>;
 }
 
 /** Where the merged override lives: `<live-throne-root>/config.user.ts`. */
@@ -232,10 +248,16 @@ export async function loadUserConfigFile(
     IDENTITY_SECTION_FIELDS,
     resolvedPath,
   );
+  const recall = extractSection(
+    value,
+    'recall',
+    RECALL_SECTION_FIELDS,
+    resolvedPath,
+  );
   const persona: Record<string, unknown> = {};
   for (const field of PERSONA_SECTION_FIELDS) {
     if (field in value) persona[field] = value[field];
   }
 
-  return { persona, steering, identity };
+  return { persona, steering, identity, recall };
 }

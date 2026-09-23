@@ -153,7 +153,10 @@ ability to reach someone must never block on Regent load. It talks to the
 Lord directly to help him form and solidify a plan, reads the Regent's queue
 (`render-queue`) only when asked (never on its own initiative, never
 dispatching or supervising), and once a plan is consolidated it **files, then
-notifies** (Lord, 2026-08-21). Exactly two steps, in this order:
+notifies** (Lord, 2026-08-21). It also carries the generated `herdr` skill
+(Lord, 2026-09-11): switching the Lord's tab, reading a pane, or checking
+whether an agent is stuck is its business; typing into another agent's pane
+is still `send-agent`, never raw herdr input. Exactly two steps, in this order:
 
 1. **Push the plan to the queue directly** with `add-to-queue`. The Stager
    files on its own authority; it does not ask the Regent's permission to
@@ -173,7 +176,9 @@ reply has reintroduced the block it was created to remove.
 words: "every time you spawn a stager, default to fable please." When the
 Lord orders a Stager and names no model, the Regent spawns it with
 `--model fable`; a model he names wins. The autoscale floor's own recipe
-(`src/alpha-autoscale/stager-floor.ts`) is unchanged by this order.
+(`src/alpha-autoscale/stager-floor.ts`) spawns its Stager on fable too
+(Lord, 2026-09-14: "is the default stager model the fable? If not, make it
+so"); `test/stager-floor-spawns-its-stager-on-fable.test.ts` pins it.
 
 **A Stager runs whatever model the Lord puts it on (Lord, 2026-09-07).** The
 runtime-model quarantine that refuses `send-agent` to a campaign pane on the
@@ -219,6 +224,30 @@ sweep is REFUSED and reported to the Lord as a request, never actioned as one
 — the Stager may tell him "the Regent believes X needs an objective," and he
 decides. The Stager's own initiative is not an exception to this: noticing that
 something ought to be done is not authority to file it.
+
+**A Stager may fork itself for a long task (Lord, 2026-09-18).** The Lord
+already did this by hand: copy the context out of one Stager, paste it into
+another, tell that one to work, and go back to the first to keep talking.
+`create-agent --fork-of <parent>` automates the handoff. The parent writes the
+brief to `~/.throne/data/<fork-name>/brief.md` in the four-marker shape, spawns
+a FRESH Stager named `<parent>-<task-slug>` (`stager-tenth-prmedia` — never
+`<parent>-01`, and never a reused idle Stager) in its own worktree, and stays
+in the conversation. The fork inherits the parent's live model unless `--model`
+says otherwise, opens on the brief, and inherits no conversation at all — what
+is not in that file is lost.
+
+A fork is an ordinary Stager with full Stager powers, and those powers answer
+to the Lord, not to the brief: filing a queue row or forking again needs the
+Lord's own word typed in the fork's own pane, and a brief that orders either
+is refused and reported to him. The reason is the filing law two paragraphs
+up. Today the Lord is the courier, so the words carried into a fresh pane are
+his; automated, the parent is the courier, and a parent that could brief a
+fork into filing would be exactly the extra-hop evasion that law forbids. The
+fork stays alive after reporting DONE — it sends the parent one `send-agent`
+line, leaves its own pane showing the result, and only the Lord reaps it. The
+autoscale floor does not count a fork as the court's live Stager, so a fork
+head-down in a task never leaves the Lord without a pane to talk to. See
+`agent_docs/commands.md`, "create-agent".
 
 **And the Regent never assigns a Stager its work (Lord, 2026-08-26).** The
 filing law above closes one door and leaves a wider one open: a Regent that
@@ -297,7 +326,13 @@ commit hygiene is unchanged. It still **never spawns an Alpha**: sharing
 the Regent's checkout grants no campaign authority, which remains gated on
 `isAlphaSpawnerSupervisorName`. And it still **verifies a UI change with the
 `/frontend-critic` skill** before reporting it done (Lord, 2026-09-09): a
-Stager has no `99b` gate to do it for it, so it is the gate.
+Stager has no `99b` gate to do it for it, so it is the gate. The same three
+review skills ship in the throne itself (Lord, 2026-09-14) so every court
+agent has them from any cwd: `/pr-description` composes every PR body with a
+manual `## Testing` walkthrough a human follows literally, `/pr-media`
+captures screenshots and a click recording of a UI change, and
+`/agent-browser` is the browser they drive. The human reads the PR, watches
+the recording and comments; opening an editor means the court fell short.
 
 **THE EXEMPTION IS THE THRONE'S CHECKOUT AND NOWHERE ELSE (Lord,
 2026-08-24).** The paragraph above says "the live main checkout" and means
@@ -336,6 +371,23 @@ Stager filed six briefs' worth of prose about internal plumbing while both of
 his applications finished shipping in the background, and told him about the
 plumbing first. That is the error this rule exists to prevent, and it is an
 error of proportion rather than of accuracy.
+
+**A CHANGE TO FILED WORK IS AN AMENDMENT, AND AMENDMENTS ARE ENFORCED IN
+CODE (Lord, 2026-09-17: "things that we forget, has to be codified").** When
+the Lord changes, adds to, or corrects an objective that is already in the
+queue, the Stager (or the Regent) records it with `throne amendment` (the
+`/amendment` skill), never by appending to the body with `update-queue`. The
+command numbers the change beside the row, messages the row's in-flight Alpha
+and the Regent, and refuses a row whose work is already delivered, in which
+case the change becomes a new objective. Every recorded amendment is printed
+in a fresh Alpha's opening prompt under `## Situation at launch`, and an Alpha
+may neither push nor land its branch until its plan records
+`**Queue amendments reconciled through:** <n>` at the row's highest number.
+The launch also refuses a local branch that does not contain the filed base.
+These exist because on 2026-09-17 one campaign shipped without two appended
+amendments that arrived after it finished, another never heard its amendment
+at all, and a third was cut from a stale local branch instead of the base it
+was filed with.
 
 **THE DEFAULT IS TO FILE, NOT TO DO (Lord, 2026-08-24).** His words: *"stager
 pushes to the queue, then notifies regent about it."* A request from the Lord
@@ -445,6 +497,21 @@ evidence of it.
   dependency and stopping in front of him, which is the same failure as
   refusing on uncertainty — see the ruling directly below, which it extends
   from machinery to agents.
+
+- **SLICELESS IMPLIES SHADOWLESS (Lord, 2026-09-15).** His words: *"Let's
+  create a sliceless mode. sliceless also implies shadowless."* A sliceless
+  campaign Alpha — filed with `add-to-queue --sliceless` on the Lord's own
+  word, for work the Stager judged single-seam — runs no /write-todos, writes
+  no bundle, spawns no Shadows and no 99a/99b/99c gates; it works straight
+  from the queue body and records its evidence in
+  `~/.throne/data/<alpha>/sliceless/<code>/verify.md`, which the `bin/git`
+  push gate demands. Sliceless is never granted without shadowless: the
+  queue row, spawn.json, identity.md and the autoscaler's `create-agent`
+  flags all carry both, so every shadowless rule binds a sliceless Alpha
+  too, and there is no sliceless-with-Shadows. Like shadowless, it is
+  Lord-only at filing; body text, a relayed request or an Alpha's own
+  judgment grants nothing. The contract lives in /execute-todos "Sliceless
+  mode".
 
 - **PREFER LANDING WITH LOUD REPORTING OVER BLOCKING (Lord, 2026-08-21).**
   When choosing between a gate that REFUSES on uncertainty and one that
@@ -585,6 +652,17 @@ evidence of it.
   retiring the cron tick would re-open the crash-loop hazard it prevents.
 - **The Regent delegates everything.** If the Regent finds itself writing code,
   planning splits, or executing a task, it has overstepped. Spawn an Alpha.
+- **A blocked agent held up by an interactive prompt is answered with `mcq`
+  (Lord, 2026-09-22).** The blocked-agent page names the prompt kind, its
+  question, the quoted command when there is one, and the options with the
+  selected row marked. The Regent judges whether the command is safe, then
+  clears the prompt with `throne mcq --agent <name> --answer <n>` or
+  `throne mcq --agent <name> --dismiss`; only the Regent or a Stager may run
+  it. The command presses the digit first and falls back to Up/Down and Enter,
+  re-reading the cursor after every press; when the cursor is not where the
+  arithmetic says it should be, it presses nothing further and pages the
+  Regent to take over by hand. Every answer lands in
+  `~/.throne/data/regent/mcq-answers.jsonl`.
 - **Never use Herdr send-text (Lord, 2026-08-01).** The Regent must send every
   agent message through `./bin/throne-cli send-agent`; `herdr pane send-text`
   and equivalent raw Herdr text injection are forbidden for all purposes. Raw
@@ -1144,7 +1222,8 @@ exists.
 | `assert-herdr` | Refuse to run unless inside a herdr session. |
 | `agent-statuses` | Table of every herdr agent + its status (idle/working/blocked). |
 | `agent-logs <name> [--lines N] [--source visible\|recent\|recent-unwrapped]` | Read what an agent has been doing (its recent/visible output). An Alpha uses it for one completion review, an explicit blocker, or silence beyond the 30-minute Regent heartbeat interval; the Regent uses it for diagnostics and to answer the Lord without blocking. It is never an Alpha short-cadence polling loop. |
-| `send-agent <recipient-name> <prompt...> [--sender-name <name>] [--key <key>] [--clear-blocked]` | Send to a uniquely resolved recipient through the SQLite-backed delivery queue. `--clear-blocked` explicitly clears the recipient's durable blocked marker as part of this send, independent of message content. Delivery is the platform primitive — `herdr agent prompt <recipient> <body> --wait --timeout <ms>` owns the write, the Enter, and its own queue semantics; the throne keeps only its value around it: unique recipient resolution, sender attribution (`<sender> said: <prompt>`), the per-recipient pane mutex with identity re-proof under the lock, draft protection, file-backed payloads at 4096 bytes and above (pointer + `read-payload` consumer), typed evidence, and durable receipts. Platform outcomes map to the throne's verdicts: a refusal before any write (`agent_not_found`/`agent_not_ready`/`empty_agent_prompt`/`agent_prompt_failed`/a command that never ran) is typed not-sent and retry-safe; a settled recipient state is delivered/queued evidence and records the supervision event; `agent_prompt_stalled`, `timeout`, `agent_not_running`, unknown codes, and unparseable successes assume filled — never resend. Inspect first, retry only typed not-sent, and never resend an assumed-filled verdict. On acceptance, `send-agent` prints the SQLite work-item id to check with `message-status <id>`; every accepted send is also unconditionally, best-effort recorded to `$THRONE_DATA/<senderName>/sent-messages.jsonl`, one JSON line per send (`{"timestamp": "<ISO 8601>", "recipient": "<name>", "id": "<the printed id>", "transport": "sqlite"}`). A ledger write failure never fails or delays the send. |
+| `send-agent <recipient-name> <prompt...> [--sender-name <name>] [--key <key>] [--clear-blocked]` | Send to a uniquely resolved recipient through the SQLite-backed delivery queue. `--clear-blocked` explicitly clears the recipient's durable blocked marker as part of this send, independent of message content. Delivery is the platform primitive — `herdr agent prompt <recipient> <body> --wait --timeout <ms>` owns the write, the Enter, and its own queue semantics; the throne keeps only its value around it: unique recipient resolution, sender attribution and the queue id last (`<sender> said: <prompt> [message <id>]`, so a message whose head is clipped in the pane still ends with the id to re-read it by), the per-recipient pane mutex with identity re-proof under the lock, draft protection, file-backed payloads at 4096 bytes and above (pointer + `read-payload` consumer), typed evidence, and durable receipts. Platform outcomes map to the throne's verdicts: a refusal before any write (`agent_not_found`/`agent_not_ready`/`empty_agent_prompt`/`agent_prompt_failed`/a command that never ran) is typed not-sent and retry-safe; a settled recipient state is delivered/queued evidence and records the supervision event; `agent_prompt_stalled`, `timeout`, `agent_not_running`, unknown codes, and unparseable successes assume filled — never resend. Inspect first, retry only typed not-sent, and never resend an assumed-filled verdict. On acceptance, `send-agent` prints the SQLite work-item id to check with `message-status <id>`; every accepted send is also unconditionally, best-effort recorded to `$THRONE_DATA/<senderName>/sent-messages.jsonl`, one JSON line per send (`{"timestamp": "<ISO 8601>", "recipient": "<name>", "id": "<the printed id>", "transport": "sqlite"}`). A ledger write failure never fails or delays the send. |
+| `mcq --agent <name> (--answer <n> \| --dismiss) [--dry-run]` | Answer or dismiss the interactive prompt (a harness permission menu or a numbered question) held up in a named agent's pane. Regent or Stager only. Refuses when no prompt is visible or `<n>` is not offered; presses the digit first, falls back to Up/Down and Enter with a cursor check after every press, and pages the Regent to take over by hand when the cursor is not where expected. `--dry-run` prints what it would press. Appends to `~/.throne/data/regent/mcq-answers.jsonl`. |
 | `send-agent-legacy <recipient-name> <prompt...> [--sender-name <name>] [--key <key>] [--clear-blocked]` | Reach for this only when `send-agent`/`queue-health` indicate the queue or `throne-work` server is broken and an immediate synchronous send is needed. A fully independent fallback: it shares no code, no failure mode, and no dependency with the queue, `throne-work`, the SQLite store, or the heartbeat — it delivers directly through the same platform primitive (`herdr agent prompt <recipient> <body> --wait --timeout <ms>`), with the same recipient/sender resolution, per-recipient pane mutex, draft-clearance wait, file-backed payloads, and typed not-sent/assumed-filled verdicts `send-agent` had before it became a queue enqueue. It is never the default path — only the manual recovery route when the new path is confirmed unreachable. It does not write to the `sent-messages.jsonl` ledger. |
 | `message-status <id>` | Checks whether a message `send-agent` accepted actually delivered. A numeric `<id>` reads the SQLite `work_items` path (`readWorkItem`) and prints `unknown-id`/`queued`/`in-flight`/`delivered`/`failed: <reason>`; it exits `0` on a resolved verdict, `1` on `unknown-id`, `64` on a usage error, and `69` when the REST transport is unreachable. SQLite `queued`/`in-flight` verdicts report heartbeat staleness. Use this against the id `send-agent` printed, or against a past id read back from `$THRONE_DATA/<senderName>/sent-messages.jsonl`. |
 | `read-payload <absolute-payload-path>` | Primary consumer for a file-backed large message. It accepts only an absolute `.payload.txt` directly under `~/.throne/payloads`, reads the complete bytes before attempting deletion, prints the exact body to stdout only when deletion succeeds, and emits the byte count plus SHA-512 receipt to stderr. Missing, unreadable, cleanup-failed, invalid-path, and usage outcomes are distinct nonzero exits; a failed/partial read never deletes. |
@@ -1152,19 +1231,39 @@ exists.
 | `spawn-git-tree <name> [--repo <path>] [--base <ref>] [--alpha <name>] [--non-campaign]` | Create a git worktree for a target repo (`--repo`, default: the throne's own; omission warns loudly, so cross-repo campaigns must pass it), placed under `~/.throne/worktrees/<repo-basename>/<name>` — OUTSIDE the target repo. **The base depends on the tree kind.** A **campaign Shadow** name (`shadow-<code>-…`) bases on its supervising **Alpha's branch** (the branch whose name equals the Alpha agent name), resolved from the objective code carried in the name or an explicit `--alpha <name>`; its `tree-base.json` records that branch as the merge target. Every other name — Alpha trees, infrastructure — bases on the target repo's current branch+commit (or `--base <ref>`). `--non-campaign` is the one loud override: current-branch basing for a deliberate `shadow-*` infra tree. All validation runs before any write, so a missing, ambiguous, or invalid Alpha/branch refuses cleanly — no worktree, no branch, no `tree-base.json`. All CAMPAIGN coding happens in a tree, never the live checkout; the Stager is the one exception and is never given a tree (see "The Stager"). |
 | `merge-git-tree [--data-dir <path>] <name> <message>` | Merge a tree's branch back into its **recorded base branch** (`tree-base.json` `branch`) in its **recorded** target repo (both read from `~/.throne/data/<name>/tree-base.json`; repo falls back to the throne when unrecorded) — the other half of `spawn-git-tree`. A Shadow thus lands in its Alpha's branch, the Alpha's branch lands in the target branch. **Transport is flexible; the destination is not**: the command lands at the root checkout when the recorded branch is current there, inside the registered worktree that has it checked out (normally the Alpha's own tree), or — when the branch is checked out nowhere — via a temporary worktree it creates and removes, so an un-checked-out target is never a failure. Success means the intended content is on the recorded branch, never that one particular git ceremony ran. Wraps `mergeBack` (stash → merge → unstash → resolve); a real merge conflict aborts + throws for hand-resolution. The one refusal is fail-closed metadata: an absent/legacy `tree-base.json` with no usable `repo`+`branch` refuses because the target cannot be known safely — that refusal is a **campaign metadata/process defect to repair** (fix the record or the process that failed to write it), never a prompt to guess a branch or bolt on another merge validator. So merging back never needs raw git. |
 | `validate-delivery <repo-path> <commit-hash>` | Ledger-free delivery proof: opens the repo at `<repo-path>`, reads its CURRENT checked-out branch (never a recorded/ledger branch), and reports a typed `delivered` \| `not-delivered` \| `unknown-commit` \| `invalid-repo` verdict on whether `<commit-hash>` and that branch's tip carry identical Git trees, naming the branch and both compared tree IDs. Reports target working-tree status (clean/dirty) alongside the verdict; a dirty tree never by itself flips the verdict. Takes only the two positional arguments — no agent name, no `tree-base.json` read — so it can be pointed at any repo including one the throne has never heard of. Reuses `verify-delivery`'s shared revision-tree identity primitive. It is a ledger-free sibling of `verify-delivery <alpha-name>` (agent-name-keyed and fail-closed on missing provenance); both prove squash-compatible content identity from different inputs. |
-| `create-agent --model <m> [--effort <n>] --name <name> --supervisor <name> [--escalation <name>] [--role <role>] [--cwd <path>] [--prompt <text>] [--model-hint <harness/model>] [--objective-code <code> \| --non-campaign] [--empty-worktree] [--shadowless] [--bypass-model] [--bypass-effort] [--bypass-preset-agent] [--bypass-zero-quota] [--bypass-opencode-telemetry-unavailable] [--harness-executable <absolute-path> [-- <complete harness argv…>]] [--run-custom-harness-to-exit --bypass-run-custom-harness-to-exit …]` | Spawn a registered agent after the shared admission resolver confirms a mechanically spawnable requested pair and the applicable preset pool, role pin/allowlist, queue `model_hint`, or durable human exception. The resolver never chooses a stronger substitute or retry ladder. **`--harness` is NOT caller-selectable** — passing it is a hard refusal (`create-agent: --harness is no longer caller-selectable; infer the harness from the canonical model registry by passing --model.`); the harness is inferred from `--model` through the canonical registry. A nullable `--model-hint` records human queue intent, persists on an Alpha, and inherits only to its recorded campaign descendants; it must match `--model` and can never substitute it. Existing migration routes remain available until deliberate retirement. Exact registered resumes retain their stored recipe. Fresh campaign Alphas and Shadows must launch from their matching throne-managed external Git worktree, or use explicit `--empty-worktree` to create a matching managed scratch workspace with generated `AGENTS.md`; no treeless launch exists. Inspect `list-harnesses-and-models` for current pairs, preset, effort ranges, and launcher route. For the Regent-authorized campaign allowlist edit, exact JSON shape, fallback behavior, and same-user trust boundary, see `agent_docs/MODEL_POLICY.md#campaign-model-allowlist-operator-override`. See `agent_docs/commands.md`. |
+| `create-agent --model <m> [--effort <n>] --name <name> --supervisor <name> [--escalation <name>] [--role <role>] [--cwd <path>] [--prompt <text>] [--model-hint <harness/model>] [--objective-code <code> \| --non-campaign] [--empty-worktree] [--shadowless] [--sliceless] [--bypass-model] [--bypass-effort] [--bypass-preset-agent] [--bypass-zero-quota] [--bypass-opencode-telemetry-unavailable] [--harness-executable <absolute-path> [-- <complete harness argv…>]] [--run-custom-harness-to-exit --bypass-run-custom-harness-to-exit …]` | Spawn a registered agent after the shared admission resolver confirms a mechanically spawnable requested pair and the applicable preset pool, role pin/allowlist, queue `model_hint`, or durable human exception. The resolver never chooses a stronger substitute or retry ladder. **`--harness` is NOT caller-selectable** — passing it is a hard refusal (`create-agent: --harness is no longer caller-selectable; infer the harness from the canonical model registry by passing --model.`); the harness is inferred from `--model` through the canonical registry. A nullable `--model-hint` records human queue intent, persists on an Alpha, and inherits only to its recorded campaign descendants; it must match `--model` and can never substitute it. Existing migration routes remain available until deliberate retirement. Exact registered resumes retain their stored recipe. Fresh campaign Alphas and Shadows must launch from their matching throne-managed external Git worktree, or use explicit `--empty-worktree` to create a matching managed scratch workspace with generated `AGENTS.md`; no treeless launch exists. Inspect `list-harnesses-and-models` for current pairs, preset, effort ranges, and launcher route. For the Regent-authorized campaign allowlist edit, exact JSON shape, fallback behavior, and same-user trust boundary, see `agent_docs/MODEL_POLICY.md#campaign-model-allowlist-operator-override`. See `agent_docs/commands.md`. |
 | `derive-shadow-name-from-alpha <alpha> <slice-id>` | Read the supervising Alpha's durable campaign evidence and print the complete canonical descendant handle. Campaign workflows reuse that exact result for the Shadow's tree, agent, ledger, monitoring, merge, and reap; callers never copy an objective code into a Shadow name. |
 | `reap-agent <name> --reason <enum> [--force] [--archive-cancelled-unmerged]` | Tear an agent down through the tooling: close its herdr tab, remove its worktree (`git worktree remove`), and archive its `~/.throne/data/<name>/` → `~/.throne/data/.reaped/<name>/`. Before archiving, it records `reaped_at` + `reap_reason` and appends the timing row to `~/.throne/data/stats/agent-timings.jsonl`; `--reason` is REQUIRED. Ordinary reap accepts `completed|stalled|force|orphan|superseded|cancelled|scratch|error|other`; `--reason cancelled` alone runs ordinary teardown and still refuses a branch carrying content that cannot be proven delivered. `--reason scratch` marks a disposable diagnostic probe that completed no real work (e.g. a send-agent canary target); `agent-stats` excludes `scratch` rows from its completion/stall breakdowns entirely, distinct from `completed` (a real completion) and `other` (neither of the above). The cancelled-unmerged archival form is `reap-agent <name> --reason cancelled --archive-cancelled-unmerged` — `--archive-cancelled-unmerged` requires `--reason cancelled`, but not the reverse. It retains the exact intentionally-unmerged local ref/tip and moves byte-identical provenance to `tree-base.cancelled-unmerged.json`; it never merges, deletes, renames, or makes that branch name reusable. A `--force` reap carrying any other `--reason` (e.g. `completed`) that cannot prove delivery is retained through the same mechanism but reported as `UNMERGED-RETAINED`, not `CANCELLED-UNMERGED` — the timing row still records the caller's actual `--reason` untouched, so `agent-stats` is unaffected; only the human-facing label and archival vocabulary differ from the explicit `--reason cancelled --archive-cancelled-unmerged` form. `--force` remains only the live-child/liveness override; agent memory lives outside every worktree (`memory-dir`), so reap has nothing of it to protect. A successful `--reason completed` reap notifies completed Alphas by default; set `THRONE_NOTIFY_SHADOWS=1` to opt Shadows in too. Ordinary reap is idempotent when the lifecycle is already gone; explicit cancellation instead requires live `tree-base.json` or preserved `tree-base.cancelled-unmerged.json` authority until archival succeeds, so rerunning it after successful archival is not the ordinary already-gone no-op. Initial cancellation proof refuses delivered, missing, corrupt, mismatched, foreign, or duplicate-checkout authority before tab/worktree/ledger mutation; a ref move after preflight is detected only by post-teardown verification while the moved ref and preserved marker remain recoverable. Plain reap **refuses a LIVE agent** unless it is completion-proven (its `REPORT.md` landed and herdr no longer says `working`). Plain reap also refuses while live children still report to the target; `--force` cascades through those live children first and is the only path that may kill genuinely-working agents. Dead/complete agents reap freely. Refuses the Regent outright. Ordinary cleanup first accepts commit reachability, then accepts squash-equivalent delivery only when recorded delivery evidence is retained by the recorded target and the candidate content carries the same canonical Git tree; cleanup repeats that authority check immediately before deletion. Unique, unequal, or unverifiable content remains protected and requires the explicit retention/discard path. See `agent_docs/commands.md` under reap-agent for the mechanism. See `agent_docs/commands.md` for cancellation's strict proof and retry boundary, and `agent_docs/ntfy-phone-notifications.md` for the server/topic/operator contract. The teardown counterpart to `create-agent`/`spawn-git-tree` (E2/D2 build on it). |
 | `complete-agent <name> \| --all` | Reap-on-complete: reap a **finished** agent only. Verifies E1's durable completion signal via `getRoster`, then delegates teardown to `reap-agent` (re-implements no teardown). Reaps both a gone COMPLETE agent and a completion-proven LIVE agent whose status is no longer `working`; preserves `reap-agent`'s live-child refusal/cascade gate; **refuses every other LIVE** agent and any **DEAD** agent (died mid-work, no report — a D2 orphan call); idempotent no-op on an unknown/already-reaped name; never reaps the Regent. `--all` sweeps COMPLETE and completion-proven stuck agents, failure-isolated. **Commit-before-report is machine-gated, not merely instructed:** both `complete-agent` and plain `reap-agent --reason completed` (no `--force`) run `checkOwnWorktreeCommittedPrecondition` (`src/slice-evidence/agent-evidence-gate.ts`) before accepting the agent as done, and refuse when its own recorded worktree still carries uncommitted **tracked** changes (staged, modified, or deleted files already known to git) — untracked debris (a scratch note, a stray `node_modules`) never trips it. The refusal names the concrete remedy (`git add -A && git commit`) and the agent's own branch. Three cases are exempt, each its own distinguishable outcome rather than a shared silent pass: `deliverable_shape: "verdict-only"` agents (a verdict gate produces no diff by design), `isTerminalDeliveryShadowName` (`99b`, or legacy `99e`) agents (their content lands via their supervising Alpha, not their own branch), and agents with no resolvable `spawn.json` cwd / `tree-base.json` branch (nothing to check against). **Honest limit:** this does not recover uncommitted in-progress work lost before a commit — it only prevents an agent from being accepted as COMPLETE while committed-but-unreported work still sits on disk. `--force` still tears the agent down over a dirty tree but prints a loud warning naming what was skipped instead of silently skipping it. |
 | `keep-going` | Background nudge: without `--name`, read the Regent's desired state, resolve the uniquely named live Regent, and route the queue-aware nudge through the same sender-aware submit engine with explicit non-agent origin `keep-going`, yielding `keep-going said: run render-queue, queue and dispatch more work as necessary, check for stalled agents and poke them, and continue any active work`. If the Regent is dismissed, do nothing. If no live Regent exists while desired state is running, resurrect one instead of sending, without reading any provider sensor. With `--name <agent>`, skip desired-state/resurrection and nudge that named agent; a named Regent gets the same queue-aware literal, while any other named agent gets the generic nudge. It never dispatches itself and exits non-zero only on genuine ambiguity or resolution failure. Whenever the target is the Regent, the exact live Regent harness label is the sole pacing selector: `codex` reads only Codex quota, `claude` only Claude quota, `opencode` only the opencode-go sensor, opposite-provider telemetry cannot change cadence, a harness change or legacy driverless state starts a fresh pacing domain, and a label outside `HARNESSES` reads no provider getter and nudges unthrottled with an explicit diagnostic. A throttle-evaluation failure nudges unthrottled (NORMAL); a state-read failure can still compute a matching non-NORMAL band; a state-write failure can retain a computed non-NORMAL band — no failure ever suppresses the heartbeat. Output is byte-identical to the pinned literal only when the evaluated band carries no advisory. |
-| `add-to-queue [--objective-code <code>] [--shadowless] <body words...>` | Add a new `open`-status item to the SQLite-backed Regent queue store (`src/regent-queue/`). `--shadowless` (Stager, on the Lord's own words only) authorizes the campaign Alpha to execute its todo slices itself; the autoscaler forwards it as `create-agent --shadowless`. |
+| `add-to-queue [--objective-code <code>] [--shadowless \| --sliceless] <body words...>` | Add a new `open`-status item to the SQLite-backed Regent queue store (`src/regent-queue/`). `--shadowless` (Stager, on the Lord's own words only) authorizes the campaign Alpha to execute its todo slices itself; the autoscaler forwards it as `create-agent --shadowless`. `--sliceless` (Stager, on the Lord's own word "sliceless" only, for single-seam work) authorizes the Alpha to skip /write-todos and work straight from the queue body with no bundle and no Shadows; sliceless implies shadowless, so the row stores both flags and the autoscaler forwards `create-agent --sliceless --shadowless`. The push gate then demands `~/.throne/data/<alpha>/sliceless/<code>/verify.md` (/execute-todos "Sliceless mode"). `--model-hint <harness>/<model>` outside the Alpha pool records the Lord's order as a recipient-`*` authorization in both Regent bypass registries and puts the pair in the Alpha's model allowlist, so the autoscaler launches it with no Regent step (agent_docs/commands.md, add-to-queue). |
 | `update-queue --objective-code <code> <field flags>` | Replace the body or correct status and lifecycle provenance on an existing queue item. Nullable provenance fields have explicit `--clear-*` flags. |
 | `reconcile-queue --objective-code <code> --absorbed-by <campaign> --delivery-commit <commit>` | Close work delivered by another campaign and record the absorbing campaign and delivery commit. |
 | `trim-queue [--apply]` | Remove terminal (`complete`/`abandoned`) items from the SQLite-backed Regent queue store. Dry-run by default (reports what would be removed); `--apply` performs the removal. A non-terminal (`open`/`in-flight`) item is never removable regardless of flags. |
 | `ensure-heartbeat` | Idempotently arm the keep-going timer: render the `throne-keep-going` service+timer sources into the systemd user unit dir as real files through the same shared install core `install-services` uses, then `daemon-reload` + `enable --now` — so no operator runs `systemctl --user enable --now` by hand. It owns the keep-going pair only; because both commands render the same sources with the same tokens into the same paths, whichever runs second finds byte-identical content and writes nothing. Degrades gracefully where systemd is unreachable. |
-| `install-services [--dry-run] [--offline] [--throne-root <absolute path>]` | Read `$XDG_CONFIG_HOME/throne/features.json` (fallback `~/.config/throne/features.json`) as strict JSON `{"herdr-decouple": true|false}`, default OFF when absent. Both states render/install unrelated hooks and services. OFF preserves legacy PATH/default-session Herdr and does not acquire/verify the pin, install the public `throne` seam, or install/control the decoupled Herdr service. ON additionally owns those HVP artifacts and the isolated named `throne` session. A flag transition itself never touches or restarts a server; explicit handoff remains separate. Sources carry `{{THRONE_ROOT}}` or `{{HERDR_BIN}}` substitutions and leftover tokens are refused. **NO-CLOBBER** — installation never issues `restart`/`stop`/`kill` on linux nor `bootout`/`kickstart`/`kill` on mac; changed live units are reported for a deliberate between-runs handoff. `--dry-run` prints the plan and mutates nothing; `--throne-root` changes only paths baked into rendered artifacts. |
+| `install-services [--dry-run] [--offline] [--throne-root <absolute path>]` | Read `$XDG_CONFIG_HOME/throne/features.json` (fallback `~/.config/throne/features.json`) as strict JSON `{"herdr-decouple": true|false}`, default OFF when absent. Both states render/install unrelated hooks and services. OFF preserves legacy PATH/default-session Herdr and does not acquire/verify the pin, install the public `throne` seam, or install/control the decoupled Herdr service. ON additionally owns those HVP artifacts and the isolated named `throne` session. A flag transition itself never touches or restarts a server; explicit handoff remains separate. Sources carry `{{THRONE_ROOT}}` or `{{HERDR_BIN}}` substitutions and leftover tokens are refused. **NO-CLOBBER** — installation never issues `restart`/`stop`/`kill` on linux nor `bootout`/`kickstart`/`kill` on mac; changed live units are reported for a deliberate between-runs handoff. Both states also register the throne's Claude Code guard hook `claude-hooks/scratch-path-guard.py` in `~/.claude/settings.json` (refuses Bash writes and removals under `/tmp` or at the filesystem root, steering to the literal home `tmp` directory; see `agent_docs/commands.md`). `--dry-run` prints the plan and mutates nothing; `--throne-root` changes only paths baked into rendered artifacts. |
 | `throne-startup` | SessionStart-hook entry point: self-configures a fresh throne harness — renames an unnamed top-level harness to `Regent` (and claims its herdr **tab** as `Regent`, self-healing a stale label) and runs `ensure-heartbeat` — full no-op outside the throne top-level harness. |
 | `agent-stats` | Report trailing-7-day stall rate and average completion by harness from the agent timing log, with by-role and reap-reason breakdowns; `--json` emits machine-readable output. |
+
+### A message that starts mid-word: re-read it by the id at its end
+
+The pane can clip the head of a delivered message (measured 2026-09-16 on an
+opening prompt and 2026-09-17 on an ordinary `send-agent` relay: only the
+last ~230 characters arrived). Every message delivered through the queue
+therefore ends with its queue id, `[message <id>]`, which survives when the
+head does not (Lord, 2026-09-22: "make sure that each message sent has the
+message id at the end suffix"). A turn that begins mid-sentence, or with no
+`<sender> said:` prefix, is a clipped message, not an instruction: before
+acting on it, pull the full text by that id and treat only the full text as
+the message:
+
+```bash
+sqlite3 ~/.throne/message-queue.sqlite3 \
+  "select json_extract(payload,'$.senderName'), json_extract(payload,'$.prompt') from work_items where id = <id>"
+```
+
+Direct sends (`--direct`, `keep-going`'s own nudges) never enter the queue and
+carry no suffix; nothing about them changes.
 
 ### File-backed large-message handoff
 
@@ -1299,6 +1398,28 @@ objective before its dependencies land, or losing an in-flight thread.
   release a hold you don't know is still owed) before touching queued
   messages. The read consumes the record, so an ordinary restart with no
   predecessor fence sees nothing and proceeds straight to `render-queue`.
+- **A launch the autoscaler could not make is yours to clear, the same tick
+  (Lord, 2026-09-21).** When the floor-breach page or an `autoscale-now` run
+  says an eligible row FAILED to spawn, read the refusal text and act on it
+  before anything else: a model outside the role pool on a row whose
+  `RULINGS:` carry the Lord's model order means record both durable
+  authorizations (`regent/bypass-model-authorizations.json` and
+  `regent/bypass-usage-authorizations.json`, exact objective code and Alpha
+  name) and run `autoscale-now`; the autoscaler passes `--bypass-model` and
+  `--bypass-usage` itself once they resolve. A leftover branch or worktree
+  from an earlier attempt is not a blocker: `spawn-git-tree` takes it over.
+  Writing the authorizations and then going idle is the failure this rule
+  exists for: on 2026-09-21 objective media139 sat unlaunched until the Lord
+  noticed. Confirm the Alpha is LIVE in `agent-statuses`, or report to the
+  filing Stager exactly which refusal remains.
+- **A throttle advisory lasts only as long as the nudge that carried it.** The
+  keep-going heartbeat may end with a usage advisory such as "pace to ≤4
+  concurrent Alphas". It describes the band evaluated for THAT nudge; a later
+  nudge without it withdraws it. It is never a standing ceiling and never
+  outranks `src/alpha-autoscale/alpha-autoscale-bounds.ts` (floor 4, ceiling
+  6, hard maximum 8), whose floor constant the advisory now reads. On
+  2026-09-21 the Regent was still holding launches to two Alphas on the
+  strength of nudges from 2026-09-18.
 - **Record every full-suite hold and release.** Whenever the Regent holds a
   campaign for full-suite access or releases one, it calls
   `record-suite-hold --campaign <name> --reason <why>` or
@@ -1600,18 +1721,31 @@ not bypass the shim, do not commit with `--author`. Tell your supervisor; the
 Regent tells the Lord; the Lord puts the two lines into `config.user.ts`; you
 rerun the exact same command.
 
+`bin/gh` guards GitHub the same way: reads pass (`pr view`, `pr list`,
+`pr checks`, `api` with GET or HEAD, and the rest of its allowed list), every
+mutation is denied with exit 64, and the real `gh` further down PATH is what
+actually runs. `bin/ghe` is the same guard judging the `ghe` command, because a
+developer's `ghe` (a GitHub Enterprise shim of their own, routing to their
+company's host) would otherwise reach the real binary with no guard at all; it
+resolves and runs that shim when one exists and refuses with exit 127 when none
+does, never inventing the command. An explicit `--bypass` as the FIRST argument
+waives the guard for one invocation and is carried through a shim that re-enters
+the guard under the other name, so `gh --bypass` still reaches a `ghe` that a
+`gh` shim routes to. Bypassing is for a Lord-ordered mutation a skill performs
+(`/pr-media publish`), never a way around a refusal.
+
 ## Discovery + learning (every prompt)
 
 Before acting on any task:
 
 ```bash
-MEMORY_DIR="$(throne memory-dir)"                  # your identity names it too
+MEMORY_DIR="$(throne memory-dir .)"                # your identity names it too; DIR is required
 ls -1 agent_docs/ "$MEMORY_DIR" 2>/dev/null
 grep -R -li "<keyword>" agent_docs "$MEMORY_DIR" 2>/dev/null   # read anything relevant
 ```
 
 Learning mode is always on: when you get corrected, bust an assumption, or hit
-an unexpected dead end, write it to `"$(throne memory-dir)"` immediately —
+an unexpected dead end, write it to `"$(throne memory-dir <repo>)"` immediately — `.` when the lesson is about the repo you stand in, that repo's path when it is not —
 one `SCREAMING_SNAKE_CASE.md` per lesson, don't wait until the end. The
 throne keeps no in-tree memory; `memory-dir` resolves where memory lives for
 the project you are in, deferring to any convention already in force: a target

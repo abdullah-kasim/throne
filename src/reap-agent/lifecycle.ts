@@ -4,6 +4,7 @@ import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
 import { REGENT_NAME } from "../regent-state/regent-state.service.ts";
 import {
   describeUnmetEvidenceForceSkip,
+  describeRuntimeModelMismatch,
   describeUnmetEvidenceRefusal,
 } from "../slice-evidence/agent-evidence-gate.ts";
 import { errorText } from "../shared-policy/error-text.ts";
@@ -48,6 +49,8 @@ async function refuseOrWarnForUnmetEvidence(
     return false;
   }
   const result = await deps.checkEvidenceRequirement?.(request.name);
+  const mismatch = result && describeRuntimeModelMismatch(request.name, result);
+  if (mismatch !== undefined) process.stderr.write(`reap-agent: ${mismatch}\n`);
   if (result === undefined || result.ok) {
     return false;
   }

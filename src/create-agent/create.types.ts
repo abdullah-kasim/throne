@@ -1,4 +1,5 @@
 import type { MemoryResolution } from "../memory-dir/memory-dir-resolver.ts";
+import type { installHerdrOperatorSkill } from "../herdr/herdr-operator-skill.ts";
 import type {
   writeIdentity,
   writeOpeningPrompt,
@@ -38,7 +39,12 @@ import type { TreeBase } from "../agentdata/tree-base-data.service.ts";
 import type { RegentQueueStore } from "../regent-queue/regent-queue.store.ts";
 import type { CapabilityEvidence } from "../harness-routing/policy/capabilities.ts";
 import type { awaitSpawnTaskingConfirmation } from "../session/runtime-model-acceptance.ts";
+import type { awaitOpeningPromptReceipt } from "./opening-prompt-receipt.ts";
 import type { writeModelAllowlist } from "./model-allowlist.ts";
+import type {
+  ReadForkBrief,
+  ReadForkParentEvidence,
+} from "./fork-origin.ts";
 import type {
   CustomHarnessRequest,
   ModelBypassAuthorizationRegistry,
@@ -76,6 +82,7 @@ export type SpawnTaskingOutcome =
   | "not-applicable";
 
 export interface ParsedFlags {
+  "fork-of"?: string;
   harness?: string;
   "harness-executable"?: string;
   model?: string;
@@ -91,6 +98,7 @@ export interface ParsedFlags {
   "empty-worktree"?: boolean;
   "deliverable-shape"?: string;
   shadowless?: boolean;
+  sliceless?: boolean;
   requires?: string;
   "non-campaign"?: boolean;
   "run-custom-harness-to-exit"?: boolean;
@@ -128,6 +136,7 @@ export interface ModelBypassAuthorizationEvidence {
 }
 
 export interface CreateAgentDeps {
+  composeSituationBrief?: (objectiveCode: string) => Promise<string>;
   customHarnessService?: {
     run: (
       request: CustomHarnessRequest,
@@ -156,6 +165,7 @@ export interface CreateAgentDeps {
   // inject a fast fake; production wiring defaults to the real bounded-wait
   // primitive.
   confirmSpawnTasking?: typeof awaitSpawnTaskingConfirmation;
+  awaitOpeningPromptReceipt?: typeof awaitOpeningPromptReceipt;
   resumeRegisteredAgentInRestoredTab: typeof resumeRegisteredAgentInRestoredTab;
   reconcileIndeterminateAgentStart?: typeof reconcileIndeterminateAgentStart;
   closeAgentTab: typeof closeAgentTab;
@@ -166,10 +176,13 @@ export interface CreateAgentDeps {
    *  record. Optional so fixtures need not care; production wires the real
    *  `memory-dir` resolver. A failure never fails the spawn. */
   resolveMemoryDir?: (dir: string) => Promise<MemoryResolution>;
+  installHerdrOperatorSkill?: typeof installHerdrOperatorSkill;
   writeOpeningPrompt: typeof writeOpeningPrompt;
   writeSpawnSpec: typeof writeSpawnSpec;
   writeModelAllowlist: typeof writeModelAllowlist;
   readSpawnSpec: typeof readSpawnSpec;
+  readForkParentEvidence?: ReadForkParentEvidence;
+  readForkBrief?: ReadForkBrief;
   markAgentTasked?: typeof markAgentTasked;
   registrationExists: typeof agentRegistrationExists;
   removeRegistration: (name: string) => Promise<void>;
@@ -219,6 +232,8 @@ export interface CreateAgentRequest {
   emptyWorktree?: boolean;
   deliverableShape?: "verdict-only";
   shadowless?: true;
+  sliceless?: true;
+  forkedFrom?: string;
 }
 
 export interface RegistrationResolution extends CreateAgentRequest {

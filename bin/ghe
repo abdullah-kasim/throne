@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+guard_marker=throne-gh-guard-shim
+guard_dir=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+
+THRONE_GUARDED_COMMAND=ghe exec "$guard_dir/gh" "$@"

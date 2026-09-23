@@ -1,5 +1,8 @@
 import { AddToQueueCommand } from "../add-to-queue/add-to-queue.command.ts";
 import { UpdateQueueCommand } from "../update-queue/update-queue.command.ts";
+import { AmendmentCommand } from "../amendment/amendment.command.ts";
+import { CheckQueueAmendmentsReconciledCommand } from "../amendment/check-reconciled.command.ts";
+import { SituationBriefCommand } from "../situation-brief/situation-brief.command.ts";
 import { LintQueuePlanCommand } from "../lint-queue-plan/lint-queue-plan.command.ts";
 import { MarkQueueLaunchEligibleCommand } from "../mark-queue-launch-eligible/mark-queue-launch-eligible.command.ts";
 import { ReconcileQueueCommand } from "../reconcile-queue/reconcile-queue.command.ts";
@@ -24,6 +27,30 @@ export const QUEUE_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: true,
     description:
       "Correct mutable fields on a Regent queue item. Body edits: --prepend-body / --append-body amend, --replace-body (alias --body) discards the stored body.",
+  },
+  {
+    name: "amendment",
+    provider: AmendmentCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Record the Lord's amendment on a queue row as a numbered AMENDMENT, and tell that row's in-flight Alpha and the Regent. Refuses rows that are already delivered. Stager or Regent only.",
+  },
+  {
+    name: "check-queue-amendments-reconciled",
+    provider: CheckQueueAmendmentsReconciledCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Exit 0 when an Alpha's plan records every amendment on its queue row as reconciled, exit 66 when one is not. Used to refuse pushing and merging past an unread amendment.",
+  },
+  {
+    name: "situation-brief",
+    provider: SituationBriefCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Print the launch situation for a queue row: its recorded amendments, local and remote branch state, other queue work on the same repository, open pull requests and cited commits. Appended to every new Alpha's opening prompt.",
   },
   {
     name: "lint-queue-plan",

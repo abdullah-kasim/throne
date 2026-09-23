@@ -64,7 +64,7 @@ Resolves the recipient uniquely before any sender lookup or delivery. By
 default, the sender is the invoking pane's unique canonical live agent name;
 `--sender-name` supplies an exact explicit identity, including stable non-agent
 origins. The send formats the recipient-visible row as
-`<sender-name> said: <prompt>` and delivers that logical body through the
+`<sender-name> said: <prompt> [message <id>]` and delivers that logical body through the
 platform primitive.
 
 Delivery is `herdr agent prompt <recipient> <body> --wait --timeout <ms>` — the
@@ -191,6 +191,46 @@ the platform prompt settled with the recipient working on the queued turn, or
 the recipient's transcript shows the accepted entry. A status change or an old
 transcript occurrence alone is insufficient.
 
+## mcq
+
+```bash
+./bin/throne-cli mcq --agent <name> (--answer <n> | --dismiss) [--dry-run]
+```
+
+Answers or dismisses the interactive prompt holding up a named agent's pane: a
+Claude Code permission menu (`Do you want to proceed?` with `1. Yes` / `2. No`
+and the hint `Esc to cancel · Tab to amend`) or an AskUserQuestion menu (hint
+`Enter to select · ↑/↓ to navigate · Esc to cancel`). The detector lives in
+`src/pane-prompts/detect-interactive-prompt.ts`; Codex draws no numbered
+prompt the throne has seen, so `detectCodexInteractivePrompt` is an empty seam.
+The same detector feeds the blocked-agent page: when a blocked pane shows a
+prompt, the Regent's page carries the kind, the question, the quoted command,
+any warning line, the options with the selected row marked, both clearing
+commands, and the sentence "Regent: judge whether the command is safe before
+answering." A blocked pane with no prompt keeps the older stuck message.
+
+Only the Regent or a Stager may run it; an Alpha or Shadow is refused (exit 3)
+and told to report the prompt to its supervisor. It refuses (exit 4) when no
+prompt is visible or when `<n>` is not an offered option, pressing nothing.
+Unknown flags are usage errors (exit 2).
+
+`--answer <n>` presses the digit first (Claude Code's numbered menus select on
+the digit alone). After every press it re-reads the pane and checks the `❯`
+cursor: if the prompt is gone, it is answered; if the cursor sits on row `<n>`,
+Enter follows; if the cursor has not moved, it walks with Up/Down presses
+computed from the current row to `<n>`, re-reading after each one, and presses
+Enter only once the re-read shows row `<n>` selected. The moment the cursor is
+anywhere the arithmetic did not predict (wrong direction, no move, a jump, or
+the prompt vanished early), it presses nothing further, exits 5 with a message
+naming the expected and observed rows, and pages the Regent through the
+blocked-agent paging path with "take over: press the keys by hand".
+
+`--dismiss` presses Escape once and verifies the prompt is gone the same way.
+`--dry-run` prints the prompt and the keys it would press. Every answer,
+dismissal or take-over is appended to `~/.throne/data/regent/mcq-answers.jsonl`
+with the agent, pane, question, command, chosen option, caller and time. Keys
+go through `herdr pane send-keys` with the names `up`, `down`, `enter`, `esc`.
+
 ## notify-lord
 
 ```bash
@@ -240,6 +280,62 @@ hard refusals. `--empty-worktree` explicitly creates/uses
 `~/.throne/worktrees/empty/<agent-name>` with generated `AGENTS.md`; it is
 persisted as empty-workspace provenance and cannot act as Git delivery
 authority. There is no treeless bypass.
+
+**Herdr operator skill (Stager and Regent only).** Before launch, a Stager
+spawn writes `<cwd>/.claude/skills/herdr/SKILL.md`, generated from the pinned
+client's own `herdr --skill` with the court's rules prepended (reads and
+`tab focus` are free; anything that types into a pane goes through
+`send-agent`; agent lifecycle stays with `create-agent`/`reap-agent`).
+`resurrectRegent` does the same into the throne root. Alpha and Shadow never
+receive it; the file is gitignored and re-rendered on every spawn so it can
+never drift from the pinned client. `bin/herdr` is a shim on every tab's PATH
+that resolves to that pinned client (`THRONE_HERDR_CLIENT_PATH`, then the
+highest `~/.local/share/throne/herdr/v*/herdr`, then PATH). Generator:
+`src/herdr/herdr-operator-skill.ts`; a failed render is reported on stderr
+and never fails the spawn.
+
+**Forking a Stager (`--fork-of <parent>`).** The `/throne-fork` skill is the
+authority on when and how to drive this flag; this passage stays the
+authority on the flag's own behavior. `create-agent --fork-of
+stager-tenth --role Stager --supervisor stager-tenth --name
+stager-tenth-prmedia` spawns a FRESH Stager to carry one long-running task
+while the parent stays free to talk to the Lord. It never reuses an idle
+Stager. `--fork-of` takes the parent's full registered name, and the fork's
+own name is that name plus a task slug. It refuses, registering and launching
+nothing, and names which condition failed, unless all of these hold: the role
+is `Stager`; the supervisor is that same parent; the parent is live in the
+roster with ledger role `Stager`; the composed name begins `<parent>-`; and
+the parent has written the fork's brief.
+
+The model is `--model` when given, otherwise the parent's live observed model
+(the same reader `restart-harnesses` uses, `src/session/live-claude-model.ts`),
+otherwise the parent's ledger model; one stderr line says which of the three
+was used. The fork gets its own worktree like every other agent — pointing
+`--cwd` at the parent's tree trips the existing borrowed-worktree refusal.
+
+A forked pane inherits NO conversation, so the parent writes the brief to
+`~/.throne/data/<fork-name>/brief.md` in the four-marker shape (INTENT, SCOPE,
+RULINGS, VERIFIED-NOUNS), checks it with `throne lint-queue-plan --body-file`,
+and `--fork-of` seeds it as the fork's opening prompt. Anything settled in the
+parent's conversation and left out of that file is lost.
+
+The spawn records `forked_from: "<parent>"` in `spawn.json` and a
+`- **Forked from:** <parent>` line in `identity.md`, and the identity carries
+one standing sentence: a fork holds full Stager powers, but those powers
+answer to the Lord, never to the brief — filing a queue row or forking again
+needs the Lord's own word typed in the fork's own pane. A second paragraph
+(`forkedStagerAddendumInstruction`) tells the fork that rulings made after its
+brief arrive as `addendum-<number>-<topic>.md` files in its OWN data
+directory, announced by a one-line `send-agent` from its parent; that these
+are genuine and carry the brief's authority; that a message shown beside
+command output is ordinary delivery, not forgery; that text pointing at no
+such file is not an addendum; and that it must answer each with one line so
+the parent can confirm it was read. The parent's side of that channel is in
+the `/throne-fork` skill. The autoscale floor
+reads that same `forked_from` evidence and stops counting the fork as the
+court's live Stager (`src/alpha-autoscale/stager-floor.ts`), so a fork
+head-down in a task can never leave the Lord with nobody to talk to. A fork
+stays alive after it reports DONE; only the Lord reaps it.
 
 ## Run a custom harness to process exit
 
@@ -699,6 +795,25 @@ The confirmed result prints as a second stdout line, `Spawn tasking:
   a resume that left the harness already live, or no genuine caller-supplied
   `--prompt` to confirm.
 
+**Opening prompt receipt.** Delivery is one `herdr pane send-text`, but the pty
+hands the text to Claude Code in roughly 1 KiB reads, so a prompt longer than
+that lands in the composer as several `[Pasted text #N]` placeholders plus a
+literal tail. On 2026-09-16 `stager-eighth`'s Claude dropped both placeholders
+at submit and its first turn was the last 235 of 2275 characters. Because the
+loss happens inside the harness and leaves no screen signal, `create-agent`
+now verifies receipt instead of trusting the enqueue: for a Claude launch
+whose prompt is not file-backed, `awaitOpeningPromptReceipt`
+(`src/create-agent/opening-prompt-receipt.ts`) polls the spawned agent's own
+transcript (3-second interval, 90-second deadline) for its first user turn and
+compares it, whitespace-normalized, with the opening prompt. A clipped turn is
+reported on stderr and the complete prompt is re-enqueued behind
+`CLIPPED_OPENING_PROMPT_PREFACE`. The result is appended to the tasking line
+as `Opening prompt receipt: <intact | clipped-resent | unobserved |
+not-applicable>.` — `unobserved` means no first user turn appeared before the
+deadline and the operator should verify by hand; `not-applicable` covers
+non-Claude harnesses, file-backed prompts (whose short pointer never
+fragments), and launches that were not started.
+
 Confirmation evidence is written the same way `checkAgentRuntimeModelAcceptance`
 already persists it for every phase, under
 `~/.throne/data/<name>/runtime-model-evidence/spawn-<attestation|quarantine>.json`
@@ -715,8 +830,16 @@ recorded `spawn.json` model against EVERY assistant record in the pane's
 Claude transcript; one record on another model is a `mismatch`, and the pane
 stays mismatched for its whole life even after switching back.
 
-- **Campaign roles (Alpha, Shadow, Agent) are quarantined on mismatch.** The
-  send is refused with exit 1 and nothing is queued; evidence lands at
+- **Reap and complete report a mismatch and never refuse on it (Lord,
+  2026-09-23: "Reaping shouldn't rely on the mismatch").** `reap-agent` and
+  `complete-agent` still run the `verdict` attestation and keep
+  `verdict-quarantine.json` as evidence, print one stderr warning
+  (`warning: "<name>" ran on claude-opus-5-5, spawn.json says opus; recorded
+  at <path>`), and proceed. The reapability JSON claim is the only claim-side
+  check. Only delivery proven from git
+  and a clean own worktree can refuse them.
+- **Campaign roles (Alpha, Shadow, Agent) are quarantined on mismatch at
+  `send-agent`.** The send is refused with exit 1 and nothing is queued; evidence lands at
   `~/.throne/data/<name>/runtime-model-evidence/<phase>-quarantine.json`.
   There is no bypass flag and none should be added — a campaign pane on the
   wrong model is a defect, and it happens more often than it looks.
@@ -1077,6 +1200,9 @@ merge-base --is-ancestor <branch tip> <merge-target tip>`
   fails. A cycle refuses loudly. Force may kill genuinely-working children, so
   inspect the listed agents before using it. Non-live children never block and
   are listed after a successful teardown with a completion-sweep suggestion.
+- **A runtime-model mismatch is reported, never refused.** A stderr warning names
+  the observed model, the spawn.json model and the evidence file, and the reap proceeds; see "The
+  runtime-model gate and who it quarantines".
 - **The Regent is protected.** `reap-agent Regent` (any case) is refused
   unconditionally — the Regent is managed by the self-heal watchdog
   (summon/dismiss), and `~/.throne/data/regent/` holds the durable QUEUE.
@@ -1115,6 +1241,9 @@ re-implements neither.
   teardown is `reap-agent --force`.
 - **Idempotent.** An unknown or already-reaped name is a clean no-op success —
   the same contract `reap-agent` gives an already-gone agent.
+- **A runtime-model mismatch is reported, never refused.** A stderr warning names
+  the observed model, the spawn.json model and the evidence file, and the completion proceeds; see "The
+  runtime-model gate and who it quarantines".
 - **The Regent is protected** — refused early here (and `reap-agent` hard-refuses
   it too).
 - **`--all` sweeps** every COMPLETE agent plus every completion-proven,
@@ -1136,6 +1265,13 @@ loudly and names the resolved throne repo, so cross-repo campaigns must pass
 it), placed under the throne-owned `~/.throne/worktrees/<repo-basename>/<name>` —
 **outside the target repo**, never a host for throne scaffolding (overridable
 via `THRONE_WORKTREES_HOME`).
+
+**A filed base the local branch does not contain is refused.** When the
+target branch already exists locally and its tip differs from `--base`, the
+tree still forks from the tip if the tip contains the base (the branch simply
+moved on). If it does not, because the local branch is stale or has diverged
+from what was filed, nothing is created and the refusal names both commits and
+the `git branch -f` that fixes a branch not checked out anywhere.
 
 **The base depends on the tree kind.** A name shaped `shadow-<code>-…` is a
 **campaign Shadow**: its base is its supervising **Alpha's branch** (the branch
@@ -1254,6 +1390,17 @@ failure. Direct calls and the tracked systemd service both reach the common
 submit engine, so they share the same per-pane kernel critical section with
 every other producer.
 
+**The standing nudge to a live Regent is off by default (Lord, 2026-09-21:
+"`keep-going` doesn't need to message Regent anymore every 30 mins").**
+`steering.regentHeartbeatNudgeEnabled` in `config.user.ts` turns it back on;
+absent or `false` means a live Regent is sent nothing on the tick. The switch
+is read fresh on every tick, so flipping it needs no backend restart. Three
+things do NOT depend on it: the tick itself still runs, because it is what
+feeds the systemd watchdog; a dead Regent with desired state `running` is
+still resurrected; and a stalled family is still reported to a live Regent,
+since that is news rather than a heartbeat. `keep-going --name <agent>` by
+hand is unaffected.
+
 On the default live-Regent path, `keep-going` passes the exact live
 `HerdrAgent.agent` label into the throttle evaluator. `codex` selects only the
 Codex/GPT usage getter, `claude` only the Claude getter, `opencode` only the
@@ -1279,7 +1426,7 @@ else. A non-Regent `--name` target never receives a band advisory.
 ## add-to-queue
 
 ```bash
-./bin/throne-cli add-to-queue [--objective-code <code>] [--shadowless] <body words...>
+./bin/throne-cli add-to-queue [--objective-code <code>] [--shadowless | --sliceless] <body words...>
 ```
 
 Writes one new `open`-status item to the SQLite-backed Regent queue store
@@ -1288,6 +1435,21 @@ body, space-separated; `--objective-code` (optional, may appear anywhere
 among the arguments) keys the item by objective code instead of a generated
 id. Prints the inserted item's id and status on success; a missing body is a
 hard error (non-zero exit, store never opened).
+
+`--model-hint <harness>/<model>` records the Lord's model order for the
+campaign. When the pair is outside the Alpha role pool (for example
+`claude/opus` or `claude/fable`), filing also records that order as the
+campaign's authorization: one entry per registry, authorizer `Lord`,
+recipient `*` (every agent of that objective code), 30-day expiry, appended to
+`<throne data home>/regent/bypass-model-authorizations.json` and
+`bypass-usage-authorizations.json`. Re-filing the same objective replaces its
+entry rather than adding a second; other entries are left alone. The
+autoscaler then passes `--bypass-model --bypass-usage` on its next tick with
+no Regent step, and create-agent adds the hint's pair to the Alpha's
+`model-allowlist.json` so its Shadows can use it. A hint inside the Alpha pool
+writes nothing. An exact-recipient entry the Regent writes by hand still wins
+over the `*` entry for that recipient. Rows filed before this change still
+need the hand procedure in `agent_docs/MODEL_POLICY.md`.
 
 `--pr-branch <name>` records the branch a pull request will be opened FROM
 (rendered as `pr: <name>` in the queue and carried into the launch brief; also
@@ -1325,6 +1487,68 @@ under it, an example) because downstream agents follow error text literally.
 A pass proves structure only and says so — whether decisions were genuinely
 closed with the Lord and nouns genuinely grep-verified stays the filing
 Stager's judgment, and this lint is not evidence of it.
+
+## amendment
+
+```bash
+./bin/throne-cli amendment --objective-code <code> --words-of <whose words> (--text <text> | --text-file <path>) [--relayed-by <agent>]
+```
+
+Records the Lord's change to a filed queue row as a numbered `AMENDMENT <n>`
+in the queue store's `queue_amendments` table, beside the row rather than
+inside its body, and tells whoever must act on it. Only a Stager or the
+Regent may run it. What happens depends on the row:
+
+- **open or deferred**: recorded only. The launching Alpha receives every
+  recorded amendment in full in its `## Situation at launch` section.
+- **in flight, not yet finished**: recorded, then a pointer under 400
+  characters goes to the row's Alpha and to the Regent (not to the Regent
+  when it is the caller). Shadows are never messaged; the Alpha relays.
+- **delivered** (a delivery commit is recorded), **complete**, **abandoned**,
+  or its Alpha has written `REPORT.md`: refused, nothing recorded, with the
+  delivered branch named so the caller can file a new objective against it.
+- **no such row**: refused.
+
+Exit `0` recorded and everyone told, `1` refused, `2` recorded but at least
+one recipient was not told (the message names who and why). `render-queue`
+prints each amendment under its row's body. The `/amendment` skill is the
+usage guide.
+
+## check-queue-amendments-reconciled
+
+```bash
+./bin/throne-cli check-queue-amendments-reconciled --agent <alpha name>
+```
+
+Exit `0` when the Alpha's plan records every amendment on its queue row as
+reconciled, `66` when it does not, `1` on a malformed invocation. The plan's
+record is the last `**Queue amendments reconciled through:** <n>` line in the
+newest `todo-*/00_overview.md` under the Alpha's ledger, or in
+`sliceless/<code>/verify.md` for a sliceless Alpha. A row with no amendments,
+or an agent with no queue objective code, always passes. The `bin/git` push
+guard calls it for an Alpha after its gate checks pass (a missing
+`throne-cli` beside the shim is warned about, not blocking), and
+`merge-git-tree` calls the same check before landing an Alpha's branch.
+
+## situation-brief
+
+```bash
+./bin/throne-cli situation-brief --objective-code <code>
+```
+
+Prints what a newly launched Alpha should know about the world around its
+queue row: every recorded amendment in full; the target repository's local
+tip, remote tip and how they differ, whether the local tip contains the filed
+base, other worktrees holding the branch, and uncommitted changes in the main
+checkout; other queue rows on the same repository or branch that are live or
+finished within 7 days, with their `RULINGS:` lines; open pull requests on the
+same branch or touching a file the body names (through `gh`); and the position
+of every commit hash the body cites. A row with no repository gets only the
+queue sections; a missing network or `gh` prints "unavailable" for that part.
+Everything except the amendments is kept under 4 KB, dropping the oldest
+lines first. `create-agent` appends the same text under
+`## Situation at launch` to a fresh Alpha's opening prompt when it launches for
+a queue row; a brief that cannot be composed never blocks the launch.
 
 ## mark-queue-launch-eligible
 
@@ -1457,14 +1681,28 @@ incident added the `Execution mode:` line to every Alpha's identity.md,
 stated both ways (`shadowless (Lord-authorized)` or `shadowed (default)`), so
 the mode is never implied by absence.
 
+A sliceless Alpha (identity line
+`- **Execution mode:** sliceless (Lord-authorized; implies shadowless)`,
+written by `create-agent --sliceless`, which the autoscaler forwards together
+with `--shadowless` from a row filed with `add-to-queue --sliceless`) has no
+bundle to be judged by, so the guard takes a second evidence path for it
+only: the push passes when
+`$THRONE_DATA_HOME/data/<basename>/sliceless/<objective_code>/verify.md`
+exists — `objective_code` read from that ledger's `spawn.json` — and carries
+both `**Conformance outcome:** PASS` and `**Verify outcome:** PASS` on their
+own lines; otherwise it is refused with exit 66 naming that file and
+/execute-todos "Sliceless mode". A shadowed or shadowless-only Alpha is still
+held to the bundle path; the sliceless path adds evidence, it loosens
+nothing.
+
 ## memory-dir
 
 ```bash
-./bin/throne-cli memory-dir [--json] [--create] [DIR]
+./bin/throne-cli memory-dir [--json] [--create] DIR
 ```
 
 Prints the durable cross-session memory directory for the project containing
-`DIR` (default: the cwd) — the place an agent `ls`es before acting and writes a
+`DIR` — the place an agent `ls`es before acting and writes a
 correction, busted assumption, or dead end to the moment it happens. The throne
 never invents a second memory convention when one is already in force, so the
 resolution is a precedence, first hit wins:
@@ -1487,15 +1725,112 @@ nothing merges, nothing is lost on reap. The throne itself resolves like any
 other repo; it keeps no in-tree memory.
 
 Text mode prints exactly one absolute directory on stdout so
-`ls -1 "$(throne memory-dir)"` composes; `--json` prints
+`ls -1 "$(throne memory-dir .)"` composes; `--json` prints
 `{mode, path, repoRoot, evidence, warning?}`. Print-only by default —
 `--create` is the only thing that `mkdir -p`s, so the bootstrap `ls` never
-litters. Exit 2, with entrance steering, on an unknown flag, a second `DIR`, an
+litters. `DIR` is required and never defaults to the cwd: an agent standing in one
+repository while learning something about another must name that other
+repository, and a silent cwd default once filed a lesson under the wrong slug
+(2026-09-11). Pass `.` when the cwd really is the subject. Exit 2, with
+entrance steering, on a missing `DIR`, an unknown flag, a second `DIR`, an
 unreadable `DIR`, or an operator tool that printed something other than an
 absolute path. A missing `git` degrades to the physical-path rule; it never
 fails. `create-agent` runs this resolution from the spawn cwd and writes the
 result into the agent's identity, so every spawn is told its memory directory
 before its first turn. Resolver: `src/memory-dir/memory-dir-resolver.ts`.
+
+## recall
+
+```bash
+./bin/throne-cli recall [--session ID] [--directory DIR] "<task text>"
+./bin/throne-cli recall --hook        # prompt-submit hook JSON on stdin
+```
+
+Prints the BODIES (never paths: every extra file read re-reads the whole
+context) of the recorded memories that apply to the task, most relevant first,
+capped at `recall.maximumInjectedCharacters`. Candidates are every `*.md`
+(except `MEMORY.md` and `README.md`) in the project memory directory of `DIR`
+(default: the cwd, resolved like `memory-dir`) and in
+`recall.globalMemoryDirectories`. Code drops a memory whose frontmatter says
+`status: superseded` or names another project's `scope` before any question is
+asked. Each remaining memory becomes one yes/no question (its `ask` line, or
+one made from its file name), answered by the keyword rules or, when
+`recall.jevEnabled` is true, by Jev; any Jev failure hands the questions to
+the rules, and a probability at or above the threshold serves the memory.
+`--session ID` keeps a served list under `~/.throne/data/recall/served/` so
+nothing is printed twice in one session (lists older than 30 days are
+removed). Decisions are appended to `~/.throne/data/recall/ledger.jsonl`
+(question id, input hash, pick, probability, backend, failed open, served)
+under one summary line per recall; a confident no is only counted in that
+summary, and a ledger over 20 MB is set aside as `ledger.previous.jsonl`. The
+task text itself is never written there. `--hook` reads `prompt`, `session_id` and `cwd` from the hook
+payload, prints nothing unless `recall.hookEnabled` is true, and exits 0 on
+every error. Config: `docs/CONFIG.md`, "recall". Engine:
+`src/memory-recall/`, classifier contract: `src/relevance-classifier/`.
+
+## rank
+
+```bash
+./bin/throne-cli rank "<yes/no question>" [--top N] [--min PROBABILITY] [--json] <files or globs...>
+<items> | ./bin/throne-cli rank "<yes/no question>" [--allow-stdin-to-jev]
+./bin/throne-cli rank --status
+```
+
+Ranks files, or stdin items (one per line, or JSON lines of
+`{"id": "...", "text": "..."}`), by how likely each answers yes to the
+question, and prints one line per item, most likely first: the probability,
+then the path or id. Item contents are NEVER printed. One yes/no question per
+item; small items share a request as named state fields, a large file is its
+own request, and one over the state limit is split and scores as its best
+piece. With Jev off the ranking is word matching (the share of the question's
+meaningful words the item contains) and stderr says so. With Jev on, file
+contents go to TypeSafe only for files under `recall.rankAllowedRoots`
+(default empty) and stdin only with `--allow-stdin-to-jev`; every other item
+is ranked by word matching locally and named on stderr as not sent. FAIL OPEN
+here means: on any error every item is printed, unranked (`-`), with one
+stderr line; an item never vanishes because a call failed. A ranking is a hint
+about where to look, never proof that something is absent. The ledger gets the
+item id, a hash and the probability, never contents or the question.
+
+`--status` on `recall`, `sift` and `rank` prints which backend would answer
+now and why (`recall.jevEnabled`, the `THRONE_JEV_DISABLED` override, whether
+the key file is usable), never the key. Off switch: `docs/CONFIG.md`, "recall".
+
+## locate
+
+```bash
+./bin/throne-cli locate "<task description>" --root <repo> [--root <repo>...] [--top N] [--min PROBABILITY] [--budget N] [--json]
+./bin/throne-cli locate --status
+```
+
+Finds which files in one or more repos are likely to answer a task, before
+you start opening them by hand. Gathers candidate files under each `--root`,
+then scores each against the task the same way `rank` scores items, and
+prints a ranked list, most likely first: path, probability, and a short
+reason (`path  p=0.87  matches:revoke path:demo-app history:revokeDemoAppAccessForUser`).
+`--budget N` caps how many gathered candidates are sent into scoring, keeping
+cost bounded on large repos; `--top`/`--min`/`--json` behave as in `rank`.
+`--status` must appear alone and prints the resolved classifier backend, the
+same as `rank --status`. Every successful non-`--status` call appends a
+decision record to the shared ledger.
+
+## sift
+
+```bash
+<command> 2>&1 | ./bin/throne-cli sift "<what I am looking for>"
+```
+
+Saves the full input to `~/tmp/sift-<time>-<pid>.log`, splits it into
+40-line chunks that share 5 lines with their neighbour, asks keep or drop per
+chunk, and prints the kept lines with their original line numbers (`...`
+marks a gap), then one line: how many lines were dropped and where the full
+copy is. The last chunk is always kept. Unsure means keep: a timeout, an HTTP
+429, a missing key, any error or a probability under
+`recall.siftKeepThreshold` keeps the chunk, and an unloadable config prints
+everything. The rules keep a chunk that contains a word of the query or a
+common failure word (`error`, `fail`, `not ok`, `exception`, `panic`,
+`traceback`). With `recall.jevEnabled` true the raw chunk text is sent to
+TypeSafe.
 
 ## ensure-heartbeat
 
@@ -1541,6 +1876,28 @@ exist for a tmpfs inode cap macOS does not impose. The ntfy unit on both
 platforms runs `systemd/ntfy-serve`, which starts the pinned
 `binwiederhier/ntfy` image under docker or podman — `./install.sh` pulls it;
 `install-services` itself never touches a container runtime.
+
+Both platforms also register the throne's Claude Code guard hook,
+`claude-hooks/scratch-path-guard.py`, in the user-level
+`~/.claude/settings.json` as a `PreToolUse` entry with matcher `Bash`
+(`src/install-services/claude-guard-hook.ts`). The hook refuses a Bash command
+that writes, moves, copies into or removes a path under `/tmp` or
+`/private/tmp` (the harness scratchpad `/private/tmp/claude-<uid>/` included),
+or a single-segment path at the filesystem root such as `/tmp_lintout.txt`, and
+a removal that spells the home directory as `~` or `$HOME`. Its refusal names
+the literal home `tmp` directory, resolved at run time, as the place for
+scratch files. The reason: Claude Code prompts for any removal at the
+filesystem root, of a critical path, or of an unresolvable home path even with
+permissions bypassed, and an unattended pane stalls on that prompt; the home
+`tmp` directory also survives a reboot and has no per-user tmpfs quota. Reads
+of `/tmp` pass, and heredoc bodies and single-quoted text are ignored. The
+registration is idempotent (reported as `registered`, `replaced` or
+`unchanged`); an entry for the older dotfiles `rm-literal-home-guard.py`, or
+for another checkout's copy, is replaced so only one guard runs, and a
+`settings.json` that is not a JSON object is left untouched and fails the run.
+`./uninstall.sh` removes the entry. The hook's own tests live beside it
+(`claude-hooks/test_scratch_path_guard.py`) and run under `npm test` through
+`test/claude-guard-hook.test.ts`.
 
 Before rendering, each platform retires whatever pre-consolidation unit is
 still on the box — `herdr-server`, `throne-keep-going`, `throne-no-idling`,
@@ -1649,6 +2006,35 @@ shared Stager-floor effect used by the `alpha-autoscale` hosted tick. Thus a
 running court with no live Stager heals immediately on startup through the
 normal managed-worktree/create-agent path; a live Stager is a no-op, ambiguous
 evidence refuses, and `dismissed` says `STAY DOWN`.
+
+## restart-harnesses
+
+```bash
+./bin/throne-cli restart-harnesses [--dry-run] [--force] [--only <name>]...
+```
+
+Restarts every live agent's harness process in place so the court runs the
+binary `vendor-pins.json` currently pins — the step after `update-harnesses`,
+whose `npm install --prefix vendor` never touches a process that is already
+running. Per agent: the live native session id is recorded into the ledger
+`spawn.json`, and so is the model the pane is actually running: the newest
+assistant turn of the session transcript decides it, and when it differs
+from the recorded `model` (a Stager or Regent the Lord moved with `/model`)
+the ledger is rewritten with that model and a `switched_at` before the stop,
+so the resume relaunches on the model the Lord left it on rather than the one
+it was spawned with (Lord, 2026-09-14: the restart "can sometimes forget the
+model it was previously on"). The harness gets `SIGTERM` (then one `SIGKILL`
+after 30 s, then a loud failure), the agent is resumed through the
+startup-reconciliation resume path into its EXACT native session in the same
+pane, and the pane is renamed back to the registered name if the relaunch
+surfaced as a bare `claude`/`codex`. The Regent goes last, under the resurrect lock.
+
+Skipped, with a reason on stderr: the invoking pane (a process cannot restart
+itself — run the command from another agent with `--only <name>`), agents
+whose status is `working` unless `--force`, and unnamed panes. Reported
+`failed` and left running: agents with no `spawn.json` or no herdr-visible
+session id. `--dry-run` prints the plan and changes nothing. Exit `0` when no
+restart failed, `1` when one did, `2` on a bad argument.
 
 ## plan-usage-remaining
 

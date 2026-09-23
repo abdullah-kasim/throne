@@ -95,6 +95,9 @@ function makeDeps(world: FakeWorld): InstallServicesDeps {
     pathSymlinkTargets: () => [],
     inspectPathSymlink: async () => ({ kind: 'missing' }),
     writePathSymlink: async () => {},
+    claudeSettingsPath: () => '/srv/claude/settings.json',
+    readClaudeSettings: async () => null,
+    writeClaudeSettings: async () => {},
   };
 }
 

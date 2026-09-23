@@ -26,6 +26,13 @@ import {
   parseFlags,
   splitPassthroughArgv,
 } from "./request-arguments.ts";
+import {
+  forkBriefPath,
+  readForkBriefFile,
+  readForkParentEvidenceFromLedger,
+  resolveForkOrigin,
+  type ForkOrigin,
+} from "./fork-origin.ts";
 export {
   harnessExecutableRefusal,
   parseFlags,
@@ -45,7 +52,11 @@ const USAGE =
   "[--bypass-opencode-telemetry-unavailable] " +
   "[--objective-code <code> | --non-campaign] " +
   "[--empty-worktree] " +
+  "[--fork-of <parent-stager> (Stager only; spawns a fresh fork of a live parent " +
+  "Stager, inherits its model unless --model is given, and opens on the brief " +
+  "the parent wrote to data/<fork-name>/brief.md)] " +
   "[--shadowless (Alpha only; the Lord authorized this campaign to execute its slices without Shadows)] " +
+  "[--sliceless (Alpha only; the Lord authorized this campaign to work straight from the queue body with no todo bundle; implies --shadowless)] " +
   "[--deliverable-shape verdict-only (declares this agent's correct completion " +
   "is a judgement, not a diff; refused for a 99a/99e-shaped --name)] " +
   "[--bypass-effort] [--bypass-alpha-guardrail] [--bypass-preset-agent] " +
@@ -185,16 +196,18 @@ export async function prepareCreateAgentRequest(
     );
     return { ok: false, code: 1 };
   }
-  const missing = (["model", "name", "supervisor"] as const).filter(
-    (key) => flags[key] === undefined,
-  );
+  const required =
+    flags["fork-of"] === undefined
+      ? (["model", "name", "supervisor"] as const)
+      : (["name", "supervisor"] as const);
+  const missing = required.filter((key) => flags[key] === undefined);
   if (missing.length > 0) {
     writeStderr(
       `create-agent: missing required flag(s): ${missing
         .map((key) => `--${key}`)
         .join(", ")}\n${renderEntranceRefusal({
         reason:
-          "create-agent entrance validation requires model, name, and supervisor flags.",
+          "create-agent entrance validation requires model, name, and supervisor flags (--fork-of resolves the model from the parent).",
         bypass: undefined,
         supervisorRoute:
           "Ask your supervisor for an allowed alternative invocation.",
@@ -227,18 +240,6 @@ export async function prepareCreateAgentRequest(
     return { ok: false, code: 1 };
   }
 
-  let harness: Harness;
-  let model: string;
-  try {
-    const entry = resolveRegistryModel(flags.model as string);
-    harness = entry.harness;
-    model = entry.model;
-  } catch (error) {
-    writeStderr(
-      `create-agent: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
-    return { ok: false, code: 1 };
-  }
   const requestedEffort =
     flags.effort === undefined ? undefined : Number(flags.effort);
   if (
@@ -369,6 +370,53 @@ export async function prepareCreateAgentRequest(
   }
 
   const canonicalName = canonicalIdentityName(name);
+
+  const forkParentName = flags["fork-of"];
+  let forkOrigin: ForkOrigin | undefined;
+  if (forkParentName !== undefined) {
+    const readEvidence =
+      deps.readForkParentEvidence ?? readForkParentEvidenceFromLedger;
+    const readBrief = deps.readForkBrief ?? readForkBriefFile;
+    const resolution = resolveForkOrigin(
+      {
+        parent: forkParentName,
+        role,
+        supervisor: flags.supervisor,
+        composedName: canonicalName,
+        requestedModel: flags.model,
+      },
+      await readEvidence(forkParentName),
+      await readBrief(canonicalName),
+      forkBriefPath(canonicalName),
+    );
+    if (!resolution.ok) {
+      writeStderr(
+        `create-agent: ${resolution.reason}. Nothing was registered or launched.\n`,
+      );
+      return { ok: false, code: 1 };
+    }
+    forkOrigin = resolution.value;
+    writeStderr(
+      `create-agent: forking "${canonicalName}" from "${forkOrigin.parent}" on model ` +
+        `"${forkOrigin.model}", resolved from ${forkOrigin.modelSource}.\n`,
+    );
+  }
+
+  let harness: Harness;
+  let model: string;
+  try {
+    const entry = resolveRegistryModel(
+      (forkOrigin?.model ?? flags.model) as string,
+    );
+    harness = entry.harness;
+    model = entry.model;
+  } catch (error) {
+    writeStderr(
+      `create-agent: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return { ok: false, code: 1 };
+  }
+
   let deliverableShape: "verdict-only" | undefined;
   if (flags["deliverable-shape"] !== undefined) {
     if (flags["deliverable-shape"] !== "verdict-only") {
@@ -406,6 +454,17 @@ export async function prepareCreateAgentRequest(
     }
     shadowless = true;
   }
+  let sliceless: true | undefined;
+  if (flags.sliceless === true) {
+    if (role !== "Alpha") {
+      writeStderr(
+        `create-agent: --sliceless is refused for role "${role}" — only a campaign Alpha may run sliceless, and only when the Lord authorized it at filing (add-to-queue --sliceless, forwarded by the autoscaler). Nothing was registered or launched.\n`,
+      );
+      return { ok: false, code: 1 };
+    }
+    sliceless = true;
+    shadowless = true;
+  }
 
   return {
     ok: true,
@@ -424,6 +483,8 @@ export async function prepareCreateAgentRequest(
       emptyWorktree,
       ...(deliverableShape === undefined ? {} : { deliverableShape }),
       ...(shadowless === undefined ? {} : { shadowless }),
+      ...(sliceless === undefined ? {} : { sliceless }),
+      ...(forkOrigin === undefined ? {} : { forkedFrom: forkOrigin.parent }),
     },
   };
 }

@@ -1,0 +1,8 @@
+• Finished the rename; the suite is green.
+
+  1. Rename applied in three files
+  2. Tests pass
+
+› Ask Codex to do anything
+
+  ? for shortcuts

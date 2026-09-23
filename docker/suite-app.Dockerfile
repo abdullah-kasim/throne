@@ -17,7 +17,7 @@
 # getting a silently mismatched binary.
 FROM docker.io/library/node:22-bookworm
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl python3 make g++ git unzip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl python3 make g++ git unzip ripgrep && rm -rf /var/lib/apt/lists/*
 
 # The image is built as one uid (root, at build time) and run as the host's
 # uid (podman --userns=keep-id / docker --user, at run time, see

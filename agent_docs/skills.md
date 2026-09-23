@@ -64,3 +64,32 @@ the launch repo carries — a per-repo convention the throne itself does not use
 
 `agent_docs/global-decoupling.md` records which of the throne's remaining
 out-of-throne references are deliberate and which are full-sever material.
+
+## Review skills the throne ships (`pr-description`, `pr-media`, `agent-browser`)
+
+Moved into `throne/.claude/skills/` on 2026-09-14 by the Lord's order. They are
+discovered from every court cwd because the launcher adds the throne root to
+every spawn (`bin/agent-launcher-lib.sh`, `--add-dir "$throne_root"`), so an
+Alpha or Shadow in a target-repository worktree sees them too.
+
+- **`pr-description`** is the house style for every PR body: `## What`, `## Why`,
+  `## How`, an optional `## Screenshots`, and a `## Testing` walkthrough of
+  numbered steps written for a reviewer who is not an engineer and did not watch
+  the work, closed by a mandatory **Not tested** alert. `99c` composes every PR
+  with it.
+- **`pr-media`** captures screenshots and a click recording of a UI change with
+  `agent-browser`, stages them under `~/tmp/pr-media-<pr>/` (never committed),
+  and prepares the `## Screenshots` placeholders the human drops the files into.
+  Its two helpers, `cursor-overlay.js` and `glide.sh`, sit beside the skill and
+  are addressed through `$THRONE_LIVE_ROOT`, which every court tab exports.
+- **`agent-browser`** is the discovery stub for the CLI both of the above drive;
+  the usage guide is served by the CLI itself (`agent-browser skills get core`).
+  `install.sh` installs the CLI globally with npm and runs `agent-browser
+  install` for its browser; it is deliberately unpinned (Lord, 2026-09-14: the
+  throne is not sensitive to its changes). `ffmpeg` is needed only for
+  recordings and is a warning, not a failure.
+
+Why they live here: the point of the court is that the human never opens an
+editor. He reads the PR, follows its manual test, watches the recording, and
+comments; the agents do the rest. The contract test is
+`test/vendored-review-skills.test.ts`.

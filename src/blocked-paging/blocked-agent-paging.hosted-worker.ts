@@ -11,6 +11,7 @@ import {
   BLOCKED_TRANSITION_VERDICTS,
 } from './classify-blocked-transition.ts';
 import { buildBlockedAgentPagingMessage } from './blocked-agent-paging-message.ts';
+import { detectInteractivePrompt } from '../pane-prompts/detect-interactive-prompt.ts';
 import type { BlockedAgentPagingDependencies } from './blocked-agent-paging-dependencies.types.ts';
 import { decideConfirmation } from '../no-idling/confirmed-observation.ts';
 import { AGENT_LIFECYCLE_STATES } from '../agent-statuses/agent-statuses.types.ts';
@@ -24,7 +25,7 @@ import {
   readAgentSupervisor,
   IdentityLineReadStatus,
 } from '../agentdata/identity-data.service.ts';
-import { readAgent } from '../herdr/herdr-runtime.service.ts';
+import { readAgent, readVisibleText } from '../herdr/herdr-runtime.service.ts';
 import { clearBlockedMarker, readBlockedMarker, writeBlockedMarker } from '../agentdata/blocked-marker.service.ts';
 import { resolveAgent } from '../herdr/herdr-runtime.service.ts';
 import { submitToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
@@ -123,6 +124,18 @@ function readBlockedConfirmationSample(
   };
 }
 
+export async function submitPageToRegent(
+  message: string,
+  pageKey: string,
+  deps: Pick<BlockedAgentPagingDependencies, 'resolveAgent' | 'submitToAgent'>,
+): Promise<void> {
+  const regent = await deps.resolveAgent(NO_IDLING_REGENT_NAME);
+  await deps.submitToAgent(regent, BLOCKED_AGENT_PAGING_SENDER, message, {
+    key: pageKey,
+    composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
+  });
+}
+
 async function pageRegentForStuckBlock(
   agentName: string,
   event: PaneAgentStatusChangedEvent,
@@ -136,23 +149,19 @@ async function pageRegentForStuckBlock(
     }
     return;
   }
-  const regent = await deps.resolveAgent(NO_IDLING_REGENT_NAME);
   const rosterEntry = roster.find((entry) => sameAgentName(entry.name, agentName));
   const pageKey = blockedAgentPagingWindowKey(agentName, deps.now?.() ?? Date.now());
-  await deps.submitToAgent(
-    regent,
-    BLOCKED_AGENT_PAGING_SENDER,
+  await submitPageToRegent(
     buildBlockedAgentPagingMessage({
       agentName,
       cwd: rosterEntry?.cwd,
       paneId: event.paneId,
       title: event.title,
       stateLabels: event.stateLabels,
+      prompt: detectInteractivePrompt(await deps.readVisiblePaneText(event.paneId)),
     }),
-    {
-      key: pageKey,
-      composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
-    },
+    pageKey,
+    deps,
   );
   const observedAt = new Date(deps.now?.() ?? Date.now()).toISOString();
   const entriesAfterEnqueue = await deps.readEscalationLedger();
@@ -193,15 +202,23 @@ export async function reconcileBlockedAgentPages(
     ) {
       continue;
     }
-    const blockedTag = await resolveBlockedTag(
-      entry.name,
-      async () => classifyLastMessageTags(lastMessageBlock(await deps.readAgent(entry.name))),
-      deps.blockedMarkerLedger,
-    );
-    if (
-      entry.liveStatus !== 'blocked' && blockedTag.kind !== 'blocked'
-    ) {
-      continue;
+    if (entry.liveStatus !== 'blocked') {
+      let blockedTag;
+      try {
+        blockedTag = await resolveBlockedTag(
+          entry.name,
+          async () => classifyLastMessageTags(lastMessageBlock(await deps.readAgent(entry.name))),
+          deps.blockedMarkerLedger,
+        );
+      } catch (error) {
+        (deps.stderr ?? ((text: string) => process.stderr.write(text)))(
+          `blocked-agent-paging: could not read ${entry.name} to look for a blocked marker: ${errText(error)}\n`,
+        );
+        continue;
+      }
+      if (blockedTag.kind !== 'blocked') {
+        continue;
+      }
     }
     await pageRegentForStuckBlock(
       entry.name,
@@ -275,6 +292,7 @@ export const REAL_BLOCKED_AGENT_PAGING_DEPENDENCIES: BlockedAgentPagingDependenc
   getRoster: async () => getAgentStatusesRoster(),
   readAgentSupervisor: resolvedSupervisorNameForPaging,
   readAgent: async (name) => readAgent(name, { lines: 200 }),
+  readVisiblePaneText: readVisibleText,
   blockedMarkerLedger: {
     readBlockedMarker: (name) => readBlockedMarker(name),
     writeBlockedMarker: (name) => writeBlockedMarker(name),

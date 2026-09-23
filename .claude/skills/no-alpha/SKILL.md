@@ -45,4 +45,13 @@ inferred one.
 7. Report the direct changes, validation evidence, and any precise residual
    blocker. Do not claim Alpha or Shadow evidence that does not exist.
 
+## The fork path — "no alpha, fork"
+
+When the Lord adds the word "fork" (Lord, 2026-09-18: "I tell it to do the
+task, no alpha, fork"), the work is still done without an Alpha, but not by
+the invoking Stager: "fork" means a forked Stager, spawned by
+`create-agent --fork-of`, never a harness subagent. The scope confirmation
+in step 0 above still applies — forking does not waive it. The procedure
+lives in `/throne-fork`; read it there rather than here.
+
 The `$na` alias is exactly this skill; it adds no alternate behavior.

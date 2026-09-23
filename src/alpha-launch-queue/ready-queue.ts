@@ -25,6 +25,7 @@ export interface LaunchQueueCandidate extends QueuedAlphaCandidate {
   /** Forwarded verbatim as `create-agent --deliverable-shape`. */
   readonly deliverableShape?: "verdict-only" | null;
   readonly shadowless?: boolean;
+  readonly sliceless?: boolean;
   /** When set, targetBranch is a PR branch: spawn-git-tree creates it at baseCommit
    *  (forked from this mainline branch) if it does not exist locally yet. */
   readonly createTargetFromBranch?: string;

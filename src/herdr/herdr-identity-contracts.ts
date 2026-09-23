@@ -4,6 +4,7 @@ export interface HerdrAgent {
   name?: string;
   tabLabel?: string;
   agentStatus: "unknown" | "idle" | "working" | "blocked" | "done";
+  sessionId?: string;
   cwd: string;
   focused: boolean;
   paneId: string;

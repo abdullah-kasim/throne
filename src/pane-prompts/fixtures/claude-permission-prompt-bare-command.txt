@@ -1,0 +1,16 @@
+  ⎿  $ touch ~/tmp/mcq-proof-one.txt
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command
+ Tip: auto mode handles these prompts for you — choose "switch to auto mode" below
+
+   touch ~/tmp/mcq-proof-one.txt
+   Create empty proof file in home tmp
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. Yes, and always allow access to /Users/theuser/tmp from this project
+   3. Yes, and switch to auto mode · auto mode handles these prompts for you
+   4. No
+
+ Esc to cancel · Tab to amend

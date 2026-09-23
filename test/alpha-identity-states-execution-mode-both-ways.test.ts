@@ -11,6 +11,8 @@ import {
   SHADOWED_STANDING_INSTRUCTION,
   SHADOWLESS_LINE,
   SHADOWLESS_STANDING_INSTRUCTION,
+  SLICELESS_LINE,
+  SLICELESS_STANDING_INSTRUCTION,
   writeIdentity,
 } from "../src/agentdata/identity-data.service.ts";
 
@@ -45,6 +47,19 @@ test("an Alpha filed with --shadowless keeps the shadowless line and instruction
   const file = await writtenIdentity("alpha-abc-02", shadowless);
   assert.ok(file.includes(SHADOWLESS_LINE));
   assert.ok(!file.includes(SHADOWED_LINE));
+});
+
+test("an Alpha filed with --sliceless carries the sliceless line alone: it replaces the shadowless line rather than adding a second", async () => {
+  const sliceless: AgentIdentity = { ...alpha, sliceless: true, shadowless: true };
+  const text = identityText("alpha-abc-04", sliceless);
+  assert.ok(text.includes(SLICELESS_STANDING_INSTRUCTION));
+  assert.ok(!text.includes(SHADOWLESS_STANDING_INSTRUCTION));
+  assert.ok(!text.includes(SHADOWED_STANDING_INSTRUCTION));
+  const file = await writtenIdentity("alpha-abc-04", sliceless);
+  assert.ok(file.includes(SLICELESS_LINE));
+  assert.ok(!file.includes(SHADOWLESS_LINE));
+  assert.ok(!file.includes(SHADOWED_LINE));
+  assert.equal(file.split("**Execution mode:**").length - 1, 1);
 });
 
 test("a differently cased role still reads as an Alpha for the mode line", async () => {

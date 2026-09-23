@@ -3,6 +3,7 @@ import path from "node:path";
 import { DEFAULT_DATA_DIR } from '../agentdata/spawn-data-contracts.ts';
 
 const AUTHORIZATION_VERSION = 1;
+export const EVERY_CAMPAIGN_RECIPIENT = "*";
 const KNOWN_AUTHORIZERS = new Set(["Lord", "Regent"]);
 
 export interface DurableBypassAuthorizationEvidence {
@@ -101,12 +102,19 @@ export function resolveDurableBypassAuthorization(opts: {
       reason: `${opts.flagLabel} requires an exact campaign objective and recipient authorization`,
     };
   }
-  const matches = opts.registry.authorizations.filter(
-    (entry) =>
-      entry.objective_code === opts.objectiveCode &&
-      entry.recipient === opts.recipient &&
-      opts.allowedAuthorizers.has(entry.authorizer),
-  );
+  const authorizations = opts.registry.authorizations;
+  const entriesForRecipient = (recipient: string) =>
+    authorizations.filter(
+      (entry) =>
+        entry.objective_code === opts.objectiveCode &&
+        entry.recipient === recipient &&
+        opts.allowedAuthorizers.has(entry.authorizer),
+    );
+  const exactMatches = entriesForRecipient(opts.recipient);
+  const matches =
+    exactMatches.length > 0
+      ? exactMatches
+      : entriesForRecipient(EVERY_CAMPAIGN_RECIPIENT);
   const authorizerNames = [...opts.allowedAuthorizers].sort().join(" or ");
   if (matches.length !== 1) {
     return {

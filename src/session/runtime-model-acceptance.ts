@@ -42,6 +42,8 @@ export type RuntimeModelAcceptance =
       outcome: "missing" | "mismatch";
       detail: string;
       evidencePath: string;
+      requestedModel?: string;
+      observedModels?: string[];
     };
 
 interface RuntimeModelEvidence {
@@ -140,6 +142,14 @@ async function preserveRuntimeModelEvidence(
   return evidencePath;
 }
 
+export async function claudeTranscriptPathFor(
+  cwd: string,
+  sessionId: string | undefined,
+  projectsDir: string = path.join(homedir(), ".claude", "projects"),
+): Promise<string | undefined> {
+  return newestTranscriptPath(claudeProjectDirectory(cwd, projectsDir), sessionId);
+}
+
 export async function checkAgentRuntimeModelAcceptance(
   name: string,
   phase: RuntimeModelAcceptancePhase,
@@ -196,6 +206,8 @@ export async function checkAgentRuntimeModelAcceptance(
     outcome: attestation.status,
     detail: `${observed}; evidence preserved at ${evidencePath}`,
     evidencePath,
+    requestedModel: attestation.requestedModel,
+    observedModels: attestation.observedModels,
   };
 }
 

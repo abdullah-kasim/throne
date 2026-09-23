@@ -115,6 +115,7 @@ export interface StartupResumeContract {
   throneRoot: string;
   log: (message: string) => void;
   warn: (message: string) => void;
+  exactResumePrompt?: (name: string, harness: string) => string;
 }
 
 export function buildResumePrompt(name: string, throneRoot: string): string {
@@ -179,7 +180,7 @@ export function normalizeSpec(
     : { harness, model, effort, cwd };
 }
 
-const REAL_RESUME_CONTRACT: StartupResumeContract = {
+export const REAL_RESUME_CONTRACT: StartupResumeContract = {
   readSpawnSpec,
   resumeRegisteredAgentInRestoredTab,
   deliverOpeningPrompt,
@@ -234,7 +235,8 @@ export async function resumeOrphan(
     // the SAME name only has `RESURRECT_LOCK_STALE_MS` (5 minutes) of
     // patience — a 15-minute resident-draft wait here would let that lock go
     // stale and get reclaimed mid-resume, spawning a genuine duplicate.
-    await contract.deliverOpeningPrompt(name, buildExactResumePrompt(name, harness), {
+    const exactResumePrompt = contract.exactResumePrompt ?? buildExactResumePrompt;
+    await contract.deliverOpeningPrompt(name, exactResumePrompt(name, harness), {
       composerWaitMilliseconds: REGENT_RESURRECTION_COMPOSER_WAIT_MS,
       forceSubmitResidentDraftOnTimeout: false,
     });

@@ -38,6 +38,10 @@ import {
   type QueueDeliverableShape,
 } from "../regent-queue/regent-queue-row.ts";
 import type { ModelPair } from "../config.ts";
+import {
+  modelHintNeedsBypassAuthorization,
+  recordFiledModelHintAuthorizations,
+} from "../create-agent/filed-model-hint-authorization.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { herdrAgentNameRefusal } from "../herdr/herdr-identity.service.ts";
 import {
@@ -58,6 +62,7 @@ const PRIORITY_FLAG = "--priority";
 const MODEL_HINT_FLAG = "--model-hint";
 const DELIVERABLE_SHAPE_FLAG = "--deliverable-shape";
 const SHADOWLESS_FLAG = "--shadowless";
+const SLICELESS_FLAG = "--sliceless";
 
 export interface LaunchMetadata {
   alphaName: string;
@@ -84,6 +89,7 @@ export interface ParsedAddToQueueArgs {
    *  can close the row without a delivery commit. */
   deliverableShape?: QueueDeliverableShape;
   shadowless?: boolean;
+  sliceless?: boolean;
   body: string;
 }
 
@@ -107,6 +113,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
   let modelHint: ModelPair | undefined;
   let deliverableShape: QueueDeliverableShape | undefined;
   let shadowless: boolean | undefined;
+  let sliceless: boolean | undefined;
   const launchValues: Record<string, string> = {};
   const bodyWords: string[] = [];
   for (let i = 0; i < args.length; i++) {
@@ -131,6 +138,11 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
       continue;
     }
     if (args[i] === SHADOWLESS_FLAG) {
+      shadowless = true;
+      continue;
+    }
+    if (args[i] === SLICELESS_FLAG) {
+      sliceless = true;
       shadowless = true;
       continue;
     }
@@ -235,6 +247,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
     ...(modelHint === undefined ? {} : { modelHint }),
     ...(deliverableShape === undefined ? {} : { deliverableShape }),
     ...(shadowless === undefined ? {} : { shadowless }),
+    ...(sliceless === undefined ? {} : { sliceless }),
     launchOverrides,
   };
 }
@@ -252,6 +265,7 @@ export interface AddToQueueDeps {
    *  a branch or a commit into the launch record. */
   resolveLaunchDefaults: (repoPath: string) => LaunchDefaults;
   now: () => number;
+  recordModelHintAuthorizations?: typeof recordFiledModelHintAuthorizations;
 }
 
 export const REAL_DEPS: AddToQueueDeps = {
@@ -260,6 +274,7 @@ export const REAL_DEPS: AddToQueueDeps = {
   readRole: (name) => readAgentRole(name),
   resolveLaunchDefaults: (repoPath: string) => resolveGitLaunchDefaults(repoPath),
   now: () => Date.now(),
+  recordModelHintAuthorizations: recordFiledModelHintAuthorizations,
 };
 
 /**
@@ -299,6 +314,18 @@ async function refuseNonStagerFiler(
     );
   }
   return undefined;
+}
+
+const SLICELESS_SUCCESS_SUFFIX = "; SLICELESS (implies shadowless), Lord-authorized";
+const SHADOWLESS_SUCCESS_SUFFIX = "; SHADOWLESS, Lord-authorized";
+
+export function executionModeSuffix(item: {
+  readonly shadowless?: boolean;
+  readonly sliceless?: boolean;
+}): string {
+  if (item.sliceless === true) return SLICELESS_SUCCESS_SUFFIX;
+  if (item.shadowless === true) return SHADOWLESS_SUCCESS_SUFFIX;
+  return "";
 }
 
 /** Completes the operator's partial launch fields FROM THE NAMED TARGET REPO.
@@ -401,6 +428,7 @@ export async function run(
         ? {}
         : { deliverableShape: parsed.deliverableShape }),
       ...(parsed.shadowless === undefined ? {} : { shadowless: parsed.shadowless }),
+      ...(parsed.sliceless === undefined ? {} : { sliceless: parsed.sliceless }),
       launch,
       deliveryMirror: {
         verdict: "not-started",
@@ -416,8 +444,35 @@ export async function run(
       `add-to-queue: added item "${item.id}" (status: ${item.status}, ` +
         `launch-eligible as ${launch.alphaName} against ` +
         `${launch.targetRepo} ${launch.targetBranch} @ ${launch.baseCommit.slice(0, 12)}` +
-        `${item.shadowless === true ? "; SHADOWLESS, Lord-authorized" : ""}).\n`,
+        `${executionModeSuffix(item)}).\n`,
     );
+    if (
+      deps.recordModelHintAuthorizations !== undefined &&
+      modelHintNeedsBypassAuthorization(parsed.modelHint)
+    ) {
+      const hint = `${parsed.modelHint.harness}/${parsed.modelHint.model}`;
+      try {
+        await deps.recordModelHintAuthorizations({
+          objectiveCode: parsed.objectiveCode,
+          queueItemId: item.id,
+          modelHint: parsed.modelHint,
+          now: deps.now(),
+        });
+      } catch (err) {
+        process.stderr.write(
+          `add-to-queue: item "${item.id}" was added, but the Lord's ${hint} ` +
+            `authorization could not be recorded in the Regent's bypass registries ` +
+            `(${err instanceof Error ? err.message : String(err)}); the autoscaler ` +
+            `will refuse its launch until the Regent records it by hand.\n`,
+        );
+        return 1;
+      }
+      process.stdout.write(
+        `add-to-queue: recorded the Lord's ${hint} authorization for every ` +
+          `"${parsed.objectiveCode}" campaign agent in the Regent's bypass-model ` +
+          `and bypass-usage registries.\n`,
+      );
+    }
     return 0;
   } catch (err) {
     process.stderr.write(

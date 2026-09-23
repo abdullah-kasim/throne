@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
 import { createRegentQueueSchema } from "./regent-queue-schema.ts";
+import { createRegentQueueAmendmentSchema } from "./regent-queue-amendment-schema.ts";
 
 export const REGENT_QUEUE_DATABASE_FILE_NAME = "regent-queue.sqlite3";
 
@@ -18,5 +19,6 @@ export function openRegentQueueDatabase(databasePath: string): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA busy_timeout = 5000");
   createRegentQueueSchema(db);
+  createRegentQueueAmendmentSchema(db);
   return db;
 }

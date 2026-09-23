@@ -153,6 +153,11 @@ export async function readVisibleAnsi(paneId: string): Promise<string> {
   return parseReadText(stdout);
 }
 
+export async function readVisibleText(paneId: string): Promise<string> {
+  const { stdout } = await runHerdr(['agent', 'read', paneId, '--source', 'visible']);
+  return parseReadText(stdout);
+}
+
 export async function getPaneProcessInfo(
   paneId: string,
 ): Promise<HerdrPaneProcessInfo> {
