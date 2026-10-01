@@ -10,7 +10,6 @@ import {
 } from './install-services.types.ts';
 import {
   DARWIN_AGENTS,
-  HERDR_BIN_DEPENDENT_AGENTS,
   installDarwinServices,
   RETIRED_DARWIN_AGENTS,
 } from './darwin.ts';
@@ -22,19 +21,14 @@ import {
   resolveCodexHookTargetPath,
   type ThroneCommandOutcome,
 } from './hook-and-command.ts';
-import {
-  installClaudeGuardHook,
-  type GuardHookOutcome,
-} from './claude-guard-hook.ts';
-import {
-  installSkillWriteGuardHook,
-  type SkillWriteGuardOutcome,
-} from './skill-write-guard-hook.ts';
+import { installClaudeGuardHook } from './claude-guard-hook.ts';
+import type { SettingsHookOutcome } from './claude-settings-hook.ts';
+import { installSkillWriteGuardHook } from './skill-write-guard-hook.ts';
 import { prepareOwnedHerdr } from './herdr-installation.ts';
+import { installPinnedHarnessOnRestore } from './pinned-harness-on-restore.ts';
 import { writeInstallServicesLine } from './output.ts';
 import { REAL_DEPS } from './platform.ts';
 import {
-  HERDR_BIN_DEPENDENT_UNITS,
   installLinuxServices,
   LINUX_UNITS,
   RETIRED_LINUX_UNITS,
@@ -134,29 +128,18 @@ export async function installServices(
     };
   }
 
-  const herdrDecouple = deps.herdrDecoupleEnabled();
-  writeInstallServicesLine(
-    `feature flag "herdr-decouple": ${herdrDecouple ? 'ON' : 'OFF'}`,
-  );
-
-  let herdrBin: string | null = null;
-  if (herdrDecouple) {
-    try {
-      herdrBin = await prepareOwnedHerdr(deps, options);
-    } catch (error) {
-      process.stderr.write(
-        `install-services: ${error instanceof Error ? error.message : String(error)}\n`,
-      );
-      return { code: 1, status: 'error', changedWhileRunning: [] };
-    }
-  } else {
-    writeInstallServicesLine(
-      'herdr decoupling disabled; preserving the existing client, throne command, and Herdr service',
+  let herdrBin: string;
+  try {
+    herdrBin = await prepareOwnedHerdr(deps, options);
+  } catch (error) {
+    process.stderr.write(
+      `install-services: ${error instanceof Error ? error.message : String(error)}\n`,
     );
+    return { code: 1, status: 'error', changedWhileRunning: [] };
   }
 
   const hookOutcome = await installCodexHookRegistration(deps, options);
-  let guardHookOutcome: GuardHookOutcome;
+  let guardHookOutcome: SettingsHookOutcome;
   try {
     guardHookOutcome = await installClaudeGuardHook(deps, options);
   } catch (error) {
@@ -167,7 +150,7 @@ export async function installServices(
     );
     guardHookOutcome = 'error';
   }
-  let skillWriteGuardHookOutcome: SkillWriteGuardOutcome;
+  let skillWriteGuardHookOutcome: SettingsHookOutcome;
   try {
     skillWriteGuardHookOutcome = await installSkillWriteGuardHook(deps, options);
   } catch (error) {
@@ -187,29 +170,18 @@ export async function installServices(
       }\n`,
     );
   }
-  let throneCommandOutcome: ThroneCommandOutcome | undefined;
-  if (herdrDecouple) {
-    try {
-      throneCommandOutcome = await installThroneCommand(deps, options);
-    } catch (error) {
-      process.stderr.write(
-        `install-services: throne command installation failed: ${
-          error instanceof Error ? error.message : String(error)
-        }\n`,
-      );
-      throneCommandOutcome = 'collision';
-    }
+  let throneCommandOutcome: ThroneCommandOutcome;
+  try {
+    throneCommandOutcome = await installThroneCommand(deps, options);
+  } catch (error) {
+    process.stderr.write(
+      `install-services: throne command installation failed: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`,
+    );
+    throneCommandOutcome = 'collision';
   }
-
-  const linuxUnits = LINUX_UNITS.filter(
-    (unit) =>
-      herdrDecouple || !HERDR_BIN_DEPENDENT_UNITS.includes(unit.basename),
-  );
-  const darwinAgents = herdrDecouple
-    ? DARWIN_AGENTS
-    : DARWIN_AGENTS.filter(
-        (agent) => !HERDR_BIN_DEPENDENT_AGENTS.includes(agent.basename),
-      );
+  const pinnedHarnessOnRestoreOutcome = await installPinnedHarnessOnRestore(deps, options);
 
   let result: InstallServicesResult;
   try {
@@ -219,14 +191,14 @@ export async function installServices(
             deps,
             options,
             herdrBin,
-            linuxUnits,
+            LINUX_UNITS,
             RETIRED_LINUX_UNITS,
           )
         : await installDarwinServices(
             deps,
             options,
             herdrBin,
-            darwinAgents,
+            DARWIN_AGENTS,
             RETIRED_DARWIN_AGENTS,
           );
   } catch (error) {
@@ -250,6 +222,9 @@ export async function installServices(
     return { ...result, code: 1, status: 'error' };
   }
   if (throneCommandOutcome === 'collision' && result.code === 0) {
+    return { ...result, code: 1, status: 'error' };
+  }
+  if (pinnedHarnessOnRestoreOutcome === 'error' && result.code === 0) {
     return { ...result, code: 1, status: 'error' };
   }
   return result;

@@ -70,7 +70,7 @@ async function humanSteeredRoleOf(
   return undefined;
 }
 
-function claudeProjectDirectory(cwd: string, projectsDir: string): string {
+export function claudeProjectDirectory(cwd: string, projectsDir: string): string {
   return path.join(
     projectsDir,
     resolvedOrRawPath(cwd).replace(/[^a-zA-Z0-9-]/g, "-"),

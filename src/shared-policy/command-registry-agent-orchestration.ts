@@ -8,6 +8,7 @@ import { FindUntaskedAgentsCommand } from "../no-idling/find-untasked-agents.com
 import { UsageRateCommand } from "../usage-rate/usage-rate.command.ts";
 import { DeriveShadowNameFromAlphaCommand } from "../derive-shadow-name-from-alpha/derive-shadow-name-from-alpha.command.ts";
 import { NotifyLordCommand } from "../notify-lord/notify-lord.command.ts";
+import { CheckConfigCommand } from "../check-config/check-config.command.ts";
 import { ListHarnessesAndModelsCommand } from "../list-harnesses-and-models/list-harnesses-and-models.command.ts";
 import { SwitchAgentModelCommand } from "../switch-agent-model/switch-agent-model.command-registration.ts";
 import { SwitchPersonaCommand } from "../switch-persona/switch-persona.command.ts";
@@ -74,6 +75,13 @@ export const AGENT_ORCHESTRATION_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: true,
     description:
       "Send one explicit message to the Lord through the configured ntfy transport.",
+  },
+  {
+    name: "check-config",
+    provider: CheckConfigCommand,
+    visibility: "public",
+    migrated: true,
+    description: "Load and validate config.user.ts and print each role's model and effort.",
   },
   {
     name: "list-harnesses-and-models",

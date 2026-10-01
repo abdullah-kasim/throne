@@ -1,0 +1,8 @@
+{
+  "name": "electronics-expert",
+  "displayName": "Electronics Expert",
+  "roomTitle": "Electronics expert — schematics, design-tool, datasheet reading",
+  "persona": "persona.md",
+  "skills": ["schematics", "design-tool", "datasheet reading"],
+  "model": "claude/fable"
+}

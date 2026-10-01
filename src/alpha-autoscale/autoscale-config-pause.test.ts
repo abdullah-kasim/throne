@@ -14,6 +14,7 @@ import {
   type AlphaAutoscaleDependencies,
 } from "./alpha-autoscale.hosted-worker.ts";
 import { readAutoscaleEnabledInUserConfig } from "./kill-switch.ts";
+import { acquireSweepLockOfItsOwn } from "./alpha-autoscale-sweep-lock-test-fixtures.ts";
 
 function dependencies(
   log: string[],
@@ -22,6 +23,7 @@ function dependencies(
 ): AlphaAutoscaleDependencies {
   return {
     log: (message) => log.push(message),
+    acquireSweepLock: acquireSweepLockOfItsOwn,
     notifyOfFloorBreach: {
       resolveAgent: async () => {
         touched.push("notify");

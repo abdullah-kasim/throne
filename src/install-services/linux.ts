@@ -31,19 +31,6 @@ export interface LinuxUnitSpec {
 export const HERDR_SERVER_UNIT = SYSTEMD_UNIT_NAMES.THRONE_HERDR;
 
 /**
- * Every unit whose template embeds `{{HERDR_BIN}}` — gated behind the same
- * "herdr-decouple" feature flag, since installLinuxServices is handed `null`
- * for herdrBin when the flag is off and rendering any of these would then
- * throw on an unresolved token. `herdr-server.service` is retired (see
- * `RETIRED_LINUX_UNITS`) and no longer appears in `LINUX_UNITS`, so
- * `throne-herdr.service` — its consolidated-name counterpart, same
- * ExecStart shape — is the only entry left here.
- */
-export const HERDR_BIN_DEPENDENT_UNITS: readonly string[] = [
-  SYSTEMD_UNIT_NAMES.THRONE_HERDR,
-];
-
-/**
  * Ist campaign (2026-08-14): the court's real unit set is
  * `throne-herdr.service` + `throne-backend.service`, nothing else.
  * `herdr-server.service`, the keep-going/no-idling pairs, and
@@ -55,6 +42,11 @@ export const HERDR_BIN_DEPENDENT_UNITS: readonly string[] = [
  */
 export const LINUX_UNITS: readonly LinuxUnitSpec[] = [
   { basename: SYSTEMD_UNIT_NAMES.NTFY, enabledDirectly: true },
+  { basename: SYSTEMD_UNIT_NAMES.CONDUWUIT, enabledDirectly: true },
+  { basename: SYSTEMD_UNIT_NAMES.CONDUWUIT_MEDIA_SWEEP_SERVICE, enabledDirectly: false },
+  { basename: SYSTEMD_UNIT_NAMES.CONDUWUIT_MEDIA_SWEEP_TIMER, enabledDirectly: true },
+  { basename: SYSTEMD_UNIT_NAMES.THRONE_BOT_HERDR, enabledDirectly: false },
+  { basename: SYSTEMD_UNIT_NAMES.THRONE_BOT_BRIDGE_TEMPLATE, enabledDirectly: false },
   { basename: SYSTEMD_UNIT_NAMES.THRONE_BACKEND, enabledDirectly: true },
   { basename: SYSTEMD_UNIT_NAMES.THRONE_HERDR, enabledDirectly: true },
   // Each scratch-sweep pair follows throne-keep-going's old timer+oneshot

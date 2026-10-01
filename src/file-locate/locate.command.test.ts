@@ -47,6 +47,12 @@ function fixture(): Fixture {
         keyFile: 'not-checked',
         keyFilePath: '~/.jev-key',
       }),
+    readJevSpending: () =>
+      Promise.resolve({
+        spend: { todayTokens: 0, lastHourTokens: 0 },
+        limits: { tokensPerDay: 1, tokensPerHour: 1 },
+        lockBusyRequestsToday: 0,
+      }),
     gatherCandidates: (task, roots, opts) => {
       gatherCalls.push({ task, roots, opts });
       return Promise.resolve(STAGE_ONE_CANDIDATES.map((candidate) => ({ ...candidate })));

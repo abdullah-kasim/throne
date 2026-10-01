@@ -147,9 +147,10 @@ test('publish rewrites anchors in place, converts old placeholders, appends new 
 });
 
 test('collect maps loose GHES uploads to files by image stem and video order, removes them and fills the anchors', async () => {
-  const { collectLooseUploads, mapUploadsToFiles, removeLooseUploads, rewriteBody, assetReference, verifyPublishedBody } = await import(
+  const { removeLooseUploads, rewriteBody, assetReference, verifyPublishedBody } = await import(
     path.join(SKILLS_DIRECTORY, 'pr-media', 'publish.mjs')
   );
+  const { collectLooseUploads, mapUploadsToFiles } = await import(path.join(SKILLS_DIRECTORY, 'pr-media', 'loose-uploads.mjs'));
   const files = [
     { name: 'a-shot.png', kind: 'image' },
     { name: 'b-shot.png', kind: 'image' },

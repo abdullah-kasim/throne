@@ -1,7 +1,14 @@
 import type { LastMessageTagState } from './idle-pane-tag-classification.ts';
 import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
-import { buildDependencyClearedMessage } from './message.ts';
-import { NO_IDLING_SENDER, NO_IDLING_SUBMIT_TIMEOUT_MS, writeErr, writeOut } from './no-idling-notify-guard.ts';
+import { buildDependencyClearedMessage, buildStillBlockedOnClearedChildrenMessage } from './message.ts';
+import {
+  NO_IDLING_SENDER,
+  NO_IDLING_SUBMIT_TIMEOUT_MS,
+  regentAcceptsNotice,
+  writeErr,
+  writeOut,
+} from './no-idling-notify-guard.ts';
+import { NO_IDLING_REGENT_NAME } from './idle-family.ts';
 
 function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -25,28 +32,107 @@ export function readBlockedAgentDependents(
   return dependents;
 }
 
-/**
- * The blocked agents whose EVERY named child no longer has a live ledger
- * registration -- the wake invariant that must never mis-fire: an agent
- * naming two children where only one has cleared is left out entirely, not
- * partially reported. Liveness is decided exclusively by `isRegisteredAgent`
- * (ledger truth), never the roster, which is proven to lag teardown.
- */
+export interface ClearedChildren {
+  readonly gone: readonly string[];
+  readonly reapable: readonly string[];
+}
+
+export function allClearedChildren(cleared: ClearedChildren): readonly string[] {
+  return [...cleared.gone, ...cleared.reapable];
+}
+
+function hasPublishedReapableClaim(tag: LastMessageTagState | undefined): boolean {
+  return tag?.kind === 'reapable' || tag?.kind === 'reapable-failed';
+}
+
 export async function resolveClearedDependencyWakes(
   blockedAgentDependents: ReadonlyMap<string, readonly string[]>,
   dataDir: string,
   isRegisteredAgent: (name: string, dataDir: string) => Promise<boolean>,
-): Promise<ReadonlyMap<string, readonly string[]>> {
-  const cleared = new Map<string, readonly string[]>();
+  lastMessageTags: ReadonlyMap<string, LastMessageTagState> = new Map(),
+): Promise<ReadonlyMap<string, ClearedChildren>> {
+  const cleared = new Map<string, ClearedChildren>();
   for (const [agentName, blockedBy] of blockedAgentDependents) {
-    const stillRegistered = await Promise.all(
-      blockedBy.map((childName) => isRegisteredAgent(childName, dataDir)),
-    );
-    if (stillRegistered.every((isRegistered) => !isRegistered)) {
-      cleared.set(agentName, blockedBy);
+    const gone: string[] = [];
+    const reapable: string[] = [];
+    for (const childName of blockedBy) {
+      if (!(await isRegisteredAgent(childName, dataDir))) {
+        gone.push(childName);
+      } else if (hasPublishedReapableClaim(lastMessageTags.get(childName))) {
+        reapable.push(childName);
+      }
+    }
+    if (gone.length + reapable.length === blockedBy.length) {
+      cleared.set(agentName, { gone, reapable });
     }
   }
   return cleared;
+}
+
+export const SWEEPS_BEFORE_TELLING_THE_REGENT = 2;
+export const NO_IDLING_SWEEP_INTERVAL_MS = 60_000;
+export const DELAY_BEFORE_TELLING_THE_REGENT_MS =
+  SWEEPS_BEFORE_TELLING_THE_REGENT * NO_IDLING_SWEEP_INTERVAL_MS;
+
+function stillBlockedObservationKey(agentName: string, cleared: ClearedChildren): string {
+  return `${agentName}:${[...allClearedChildren(cleared)].sort().join(',')}`;
+}
+
+export function countStillBlockedSweeps(
+  observations: Map<string, number>,
+  clearedDependencyWakes: ReadonlyMap<string, ClearedChildren>,
+): ReadonlyMap<string, number> {
+  const current = new Set<string>();
+  const counts = new Map<string, number>();
+  for (const [agentName, cleared] of clearedDependencyWakes) {
+    const key = stillBlockedObservationKey(agentName, cleared);
+    current.add(key);
+    const count = (observations.get(key) ?? 0) + 1;
+    observations.set(key, count);
+    counts.set(agentName, count);
+  }
+  for (const key of [...observations.keys()]) {
+    if (!current.has(key)) observations.delete(key);
+  }
+  return counts;
+}
+
+export async function notifyRegentOfStillBlockedAgents(
+  deps: NoIdlingDependencies,
+  clearedDependencyWakes: ReadonlyMap<string, ClearedChildren>,
+  sweepCounts: ReadonlyMap<string, number>,
+): Promise<void> {
+  const stuck = [...clearedDependencyWakes].filter(
+    ([agentName]) => (sweepCounts.get(agentName) ?? 0) >= SWEEPS_BEFORE_TELLING_THE_REGENT,
+  );
+  if (stuck.length === 0) return;
+  try {
+    const regent = await deps.resolveAgent(NO_IDLING_REGENT_NAME);
+    if (!regentAcceptsNotice(regent.agentStatus)) {
+      writeOut(deps, `no-idling: Regent is ${regent.agentStatus}; deferred still-blocked notice\n`);
+      return;
+    }
+    await deps.submitToAgent(
+      regent,
+      NO_IDLING_SENDER,
+      buildStillBlockedOnClearedChildrenMessage({
+        agents: stuck.map(([agentName, cleared]) => ({ agentName, ...cleared })),
+      }),
+      {
+        key: `no-idling-still-blocked:${stuck
+          .map(([agentName, cleared]) => stillBlockedObservationKey(agentName, cleared))
+          .sort()
+          .join(';')}`,
+        composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
+      },
+    );
+    writeOut(
+      deps,
+      `no-idling: told Regent that ${stuck.map(([agentName]) => agentName).join(', ')} stayed blocked on cleared children\n`,
+    );
+  } catch (error) {
+    writeErr(deps, `no-idling: still-blocked notice failed: ${errText(error)}\n`);
+  }
 }
 
 /**
@@ -59,15 +145,16 @@ export async function resolveClearedDependencyWakes(
  */
 export async function notifyClearedDependencyWakes(
   deps: NoIdlingDependencies,
-  clearedDependencyWakes: ReadonlyMap<string, readonly string[]>,
+  clearedDependencyWakes: ReadonlyMap<string, ClearedChildren>,
 ): Promise<void> {
-  for (const [agentName, resolvedChildren] of clearedDependencyWakes) {
+  for (const [agentName, cleared] of clearedDependencyWakes) {
+    const resolvedChildren = allClearedChildren(cleared);
     try {
       const agent = await deps.resolveAgent(agentName);
       await deps.submitToAgent(
         agent,
         NO_IDLING_SENDER,
-        buildDependencyClearedMessage({ resolvedChildren }),
+        buildDependencyClearedMessage({ goneChildren: cleared.gone, reapableChildren: cleared.reapable }),
         {
           key: `no-idling-dependency-cleared:${agentName}:${[...resolvedChildren].sort().join(',')}`,
           composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,

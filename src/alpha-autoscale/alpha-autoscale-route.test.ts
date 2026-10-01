@@ -14,9 +14,11 @@ import {
   type AlphaAutoscaleDependencies,
 } from "./alpha-autoscale.hosted-worker.ts";
 import { buildProductionRouteHandlers } from "../throne-backend/transport-route-dispatcher.ts";
+import { acquireSweepLockOfItsOwn } from "./alpha-autoscale-sweep-lock-test-fixtures.ts";
 
 const STUB_DEPENDENCIES: AlphaAutoscaleDependencies = {
   log: () => {},
+  acquireSweepLock: acquireSweepLockOfItsOwn,
   notifyOfFloorBreach: {
     resolveAgent: async () => ({ paneId: "test-pane" }) as never,
     submitToAgent: async () => {},

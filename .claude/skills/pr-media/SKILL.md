@@ -1,7 +1,7 @@
 ---
 name: pr-media
-description: Capture screenshots and a click video of a UI change with agent-browser, write an index.html contact sheet of the folder, and publish the folder to a GitHub pull request, replacing the media the PR body already carries. Use when a PR needs screenshots, a screen recording, a GIF, or "before and after" images, when the user says "take screenshots of your changes", "record a video of pressing it", "add media to the PR", or "publish the screenshots to the PR", or as `/pr-media publish <pr>`. Covers github.com and GitHub Enterprise.
-version: 2.0.0
+description: Capture before and after screenshots and click videos of a UI change with agent-browser, one on the PR's base and one on its head, write an index.html contact sheet that shows each pair side by side, and publish the folder to a GitHub pull request, replacing the media the PR body already carries. Use when a PR needs screenshots, a screen recording, a GIF, or "before and after" images, when the user says "take screenshots of your changes", "record a video of pressing it", "add media to the PR", or "publish the screenshots to the PR", when the user asks to refresh, regenerate or redo the PR media or screenshots, or as `/pr-media publish <pr>`. Covers github.com and GitHub Enterprise.
+version: 2.2.0
 user-invocable: true
 ---
 
@@ -12,8 +12,9 @@ Since gh 2.99 (2026-09-01) `gh pr edit --attach <file>` makes them on
 github.com and GitHub Enterprise Cloud, rewriting a local-path reference
 in the body to the uploaded URL in place; there is still no REST or
 GraphQL endpoint, and GitHub Enterprise Server refuses `--attach`, so on
-a GHES PR the user drops the files into the editor once and the publish
-wizard sorts the uploads into place afterwards; no browser is driven. This skill has two
+a GHES PR publish uploads each file through a signed-in agent-browser
+session, the same comment-box upload a person makes by dragging a file
+in, and then edits the body with gh (section 4). This skill has two
 modes: **capture** (sections 1 to 3) produces the files, stages them in
 one folder with an `index.html` contact sheet, and drafts the
 `## Screenshots` section LOCALLY as `screenshots.md` in that folder;
@@ -21,6 +22,12 @@ capture never edits the pull request. **Publish** (section 4) writes
 that section into the live body, uploads the folder's latest files and
 replaces whatever the anchors held before. Lord, 2026-09-16: "do not
 update the PR description if you're not asked to publish it".
+
+Every state and interaction the PR changes is captured twice, once on
+the PR's base (**before**) and once on its head (**after**), and the two
+are shown side by side: a two-column table in the contact sheet and in
+the PR body. A capture that shows only the after leaves the reviewer to
+remember what the page looked like.
 
 **Never commit media to a git branch as a workaround.** Not a `media/`
 branch, not `docs/`, not a release asset. Binary blobs are permanent
@@ -40,9 +47,33 @@ agent-browser set viewport 1400 900
 
 A change that a phone can reach gets a second set of captures at the
 phone viewport, iPhone 16, 393x852 (`agent-browser set viewport 393
-852`), named `<name>-phone.png` and `<part>-phone.mp4` beside the desktop
-ones; the recording at that size shows the whole viewport. Not 320x720:
+852`), named `NN-<what>-phone-before.png` / `NN-<what>-phone-after.png`
+(and `.mp4` for a clip) with their own order number; the recording at
+that size shows the whole viewport. Not 320x720:
 the Lord ruled on 2026-09-14 that it was too small and limiting.
+
+### Before and after, side by side
+
+Serve the base and the head at the same time on two ports, for example
+a second checkout of the base commit (`git worktree add
+~/tmp/pr-media-<pr>-base <base-sha>`) running the dev server on one
+port and the PR branch on another. Keep one agent-browser session per
+side (`--prefix media-before`, `--prefix media-after`) and drive both
+through the same steps, the same data, the same viewport and the same
+theme, capturing each state on the base and then on the head before
+moving to the next state. Everything below (viewport, cursor overlay,
+glide, press-hold-release, a fresh namespace per take, reading every
+capture back) applies to both sides unchanged.
+
+- A control that does not exist on the base still gets a before: the
+  same screen in the same state on the base, showing its absence.
+- A before video is needed only when the base has an equivalent
+  interaction. When it has none, the pair is a before screenshot and an
+  after video under one stem (`05-coupon-apply-before.png` beside
+  `05-coupon-apply-after.mp4`), and the before cell shows the
+  screenshot.
+- Name both sides `NN-<what>-before.<ext>` and `NN-<what>-after.<ext>`;
+  section 2 has the full rule.
 
 One screenshot per place the change is visible. Hover the element first
 when the hover state is part of the change, and scope the shot to the
@@ -56,7 +87,8 @@ agent-browser hover "@$REF"
 agent-browser screenshot "#container" ~/tmp/pr-media-<pr>/<name>.png
 ```
 
-`<name>` starts with its order number (`01-table-path-link`); see section
+`<name>` starts with its order number and ends with its side
+(`01-cart-total-before`); see section
 2 for the rule.
 
 An element screenshot of something inside a scrolling container paints
@@ -190,10 +222,14 @@ it is HTML):
 node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/contact-sheet.mjs" ~/tmp/pr-media-<pr>
 ```
 
-It writes `~/tmp/pr-media-<pr>/index.html`: one section per file in
-name order, the file name as heading, an `<img>` or a `<video controls>`
-with a relative `src`, and the caption the PR body will carry. No
-external assets, so it opens from Finder or with `open
+It writes `~/tmp/pr-media-<pr>/index.html`: one section per pair or
+single file in order. A pair is a two-column table, Before then After,
+with an `<img>` or a `<video controls playsinline>` in each cell; below
+about 600px wide the columns stack with the before first, which keeps
+it readable on a 393-wide phone. A single is shown as before: the file
+name as heading, the media, and the caption the PR body will carry.
+Every `src` is relative, the page follows the system's dark mode, and
+there are no external assets, so it opens from Finder or with `open
 ~/tmp/pr-media-<pr>/index.html`. Open it in agent-browser and read the
 screenshot back; publish refreshes it.
 
@@ -204,18 +240,35 @@ All files in one folder, named for what they show, `<pr>` in the folder:
 ```
 ~/tmp/pr-media-99/
   index.html
-  01-table-path-link.png
-  02-trace-header-path-link.png
-  03-path-cell-click.mp4
+  screenshots.md
+  01-cart-total-before.png
+  01-cart-total-after.png
+  02-coupon-field-before.png
+  02-coupon-field-after.png
+  03-coupon-apply-before.mp4
+  03-coupon-apply-after.mp4
+  04-cart-total-phone-before.png
+  04-cart-total-phone-after.png
+  05-receipt-footer.png
 ```
+
+**A before/after pair is two files sharing one `NN-<what>` stem**, one
+ending `-before`, the other `-after`, before the extension; the two may
+differ in extension (a before screenshot beside an after video). A file
+with neither suffix is a single and is shown alone. The tools pair by
+stem and always put the before first, even though `-after` sorts ahead
+of `-before` in a file listing. A side whose partner is missing is
+shown alone and publish names it on stderr; two files on the same side
+of one stem are refused.
 
 **Every file name starts with a two-digit order number and a dash**
 (`01-`, `02-`, ... `10-`; Lord, 2026-09-16), in the order the body shows
-them: name order is then the body order, the contact-sheet order and the
-video drop order in the wizard, and none of it can drift when a file is
-added later. A phone variant keeps its own number (`04-table-path-link-phone.png`)
-rather than sharing its desktop twin's. The number never reaches the
-reader: alt text and captions strip it (`![table path link](./01-table-path-link.png)`).
+them: the number order is then the body order, the contact-sheet order
+and the video drop order in the wizard, and none of it can drift when a
+file is added later. A pair's two files share one number; a phone
+variant keeps its own (`04-cart-total-phone-before.png`) rather than
+sharing its desktop twin's. The number never reaches the
+reader: alt text and captions strip it (`![cart total before](./01-cart-total-before.png)`).
 Publish warns on stderr about any file without the prefix and still
 proceeds, so an older folder can be re-published.
 
@@ -241,8 +294,10 @@ section as it should read on the PR, between `## How` and `## Testing`
 collapsible spoiler `pr-description` describes as the default:
 `<details><summary>Screenshots</summary>`, a blank line, the captures,
 a blank line, `</details>`, with the `## Screenshots` heading itself
-outside the wrapper. One sentence of context per file, then an anchor
-pair named for the file, with a local-path reference inside:
+outside the wrapper. Inside it, every file sits in an anchor pair named
+for the file, holding a local-path reference; publish owns everything
+between the two markers. Pairs go in tables, each with its caption in
+the row directly above it; singles keep one paragraph each:
 
 ```markdown
 ## Screenshots
@@ -250,24 +305,108 @@ pair named for the file, with a local-path reference inside:
 <details>
 <summary>Screenshots</summary>
 
-Trace header, hovered:
+Desktop 1400x900, dark theme:
 
-<!-- pr-media: 01-trace-header-path-link.png -->
-![trace header path link](./01-trace-header-path-link.png)
-<!-- /pr-media: 01-trace-header-path-link.png -->
+<table>
+<tr><th>Before</th><th>After</th></tr>
+<tr><td colspan="2">
+
+**1.** The cart total, with a coupon applied: the after shows the discount line.
+
+</td></tr>
+<tr>
+<td>
+
+<!-- pr-media: 01-cart-total-before.png -->
+![cart total before](./01-cart-total-before.png)
+<!-- /pr-media: 01-cart-total-before.png -->
+
+</td>
+<td>
+
+<!-- pr-media: 01-cart-total-after.png -->
+![cart total after](./01-cart-total-after.png)
+<!-- /pr-media: 01-cart-total-after.png -->
+
+</td>
+</tr>
+<tr><td colspan="2">
+
+**2.** Applying a coupon: nothing happens before; after, the total updates in place.
+
+</td></tr>
+<tr>
+<td>
+
+<!-- pr-media: 02-coupon-apply-before.mp4 -->
+![coupon apply before](./02-coupon-apply-before.mp4)
+<!-- /pr-media: 02-coupon-apply-before.mp4 -->
+
+</td>
+<td>
+
+<!-- pr-media: 02-coupon-apply-after.mp4 -->
+![coupon apply after](./02-coupon-apply-after.mp4)
+<!-- /pr-media: 02-coupon-apply-after.mp4 -->
+
+</td>
+</tr>
+</table>
+
+The receipt footer, unchanged in layout:
+
+<!-- pr-media: 05-receipt-footer.png -->
+![receipt footer](./05-receipt-footer.png)
+<!-- /pr-media: 05-receipt-footer.png -->
 
 </details>
 ```
 
-A video gets the same shape (`![path cell click](./03-path-cell-click.mp4)`
-alone in its paragraph); publish turns it into the bare asset URL that
-GitHub renders as a player. Everything between `<!-- pr-media: <name>
--->` and `<!-- /pr-media: <name> -->` belongs to publish: it is replaced
-wholesale on every publish, so a re-publish swaps the earlier upload for
-the new one without touching the human text around it. The alt text is
-the file name without its `NN-` order prefix and with dashes as spaces;
-that is also the caption. The anchors keep the full file name, prefix
-included, so an anchor is renamed when a file is renumbered.
+- **Every pair: a row in an HTML `<table>`, with its caption in the row
+  directly above it.** One table per group (desktop, phone, a theme),
+  one heading line above the table naming the group, a header row
+  `<tr><th>Before</th><th>After</th></tr>`, then for each pair a caption
+  row, `<tr><td colspan="2">`, holding one or two sentences that start
+  with a bold order number (`**1.**`), followed by the pair's row. The
+  Lord, 2026-09-25, on a numbered list printed above a table of shots:
+  "this isn't particularly readable ... It should inline those
+  bulletpoints with the screenshot's table." Never write the captions as
+  a separate list; a reader must not count rows to match a sentence to a
+  shot. Write the number in bold rather than as `1.`, which renders as a
+  one-item list restarting at the cell's edge.
+- **Blank lines inside every cell.** Each `<td>` holds its content on its
+  own lines with a blank line above and below, the caption as well as
+  the anchor pair on its own three lines. GitHub renders Markdown inside
+  a cell (an image, a code span, bold) only when the cell's content is
+  set off by blank lines.
+- **Images and videos share the form.** Publish turns a video's
+  reference into the bare asset URL, and GitHub renders a bare URL as a
+  player only when it sits alone in its own paragraph. Rendered on
+  2026-09-25 with `gh api -X POST /markdown -f mode=gfm` against a real
+  uploaded video: in a Markdown table cell the bare URL became a player
+  on github.com but a plain link on GitHub Enterprise Server 3.20; in the
+  HTML `<td>` with blank lines around it, both hosts rendered a
+  `<video controls>` in each cell, side by side. So every pair uses the
+  HTML form, and a pair of a before screenshot and an after video sits in
+  the same table as the image pairs around it. To check a draft renders,
+  pass the repository as context (`-f context=<owner>/<repo>`): without
+  it the API renders a bare video URL as a link on both hosts.
+- **Older drafts** that put image pairs in a `| Before | After |`
+  Markdown table with inline one-line anchor pairs still publish:
+  publish keeps a table-row anchor pair on one line when it rewrites it,
+  and its verification fails loudly if one ever spans several lines.
+  Convert them to the form above when you next touch them.
+- **Singles** keep one sentence of context, then the anchor pair on
+  three lines, alone in its paragraph; a single video becomes a player.
+
+Everything between `<!-- pr-media: <name> -->` and
+`<!-- /pr-media: <name> -->` belongs to publish: it is replaced
+wholesale on every publish, so a re-publish swaps the earlier upload for the new one
+without touching the human text around it. The alt text is the file
+name without its `NN-` order prefix and with dashes as spaces (`cart
+total before`); that is also the caption in the contact sheet. The
+anchors keep the full file name, prefix included, so an anchor is
+renamed when a file is renumbered.
 
 **The PR description is not touched in capture mode.** No `gh pr edit`,
 no live-body patch, not even to place anchors: a capture that has not
@@ -303,18 +442,66 @@ camo on that host.
 ## 4. Publish
 
 ```
-/pr-media publish <pr-url|number> [--folder <dir>] [--dry-run]
+/pr-media publish <pr-url|number> [--folder <dir>] [--dry-run] [--replace-all] [--wizard | --collect]
 ```
 
 ```bash
-node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url|number> [--folder <dir>] [--dry-run]
+node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url|number> [--folder <dir>] [--dry-run] [--replace-all]
 ```
+
+### Refreshing the media
+
+"Refresh", "regenerate" or "redo" the media on a PR means, by default:
+capture a new set, publish it, and remove every earlier capture from the
+body. Keeping earlier captures in the body needs the user to ask for it.
+Lord, 2026-09-28: "if we want to refresh the media, then it means that
+we regenerate and publish and get rid of the old screenshots. We can
+reuse the Before images though - no problem with that".
+
+- **A new folder.** A refresh never captures into the old folder; it
+  starts a new one beside it, for example `~/tmp/pr-media-99-v2` after
+  `~/tmp/pr-media-99`, laid out and numbered as in section 2.
+- **Every AFTER is fresh.** Each `-after` file is captured again from
+  the PR's current head.
+- **A BEFORE may be reused.** A `-before` file may be copied from the
+  previous folder, under its number in the new folder, when the new pair
+  shows the same view on the same base. Anything else is captured again.
+- **The draft carries every file.** The new folder's `screenshots.md`
+  (section 3) holds an anchor pair for every file in it, so publish
+  replaces the whole `## Screenshots` section and every earlier anchor
+  and upload inside it leaves the body. `--replace-all` removes the rest:
+  every anchor pair and `<!-- drop <name> here -->` placeholder elsewhere
+  in the body whose file is not in the new folder, with what it holds.
+
+  ```bash
+  node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" 99 --folder ~/tmp/pr-media-99-v2 --replace-all
+  ```
+
+  The summary names what it removed on one line,
+  `removed, not in the folder: 03-coupon-apply-before.mp4, 03-coupon-apply-after.mp4`,
+  and `--dry-run` prints the same line without sending anything.
+- **Confirm the old names are gone.** After publishing, check that no
+  file name the previous folder had, and the new folder does not, is
+  still in the live body. A reused BEFORE that kept its name is the new
+  folder's own file and is left out of the check. No output means the
+  refresh is complete:
+
+  ```bash
+  body=$(gh pr view 99 --json body -q .body)
+  comm -23 <(ls ~/tmp/pr-media-99 | sort) <(ls ~/tmp/pr-media-99-v2 | sort) | while read -r name; do grep -F -- "$name" <<<"$body"; done
+  ```
+
+  For a PR outside the current checkout, add `-R <host>/<owner>/<repo>`
+  to the `gh pr view`.
+
+### What publish does
 
 A URL gives the host, repository and number; a bare number resolves the
 repository from the current checkout (`gh repo view`) and the folder
 defaults to `~/tmp/pr-media-<number>`. What the script does, in order:
 
-1. Lists the folder's media files in name order and refuses before any
+1. Lists the folder's media files in body order (pairs by stem, each
+   before just ahead of its after) and refuses before any
    upload when the folder is empty or missing, a file is empty, an
    image is over 10 MB or a video over 100 MB.
 2. Reads the LIVE body: `gh pr view <n> -R <host>/<owner>/<repo> --json
@@ -327,8 +514,14 @@ defaults to `~/tmp/pr-media-<number>`. What the script does, in order:
 3. Rewrites the anchors: an existing `<!-- pr-media: <name> -->` pair is
    replaced with a fresh `![alt](./<name>)`, an old `<!-- drop <name>
    here -->` placeholder becomes a pair, a file with neither is appended
-   inside `## Screenshots`. A pair whose file is no longer in the folder
-   is left exactly as it is and reported, never deleted.
+   inside `## Screenshots`. An anchor or placeholder that sits in a
+   Markdown table row (its line starts with `|`) is written inline on
+   one line; everywhere else it keeps the three-line layout. A pair whose
+   file is no longer in the folder is left exactly as it is and reported,
+   never deleted, unless `--replace-all` is given: then that pair, and
+   any `<!-- drop <name> here -->` placeholder naming a file not in the
+   folder, is removed with what it holds wherever it sits in the body,
+   and the summary names each one, `removed, not in the folder: <name>`.
 4. Runs ONE edit from inside the folder, for github.com and GitHub
    Enterprise Cloud:
 
@@ -345,10 +538,15 @@ defaults to `~/tmp/pr-media-<number>`. What the script does, in order:
    rewrites the reference to the `user-attachments` URL in place, a
    standalone video embed becoming the bare URL that plays. On a
    github.com target the script refuses when gh is older than 2.99
-   (`brew upgrade gh`).
+   (`brew upgrade gh`). On GitHub Enterprise Server the files are
+   uploaded first through the browser (below), and the same edit runs
+   with `--body-file` and no `--attach`.
 5. Re-fetches the body and verifies every anchor pair holds exactly one
-   `user-attachments` URL and no local path, prints `name -> URL` for
-   each file, deletes `live.md`, and rewrites `index.html`.
+   `user-attachments` URL and no local path, and that no anchor pair in
+   a table row spans several lines, and, with `--replace-all`, that no
+   anchor names a file outside the folder, failing loudly on a survivor;
+   it then prints `name -> URL` for each file, deletes `live.md`, and
+   rewrites `index.html`.
 
 `--dry-run` prints the rewritten body and the exact gh command and sends
 nothing; the body on GitHub is unchanged.
@@ -363,10 +561,54 @@ for nothing else: not to open, close, merge or comment on a PR, and
 never by hand as a way around the guard. The `pr view` reads need no
 bypass.
 
-**GitHub Enterprise Server fallback: the upload wizard.** `--attach`
-refuses a GHES host (verified on GHES 3.20), and no browser is driven
-for this: the user uploads by hand in the PR editor, unsorted, and the
-script sorts the uploads into their anchors afterwards. Two steps:
+**GitHub Enterprise Server: upload through a signed-in browser.**
+`--attach` refuses a GHES host (verified on GHES 3.20), so a plain
+`publish.mjs <pr-url>` on a GHES host uploads with `browser-upload.mjs`
+beside this file, then makes the one body edit with gh. The Lord asked
+for this on 2026-09-25 because hand uploads did not scale: "We're gonna
+do the agent-browser way." What it does:
+
+1. **Proxy.** A GHES host is often reachable only through a proxy. One
+   lookup serves the browser and every gh call: `PR_MEDIA_BROWSER_PROXY`,
+   then `HTTPS_PROXY` or `ALL_PROXY`, then git's own per-host setting,
+   `git config --get-urlmatch http.proxy https://<host>`. Set that once
+   and nothing else needs an environment variable:
+   `git config --global http.https://<host>.proxy socks5h://127.0.0.1:<port>`.
+   Chrome is given `socks5://` where the setting says `socks5h://`.
+2. **Saved sign-in.** The browser runs in its own agent-browser
+   namespace, `pr-media-<host>`, with a persistent profile at
+   `~/.config/throne/agent-browser/<host>`, so a sign-in survives between
+   runs, including the cookies a cookie export would miss. Each run opens
+   the PR headless and reads `<meta name="user-login">`. When it is empty,
+   because there was never a sign-in or the session expired, the script
+   closes the headless browser, opens a visible window on the host's
+   sign-in page, and polls every three seconds, for up to
+   `PR_MEDIA_SIGN_IN_WAIT_SECONDS` (600 by default), until the meta tag
+   names a user. Nobody has to report back that they signed in. It then
+   reopens headless on the same profile and proves the sign-in stuck.
+3. **Upload, one file at a time.** On the PR page it empties the
+   comment box, `#new_comment_field`, hands the file to its file input,
+   `#fc-new_comment_field`, and polls the box until it holds a
+   `user-attachments` URL and no `[Uploading …]()` placeholder: an image
+   arrives as `<img … src="…">`, a video as a bare URL. One file per
+   round keeps the mapping from file to URL exact, so no stem or drop
+   order is guessed. The wait is a minute plus two seconds per megabyte.
+   The box is emptied after every file and in a `finally`, and nothing
+   is ever posted.
+4. **Edit.** The URLs go to the same path `--asset <name>=<url>` takes,
+   and the body is edited and verified as on github.com.
+
+Only one browser can hold a profile. A second publish to the same host
+while one is running fails with a message naming the profile; wait, or
+run `agent-browser close --all`. When the page layout changes and the
+comment box or its file input is gone, the script says so and names the
+fallback below. `--dry-run` uploads nothing and reports how many files
+the browser would send.
+
+**GitHub Enterprise Server fallback: the upload wizard.** When the
+browser path cannot run (no display for the sign-in window, a changed
+page layout), the user uploads by hand in the PR editor, unsorted, and
+the script sorts the uploads into their anchors afterwards. Two steps:
 
 1. `--wizard` prints the drop list and sends nothing:
 
@@ -393,9 +635,10 @@ script sorts the uploads into their anchors afterwards. Two steps:
    an `<img>` tag or a link, and press **Update comment**. A drop landing outside the Screenshots spoiler is fine: the collect step
    below moves every loose upload into its anchor inside the wrapper.
    Images may go in any order because GitHub keeps the file stem as the `alt`
-   text. A video becomes a bare URL with no name, so when the folder
-   holds more than one video the list says to drop them one at a time
-   in the order given, and the collect step maps videos by that order.
+   text. A video becomes a bare URL with no name, so the list names
+   every file in body order, a before just ahead of its after, marks the
+   videos, and says to drop the videos one at a time in that order; the
+   collect step maps videos by that order.
    Only the "Uploaded and saved" answer leads to step 2.
 2. After that answer, `--collect` reads the LIVE body, gathers
    every `user-attachments` reference that is not already inside an

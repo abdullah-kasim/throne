@@ -91,6 +91,7 @@ export interface SpawnSpec {
   deliverable_shape?: "verdict-only";
   shadowless?: true;
   sliceless?: true;
+  campaign_effort?: number;
   forked_from?: string;
 }
 
@@ -199,6 +200,11 @@ function isSpawnSpec(value: unknown): value is SpawnSpec {
       record.deliverable_shape === "verdict-only") &&
     (record.shadowless === undefined || record.shadowless === true) &&
     (record.sliceless === undefined || record.sliceless === true) &&
+    (record.campaign_effort === undefined ||
+      (typeof record.campaign_effort === "number" &&
+        Number.isInteger(record.campaign_effort) &&
+        record.campaign_effort >= 1 &&
+        record.campaign_effort <= 6)) &&
     (record.forked_from === undefined ||
       (typeof record.forked_from === "string" && record.forked_from !== "")) &&
     (record.token_balance_lane === undefined ||

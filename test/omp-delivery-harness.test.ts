@@ -108,7 +108,7 @@ async function createOmpHarnessEnvironment(root: string): Promise<{
   const agentDir = path.join(root, "omp-agent");
   const deliveryDirectory = path.join(root, "omp-delivery");
   await mkdir(liveRoot, { recursive: true });
-  await mkdir(path.join(configHome, "throne"), { recursive: true });
+  await mkdir(configHome, { recursive: true });
   await mkdir(path.join(agentDir, "extensions"), { recursive: true });
   await symlink(
     path.resolve("extensions/omp/throne-omp-delivery.ts"),
@@ -117,11 +117,6 @@ async function createOmpHarnessEnvironment(root: string): Promise<{
   await writeFile(
     path.join(liveRoot, "package.json"),
     '{"type":"module"}\n',
-    "utf8",
-  );
-  await writeFile(
-    path.join(configHome, "throne", "features.json"),
-    JSON.stringify({ "herdr-decouple": true }),
     "utf8",
   );
   return {
@@ -450,15 +445,10 @@ test("the in-container tab leak guard refuses a deliberately leaked Herdr worksp
   const dataHome = path.join(root, "data");
   const liveRoot = path.join(root, "live-root");
   await mkdir(liveRoot, { recursive: true });
-  await mkdir(path.join(configHome, "throne"), { recursive: true });
+  await mkdir(configHome, { recursive: true });
   await writeFile(
     path.join(liveRoot, "package.json"),
     '{"type":"module"}\n',
-    "utf8",
-  );
-  await writeFile(
-    path.join(configHome, "throne", "features.json"),
-    JSON.stringify({ "herdr-decouple": true }),
     "utf8",
   );
   const environment = {

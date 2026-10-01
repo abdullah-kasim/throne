@@ -21,6 +21,7 @@ export interface AgentIdentity {
   emptyWorktree?: true;
   shadowless?: true;
   sliceless?: true;
+  campaignEffort?: number;
   forkedFrom?: string;
   /** The exact herdr tab label this agent was spawned with (persona-aware
    *  under a non-Default preset, canonical otherwise). Durable so restart
@@ -361,6 +362,9 @@ export async function writeIdentity(
         : canonicalIdentity.role === "Alpha"
           ? [SHADOWED_LINE]
           : []),
+    ...(canonicalIdentity.campaignEffort === undefined
+      ? []
+      : [`- **Campaign effort:** ${canonicalIdentity.campaignEffort} (from the Lord-filed queue row)`]),
     ...(canonicalIdentity.forkedFrom === undefined
       ? []
       : [`${FORKED_FROM_LINE_PREFIX}${canonicalIdentity.forkedFrom}`]),

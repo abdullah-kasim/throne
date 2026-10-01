@@ -10,7 +10,6 @@ import {
 } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { REAL_FEATURE_FLAGS_SERVICE } from '../shared-policy/feature-flags.service.ts';
 import {
   installPinnedHerdr,
   ownedHerdrCacheDirectory,
@@ -20,6 +19,7 @@ import {
   REAL_SERVICE_UNIT_DEPS,
   runLaunchctl,
 } from '../install-services/service-unit-renderer.service.ts';
+import { herdrConfigPath } from './herdr-session-config.ts';
 import type { InstallServicesDeps } from './install-services.types.ts';
 
 function realUserId(): number {
@@ -77,7 +77,6 @@ export const REAL_DEPS: InstallServicesDeps = {
     await mkdir(path.dirname(targetPath), { recursive: true });
     await symlink(sourcePath, targetPath);
   },
-  herdrDecoupleEnabled: () => REAL_FEATURE_FLAGS_SERVICE.enabled('herdr-decouple'),
   pathSymlinkTargets: () => [
     path.join(os.homedir(), 'bin', 'throne'),
     path.join(os.homedir(), 'bin', 'throne-cli'),
@@ -120,4 +119,6 @@ export const REAL_DEPS: InstallServicesDeps = {
     await mkdir(path.dirname(settingsPath), { recursive: true });
     await writeFile(settingsPath, content);
   },
+  herdrConfigPath: () => herdrConfigPath(),
+  bashrcPath: () => path.join(os.homedir(), '.bashrc'),
 };

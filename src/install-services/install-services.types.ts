@@ -51,7 +51,6 @@ export interface InstallServicesDeps extends ServiceUnitDeps {
     sourcePath: string,
     targetPath: string,
   ): Promise<void>;
-  herdrDecoupleEnabled(): boolean;
   pathSymlinkTargets(): string[];
   inspectPathSymlink(
     targetPath: string,
@@ -68,4 +67,6 @@ export interface InstallServicesDeps extends ServiceUnitDeps {
   claudeSettingsPath(): string;
   readClaudeSettings(settingsPath: string): Promise<string | null>;
   writeClaudeSettings(settingsPath: string, content: string): Promise<void>;
+  herdrConfigPath(): string;
+  bashrcPath(): string;
 }

@@ -28,7 +28,9 @@ import { ConfirmedObservationTracker } from './confirmed-observation.ts';
 import { confirmNoLiveChildrenAlphaNames } from './fully-idle-family-confirmation.ts';
 import { buildNoIdlingMessage, buildUntaskedAgentsMessage } from './message.ts';
 import {
+  countStillBlockedSweeps,
   notifyClearedDependencyWakes,
+  notifyRegentOfStillBlockedAgents,
   readBlockedAgentDependents,
   resolveClearedDependencyWakes,
 } from './dependency-cleared-wake.ts';
@@ -296,8 +298,14 @@ export async function runNoIdling(
     readBlockedAgentDependents(lastMessageTags),
     dataDir,
     deps.isRegisteredAgent,
+    lastMessageTags,
+  );
+  const stillBlockedSweepCounts = countStillBlockedSweeps(
+    rawDeps.stillBlockedObservations ?? new Map<string, number>(),
+    clearedDependencyWakes,
   );
   await notifyClearedDependencyWakes(deps, clearedDependencyWakes);
+  await notifyRegentOfStillBlockedAgents(deps, clearedDependencyWakes, stillBlockedSweepCounts);
 
   const families = findFullyIdleFamilies({
     roster,

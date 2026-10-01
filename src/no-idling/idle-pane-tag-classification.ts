@@ -19,8 +19,10 @@ export type LastMessageTagState =
 // Herdr renders attributed turns with a leading `›`; accept both the raw
 // transcript form and the normalized form so stale markers before the latest
 // empty/ordinary turn cannot leak into the current-message classification.
-const ATTRIBUTED_PROMPT_LINE =
-  /^[ \t]*(?:›[ \t]*)?[A-Za-z0-9][A-Za-z0-9._-]*[ \t]+said:[ \t]/;
+const USER_TURN_GLYPHS = '›❯';
+const ATTRIBUTED_PROMPT_LINE = new RegExp(
+  `^[ \\t]*(?:[${USER_TURN_GLYPHS}][ \\t]*)?[A-Za-z0-9][A-Za-z0-9._-]*[ \\t]+said:[ \\t]`,
+);
 
 // Assistant turns are bulleted, but the glyph is HARNESS-SPECIFIC: Codex panes
 // render U+2022 BULLET (`•`) while Claude Code panes render U+25CF BLACK CIRCLE
@@ -29,10 +31,10 @@ const ATTRIBUTED_PROMPT_LINE =
 // seen publishing {"blocked":true}, so every sweep re-notified it forever.
 // Observed live 2026-08-08 once the active preset routed every role to
 // claude/sonnet. Any new harness's glyph must be added here.
-const ASSISTANT_TURN_GLYPHS = '•●';
+const ASSISTANT_TURN_GLYPHS = '•●⏺';
 const ASSISTANT_TURN_LINE = new RegExp(`^[ \\t]*[${ASSISTANT_TURN_GLYPHS}][ \\t]+`);
 const ASSISTANT_TURN_PREFIX = new RegExp(`^[ \\t]*[${ASSISTANT_TURN_GLYPHS}][ \\t]+`);
-const TURN_BOUNDARY_LINE = new RegExp(`^[ \\t]*(?:[${ASSISTANT_TURN_GLYPHS}]|›)[ \\t]+`);
+const TURN_BOUNDARY_LINE = new RegExp(`^[ \\t]*[${ASSISTANT_TURN_GLYPHS}${USER_TURN_GLYPHS}][ \\t]+`);
 
 // The indented pane FOOTER (model · effort · cwd) ends the last turn. Its shape is
 // also harness-specific: Codex writes `gpt-5.6-luna low · /path` (footer token

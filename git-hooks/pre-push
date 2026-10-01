@@ -1,0 +1,9 @@
+#!/bin/sh
+dispatcher_directory=$(dirname "$0")
+
+ref_lines=$(mktemp "${TMPDIR:-/tmp}/push-check-refs.XXXXXX") || exit 1
+trap 'rm -f "$ref_lines"' EXIT
+cat >"$ref_lines"
+
+"$dispatcher_directory/checks-only/pre-push" "$@" <"$ref_lines" || exit
+"$dispatcher_directory/run-repository-hook" pre-push "$@" <"$ref_lines"

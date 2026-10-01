@@ -9,12 +9,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AlphaAutoscaleHostedWorker, type AlphaAutoscaleDependencies } from "./alpha-autoscale.hosted-worker.ts";
+import { acquireSweepLockOfItsOwn } from "./alpha-autoscale-sweep-lock-test-fixtures.ts";
 
 function stubDependencies(
   overrides: Partial<AlphaAutoscaleDependencies> = {},
 ): AlphaAutoscaleDependencies {
   return {
     log: () => {},
+    acquireSweepLock: acquireSweepLockOfItsOwn,
     notifyOfFloorBreach: {
       resolveAgent: async () => ({ paneId: "test-pane" }) as never,
       submitToAgent: async () => {},
@@ -72,11 +74,8 @@ test("a manual alpha-autoscale trigger cannot run concurrently with a live cron 
   );
 
   const cronRun = cronWorker.runOnce();
-  // Give the cron tick's own microtasks a chance to reach its (currently
-  // pending) `readActiveCapacityInputs` gap before the "route" caller is
-  // even submitted to the shared gate.
-  for (let drain = 0; drain < 8; drain++) {
-    await Promise.resolve();
+  while (!order.includes("cron-start")) {
+    await new Promise((resolve) => setImmediate(resolve));
   }
   const routeRun = routeWorker.runOnce();
 

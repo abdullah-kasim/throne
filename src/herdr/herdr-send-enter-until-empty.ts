@@ -5,8 +5,14 @@ import { RecipientPaneLockService } from "../shared-policy/recipient-pane-lock.s
 import { captureComposerTimeoutDiagnostic } from "./herdr-composer-diagnostic-capture.ts";
 import { REAL_KEYED_SUBMISSION_WINDOW_STORE } from "./keyed-submission-token.ts";
 import { getPaneProcessInfo, resolveAgent } from "./herdr-runtime.service.ts";
+import { getPaneProcessInfoInSession, listAgentsInSession } from "./herdr-runtime-session-reads.ts";
 import type { HerdrAgent } from "./herdr-inventory.service.ts";
 import { pressEnter, pressPaneKey, sendText } from "./herdr-client.ts";
+import {
+  pressEnterInSession,
+  pressPaneKeyInSession,
+  sendTextInSession,
+} from "./herdr-client-session-writes.ts";
 import {
   describeEnterPresses,
   PRESS_ENTER_UNTIL_EMPTY_BOUNDS,
@@ -19,6 +25,12 @@ import {
   readVisibleCodexAgentAnsi,
   sleep,
 } from "./herdr-screen.service.ts";
+import {
+  readRecentAgentAnsiInSession,
+  readRecentCodexAgentAnsiInSession,
+  readVisibleAgentAnsiInSession,
+  readVisibleCodexAgentAnsiInSession,
+} from "./herdr-screen-session-reads.ts";
 import {
   SubmitAssumedFilledError,
   type ComposerClearanceContract,
@@ -50,6 +62,37 @@ export const REAL_SUBMIT_TO_AGENT_DEPS: SubmitToAgentDeps = {
   keyedSubmissionWindowStore: REAL_KEYED_SUBMISSION_WINDOW_STORE,
   captureComposerDiagnostic: captureComposerTimeoutDiagnostic,
 };
+
+export function buildSubmitToAgentDeps(
+  sessionName: string,
+  processBoundary?: Parameters<typeof sendTextInSession>[3],
+): SubmitToAgentDeps {
+  return {
+    sendText: (target, text) => sendTextInSession(sessionName, target, text, processBoundary),
+    deliverToOmp,
+    pressEnter: (pane) => pressEnterInSession(sessionName, pane, processBoundary),
+    pressPaneKey: (pane, key) => pressPaneKeyInSession(sessionName, pane, key, processBoundary),
+    getPaneProcessInfo: (paneId) => getPaneProcessInfoInSession(sessionName, paneId, processBoundary),
+    readVisibleAgentAnsi: (target) => readVisibleAgentAnsiInSession(sessionName, target, processBoundary),
+    readRecentAgentAnsi: (target) => readRecentAgentAnsiInSession(sessionName, target, processBoundary),
+    readVisibleCodexAgentAnsi: (target) =>
+      readVisibleCodexAgentAnsiInSession(sessionName, target, processBoundary),
+    readRecentCodexAgentAnsi: (target) =>
+      readRecentCodexAgentAnsiInSession(sessionName, target, processBoundary),
+    sleep,
+    now: Date.now,
+    refreshRecipientIdentity: async (recipientName) =>
+      resolveAgent(recipientName, {
+        listAgents: () => listAgentsInSession(sessionName),
+      }),
+    withRecipientPaneLock:
+      RECIPIENT_PANE_LOCK.withRecipientPaneLock.bind(RECIPIENT_PANE_LOCK),
+    stagePayload,
+    fileBackedPayloadsEnabled: shouldUseFileBackedAgentPayloads(),
+    keyedSubmissionWindowStore: REAL_KEYED_SUBMISSION_WINDOW_STORE,
+    captureComposerDiagnostic: captureComposerTimeoutDiagnostic,
+  };
+}
 
 export const REAL_ENTER_UNTIL_EMPTY_DEPS = {
   pressEnter,

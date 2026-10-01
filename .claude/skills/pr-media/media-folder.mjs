@@ -40,6 +40,53 @@ export function listMediaFiles(folder) {
   return files;
 }
 
+const PAIR_SIDE_SUFFIX = /-(before|after)$/;
+
+function stemOf(name) {
+  return path.basename(name, path.extname(name));
+}
+
+export function pairSideOf(name) {
+  return stemOf(name).match(PAIR_SIDE_SUFFIX)?.[1];
+}
+
+export function pairStemOf(name) {
+  return stemOf(name).replace(PAIR_SIDE_SUFFIX, '');
+}
+
+export function groupIntoPairsAndSingles(files) {
+  const groups = [];
+  const pairsByStem = new Map();
+  for (const file of files) {
+    const side = pairSideOf(file.name);
+    if (!side) {
+      groups.push({ single: file });
+      continue;
+    }
+    const stem = pairStemOf(file.name);
+    let pair = pairsByStem.get(stem);
+    if (!pair) {
+      pair = { stem, before: undefined, after: undefined };
+      pairsByStem.set(stem, pair);
+      groups.push({ pair });
+    }
+    if (pair[side]) throw new Error(`${pair[side].name} and ${file.name} are both the ${side} side of ${stem}; keep one`);
+    pair[side] = file;
+  }
+  return groups.map((group) => {
+    if (!group.pair || (group.pair.before && group.pair.after)) return group;
+    return { single: group.pair.before ?? group.pair.after };
+  });
+}
+
+export function filesInBodyOrder(groups) {
+  return groups.flatMap((group) => (group.pair ? [group.pair.before, group.pair.after] : [group.single]));
+}
+
+export function namesMissingTheirPartner(groups) {
+  return groups.filter((group) => group.single && pairSideOf(group.single.name)).map((group) => group.single.name);
+}
+
 export function sizeRefusal(file) {
   if (file.bytes === 0) return `${file.name} is empty`;
   const limit = file.kind === 'image' ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;

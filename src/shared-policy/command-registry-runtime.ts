@@ -140,13 +140,15 @@ export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
     provider: AlphaAutoscaleTickCommand,
     visibility: "public",
     migrated: false,
-    description: "Run one published alpha-autoscale watchdog tick.",
+    description:
+      "Run one alpha-autoscale sweep inside throne-backend over REST under the cross-process sweep lock; --local runs it in this process, under the same lock.",
   },
   {
     name: "autoscale-now",
     provider: AutoscaleNowCommand,
     visibility: "public",
     migrated: false,
-    description: "Check the queue and spawn now, without waiting for the five-minute autoscale cron (alias of alpha-autoscale-tick).",
+    description:
+      "Check the queue and spawn now, without waiting for the five-minute autoscale cron (alias of alpha-autoscale-tick): runs inside throne-backend over REST; --local runs it here.",
   },
 ] as const;

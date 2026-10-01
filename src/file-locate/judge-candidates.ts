@@ -7,10 +7,10 @@ import {
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
 import { RULES_BACKEND, meaningfulWords } from '../relevance-classifier/rules-backend.ts';
+import { answeredPiecesGroupByGroup } from '../item-rank/answered-pieces.ts';
 import { isUnderAnyRoot, type RankItem } from '../item-rank/rank-items.ts';
 import { requestsPackedUnderTheStateLimit } from '../item-rank/rank-requests.ts';
 
-const REQUESTS_ASKED_AT_ONCE = 8;
 const HEAD_LINES_ALWAYS_INCLUDED = 120;
 const CONTEXT_LINES_AROUND_A_HIT = 8;
 
@@ -28,7 +28,7 @@ export interface JudgeDependencies {
 }
 
 export const PRODUCTION_JUDGE_DEPENDENCIES: JudgeDependencies = {
-  chooseBackend: (config) => chooseClassifierBackend(config),
+  chooseBackend: (config) => chooseClassifierBackend(config, 'locate'),
   readFile: (path) => readFile(path, 'utf8'),
   realPathOrUndefined: async (path) => {
     try {
@@ -97,29 +97,23 @@ async function probabilitiesByPath(
 ): Promise<ReadonlyMap<string, number>> {
   const requests = requestsPackedUnderTheStateLimit(judgeQuestionText(task), items);
   const probabilityByPath = new Map<string, number>();
-  for (let start = 0; start < requests.length; start += REQUESTS_ASKED_AT_ONCE) {
-    const group = requests.slice(start, start + REQUESTS_ASKED_AT_ONCE);
-    const groupAnswers = await Promise.all(
-      group.map((request) =>
-        askFailingOpen(
-          backend,
-          request.state,
-          request.questions,
-          { writeStderr: dependencies.writeStderr },
-          backendWhenTheFirstFails === undefined ? {} : { backendWhenTheFirstFails },
-        ),
-      ),
-    );
-    group.forEach((request, requestIndex) => {
-      for (const answer of groupAnswers[requestIndex] ?? []) {
-        const piece = request.piecesByQuestionId.get(answer.questionId);
-        if (piece === undefined) continue;
-        probabilityByPath.set(
-          piece.item.id,
-          Math.max(probabilityByPath.get(piece.item.id) ?? 0, answer.probability),
-        );
-      }
-    });
+  const answeredGroups = answeredPiecesGroupByGroup(requests, (request) =>
+    askFailingOpen(
+      backend,
+      request.state,
+      request.questions,
+      { writeStderr: dependencies.writeStderr },
+      backendWhenTheFirstFails === undefined ? {} : { backendWhenTheFirstFails },
+    ),
+  );
+  for await (const answeredPieces of answeredGroups) {
+    for (const { answer, piece } of answeredPieces) {
+      if (piece === undefined) continue;
+      probabilityByPath.set(
+        piece.item.id,
+        Math.max(probabilityByPath.get(piece.item.id) ?? 0, answer.probability),
+      );
+    }
   }
   return probabilityByPath;
 }

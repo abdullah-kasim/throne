@@ -31,8 +31,7 @@ export interface AgentStartEvidence {
 }
 export interface StartCallerContext {
   callerCwd: string;
-  herdrSession: string | null;
-  herdrDecouple: boolean;
+  herdrSession: string;
   focusedPane?: { paneId: string; tabId?: string };
   env: Record<string, string>;
 }
@@ -40,7 +39,6 @@ export interface StartCallerContextDeps {
   runHerdr: typeof import("./herdr-client.ts").runHerdr;
   cwd: () => string;
   env: Record<string, string | undefined>;
-  runtimeMode: import("./herdr-client.ts").HerdrRuntimeMode;
 }
 export interface StartInTabDeps {
   runHerdr: typeof import('./herdr-client.ts').runHerdr;

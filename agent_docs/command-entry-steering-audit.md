@@ -267,8 +267,8 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `memory-dir` | invalid value | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `a resolver failure is a steered exit 2 with the cause`. |
 | `memory-dir` | policy refusal | N/A | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; resolution has no policy gate. |
 | `recall` | unknown flag | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `an unknown flag is a steered exit 2`. |
-| `recall` | missing argument | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `recall without task text is refused with the usage`. |
-| `recall` | invalid value | N/A | `--session` and `--directory` accept any string; an unresolvable directory degrades to the global memory directories. |
+| `recall` | missing argument | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `recall without task text is refused with the usage`. A hand call with neither `--directory` nor `--memory-dir` is refused naming both flags and the current directory. |
+| `recall` | invalid value | PASS | Executable evidence: `src/memory-recall/recall-scope.spec.ts` — `a hand recall whose --directory has no findable memory directory is refused naming it`. A `--directory` whose memory directory cannot be resolved is refused naming that directory, never dropped to the global memory directories. |
 | `recall` | policy refusal | N/A | No entrance policy gate; `--hook` with `recall.hookEnabled` false is a silent exit 0 by design, never a refusal. |
 | `rank` | unknown flag | PASS | Executable evidence: `src/item-rank/rank.command.spec.ts` — `rank without a question, or with an unknown flag, is a steered exit 2`. |
 | `rank` | missing argument | PASS | Executable evidence: `src/item-rank/rank.command.spec.ts` — `rank without a question, or with an unknown flag, is a steered exit 2`. |
@@ -278,6 +278,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `sift` | missing argument | PASS | Executable evidence: `src/log-sift/sift.command.spec.ts` — `sift without a query is refused with the usage and reads nothing`. |
 | `sift` | invalid value | N/A | The query is free text. |
 | `sift` | policy refusal | N/A | No entrance policy gate exists. |
+| `jev-probe` | unknown flag | PASS | Executable evidence: `src/jev-probe/jev-probe.spec.ts` — `a Jev probe with an unknown flag is a steered exit 2 that sends nothing`. |
+| `jev-probe` | missing argument | PASS | Executable evidence: `src/jev-probe/jev-probe.spec.ts` — `a Jev probe without a question or a state is refused with the usage and sends nothing`. |
+| `jev-probe` | invalid value | PASS | Executable evidence: `src/jev-probe/jev-probe.spec.ts` — `a Jev probe cannot repeat more than five times`. |
+| `jev-probe` | policy refusal | PASS | Executable evidence: `src/jev-probe/jev-probe.spec.ts` — `a Jev probe that would not fit in the remaining budget is refused before anything is sent` and `a Jev probe says why when Jev is switched off`. |
 | `reclaim-agent-scratchpads` | unknown flag | PASS | Executable evidence: `src/command-entry-steering-batch-b.spec.ts` — `reclaim-agent-scratchpads entrance refusals state WHY, no bypass, HUMAN ROUTE, status, and no effect`. |
 | `reclaim-agent-scratchpads` | missing argument | N/A | All options are optional; dry-run is the default. |
 | `reclaim-agent-scratchpads` | invalid value | N/A | No enum/numeric value domain exists; `--tmp-root`/`--worktrees-root`/`--data-dir` accept any string path. |

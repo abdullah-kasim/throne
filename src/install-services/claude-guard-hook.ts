@@ -1,30 +1,20 @@
 import path from 'node:path';
+import {
+  isJsonObject,
+  registerHookInClaudeSettings,
+  type JsonObject,
+  type SettingsHookOutcome,
+  type SettingsWithHookRegistered,
+} from './claude-settings-hook.ts';
 import type {
   InstallServicesDeps,
   InstallServicesOptions,
 } from './install-services.types.ts';
-import {
-  writeInstallServicesError,
-  writeInstallServicesLine,
-} from './output.ts';
 
 export const GUARD_HOOK_FILE_NAME = 'scratch-path-guard.py';
 export const RETIRED_GUARD_HOOK_FILE_NAME = 'rm-literal-home-guard.py';
 const GUARD_HOOK_STATUS_MESSAGE = 'scratch path guard';
 const GUARD_HOOK_TIMEOUT_SECONDS = 5;
-
-export type GuardHookRegistrationChange =
-  | 'unchanged'
-  | 'registered'
-  | 'replaced';
-
-export type GuardHookOutcome = GuardHookRegistrationChange | 'error';
-
-type JsonObject = Record<string, unknown>;
-
-function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 export function guardHookPath(throneRoot: string): string {
   return path.join(throneRoot, 'claude-hooks', GUARD_HOOK_FILE_NAME);
@@ -45,7 +35,7 @@ function isGuardHook(hook: unknown): boolean {
 export function withGuardHookRegistered(
   settings: JsonObject,
   command: string,
-): { settings: JsonObject; change: GuardHookRegistrationChange } {
+): SettingsWithHookRegistered {
   const hooks = isJsonObject(settings.hooks) ? settings.hooks : {};
   const preToolUse = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : [];
   const guardHook = {
@@ -99,46 +89,11 @@ export function withGuardHookRegistered(
 export async function installClaudeGuardHook(
   deps: InstallServicesDeps,
   options: InstallServicesOptions,
-): Promise<GuardHookOutcome> {
-  const settingsPath = deps.claudeSettingsPath();
-  const existingText = await deps.readClaudeSettings(settingsPath);
-  let existing: unknown = {};
-  if (existingText !== null && existingText.trim() !== '') {
-    try {
-      existing = JSON.parse(existingText);
-    } catch (error) {
-      writeInstallServicesError(
-        `install-services: ${settingsPath} is not valid JSON, so the Claude guard hook was not registered: ${
-          error instanceof Error ? error.message : String(error)
-        }\n`,
-      );
-      return 'error';
-    }
-  }
-  if (!isJsonObject(existing)) {
-    writeInstallServicesError(
-      `install-services: ${settingsPath} does not hold a JSON object, so the Claude guard hook was not registered\n`,
-    );
-    return 'error';
-  }
-  const { settings, change } = withGuardHookRegistered(
-    existing,
-    guardHookCommand(options.throneRoot),
+): Promise<SettingsHookOutcome> {
+  return registerHookInClaudeSettings(
+    deps,
+    options,
+    'claude guard hook',
+    (settings) => withGuardHookRegistered(settings, guardHookCommand(options.throneRoot)),
   );
-  if (change === 'unchanged') {
-    writeInstallServicesLine(`claude guard hook: unchanged → ${settingsPath}`);
-    return change;
-  }
-  if (options.dryRun) {
-    writeInstallServicesLine(
-      `would ${change === 'registered' ? 'register' : 'replace'} claude guard hook → ${settingsPath}`,
-    );
-    return change;
-  }
-  await deps.writeClaudeSettings(
-    settingsPath,
-    `${JSON.stringify(settings, null, 2)}\n`,
-  );
-  writeInstallServicesLine(`claude guard hook: ${change} → ${settingsPath}`);
-  return change;
 }

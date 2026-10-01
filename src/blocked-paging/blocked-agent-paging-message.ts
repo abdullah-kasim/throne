@@ -74,6 +74,19 @@ export function buildBlockedAgentPagingMessage(params: BlockedAgentPagingMessage
   );
 }
 
+export function buildNamelessBlockPagingMessage(params: {
+  readonly agentName: string;
+  readonly cwd?: string;
+  readonly paneId: string;
+}): string {
+  const context = renderContext({ ...params, title: null, stateLabels: {} });
+  return (
+    `${params.agentName} is blocked but names no child the sweep can read (${context}). ` +
+    `Its {"blocked":true} carries no readable BLOCKED_BY_<name>, so nothing wakes it when its children finish -- ` +
+    `read its pane, check what it is waiting on, and tell it directly.`
+  );
+}
+
 export function buildMcqTakeOverPagingMessage(params: {
   readonly agentName: string;
   readonly paneId: string;

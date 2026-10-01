@@ -5,6 +5,7 @@ import {
   type AlphaAutoscaleDependencies,
 } from "./alpha-autoscale.hosted-worker.ts";
 import type { LaunchQueueCandidate } from "../alpha-launch-queue/ready-queue.ts";
+import { acquireSweepLockOfItsOwn } from "./alpha-autoscale-sweep-lock-test-fixtures.ts";
 
 function candidate(
   overrides: Partial<LaunchQueueCandidate> = {},
@@ -32,6 +33,7 @@ async function argvHandedToCreateAgent(
   let createAgentArgv: readonly string[] | undefined;
   const deps: AlphaAutoscaleDependencies = {
     log: () => {},
+    acquireSweepLock: acquireSweepLockOfItsOwn,
     notifyOfFloorBreach: {
       resolveAgent: async () => ({ paneId: "test-pane" }) as never,
       submitToAgent: async () => {},

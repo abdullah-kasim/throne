@@ -9,9 +9,8 @@ scoped to the throne for discovery as well.
 `claude/agent_docs/skills` tree on 2026-09-02, by the Lord's order): its whole
 subject is throne-managed harness artifacts, it requires a live throne root, and
 global discovery only surfaced it where it could never run. Codex no longer sees
-it through the tracked `codex/.agents/skills` link. The skill may check, update, or roll back throne-managed
-Claude Code and Codex CLI artifacts only when `harness-decouple` is explicitly
-enabled; OFF performs no discovery or ownership mutation. Its deterministic
+it through the tracked `codex/.agents/skills` link. The skill checks, updates, or rolls back throne-managed
+Claude Code and Codex CLI artifacts. Its deterministic
 script stages and probes each harness in isolation and has no live Herdr
 operation. See `throne/.claude/skills/update-harnesses/SKILL.md` for the operator flow and evidence contract.
 

@@ -1,5 +1,5 @@
 import {
-  listLiveAgentStatuses,
+  listLiveAgentStatusesAcrossSessions,
   type LiveAgentStatus,
 } from './agent-statuses-herdr.ts';
 import {
@@ -188,7 +188,7 @@ export interface AgentStatusesRosterDependencies {
 }
 
 const DEFAULT_ROSTER_DEPENDENCIES: AgentStatusesRosterDependencies = {
-  listLiveAgentStatuses,
+  listLiveAgentStatuses: listLiveAgentStatusesAcrossSessions,
   listRegisteredAgentNames,
   listCompletedAgentNames,
   readAgentStatusRole,

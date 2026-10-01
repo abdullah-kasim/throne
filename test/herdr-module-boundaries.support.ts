@@ -76,7 +76,7 @@ export const HERDR_PUBLIC_SURFACE: readonly string[] = [
   'HERDR_PROMPT_SETTLED_TIMEOUT_MS',
   'CreatedTab', 'DeliverOpeningPromptDeps', 'HerdrAgent', 'HerdrAttachBoundary',
   'HerdrCommandError', 'HerdrCompatibilityError', 'HerdrForegroundProcess', 'HerdrNameOwner', 'HerdrPane',
-  'HerdrPaneProcessInfo', 'HerdrProcessBoundary', 'HerdrRuntimeMode', 'HerdrTab',
+  'HerdrPaneProcessInfo', 'HerdrProcessBoundary', 'HerdrTab',
   'OPENING_PROMPT_NAME_REGISTRATION_ATTEMPTS',
   'OPENING_PROMPT_NAME_REGISTRATION_POLL_MILLISECONDS', 'OpeningPromptDeliveryError',
   'PaneReadinessTimeoutError', 'RESTORED_TAB_RACE_RECHECK_ATTEMPTS', 'RESTORED_TAB_RACE_RECHECK_MS',

@@ -11,7 +11,6 @@ export {
   HerdrCommandError,
   HerdrCompatibilityError,
   type HerdrProcessBoundary,
-  type HerdrRuntimeMode,
   parseHerdrErrorCode,
   preflightHerdrCompatibility,
   pressEnter,

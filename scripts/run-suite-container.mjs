@@ -19,13 +19,10 @@
 // separate slot-acquisition logic lives here — see main() below.
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  HERDR_DECOUPLE_FEATURE_FLAG_NAME,
-} from "../src/herdr/herdr-client.ts";
 import { buildBoundedSuiteAppImage } from "./suite-owned-build.mjs";
 import {
   SUITE_CONTAINER_PLATFORM,
@@ -86,13 +83,6 @@ export function resolveSuiteRunPaths(runId, hostHome = os.homedir()) {
   ]) {
     mkdirSync(directory, { recursive: true });
   }
-  const throneConfigHome = path.join(configHome, "throne");
-  mkdirSync(throneConfigHome, { recursive: true });
-  writeFileSync(
-    path.join(throneConfigHome, "features.json"),
-    `${JSON.stringify({ [HERDR_DECOUPLE_FEATURE_FLAG_NAME]: true })}\n`,
-    "utf8",
-  );
   return {
     runRoot,
     home,

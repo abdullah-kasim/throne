@@ -3,17 +3,18 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const FEATURE_FLAG_NAMES = {
-  HARNESS_DECOUPLE: 'harness-decouple',
-  HERDR_DECOUPLE: 'herdr-decouple',
   SEND_AGENT_FILE_BACKED_PAYLOADS: 'send-agent-file-backed-payloads',
 } as const;
 export type FeatureFlagName =
   (typeof FEATURE_FLAG_NAMES)[keyof typeof FEATURE_FLAG_NAMES];
 export type ThroneFeatureFlags = Readonly<Record<FeatureFlagName, boolean>>;
 
+export const RETIRED_FEATURE_FLAG_NAMES: readonly string[] = [
+  'herdr-decouple',
+  'harness-decouple',
+];
+
 export const DEFAULT_FEATURE_FLAGS: ThroneFeatureFlags = {
-  [FEATURE_FLAG_NAMES.HARNESS_DECOUPLE]: false,
-  [FEATURE_FLAG_NAMES.HERDR_DECOUPLE]: false,
   [FEATURE_FLAG_NAMES.SEND_AGENT_FILE_BACKED_PAYLOADS]: false,
 };
 
@@ -22,6 +23,13 @@ export function featureFlagsPath(
   homeDirectory: string = os.homedir(),
 ): string {
   return path.join(xdgConfigHome ?? path.join(homeDirectory, '.config'), 'throne', 'features.json');
+}
+
+function isAcceptedFeatureFlagName(name: string): boolean {
+  return (
+    (Object.values(FEATURE_FLAG_NAMES) as string[]).includes(name) ||
+    RETIRED_FEATURE_FLAG_NAMES.includes(name)
+  );
 }
 
 export function parseFeatureFlags(
@@ -38,31 +46,10 @@ export function parseFeatureFlags(
     throw new Error(`Invalid throne feature flags in "${sourcePath}": expected an object`);
   }
   const record = value as Record<string, unknown>;
-  const knownFlags = new Set<FeatureFlagName>(
-    Object.values(FEATURE_FLAG_NAMES),
-  );
-  const unknown = Object.keys(record).filter(
-    (key) => !knownFlags.has(key as keyof ThroneFeatureFlags),
-  );
+  const unknown = Object.keys(record).filter((key) => !isAcceptedFeatureFlagName(key));
   if (unknown.length > 0) {
     throw new Error(
       `Invalid throne feature flags in "${sourcePath}": unknown flag "${unknown[0]}"`,
-    );
-  }
-  if (
-    FEATURE_FLAG_NAMES.HARNESS_DECOUPLE in record &&
-    typeof record[FEATURE_FLAG_NAMES.HARNESS_DECOUPLE] !== 'boolean'
-  ) {
-    throw new Error(
-      `Invalid throne feature flags in "${sourcePath}": "harness-decouple" must be boolean`,
-    );
-  }
-  if (
-    FEATURE_FLAG_NAMES.HERDR_DECOUPLE in record &&
-    typeof record[FEATURE_FLAG_NAMES.HERDR_DECOUPLE] !== 'boolean'
-  ) {
-    throw new Error(
-      `Invalid throne feature flags in "${sourcePath}": "herdr-decouple" must be boolean`,
     );
   }
   if (
@@ -74,12 +61,6 @@ export function parseFeatureFlags(
     );
   }
   return {
-    [FEATURE_FLAG_NAMES.HARNESS_DECOUPLE]:
-      (record[FEATURE_FLAG_NAMES.HARNESS_DECOUPLE] as boolean | undefined) ??
-      DEFAULT_FEATURE_FLAGS[FEATURE_FLAG_NAMES.HARNESS_DECOUPLE],
-    [FEATURE_FLAG_NAMES.HERDR_DECOUPLE]:
-      (record[FEATURE_FLAG_NAMES.HERDR_DECOUPLE] as boolean | undefined) ??
-      DEFAULT_FEATURE_FLAGS[FEATURE_FLAG_NAMES.HERDR_DECOUPLE],
     [FEATURE_FLAG_NAMES.SEND_AGENT_FILE_BACKED_PAYLOADS]:
       (record[FEATURE_FLAG_NAMES.SEND_AGENT_FILE_BACKED_PAYLOADS] as boolean | undefined) ??
       DEFAULT_FEATURE_FLAGS[FEATURE_FLAG_NAMES.SEND_AGENT_FILE_BACKED_PAYLOADS],
@@ -102,25 +83,11 @@ export function loadFeatureFlags(
 
 export const FEATURE_FLAGS = loadFeatureFlags();
 
-export function shouldOwnHarnessUpdates(
-  featureFlags: ThroneFeatureFlags = FEATURE_FLAGS,
-): boolean {
-  return featureFlags[FEATURE_FLAG_NAMES.HARNESS_DECOUPLE];
-}
-
-export function shouldUpdateHerdrInHarnessUpdate(
-  featureFlags: ThroneFeatureFlags = FEATURE_FLAGS,
-): boolean {
-  return featureFlags[FEATURE_FLAG_NAMES.HERDR_DECOUPLE];
-}
-
 export function shouldUseFileBackedAgentPayloads(
   featureFlags: ThroneFeatureFlags = FEATURE_FLAGS,
 ): boolean {
   return featureFlags[FEATURE_FLAG_NAMES.SEND_AGENT_FILE_BACKED_PAYLOADS];
 }
-
-
 
 export class FeatureFlagsService {
   private readonly read: () => ThroneFeatureFlags;
@@ -131,5 +98,3 @@ export class FeatureFlagsService {
   get all(): ThroneFeatureFlags { return this.read(); }
   enabled(name: FeatureFlagName): boolean { return this.all[name]; }
 }
-
-export const REAL_FEATURE_FLAGS_SERVICE = new FeatureFlagsService(() => loadFeatureFlags());

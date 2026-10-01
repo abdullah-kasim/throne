@@ -33,4 +33,5 @@ export interface Memory {
   readonly fileName: string;
   readonly frontmatter: MemoryFrontmatter;
   readonly body: string;
+  readonly fileText: string;
 }

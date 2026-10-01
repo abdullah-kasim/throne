@@ -87,6 +87,19 @@ harness and model fresh spawns run on, the autoscaler pause, and the git
 identity and signing key every commit carries. Every key is documented in
 **[docs/CONFIG.md](docs/CONFIG.md)**; `config.user.example.ts` is the template.
 
+## Throne commands
+
+Every public CLI command is listed in one document, grouped by family, with one
+line saying what each does. The flag-by-flag reference lives in
+`agent_docs/commands.md`. See
+**[docs/THRONE_COMMANDS.md](docs/THRONE_COMMANDS.md)**.
+
+## Throne skills
+
+Every skill shipped in `.claude/skills` is listed in one document, grouped by
+who runs it, and you invoke each one as `/<name>`. See
+**[docs/THRONE_SKILLS.md](docs/THRONE_SKILLS.md)**.
+
 ## Usage
 
 1. **Open the throne** — run `throne`. This connects you to the herdr

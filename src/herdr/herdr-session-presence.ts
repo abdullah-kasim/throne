@@ -14,7 +14,6 @@ export async function isInsideHerdrSession(
   try {
     const invocation = resolveHerdrReadOnlyInvocation(
       ['pane', 'current'],
-      dependencies.isHerdrDecoupleEnabled(),
       dependencies.ownedHerdrClientPath,
     );
     await dependencies.executeHerdrReadOnly(

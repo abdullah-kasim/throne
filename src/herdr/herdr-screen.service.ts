@@ -23,10 +23,7 @@ import {
   parseReadText,
   type HerdrAgent,
 } from "./herdr-inventory.service.ts";
-import {
-  DEFAULT_HERDR_PROCESS_BOUNDARY,
-  DEFAULT_HERDR_RUNTIME_MODE,
-} from "./herdr-client.ts";
+import { DEFAULT_HERDR_PROCESS_BOUNDARY } from "./herdr-client.ts";
 import {
   argvExecutableCandidates,
   executableName,
@@ -62,7 +59,6 @@ async function readAgentOutput(
   const { stdout } = await runHerdr(
     args,
     processBoundary,
-    DEFAULT_HERDR_RUNTIME_MODE,
     timeoutMilliseconds === undefined ? {} : { timeoutMilliseconds },
   );
   return parseReadText(stdout);

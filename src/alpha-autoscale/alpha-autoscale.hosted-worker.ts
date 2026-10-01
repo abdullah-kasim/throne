@@ -4,9 +4,8 @@ import path from "node:path";
 import type { CronHostedWorker } from "../throne-backend/hosted-worker.types.ts";
 import { readPsiPressure } from "../pressure-signal/psi-pressure-reader.ts";
 import { classifyPressure } from "../pressure-signal/classify-pressure.ts";
-import {
-  readCapacityPressure,
-} from "../keep-going/keep-going-pressure-report.ts";
+import { readCapacityPressure } from "../keep-going/keep-going-pressure-report.ts";
+import { queueRowEffortFlags } from "./queue-row-effort-flags.ts";
 import { readLaunchLedger } from "../alpha-launch-queue/launch-ledger-reader.ts";
 import { DEFAULT_LAUNCH_LEDGER_PATH } from "../alpha-launch-queue/paths.ts";
 import {
@@ -54,6 +53,15 @@ import {
 import { decideAutoscaleActionWithFloor } from "./decide-autoscale-action.ts";
 import { alphaAutoscaleExecutionGate } from "./alpha-autoscale-execution-gate.ts";
 import { readBypassFlagsAuthorizedForAlpha } from "./authorized-bypass-flags.ts";
+import {
+  ALPHA_AUTOSCALE_SWEEP_LOCK_PATH,
+  acquireSweepLock,
+  describeHeldSweepLock,
+  describeLostSweepLock,
+  describeReplacedSweepLock,
+  type SweepLockAcquisition,
+  type SweepLockLease,
+} from "./alpha-autoscale-sweep-lock.ts";
 
 export const ALPHA_AUTOSCALE_HOSTED_WORKER_NAME = "alpha-autoscale";
 
@@ -66,6 +74,7 @@ const MEMORY_PRESSURE_PATH = "/proc/pressure/memory";
 
 export interface AlphaAutoscaleDependencies {
   log: (message: string) => void;
+  acquireSweepLock: () => Promise<SweepLockAcquisition>;
   notifyOfFloorBreach: AlphaFloorBreachNotifyDeps;
   readPressure: () => PressureClassification;
   /** Releases deferred work whose dependencies finished, and — only when that
@@ -139,6 +148,7 @@ export function resolveAlphaAutoscaleDependencies(
  */
 export const ALPHA_AUTOSCALE_DEFAULT_DEPENDENCIES: AlphaAutoscaleDependencies = {
   log: (message) => console.log(`[alpha-autoscale] ${message}`),
+  acquireSweepLock: () => acquireSweepLock({ lockPath: ALPHA_AUTOSCALE_SWEEP_LOCK_PATH }),
   notifyOfFloorBreach: REAL_ALPHA_FLOOR_BREACH_NOTIFY_DEPS,
   // The admission gate reads cpu PSI, memory PSI, io PSI (`full` line) and the
   // run queue, merged into one figure inside `classifyPressure`, so
@@ -189,21 +199,24 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     return this.injectedDependencies ?? resolveAlphaAutoscaleDependencies();
   }
 
-  /**
-   * Funnels the entire sweep through `alphaAutoscaleExecutionGate` so this
-   * scheduled cron tick can never execute concurrently with a manual REST
-   * trigger of the same sweep against the same `throne-backend` process (see
-   * that gate's own doc comment). The real sweep body is `runOnceInternal`;
-   * `runOnce` itself does nothing but gate it, so every caller -- the cron
-   * provider registered in `ThroneBackendModule` and the route handler's own
-   * freshly constructed worker instance -- observes the same serialization
-   * without either having to call the gate itself.
-   */
   async runOnce(): Promise<void> {
-    return alphaAutoscaleExecutionGate.run(() => this.runOnceInternal());
+    const acquisition = await this.dependencies.acquireSweepLock();
+    if (acquisition.outcome === "held") {
+      this.dependencies.log(describeHeldSweepLock(acquisition));
+      return;
+    }
+    const lease = acquisition.lease;
+    if (acquisition.replaced !== undefined) {
+      this.dependencies.log(describeReplacedSweepLock(lease.lockPath, acquisition.replaced));
+    }
+    try {
+      await alphaAutoscaleExecutionGate.run(() => this.runOnceInternal(lease));
+    } finally {
+      await lease.release();
+    }
   }
 
-  private async runOnceInternal(): Promise<void> {
+  private async runOnceInternal(lease: SweepLockLease): Promise<void> {
     // Stager actuation deliberately absent: autoscale/autodispatch touch
     // Alphas and Shadows ONLY (Lord ruling 2026-08-19). The Stager-floor
     // effect lives solely in throne-startup's Regent boot reconciliation.
@@ -245,6 +258,10 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       launchesThisTick < ALPHA_AUTOSCALE_BOUNDS.hardMaximum;
       launchesThisTick += 1
     ) {
+      if (!(await lease.isStillHeld())) {
+        this.dependencies.log(describeLostSweepLock(lease.lockPath));
+        return;
+      }
       const pressure = this.dependencies.readPressure();
       launchBudget ??= alphaLaunchBudgetForPressure(pressure.pressure);
       const launched = await this.launchNextAlpha(
@@ -465,6 +482,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       "--model",
       candidate.model,
       ...authorizedBypassFlags,
+      ...queueRowEffortFlags(candidate.effort),
       ...(candidate.modelHint === null || candidate.modelHint === undefined
         ? []
         : ["--model-hint", `${candidate.modelHint.harness}/${candidate.modelHint.model}`]),

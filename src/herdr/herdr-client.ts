@@ -1,10 +1,8 @@
 import { execFile, spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Injectable } from '@nestjs/common';
 
-export const HERDR_DECOUPLE_FEATURE_FLAG_NAME = 'herdr-decouple';
 export const OWNED_HERDR_CLIENT_RELEASE_TAG = 'v0.8.2';
 
 /** The session name every herdr-dependent command targets. Resolved once, at
@@ -19,6 +17,19 @@ export function resolveThroneHerdrSessionName(
 }
 
 export const THRONE_HERDR_SESSION_NAME = resolveThroneHerdrSessionName();
+export const THRONE_HERDR_SESSION_NAMES: readonly string[] = [
+  THRONE_HERDR_SESSION_NAME,
+  'throne-bot',
+];
+
+export class DuplicateAgentNameAcrossSessionsError extends Error {
+  readonly name = 'DuplicateAgentNameAcrossSessionsError';
+  constructor(agentName: string, sessionNames: readonly string[]) {
+    super(
+      `agent name "${agentName}" exists in more than one registered herdr session (${sessionNames.join(', ')}); addressing it is ambiguous`,
+    );
+  }
+}
 /** The wire protocol `OWNED_HERDR_CLIENT_RELEASE_TAG` actually speaks, as
  *  reported by `herdr --session <name> status`. Verified against the pinned
  *  release, never assumed: v0.8.2 reports 20 — read from the new binary's
@@ -29,14 +40,6 @@ export const THRONE_HERDR_SESSION_NAME = resolveThroneHerdrSessionName();
 export const THRONE_HERDR_PROTOCOL = '20';
 export const CODEX_HERDR_READ_TIMEOUT_MS = 10_000;
 export const THRONE_HERDR_SESSION = THRONE_HERDR_SESSION_NAME;
-export const DEFAULT_HERDR_RUNTIME_MODE: HerdrRuntimeMode = {
-  herdrDecouple: isHerdrDecoupleEnabled(),
-};
-
-export interface HerdrRuntimeMode {
-  readonly herdrDecouple: boolean;
-}
-
 export interface HerdrAttachBoundary {
   attach(executablePath: string, args: string[]): Promise<number>;
 }
@@ -64,7 +67,6 @@ export interface HerdrReadOnlyResult {
 }
 
 export interface HerdrReadOnlyClientDependencies {
-  readonly isHerdrDecoupleEnabled: () => boolean;
   readonly ownedHerdrClientPath: () => string;
   readonly executeHerdrReadOnly: (
     executablePath: string,
@@ -84,6 +86,10 @@ const MUTATING_HERDR_COMMANDS = new Set([
   'tab create',
   'tab rename',
 ]);
+
+function isMutatingHerdrCommand(commandArgs: readonly string[]): boolean {
+  return MUTATING_HERDR_COMMANDS.has(`${commandArgs[0] ?? ''} ${commandArgs[1] ?? ''}`);
+}
 
 export class NestHerdrCommandError extends Error {
   readonly name = 'HerdrCommandError';
@@ -115,41 +121,6 @@ export class NestHerdrCommandError extends Error {
 
 export { NestHerdrCommandError as HerdrCommandError };
 
-export function isHerdrDecoupleEnabled(
-  env: NodeJS.ProcessEnv = process.env,
-  homeDirectory: string = os.homedir(),
-  readFile: (filePath: string) => string = (filePath) =>
-    readFileSync(filePath, 'utf8'),
-): boolean {
-  const configHome = env.XDG_CONFIG_HOME ?? path.join(homeDirectory, '.config');
-  const featureFlagsPath = path.join(configHome, 'throne', 'features.json');
-  let source: string;
-  try {
-    source = readFile(featureFlagsPath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return false;
-    }
-    throw error;
-  }
-
-  const value: unknown = JSON.parse(source);
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error(`Invalid throne feature flags in "${featureFlagsPath}": expected an object`);
-  }
-  const flagValue = (value as Record<string, unknown>)[HERDR_DECOUPLE_FEATURE_FLAG_NAME];
-  if (flagValue === undefined) {
-    return false;
-  }
-  if (typeof flagValue !== 'boolean') {
-    throw new Error(
-      `Invalid throne feature flags in "${featureFlagsPath}": ` +
-        `"${HERDR_DECOUPLE_FEATURE_FLAG_NAME}" must be boolean`,
-    );
-  }
-  return flagValue;
-}
-
 export function ownedHerdrClientPath(
   env: NodeJS.ProcessEnv = process.env,
   homeDirectory: string = os.homedir(),
@@ -166,34 +137,25 @@ export function ownedHerdrClientPath(
   );
 }
 
-/**
- * Which `herdr` executable a call resolves to is decided independently of
- * the `herdr-decouple` flag: whenever the pinned client
- * (`ownedHerdrClientPath()`) exists on disk, execution prefers it over
- * bare `'herdr'` (PATH), because PATH can silently resolve to a build whose
- * wire protocol disagrees with the pinned session server. PATH is used only
- * as a fallback for a box where the pinned client was never installed. The
- * `herdr-decouple` flag itself keeps its separate, narrower job: gating
- * install/manage/decoupled-service behavior and the explicit
- * `--session <name>` targeting those decoupled calls need — neither is
- * affected by which binary path an ordinary invocation resolves to.
- */
 export function resolveHerdrReadOnlyInvocation(
   commandArgs: readonly string[],
-  herdrDecoupled: boolean,
   resolveOwnedHerdrClientPath: () => string = ownedHerdrClientPath,
-  pinnedBinaryExists: (filePath: string) => boolean = existsSync,
 ): HerdrReadOnlyInvocation {
-  if (herdrDecoupled) {
-    return {
-      executablePath: resolveOwnedHerdrClientPath(),
-      args: ['--session', THRONE_HERDR_SESSION_NAME, ...commandArgs],
-    };
-  }
-  const pinnedPath = resolveOwnedHerdrClientPath();
+  return resolveHerdrReadOnlyInvocationForSession(
+    THRONE_HERDR_SESSION_NAME,
+    commandArgs,
+    resolveOwnedHerdrClientPath,
+  );
+}
+
+export function resolveHerdrReadOnlyInvocationForSession(
+  sessionName: string,
+  commandArgs: readonly string[],
+  resolveOwnedHerdrClientPath: () => string = ownedHerdrClientPath,
+): HerdrReadOnlyInvocation {
   return {
-    executablePath: pinnedBinaryExists(pinnedPath) ? pinnedPath : 'herdr',
-    args: [...commandArgs],
+    executablePath: resolveOwnedHerdrClientPath(),
+    args: ['--session', sessionName, ...commandArgs],
   };
 }
 
@@ -251,7 +213,6 @@ export function executeHerdrReadOnly(
 }
 
 export const DEFAULT_HERDR_READ_ONLY_CLIENT_DEPENDENCIES: HerdrReadOnlyClientDependencies = {
-  isHerdrDecoupleEnabled,
   ownedHerdrClientPath,
   executeHerdrReadOnly,
 };
@@ -272,7 +233,6 @@ export class HerdrClientService {
   invoke(commandArgs: readonly string[]): HerdrReadOnlyInvocation {
     return resolveHerdrReadOnlyInvocation(
       commandArgs,
-      this.dependencies.isHerdrDecoupleEnabled(),
       this.dependencies.ownedHerdrClientPath,
     );
   }
@@ -286,14 +246,13 @@ export class HerdrClientService {
   }
 
   async run(commandArgs: readonly string[]): Promise<HerdrReadOnlyResult> {
-    if (MUTATING_HERDR_COMMANDS.has(`${commandArgs[0] ?? ''} ${commandArgs[1] ?? ''}`)) {
+    if (isMutatingHerdrCommand(commandArgs)) {
       await this.preflightCompatibility();
     }
     return this.execute(commandArgs);
   }
 
   async preflightCompatibility(): Promise<void> {
-    if (!this.dependencies.isHerdrDecoupleEnabled()) return;
     const version = await this.execute(['--version']);
     const status = await this.execute(['status', 'server']);
     const expectedVersion = `herdr ${OWNED_HERDR_CLIENT_RELEASE_TAG.slice(1)}`;
@@ -328,9 +287,6 @@ export class HerdrClientService {
     args: string[],
     attachBoundary: HerdrAttachBoundary = DEFAULT_HERDR_ATTACH_BOUNDARY,
   ): Promise<number> {
-    if (!this.dependencies.isHerdrDecoupleEnabled()) {
-      throw new HerdrCompatibilityError('throne attach is disabled because feature flag "herdr-decouple" is OFF');
-    }
     const forbiddenSelector = args.find((arg) =>
       arg === '--session' || arg.startsWith('--session=') || arg === '--no-session' || arg === '--remote',
     );
@@ -380,55 +336,52 @@ const DEFAULT_CLIENT = new HerdrClientService();
 export function runHerdr(
   args: string[],
   processBoundary: HerdrProcessBoundary = DEFAULT_HERDR_PROCESS_BOUNDARY,
-  runtimeMode: HerdrRuntimeMode = {
-    herdrDecouple: DEFAULT_CLIENT.dependencies.isHerdrDecoupleEnabled(),
-  },
   options: { env?: NodeJS.ProcessEnv; timeoutMilliseconds?: number } = {},
 ): Promise<HerdrReadOnlyResult> {
-  const client = new HerdrClientService({
-    isHerdrDecoupleEnabled: () => runtimeMode.herdrDecouple,
-    ownedHerdrClientPath: DEFAULT_CLIENT.dependencies.ownedHerdrClientPath,
-    executeHerdrReadOnly: processBoundary.execute,
-  });
-  if (runtimeMode.herdrDecouple && MUTATING_HERDR_COMMANDS.has(`${args[0] ?? ''} ${args[1] ?? ''}`)) {
-    return client.preflightCompatibility().then(() => client.dependencies.executeHerdrReadOnly(
-      client.invoke(args).executablePath,
-      client.invoke(args).args,
-      options,
-    ));
-  }
+  const client = clientOverProcessBoundary(processBoundary);
   const invocation = client.invoke(args);
-  return client.dependencies.executeHerdrReadOnly(
+  const execute = () => client.dependencies.executeHerdrReadOnly(
     invocation.executablePath,
     invocation.args,
     options,
   );
+  if (isMutatingHerdrCommand(args)) {
+    return client.preflightCompatibility().then(execute);
+  }
+  return execute();
+}
+
+export function runHerdrInSession(
+  sessionName: string,
+  args: string[],
+  processBoundary: HerdrProcessBoundary = DEFAULT_HERDR_PROCESS_BOUNDARY,
+  options: { env?: NodeJS.ProcessEnv; timeoutMilliseconds?: number } = {},
+): Promise<HerdrReadOnlyResult> {
+  const invocation = resolveHerdrReadOnlyInvocationForSession(sessionName, args);
+  return processBoundary.execute(invocation.executablePath, invocation.args, options);
 }
 
 export async function preflightHerdrCompatibility(
   processBoundary: HerdrProcessBoundary = DEFAULT_HERDR_PROCESS_BOUNDARY,
-  runtimeMode: HerdrRuntimeMode = { herdrDecouple: DEFAULT_CLIENT.dependencies.isHerdrDecoupleEnabled() },
 ): Promise<void> {
-  const client = new HerdrClientService({
-    isHerdrDecoupleEnabled: () => runtimeMode.herdrDecouple,
-    ownedHerdrClientPath: DEFAULT_CLIENT.dependencies.ownedHerdrClientPath,
-    executeHerdrReadOnly: processBoundary.execute,
-  });
-  return client.preflightCompatibility();
+  return clientOverProcessBoundary(processBoundary).preflightCompatibility();
 }
 
 export async function attachThroneHerdr(
   args: string[],
   processBoundary: HerdrProcessBoundary = DEFAULT_HERDR_PROCESS_BOUNDARY,
   attachBoundary: HerdrAttachBoundary = DEFAULT_HERDR_ATTACH_BOUNDARY,
-  runtimeMode: HerdrRuntimeMode = { herdrDecouple: DEFAULT_CLIENT.dependencies.isHerdrDecoupleEnabled() },
 ): Promise<number> {
-  const client = new HerdrClientService({
-    isHerdrDecoupleEnabled: () => runtimeMode.herdrDecouple,
+  return clientOverProcessBoundary(processBoundary).attach(args, attachBoundary);
+}
+
+function clientOverProcessBoundary(
+  processBoundary: HerdrProcessBoundary,
+): HerdrClientService {
+  return new HerdrClientService({
     ownedHerdrClientPath: DEFAULT_CLIENT.dependencies.ownedHerdrClientPath,
     executeHerdrReadOnly: processBoundary.execute,
   });
-  return client.attach(args, attachBoundary);
 }
 
 export function sendText(target: string, text: string): Promise<void> {
@@ -442,3 +395,4 @@ export function pressEnter(pane: string): Promise<void> {
 export function pressPaneKey(pane: string, key: string): Promise<void> {
   return DEFAULT_CLIENT.pressPaneKey(pane, key);
 }
+

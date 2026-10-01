@@ -23,8 +23,10 @@ import {
   activeStagerPool,
   activeHarness,
   activeTargetEffort,
+  targetEffortForRole,
   type BuiltinPlanPresetName,
   type CustomPlanPresetPair,
+  type EffortRole,
   type PlanPresetName,
 } from "./steering-user-config.ts";
 
@@ -33,7 +35,9 @@ export {
   activeHarness,
   activePlanPresetName,
   activeTargetEffort,
+  targetEffortForRole,
   type BuiltinPlanPresetName,
+  type EffortRole,
   type PlanPresetName,
 };
 
@@ -139,6 +143,7 @@ const CLAUDE_OPUS_PAIR: ModelPair = {
 const CODEX_SOL: ModelPairPool = [CODEX_SOL_PAIR];
 const CODEX_LUNA: ModelPairPool = [CODEX_LUNA_PAIR];
 const CLAUDE_SONNET: ModelPairPool = [CLAUDE_SONNET_PAIR];
+const CLAUDE_OPUS: ModelPairPool = [CLAUDE_OPUS_PAIR];
 
 const CLAUDE_FABLE_OPUS: ModelPairPool = [CLAUDE_FABLE_PAIR, CLAUDE_OPUS_PAIR];
 
@@ -214,6 +219,10 @@ export const PLAN_PRESETS: Readonly<Record<BuiltinPlanPresetName, PlanPreset>> =
     UnifiedRouting: {
       name: "UnifiedRouting",
       rolePools: rolePools(CLAUDE_SONNET, CLAUDE_SONNET, CLAUDE_SONNET),
+    },
+    OpusOnly: {
+      name: "OpusOnly",
+      rolePools: rolePools(CLAUDE_OPUS, CLAUDE_OPUS, CLAUDE_OPUS),
     },
   };
 
@@ -395,6 +404,34 @@ export function classifyPlanRole(
     isShadowSlice99Name(finalName, objectiveCode)
     ? "ShadowSlice99"
     : "Shadow";
+}
+
+const EFFORT_ROLE_BY_PLAN_ROLE: Readonly<Record<PlanRole, EffortRole>> = {
+  Alpha: "alpha",
+  Shadow: "shadow",
+  ShadowSlice99: "shadowSlice99",
+  Stager: "stager",
+};
+
+export function effortRoleForAgent(
+  role: string,
+  finalName?: string,
+  objectiveCode?: string,
+): EffortRole | undefined {
+  if (role.trim().toLowerCase() === "regent") return "regent";
+  const planRole = classifyPlanRole(role, finalName, objectiveCode);
+  return planRole === undefined ? undefined : EFFORT_ROLE_BY_PLAN_ROLE[planRole];
+}
+
+export function targetEffortForAgent(
+  role: string,
+  finalName?: string,
+  objectiveCode?: string,
+): number {
+  const effortRole = effortRoleForAgent(role, finalName, objectiveCode);
+  return effortRole === undefined
+    ? activeTargetEffort()
+    : targetEffortForRole(effortRole);
 }
 
 export function planRolePool(

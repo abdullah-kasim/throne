@@ -205,7 +205,7 @@ throne_harness_hook_gaps() {
     local settings_path="$HOME/.claude/settings.json"
     hook_gaps_ref=()
     local hook_name hook_path
-    for hook_name in scratch-path-guard.py skill-write-guard.py; do
+    for hook_name in scratch-path-guard.py skill-write-guard.py memory-read-log.py jev-fence.py; do
         hook_path="$throne_root/claude-hooks/$hook_name"
         if ! grep -qF "$hook_path" "$settings_path" 2>/dev/null; then
             hook_gaps_ref+=("$hook_name is not registered in $settings_path")
@@ -220,7 +220,7 @@ throne_launch_check() {
     local launcher_name="$1"
     local throne_root="$2"
     local hook_name
-    for hook_name in scratch-path-guard.py skill-write-guard.py; do
+    for hook_name in scratch-path-guard.py skill-write-guard.py memory-read-log.py jev-fence.py; do
         if [[ ! -f "$throne_root/claude-hooks/$hook_name" ]]; then
             echo "$launcher_name: launch check: $throne_root/claude-hooks/$hook_name is missing from the throne checkout" >&2
         fi
@@ -253,6 +253,8 @@ throne_launch_check() {
                 echo "$launcher_name: launch check: throne expects the global skill $skill_name at $global_skills_link/$skill_name, and it is not there" >&2
             fi
         done < "$manifest_path"
+    else
+        echo "$launcher_name: launch check: $manifest_path is missing" >&2
     fi
 }
 

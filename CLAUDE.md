@@ -33,7 +33,7 @@ npm test
 npm run test:heavy
 
 # Run one named test (bypasses the suite guards below — use `npm test` before calling work done)
-node --test --test-name-pattern='durable ownership flags default OFF when the feature file is absent' test/featureflags.test.ts
+node --import ./test/register-typescript.mjs --test --test-name-pattern='a features file that names an unknown flag is still refused' src/shared-policy/feature-flags.service.spec.ts
 ```
 
 `npm test` is not a bare `node --test`: it runs through `scripts/run-suite-container.mjs` inside a container under whichever OCI runtime the host has (docker, then podman; `THRONE_CONTAINER_RUNTIME` forces one), which enforces a `dist-staleness-guard` (a stale `dist/` fails the suite — rebuild) and a `herdr-tab-leak-guard` before and after the run (a leaked herdr tab fails it). The single-test form above skips all of that.

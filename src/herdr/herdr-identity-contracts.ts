@@ -10,6 +10,7 @@ export interface HerdrAgent {
   paneId: string;
   tabId: string;
   terminalId: string;
+  herdrSessionName?: string;
 }
 
 export class AgentResolutionError extends Error {

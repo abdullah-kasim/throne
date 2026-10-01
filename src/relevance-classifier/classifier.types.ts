@@ -39,9 +39,22 @@ export interface BackendAnswer {
   readonly probability: number;
 }
 
+export const CLASSIFIER_TIMED_OUT = 'timed out';
+export const CLASSIFIER_BACKEND_ERROR = 'backend error';
+export const CLASSIFIER_RATE_LIMITED = 'rate-limited';
+export const CLASSIFIER_BUDGET_LOCK_BUSY = 'budget lock busy';
+export const CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER = 'build without Jev limiter';
+export type ClassifierFailure =
+  | typeof CLASSIFIER_TIMED_OUT
+  | typeof CLASSIFIER_BACKEND_ERROR
+  | typeof CLASSIFIER_RATE_LIMITED
+  | typeof CLASSIFIER_BUDGET_LOCK_BUSY
+  | typeof CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER;
+
 export interface ClassifierAnswer extends BackendAnswer {
   readonly backend: ClassifierBackendName;
   readonly failedOpen: boolean;
+  readonly failure?: ClassifierFailure;
 }
 
 export interface ClassifierBackend {

@@ -22,6 +22,7 @@ import {
 } from "./alpha-autoscale.hosted-worker.ts";
 import { buildFloorBreachNotice } from "./alpha-floor-notify.ts";
 import type { LaunchQueueCandidate } from "../alpha-launch-queue/ready-queue.ts";
+import { acquireSweepLockOfItsOwn } from "./alpha-autoscale-sweep-lock-test-fixtures.ts";
 
 const CANDIDATE = {
   name: "alpha-acp-alpha-claim-protocol",
@@ -56,6 +57,7 @@ function breachingSpawnTick(
   const order: string[] = [];
   const dependencies: AlphaAutoscaleDependencies = {
     log: () => {},
+    acquireSweepLock: acquireSweepLockOfItsOwn,
     notifyOfFloorBreach: {
       resolveAgent: async () => ({ paneId: "test-pane" }) as never,
       submitToAgent: async (_target, _sender, prompt) => {

@@ -103,3 +103,96 @@ test('an Alpha blocked with no named children is left untouched by the dependenc
   const wake = submitCalls.find((call) => call.target.name === 'alpha-wob');
   assert.equal(wake, undefined, 'no named children means this mechanism must never fire');
 });
+
+test('an Alpha blocked on a child that already published its reapable claim is woken and told to reap it', async () => {
+  const { dependencies, submitCalls } = deps({
+    getRoster: async () => [
+      rosterEntry('alpha-wob', 'Alpha', 'idle'),
+      rosterEntry('shadow-wob-99b', 'Shadow', 'idle'),
+    ],
+    readAgentSupervisor: async (name) =>
+      name === 'shadow-wob-99b' ? identityFound('alpha-wob') : identityFound('Regent'),
+    readAgent: async (name) =>
+      name === 'alpha-wob'
+        ? 'I will reap it once it publishes.\n{"blocked":true} __BLOCKED_BY_shadow-wob-99b__'
+        : 'Merged, you may publish.\n{"reapable":"completed"}',
+    isRegisteredAgent: async () => true,
+  });
+
+  const exitCode = await runNoIdling(dependencies, { notify: true });
+
+  assert.equal(exitCode, 0);
+  const wake = submitCalls.find((call) => call.target.name === 'alpha-wob');
+  assert.ok(wake, 'the blocked Alpha is woken even though its child is still registered');
+  assert.match(wake!.prompt, /shadow-wob-99b already published its \{"reapable":\.\.\.\} claim/);
+  assert.match(wake!.prompt, /reap it with reap-agent/);
+  const regentCallsNamingAlpha = submitCalls.filter(
+    (call) => call.target.name === 'Regent' && call.prompt.includes('alpha-wob'),
+  );
+  assert.deepEqual(regentCallsNamingAlpha, [], 'one sweep wakes the Alpha without costing the Regent a turn');
+});
+
+test('an Alpha blocked on one reapable child and one still-working child is left untouched', async () => {
+  const { dependencies, submitCalls } = deps({
+    getRoster: async () => [
+      rosterEntry('alpha-wob', 'Alpha', 'idle'),
+      rosterEntry('shadow-wob-01', 'Shadow', 'idle'),
+      rosterEntry('shadow-wob-02', 'Shadow', 'idle'),
+    ],
+    readAgentSupervisor: async (name) =>
+      ['shadow-wob-01', 'shadow-wob-02'].includes(name)
+        ? identityFound('alpha-wob')
+        : identityFound('Regent'),
+    readAgent: async (name) => {
+      if (name === 'alpha-wob') return '{"blocked":true} __BLOCKED_BY_shadow-wob-01__ __BLOCKED_BY_shadow-wob-02__';
+      if (name === 'shadow-wob-01') return '{"reapable":"completed"}';
+      return 'still working the slice';
+    },
+    isRegisteredAgent: async () => true,
+  });
+
+  const exitCode = await runNoIdling(dependencies, { notify: true });
+
+  assert.equal(exitCode, 0);
+  assert.equal(
+    submitCalls.find((call) => call.target.name === 'alpha-wob'),
+    undefined,
+    'a child that is still working keeps the block in place',
+  );
+});
+
+test('an Alpha still blocked on a reapable child on the next sweep is reported to the Regent once', async () => {
+  const stillBlockedObservations = new Map<string, number>();
+  const sweep = () =>
+    deps({
+      getRoster: async () => [
+        rosterEntry('alpha-wob', 'Alpha', 'idle'),
+        rosterEntry('shadow-wob-99b', 'Shadow', 'idle'),
+      ],
+      readAgentSupervisor: async (name) =>
+        name === 'shadow-wob-99b' ? identityFound('alpha-wob') : identityFound('Regent'),
+      readAgent: async (name) =>
+        name === 'alpha-wob'
+          ? '{"blocked":true} __BLOCKED_BY_shadow-wob-99b__'
+          : '{"reapable":"completed"}',
+      isRegisteredAgent: async () => true,
+      stillBlockedObservations,
+    });
+
+  const first = sweep();
+  await runNoIdling(first.dependencies, { notify: true });
+  assert.deepEqual(
+    first.submitCalls.filter((call) => call.target.name === 'Regent' && call.prompt.includes('alpha-wob')),
+    [],
+    'the first sweep only wakes the Alpha',
+  );
+
+  const second = sweep();
+  await runNoIdling(second.dependencies, { notify: true });
+  const notice = second.submitCalls.find(
+    (call) => call.target.name === 'Regent' && call.prompt.includes('alpha-wob'),
+  );
+  assert.ok(notice, 'the second sweep tells the Regent');
+  assert.match(notice!.prompt, /Still blocked on children that are already finished/);
+  assert.match(notice!.prompt, /shadow-wob-99b already published a reapable claim/);
+});

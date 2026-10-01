@@ -102,7 +102,7 @@ const userConfig: UserConfigFileOverride = {
   // toward, and the target effort every fresh spawn is clamped toward before
   // the per-model clamp applies.
   steering: {
-    activePlanPresetName: 'UnifiedRouting',
+    activePlanPresetName: 'OpusOnly',
     activeTargetEffort: 1,
 
     // Choose the message-delivery queue explicitly. Omit this field to retain
@@ -118,6 +118,18 @@ const userConfig: UserConfigFileOverride = {
     // config rather than spawning a different Stager than you asked for.
     //
     // stagerPool: [{ harness: 'omp', model: 'opus' }],
+
+    // Per-role effort, 1 to 6 (claude: 1 low, 2 medium, 3 high, 4 xhigh,
+    // 5 max). A role left out uses activeTargetEffort. A queue row's own
+    // --effort still wins for its campaign.
+    //
+    roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3 },
+
+    // WHICH PAIR THE REGENT RUNS ON. Absent = the old launch (the recorded
+    // data/regent route at effort 1, or bare bin/claudey). When set, the
+    // Regent launches on this pair at roleEfforts.regent.
+    //
+    // regentRoute: { harness: 'claude', model: 'opus' },
 
     // Durable operator disable for the token-balance load balancer
     // (src/token-balance/), independent of that feature's own ship-dark
@@ -196,6 +208,9 @@ const userConfig: UserConfigFileOverride = {
     // Read only at call time, only when jevEnabled is true. Keep it mode 600.
     jevKeyFile: '~/.jev-key',
 
+    jevTokensPerDay: 15_000_000,
+    jevTokensPerHour: 1_250_000,
+
     // `throne rank` sends FILE CONTENTS to TypeSafe when Jev is on, but only
     // for files under one of these directories. Anything else is ranked by
     // word matching on this machine and named on stderr as not sent. Stdin
@@ -220,6 +235,7 @@ const userConfig: UserConfigFileOverride = {
     // Total characters of memory text one recall may print. Claude Code
     // spills hook output over 10,000 characters to a file, so stay under it.
     maximumInjectedCharacters: 8000,
+    repositoryMemoryNamesPerRepository: 40,
 
     // Memory directories shared by every project, read in addition to the
     // project's own memory directory (`throne memory-dir .`). Empty by default.

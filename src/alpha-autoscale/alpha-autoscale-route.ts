@@ -12,6 +12,10 @@ import {
   AlphaAutoscaleHostedWorker,
   resolveAlphaAutoscaleDependencies,
 } from "./alpha-autoscale.hosted-worker.ts";
+import {
+  SWEEP_LOCK_LATEST_EXPIRY_MS,
+  SWEEP_LOCK_TIME_TO_LIVE_MS,
+} from "./alpha-autoscale-sweep-lock.ts";
 
 /**
  * This command's registered name on the transport route dispatcher.
@@ -73,9 +77,19 @@ export async function handleAlphaAutoscaleRoute(envelope: {
 
 const TRANSPORT_FLAG = "--transport";
 const LOCAL_FLAG = "--local";
+export const ALPHA_AUTOSCALE_DEFAULT_TRANSPORT = "rest";
+export const ALPHA_AUTOSCALE_TRANSPORT_REQUEST_TIMEOUT_MS =
+  SWEEP_LOCK_LATEST_EXPIRY_MS + SWEEP_LOCK_TIME_TO_LIVE_MS;
+
+export function createAlphaAutoscaleTransportClient(socketPath?: string): TransportClient {
+  return new TransportClient({
+    socketPath,
+    requestTimeoutMs: ALPHA_AUTOSCALE_TRANSPORT_REQUEST_TIMEOUT_MS,
+  });
+}
 
 export interface ParsedAlphaAutoscaleArgs {
-  readonly transport: string | undefined;
+  readonly transport: string;
   readonly local: boolean;
   readonly remainingArgs: string[];
 }
@@ -102,7 +116,7 @@ export function parseAlphaAutoscaleArgs(args: readonly string[]): ParsedAlphaAut
     }
     remainingArgs.push(argument);
   }
-  return { transport, local, remainingArgs };
+  return { transport: transport ?? ALPHA_AUTOSCALE_DEFAULT_TRANSPORT, local, remainingArgs };
 }
 
 /**
@@ -117,6 +131,10 @@ export async function runAlphaAutoscaleOverTransport(
   args: readonly string[],
 ): Promise<number> {
   let response: Awaited<ReturnType<TransportClient["request"]>>;
+  process.stderr.write(
+    "alpha-autoscale-tick: transport rest: running the sweep inside throne-backend " +
+      "(--local runs it in this process instead)\n",
+  );
   try {
     response = await client.request(ALPHA_AUTOSCALE_ROUTE_PATH, args);
   } catch (error) {
@@ -131,7 +149,8 @@ export async function runAlphaAutoscaleOverTransport(
   }
   if (!response.ok) {
     process.stderr.write(
-      `alpha-autoscale-tick: ${response.error?.message ?? "transport request failed"}\n`,
+      `alpha-autoscale-tick: ${response.error?.message ?? "transport request failed"}. ` +
+        `Pass --local to run the in-process sweep instead.\n`,
     );
     return 1;
   }

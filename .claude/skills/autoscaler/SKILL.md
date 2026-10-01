@@ -62,8 +62,11 @@ restart in either direction.
      load error means the write is malformed — fix the file, never add a
      bypass).
    - `off`: run `throne alpha-autoscale-tick`. It is SAFE while paused — it
-     must print exactly one `skip: autoscaler disabled in config.user.ts ...`
-     line and nothing else. Anything else means the pause is not in effect.
+     runs the sweep inside throne-backend over REST, and its stdout must be
+     exactly one `skip: autoscaler disabled in config.user.ts ...` line
+     (stderr carries one `transport rest` line). Anything else means the pause
+     is not in effect. If it exits non-zero naming `--local`, the backend is
+     down: rerun it as `throne alpha-autoscale-tick --local`.
    - `on`: do NOT run the tick as verification — a live tick with launchable
      work spawns a real Alpha. Verify the value with:
      `node -e "import('./src/alpha-autoscale/kill-switch.ts').then(async m => console.log(JSON.stringify(await m.readAutoscaleEnabledInUserConfig())))"`

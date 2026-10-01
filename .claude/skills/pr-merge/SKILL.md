@@ -82,16 +82,30 @@ The body carries this shape, filled in from the script's output:
   --delete-branch=false`, then read the pull request back and confirm
   `MERGED` and the squash commit on the default branch. The throne gh guard
   denies mutations by default; the Lord's merge order authorizes `--bypass`
-  on `pr merge` and `pr close`, and nothing else. A refusal from branch
-  protection (missing approval, failing required check) is NOT bypassed:
-  comment the refusal on the root, mark the campaign complete, report it.
+  on `pr merge`, `pr close` (each rolled pull request, with its one comment
+  naming the merge commit), and `pr comment` on the root pull request, the
+  last only for the two comments this skill prescribes (a branch-protection
+  refusal, and an Expect that still fails after a genuine fix), and nothing
+  else: no other comment, no review, no review request, no label, no body
+  edit. A refusal from branch protection (missing approval, failing
+  required check) is NOT bypassed: comment the refusal on the root, mark
+  the campaign complete, report it. The comment is two or three plain
+  sentences: what landed on the branch (the merge commit, the CI state),
+  the exact refusal GitHub printed, and that nothing was forced (no admin
+  merge, no auto-merge, no protection change). Read it back after posting
+  and report its URL to the supervisor.
 - **Fail**: an Expect not observed → separate environment faults (stale
   image, held port, leftover container, lapsed cache, a stub not running)
   from bugs in the rolled code; correct the former and re-run; fix the
   latter on the root branch in its own commit with a test, re-run the
   failing step and every step after it, then merge. Still failing after a
   genuine fix → no merge, a comment on the root naming the step, the output
-  and the fix attempted, campaign complete, Regent told.
+  and the fix attempted, campaign complete, Regent told. The comment is two
+  or three plain sentences: what landed on the branch (the merge commit and
+  the fix commit, the CI state), the failing step with its output and the
+  fix attempted, and that nothing was forced (no admin merge, no
+  auto-merge, no protection change). Read it back after posting and report
+  its URL to the supervisor.
 - **Identity**: commits in the target repository carry that repository's
   identity; `git var GIT_COMMITTER_IDENT` is checked before every commit,
   because the throne session injects another one.

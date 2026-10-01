@@ -22,7 +22,7 @@ const TASK_FILE_RE = /^\d+[_-].*\.md$/i;
 const BUNDLE_DIR_RE = /^todo[-_]/i;
 export const DEFAULT_DATA_DIR = RUNTIME_DATA_DIR;
 const TOOLS_RELATIVE_PATH = path.join("src", "tools.ts");
-const REAPED_DIR_NAME = ".reaped";
+export const REAPED_DIR_NAME = ".reaped";
 const CANONICAL_LEDGER_DIR_RE = /^(alpha|shadow)-(.+)$/;
 
 export interface LiveLedgerAgent {

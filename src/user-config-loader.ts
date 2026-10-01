@@ -57,6 +57,8 @@ export const STEERING_SECTION_FIELDS = [
   'tokenBalanceEnabled',
   'autoscaleEnabled',
   'regentHeartbeatNudgeEnabled',
+  'roleEfforts',
+  'regentRoute',
 ] as const;
 /** `name`/`email` are the default identity; `identities` names alternatives
  *  and `remotes` maps a remote pattern (`host` or `host:owner`) to one of
@@ -66,14 +68,19 @@ export const IDENTITY_SECTION_FIELDS = ['name', 'email', 'signingKey', 'signingF
 export const RECALL_SECTION_FIELDS = [
   'jevEnabled',
   'hookEnabled',
+  'hookMode',
+  'verdictLineThreshold',
   'serveThreshold',
   'serveThresholdWhenCostIsHigh',
   'siftKeepThreshold',
   'maximumInjectedCharacters',
+  'repositoryMemoryNamesPerRepository',
   'hookTimeoutMilliseconds',
   'globalMemoryDirectories',
   'rankAllowedRoots',
   'jevKeyFile',
+  'jevTokensPerDay',
+  'jevTokensPerHour',
 ] as const;
 
 const TOP_LEVEL_FIELDS = [

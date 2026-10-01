@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 
 const usage = 'usage: node stack.mjs <pull request url> [--json]';
 
@@ -13,8 +14,16 @@ export function ghProgramFor(host) {
   return host === 'github.com' ? 'gh' : 'ghe';
 }
 
+export function ghWorkingDirectoryFor(program) {
+  return program === 'gh' ? tmpdir() : undefined;
+}
+
+export function ghEnvironmentFor(program) {
+  return program === 'gh' ? { ...process.env, GH_HOST: 'github.com' } : process.env;
+}
+
 function runGh(program, args) {
-  const result = spawnSync(program, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const result = spawnSync(program, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: ghEnvironmentFor(program), cwd: ghWorkingDirectoryFor(program) });
   if (result.status !== 0) throw new Error(`${program} ${args.join(' ')} failed (exit ${result.status}):\n${result.stderr}`);
   return result.stdout;
 }

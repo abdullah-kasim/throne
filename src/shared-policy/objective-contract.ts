@@ -169,7 +169,8 @@ export function isAlphaSpawnerSupervisorName(supervisor: string): boolean {
  *  with an extra hop. Enforced at `add-to-queue`'s entrance, which is the only
  *  path that creates a queue row (`insertItem`'s sole non-migration caller). */
 export function isQueueFilerRoleName(role: string): boolean {
-  return role.trim().toLowerCase() === 'stager';
+  const normalized = role.trim().toLowerCase();
+  return normalized === 'stager' || normalized === 'bot';
 }
 
 export function newAgentObjectiveContract(opts: {

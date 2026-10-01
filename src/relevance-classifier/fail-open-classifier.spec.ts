@@ -158,8 +158,8 @@ test('a backend that never answers is abandoned at the timeout and fails open', 
     timeoutMilliseconds: 20,
   });
   assert.deepEqual(
-    answers.map((answer) => [answer.pick, answer.failedOpen]),
-    [[YES, true]],
+    answers.map((answer) => [answer.pick, answer.failedOpen, answer.failure]),
+    [[YES, true, 'timed out']],
   );
   assert.match(stderr.lines[0] ?? '', /ClassifierTimedOutError/);
 });
@@ -176,7 +176,7 @@ test('when a second backend is named it answers in place of the failed first one
     backendWhenTheFirstFails: second,
   });
   assert.deepEqual(answers, [
-    { questionId: 'a', pick: NO, probability: 1, backend: 'rules', failedOpen: true },
+    { questionId: 'a', pick: NO, probability: 1, backend: 'rules', failedOpen: true, failure: 'backend error' },
   ]);
   assert.equal(stderr.lines.length, 1);
   assert.match(stderr.lines[0] ?? '', /HTTP 429.*rules backend answers instead/);

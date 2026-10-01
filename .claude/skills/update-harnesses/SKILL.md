@@ -1,6 +1,6 @@
 ---
 name: update-harnesses
-description: 'This throne-locally discovered skill checks, updates, pins, promotes, or rolls back throne-managed Claude Code and Codex CLI harness installations. Use for explicit harness release checks or changes only when durable throne harness ownership (`harness-decouple`) is enabled. It runs only from the live throne or a throne worktree; it is not discovered globally.'
+description: 'This throne-locally discovered skill checks, updates, pins, promotes, or rolls back throne-managed Claude Code and Codex CLI harness installations. Use for explicit harness release checks or changes. It runs only from the live throne or a throne worktree; it is not discovered globally.'
 version: 1.0.0
 user-invocable: true
 ---
@@ -16,7 +16,7 @@ Use `scripts/update-harness.mjs` for every transaction. Do not reproduce its dis
 
 ## Preconditions
 
-1. Locate the live throne root containing `src/shared-policy/feature-flags.service.ts`.
+1. Locate the live throne root containing `vendor-pins.json`.
 2. Read `vendor-pins.json`'s `harnesses.<h>.version` for the pin, then run the
    vendored binary's own `--version` (`$throneRoot/vendor/node_modules/.bin/<bin>
    --version`). This pair — pinned and vendored — is the harness the court
@@ -24,10 +24,7 @@ Use `scripts/update-harness.mjs` for every transaction. Do not reproduce its dis
    install. `bin/claude`/`bin/codex` export `CLAUDE_BIN`/`CODEX_BIN` pointing
    at this same vendored binary, so no other resolution order reflects what
    agents execute.
-3. Read the strict feature file at `${XDG_CONFIG_HOME:-$HOME/.config}/throne/features.json`.
-4. Treat missing or false `harness-decouple` as OFF. Run the requested script command anyway so the canonical gate produces the no-action result; do not perform any separate release query or filesystem preparation first.
-5. Stop on malformed feature data. Do not repair or reinterpret it.
-6. Never update or restart Herdr. Treat Herdr as eligible for separate planning only when both `shouldOwnHarnessUpdates()` and `shouldUpdateHerdrInHarnessUpdate()` return true.
+3. Never update or restart Herdr. A herdr update is planned separately.
 
 ## Workflow
 

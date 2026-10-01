@@ -49,6 +49,7 @@ export const PLAN_PRESET_NAMES = [
   'Optimized',
   'Whichever',
   'UnifiedRouting',
+  'OpusOnly',
 ] as const;
 /** The names shipped in `src/config.ts`'s committed preset table. */
 export type BuiltinPlanPresetName = (typeof PLAN_PRESET_NAMES)[number];
@@ -78,6 +79,18 @@ export interface CustomPlanPresetPools {
 }
 
 export type MessageQueueTransport = 'sqlite';
+
+export const EFFORT_ROLES = [
+  'alpha',
+  'shadow',
+  'shadowSlice99',
+  'stager',
+  'regent',
+] as const;
+export type EffortRole = (typeof EFFORT_ROLES)[number];
+export type RoleEfforts = Readonly<Partial<Record<EffortRole, number>>>;
+
+const MAXIMUM_TARGET_EFFORT = 6;
 
 export interface SteeringConfig {
   readonly activePlanPresetName: PlanPresetName;
@@ -144,6 +157,8 @@ export interface SteeringConfig {
    *  quietly stand the court down. Flip it with the `/autoscaler` skill. */
   readonly autoscaleEnabled: boolean;
   readonly regentHeartbeatNudgeEnabled: boolean;
+  readonly roleEfforts: RoleEfforts;
+  readonly regentRoute?: CustomPlanPresetPair;
 }
 
 /** The shape a `config.user.ts` default export may take: every field
@@ -162,17 +177,20 @@ export interface SteeringConfigOverride {
   /** See `SteeringConfig.autoscaleEnabled`. */
   readonly autoscaleEnabled?: boolean;
   readonly regentHeartbeatNudgeEnabled?: boolean;
+  readonly roleEfforts?: RoleEfforts;
+  readonly regentRoute?: CustomPlanPresetPair;
 }
 
 /** The committed, deliberately conservative default: the values
  *  `src/config.ts` hand-edited as literals before this module existed. */
 export const DEFAULT_STEERING_CONFIG: SteeringConfig = {
-  activePlanPresetName: 'UnifiedRouting',
+  activePlanPresetName: 'OpusOnly',
   activeTargetEffort: 1,
   customPlanPresets: {},
   tokenBalanceEnabled: false,
   autoscaleEnabled: true,
   regentHeartbeatNudgeEnabled: false,
+  roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3 },
 };
 
 /** Delegates to the merged file's path (`user-config-loader.ts`) — steering no
@@ -200,40 +218,82 @@ function validateCustomPresetPool(
       `must be a non-empty array of { harness, model } pairs (got ${describeValue(value)})`,
     );
   }
-  return value.map((entry, index) => {
-    if (!isPlainObject(entry)) {
+  return value.map((entry, index) =>
+    validatePresetPair(entry, sourcePath, `${fieldPath}[${index}]`),
+  );
+}
+
+function validatePresetPair(
+  entry: unknown,
+  sourcePath: string,
+  fieldPath: string,
+): CustomPlanPresetPair {
+  if (!isPlainObject(entry)) {
+    throw invalidSteeringConfig(
+      sourcePath,
+      fieldPath,
+      `must be a plain { harness, model } object (got ${describeValue(entry)})`,
+    );
+  }
+  for (const key of Object.keys(entry)) {
+    if (key !== 'harness' && key !== 'model') {
       throw invalidSteeringConfig(
         sourcePath,
-        `${fieldPath}[${index}]`,
-        `must be a plain { harness, model } object (got ${describeValue(entry)})`,
+        `${fieldPath}.${key}`,
+        'is not a known field (expected only: harness, model)',
       );
     }
-    for (const key of Object.keys(entry)) {
-      if (key !== 'harness' && key !== 'model') {
-        throw invalidSteeringConfig(
-          sourcePath,
-          `${fieldPath}[${index}].${key}`,
-          'is not a known field (expected only: harness, model)',
-        );
-      }
-    }
-    const { harness, model } = entry;
-    if (typeof harness !== 'string' || harness.length === 0) {
+  }
+  const { harness, model } = entry;
+  if (typeof harness !== 'string' || harness.length === 0) {
+    throw invalidSteeringConfig(
+      sourcePath,
+      `${fieldPath}.harness`,
+      `must be a non-empty string (got ${describeValue(harness)})`,
+    );
+  }
+  if (typeof model !== 'string' || model.length === 0) {
+    throw invalidSteeringConfig(
+      sourcePath,
+      `${fieldPath}.model`,
+      `must be a non-empty string (got ${describeValue(model)})`,
+    );
+  }
+  return { harness, model };
+}
+
+function validateRoleEfforts(value: unknown, sourcePath: string): RoleEfforts {
+  if (!isPlainObject(value)) {
+    throw invalidSteeringConfig(
+      sourcePath,
+      'roleEfforts',
+      `must be a plain object mapping roles to efforts (got ${describeValue(value)})`,
+    );
+  }
+  const efforts: Partial<Record<EffortRole, number>> = {};
+  for (const [role, effort] of Object.entries(value)) {
+    if (!(EFFORT_ROLES as readonly string[]).includes(role)) {
       throw invalidSteeringConfig(
         sourcePath,
-        `${fieldPath}[${index}].harness`,
-        `must be a non-empty string (got ${describeValue(harness)})`,
+        `roleEfforts.${role}`,
+        `is not a known role (expected one of: ${EFFORT_ROLES.join(', ')})`,
       );
     }
-    if (typeof model !== 'string' || model.length === 0) {
+    if (
+      typeof effort !== 'number' ||
+      !Number.isInteger(effort) ||
+      effort < 1 ||
+      effort > MAXIMUM_TARGET_EFFORT
+    ) {
       throw invalidSteeringConfig(
         sourcePath,
-        `${fieldPath}[${index}].model`,
-        `must be a non-empty string (got ${describeValue(model)})`,
+        `roleEfforts.${role}`,
+        `must be an integer from 1 to ${MAXIMUM_TARGET_EFFORT} (got ${describeValue(effort)})`,
       );
     }
-    return { harness, model };
-  });
+    efforts[role as EffortRole] = effort;
+  }
+  return efforts;
 }
 
 function validateCustomPlanPresets(
@@ -405,6 +465,16 @@ export function validateSteeringOverride(
     }
     override.activeTargetEffort = targetEffort;
   }
+  if ('roleEfforts' in value) {
+    override.roleEfforts = validateRoleEfforts(value.roleEfforts, sourcePath);
+  }
+  if ('regentRoute' in value) {
+    override.regentRoute = validatePresetPair(
+      value.regentRoute,
+      sourcePath,
+      'regentRoute',
+    );
+  }
   if ('tokenBalanceEnabled' in value) {
     const tokenBalanceEnabled = value.tokenBalanceEnabled;
     if (typeof tokenBalanceEnabled !== 'boolean') {
@@ -474,6 +544,10 @@ function mergeSteeringConfig(
     autoscaleEnabled: override.autoscaleEnabled ?? base.autoscaleEnabled,
     regentHeartbeatNudgeEnabled:
       override.regentHeartbeatNudgeEnabled ?? base.regentHeartbeatNudgeEnabled,
+    roleEfforts: override.roleEfforts ?? base.roleEfforts,
+    ...(override.regentRoute ?? base.regentRoute) === undefined
+      ? {}
+      : { regentRoute: override.regentRoute ?? base.regentRoute },
   };
 }
 
@@ -537,6 +611,17 @@ export function activeMessageQueueTransport(): MessageQueueTransport | undefined
  *  clamp: the sole way any consumer reads this value. */
 export function activeTargetEffort(): number {
   return RESOLVED_STEERING_CONFIG.activeTargetEffort;
+}
+
+export function targetEffortForRole(
+  role: EffortRole,
+  config: SteeringConfig = RESOLVED_STEERING_CONFIG,
+): number {
+  return config.roleEfforts[role] ?? config.activeTargetEffort;
+}
+
+export function activeRegentRoute(): CustomPlanPresetPair | undefined {
+  return RESOLVED_STEERING_CONFIG.regentRoute;
 }
 
 /** The operator-defined custom presets from `config.user.ts` (empty when

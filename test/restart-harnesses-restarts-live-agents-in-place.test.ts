@@ -53,6 +53,7 @@ function fakeDeps(
     lockToken?: string | null;
     liveModels?: Record<string, string | undefined>;
     harnessRecords?: Record<string, string | undefined>;
+    configuredEfforts?: Record<string, number>;
   } = {},
 ): { deps: RestartHarnessesDeps; recorder: Recorder } {
   const recorder: Recorder = { signals: [], written: [], resumed: [], renamed: [], lockAcquired: 0, lockReleased: [], log: [], warn: [] };
@@ -94,6 +95,7 @@ function fakeDeps(
     resume: async (name) => {
       recorder.resumed.push(name);
     },
+    configuredEffort: async (name, role) => options.configuredEfforts?.[role ?? name],
     renameAgent: async (paneId, name) => {
       recorder.renamed.push({ paneId, name });
     },
@@ -158,6 +160,30 @@ test("a restart records the live session id, stops the harness, resumes, and kee
   assert.deepEqual(recorder.signals, [{ pid: 4242, signal: "SIGTERM" }]);
   assert.deepEqual(recorder.resumed, ["stager-b"]);
   assert.deepEqual(recorder.renamed, []);
+});
+
+test("a restart resumes a Stager at the effort its role is configured for", async () => {
+  const stager = agent({ name: "stager-b", sessionId: "abc-123" });
+  const { deps, recorder } = fakeDeps([stager], {
+    afterRelaunch: [stager],
+    configuredEfforts: { "stager-b": 3 },
+  });
+  const outcomes = await restartHarnesses(ALL, deps);
+  assert.deepEqual(outcomes, [
+    { name: "stager-b", verdict: "restarted", detail: "resumed native session abc-123 at effort 3 (was 1)" },
+  ]);
+  assert.deepEqual(recorder.written.at(-1), { name: "stager-b", spec: spawnSpec({ effort: 3 }) });
+  assert.deepEqual(recorder.resumed, ["stager-b"]);
+});
+
+test("a restart asks for the Regent's effort by the regent role", async () => {
+  const regent = agent({ name: "Regent", sessionId: "reg-1" });
+  const { deps, recorder } = fakeDeps([regent], {
+    afterRelaunch: [regent],
+    configuredEfforts: { regent: 3 },
+  });
+  await restartHarnesses(ALL, deps);
+  assert.deepEqual(recorder.written.at(-1)?.spec.effort, 3);
 });
 
 test("a relaunched pane that came back unnamed is renamed to the registered agent name", async () => {

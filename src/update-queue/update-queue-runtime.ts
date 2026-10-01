@@ -11,12 +11,15 @@ import {
   type RegentQueueMutationStore,
 } from "../regent-queue/regent-queue.store.ts";
 import { queueAddressingObjectiveCode } from "../shared-policy/objective-contract.ts";
+import { parseQueueEffort } from "../harness-routing/effort-level.ts";
 import { parseQueuePriority } from "../regent-queue/regent-queue-row.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { herdrAgentNameRefusal } from "../herdr/herdr-identity.service.ts";
 
 const ABSORBED_BY_OBJECTIVE_FLAG = "--absorbed-by-objective";
 const PRIORITY_FLAG = "--priority";
+const EFFORT_FLAG = "--effort";
+const CLEAR_EFFORT_FLAG = "--clear-effort";
 const DEPENDS_ON_FLAG = "--depends-on";
 const RELEASE_AUTHORITY_FLAG = "--release-authority";
 const DEFER_REASON_FLAG = "--defer-reason";
@@ -155,6 +158,15 @@ export function parseUpdateQueueArgs(args: string[]): UpdateQueueInput {
       if (!Object.values(RegentQueueItemStatus).includes(status as QueueStatus))
         throw new Error(`update-queue: invalid status "${status ?? ""}"`);
       mutation.status = status;
+      continue;
+    }
+    if (flag === EFFORT_FLAG || flag === CLEAR_EFFORT_FLAG) {
+      if (mutation.effort !== undefined)
+        throw new Error(
+          `update-queue: pass one of ${EFFORT_FLAG} or ${CLEAR_EFFORT_FLAG}, once`,
+        );
+      mutation.effort =
+        flag === CLEAR_EFFORT_FLAG ? null : parseQueueEffort(args[++index]);
       continue;
     }
     if (flag === PRIORITY_FLAG) {

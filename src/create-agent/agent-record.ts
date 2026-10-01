@@ -46,6 +46,7 @@ export function createAgentIdentity(
     ...(request.emptyWorktree ? { emptyWorktree: true as const } : {}),
     ...(request.shadowless === true ? { shadowless: true as const } : {}),
     ...(request.sliceless === true ? { sliceless: true as const } : {}),
+    ...(request.campaignEffort === undefined ? {} : { campaignEffort: request.campaignEffort }),
     ...(request.forkedFrom === undefined ? {} : { forkedFrom: request.forkedFrom }),
     ...(spawnedTabLabel === undefined ? {} : { spawnedTabLabel }),
     ...(memory === undefined ? {} : { memory }),
@@ -203,6 +204,9 @@ export async function persistNewAgentRecord(
         : { deliverable_shape: request.deliverableShape }),
       ...(request.shadowless === true ? { shadowless: true as const } : {}),
       ...(request.sliceless === true ? { sliceless: true as const } : {}),
+      ...(request.campaignEffort === undefined
+        ? {}
+        : { campaign_effort: request.campaignEffort }),
       ...(request.forkedFrom === undefined
         ? {}
         : { forked_from: request.forkedFrom }),

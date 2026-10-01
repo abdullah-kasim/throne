@@ -1,0 +1,9 @@
+[global]
+server_name = "{{CONDUWUIT_SERVER_NAME}}"
+database_path = "/var/lib/conduwuit"
+port = 6167
+address = "0.0.0.0"
+allow_federation = false
+allow_registration = true
+registration_token = "{{CONDUWUIT_REGISTRATION_TOKEN}}"
+media_directory = "/var/lib/conduwuit/media"

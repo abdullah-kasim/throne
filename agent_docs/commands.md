@@ -1426,7 +1426,7 @@ else. A non-Regent `--name` target never receives a band advisory.
 ## add-to-queue
 
 ```bash
-./bin/throne-cli add-to-queue [--objective-code <code>] [--shadowless | --sliceless] <body words...>
+./bin/throne-cli add-to-queue [--objective-code <code>] [--effort <level>] [--shadowless | --sliceless] <body words...>
 ```
 
 Writes one new `open`-status item to the SQLite-backed Regent queue store
@@ -1460,6 +1460,20 @@ well, so delivery lands on it and `99c` opens the draft PR from it (see
 `.claude/skills/execute-todos/SKILL.md`, "Pull-request delivery"). The name is
 the human contributor's — `add/<feature>`, `fix/<bug>` — never an agent name,
 an objective code or any throne machinery (Lord, 2026-09-08).
+
+`--effort <level>` records the reasoning effort the Lord ordered for the
+campaign, stored in the row's nullable `effort` column and shown by
+`render-queue`. It takes a number 1–6 or a level name: `low` 1, `medium` 2,
+`high` 3, `xhigh` 4, `max` 5, the same numbers the launch uses (6 is claude
+`ultracode`, codex `ultra`). Anything else is
+refused with a plain message, and `update-queue --effort <level>` uses the same
+parser; `update-queue --clear-effort` removes it. The autoscaler launches a row
+with an effort as `create-agent --effort <n> --bypass-effort`, the bypass
+derived from that row alone, and a row without one launches with neither flag.
+The Alpha records it as its campaign effort in `identity.md` and `spawn.json`,
+and each Shadow it spawns runs at that effort without a flag; a different
+explicit `--effort` on a Shadow still needs `--bypass-effort`. The Stager
+passes it only on the Lord's own words for that objective.
 
 **Admitted for the `Stager` role only (Lord, 2026-08-21).** An Alpha, a
 Shadow, or the Regent invoking this command is refused and nothing is added;
@@ -1742,31 +1756,418 @@ before its first turn. Resolver: `src/memory-dir/memory-dir-resolver.ts`.
 ## recall
 
 ```bash
-./bin/throne-cli recall [--session ID] [--directory DIR] "<task text>"
+./bin/throne-cli recall [--session ID] (--directory DIR | --memory-dir DIR)... [--no-global] [--json] "<task text>"
 ./bin/throne-cli recall --hook        # prompt-submit hook JSON on stdin
+./bin/throne-cli recall --status
+./bin/throne-cli recall --report [--since DATE]
+./bin/throne-cli recall --spot-check [--count N]
+./bin/throne-cli recall --agree ID ["<reason>"]
+./bin/throne-cli recall --disagree ID "<reason>"
+./bin/throne-cli recall --lint-asks [--directory DIR]... [--global]
 ```
 
 Prints the BODIES (never paths: every extra file read re-reads the whole
 context) of the recorded memories that apply to the task, most relevant first,
-capped at `recall.maximumInjectedCharacters`. Candidates are every `*.md`
-(except `MEMORY.md` and `README.md`) in the project memory directory of `DIR`
-(default: the cwd, resolved like `memory-dir`) and in
-`recall.globalMemoryDirectories`. Code drops a memory whose frontmatter says
+capped at `recall.maximumInjectedCharacters`. A hand call names its scope:
+`--directory DIR` (a repository or any path inside it; its memory directory is
+resolved like `memory-dir`) and `--memory-dir DIR` (a memory directory,
+searched as given) are both repeatable and may be combined, so one call covers
+several repositories. With neither, recall refuses with exit 2, naming both
+flags and the current directory it would otherwise have assumed; a
+`--directory` whose memory directory cannot be resolved is refused, never
+dropped. Candidates are every `*.md` (except `MEMORY.md`, `README.md` and `REPOSITORY.md`) in
+those memory directories and in `recall.globalMemoryDirectories`, which
+`--no-global` leaves out. Code drops a memory whose frontmatter says
 `status: superseded` or names another project's `scope` before any question is
 asked. Each remaining memory becomes one yes/no question (its `ask` line, or
 one made from its file name), answered by the keyword rules or, when
 `recall.jevEnabled` is true, by Jev; any Jev failure hands the questions to
 the rules, and a probability at or above the threshold serves the memory.
-`--session ID` keeps a served list under `~/.throne/data/recall/served/` so
-nothing is printed twice in one session (lists older than 30 days are
-removed). Decisions are appended to `~/.throne/data/recall/ledger.jsonl`
-(question id, input hash, pick, probability, backend, failed open, served)
-under one summary line per recall; a confident no is only counted in that
-summary, and a ledger over 20 MB is set aside as `ledger.previous.jsonl`. The
-task text itself is never written there. `--hook` reads `prompt`, `session_id` and `cwd` from the hook
-payload, prints nothing unless `recall.hookEnabled` is true, and exits 0 on
-every error. Config: `docs/CONFIG.md`, "recall". Engine:
+`--session ID` keeps a served list under `~/.throne/data/recall/served/`
+(each served memory with the time it was served) so nothing is printed twice
+in one session (lists older than 30 days are removed). Decisions are appended
+to `~/.throne/data/recall/ledger.jsonl` under one summary line per recall. An
+answer whose probability of yes is at least 0.1, or that was served or failed
+open, gets a full line (question id, input hash, pick, probability, backend,
+failed open, `reason` (the classifier failure, such as `rate-limited`,
+whenever Jev did not answer), served, arm, session, and the sha256
+`contentHash` of the memory text that was judged). A confident no (below 0.1)
+gets a compact line of five keys (`at`, `inputHash`, `questionId`, `pick`, `probability`) on every hand
+call and while `recall.hookMode` is `split` or `shadow`, and that recall's
+summary carries `everyAnswerLogged: true`, so a memory with no line there was
+never a candidate; a `serve`-mode hook still only counts confident noes, in the
+summary's `confidentNoAnswersLeftOut`. A ledger over 20 MB is set aside as
+`ledger.previous.jsonl`. The task text itself is never written there. Every
+memory version the ledger names is copied once to
+`~/.throne/data/recall/memory-versions/<sha256>`, so a later edit of the file
+cannot change what the report grades. A memory worth serving that is withheld
+because the session already saw it gets `suppressed: true` and
+`servedEarlierAt` (the earlier prompt's time, `null` when the served list
+predates serving times) on its decision line; it still counts toward the
+verdict.
+
+`--hook` reads `prompt`, `session_id`, `cwd` and `transcript_path` from the
+hook payload, searches only the repository of that `cwd` plus the global
+directories, prints nothing unless `recall.hookEnabled` is true, and exits 0 on
+every error. It judges every prompt, relayed agent messages and background-task
+notifications included. `recall.hookMode` picks the arm: `serve` prints,
+`shadow` judges and records the would-be serve but prints nothing, `split`
+flips a coin seeded from the session and the prompt. Each prompt gets a kind,
+worked out after any `<pasted_content>` tags are removed: `task-notification`
+(it opens with `<task-notification>`), `relayed` (it ends with
+`[message N]`, the mark of a delivered agent message, pasted or not), `other`
+(it opens with some other harness tag, such as a slash-command wrapper) and
+`typed` (anything else: the person's own words). A `typed` prompt also gets
+one more question in the same classifier call: is the person correcting or
+overruling an agent's earlier action or claim? The keyword rules answer it
+from phrases such as "that's wrong", "I told you" or "you forgot", and a
+failed answer falls back to no.
+
+Each hook prompt is appended to `~/.throne/data/recall/prompts.jsonl`, even
+when judging fails: session, time, input hash, first 2,000 characters,
+`promptKind`, `searchedMemoryDirectories`, `transcriptPath`, and for a typed
+prompt `correction` (`pick`, `probability`, `backend`, `failedOpen`). Every
+ledger summary records the source (`hook` or `command`), session, arm, Jev's
+verdict ("memory likely exists" or "no relevant memory") with its confidence,
+and the scope as `searchedMemoryDirectories` (absolute memory directory paths
+in search order, recorded in the shadow arm too); a hook summary adds
+`promptKind`, `hookOutcome` and `hookDurationMilliseconds` (wall clock from the
+start of the run to the ledger write). The outcome is `served`,
+`nothing relevant`, `timed out` (Jev timed out, even when the rules then
+answered), `jev budget used up` or `jev budget lock busy` (Jev was not called
+and the rules answered), `classifier error` (another classifier failure), or
+`skipped`; the
+shadow arm records the outcome it would have had. A skipped run writes one
+summary line with only `at`, `source`, `sessionId`, `hookOutcome`,
+`hookSkipReason` (`hook disabled`, `unreadable payload`, `empty prompt` or
+`hook failed`) and `hookDurationMilliseconds`, and nothing else is judged or
+logged. Hand calls carry no kind, outcome or correction. Memories already
+served in the session are still asked about, so they count toward the verdict,
+but are never served again. Whatever recall prints (every hand call; a hook
+prompt only when it prints anything) carries the scope on its own line: each
+searched repository's path and its memory directory, or the memory directory
+named by hand, and the global directories or that they were left out, followed
+by a sentence saying that another repository's memories need
+`throne recall --directory <path> "<task>"`. When the hook cannot resolve its
+repository's memory directory, the line says so. In the serve arm a verdict
+line saying that a relevant memory likely exists, or that there is no relevant
+memory, in the scope it names (never an unqualified "no relevant memory")
+follows the served memories, and is printed alone only above
+`recall.verdictLineThreshold`. It opens with whoever really answered:
+`Jev (N% sure)` only when Jev answered, `rules (Jev budget used up)`,
+`rules (Jev budget lock busy)`, `rules (Jev failed)` for any other Jev failure
+such as HTTP 402, and plain `rules` when Jev is switched off.
+
+A memory Jev or the rules answered yes to that is not served is named on
+stderr with its reason: `below the serving floor` (a yes under probability
+0.4) or `over the size limit` (it did not fit under
+`recall.maximumInjectedCharacters`). A memory already served in the session is
+not named there.
+
+### Other repositories
+
+Every recall, the hook and a hand call alike, also names up to three other
+repositories most likely to hold a relevant memory, so an agent whose lookup
+came back thin knows where to look next. They are only listed, never searched.
+
+- **The registry.** Every repository a recall searches (each `--directory`,
+  and the hook's session repository) is saved in
+  `~/.throne/data/recall/repositories.json` with its checkout (the main
+  checkout for a worktree), repository name, memory directory and `lastSeenAt`.
+  When the file does not exist yet, it is seeded once from the memory
+  directories under `~/.memories/` whose slug spells an existing checkout
+  (seeded entries carry `lastSeenAt: null`). A later recall of the same
+  checkout replaces its entry.
+- **The candidates.** Every registry repository that is not already in the
+  lookup's scope (by checkout, or by a memory directory it already searches)
+  and whose memory directory holds at least one memory.
+- **The question.** One yes/no question per candidate rides in the same Jev
+  request as the memory questions (no second request): the repository's name,
+  the `ask:` from an optional `REPOSITORY.md` in its memory directory
+  (frontmatter in the house form `--lint-asks` enforces; never served as a
+  memory), and the titles of its memory files, most recently modified first,
+  at most `recall.repositoryMemoryNamesPerRepository` (default 40). Names only,
+  never bodies.
+- **The listing.** The three candidates with the highest probability of yes,
+  whatever it is, ties in name order, printed after the verdict line:
+
+  ```
+  Other repositories that may hold relevant memories:
+  - bakery-site (88%): throne recall --directory /home/me/repos/bakery-site "<task>"
+  ```
+
+  When the rules answer instead of Jev (Jev off, budget used up, lock busy,
+  any failure), nothing is listed and the block says so in one line, naming
+  the reason as the verdict line does. The hook prints the block too, in the
+  serve arm; a listing alone is enough for the hook to print (with the scope
+  line after it).
+- **The records.** Every repository answer gets a ledger line beside the
+  memory answers: `at`, `inputHash`, `otherRepository` (the checkout),
+  `repositoryName`, `memoryDirectory`, `memoryNamesAsked`, `pick`,
+  `probability`, `backend`, `failedOpen`, `reason` when Jev did not answer,
+  `rank` (1 is most likely), `listed` (among the three this lookup named, in
+  either arm), `arm` and `sessionId`.
+
+`--json` (hand recall only; refused with exit 2 next to `--hook`, `--status`
+or `--report`) prints one object instead of the text:
+
+```json
+{
+  "scope": { "repositories": ["/home/me/repos/florist"], "globalMemoryDirectories": ["..."] },
+  "verdict": { "memoryLikelyExists": true, "confidence": 0.89, "backend": "jev" },
+  "memories": [{ "file": "...", "probability": 0.73, "served": true, "body": "..." }],
+  "withheldMemories": [{ "file": "...", "probability": 0.39, "reason": "below the serving floor" }],
+  "otherRepositories": [
+    { "repository": "...", "checkout": "...", "memoryDirectory": "...", "probability": 0.88,
+      "recall": "throne recall --directory ... \"<task>\"" }
+  ]
+}
+```
+
+`memories` holds what was served; `withheldMemories` holds every yes that was
+not, with the same two reasons as the stderr line; `otherRepositories` is
+empty when the rules answered. `scope.repositories` lists the `--directory`
+paths only.
+
+### The Jev budget
+
+Every Jev request on the machine, from recall (the hook, a hand recall and the
+report's judge), `sift`, `rank`, `locate` and `jev-probe`, first reserves its estimated
+tokens (characters / 3, the same estimate that splits requests) from one
+machine-wide budget: `recall.jevTokensPerDay` for the local calendar day and
+`recall.jevTokensPerHour` for the rolling last 60 minutes (`docs/CONFIG.md`).
+The tally lives in `~/.throne/data/recall/jev-budget/tally.json` and is read,
+checked and rewritten (temp file, then rename) only under the lock directory
+`jev-budget/lock`, which is never held while a request is in flight; a lock
+left by a killed process is taken over after 3 seconds. When the SDK reports
+usage, the real input plus output tokens replace the estimate; a failed request
+keeps its estimate. When the budget cannot cover a request, or its lock stays
+busy for about 1.6 seconds, Jev is not called: the keyword rules answer for
+every caller, labelled as above. Every request, sent or not, appends one line to
+`~/.throne/data/recall/jev-usage.jsonl`: `at`, `caller` (`hook`,
+`hand recall`, `audit`, `rank`, `sift`, `locate`, `probe`), `estimatedTokens`,
+`realTokens` (`null` when unknown) and `outcome` (`answered`, `failed`,
+`rate-limited`, `lock-busy`). The usage log is only an audit record; it never
+decides a reservation.
+
+`--status` (and `sift --status`, `rank --status`, `locate --status`) adds
+today's Jev tokens out of the day limit and this hour's out of the hour limit,
+each with what is left, and how many requests were not sent today because the
+budget lock was busy. `--report` ends with the Jev spend per local day and per
+caller: requests sent (and how many failed), estimated tokens, real tokens
+reported, and how many were refused for the budget or not sent for a busy
+lock, honouring `--since`. It cannot compare that spend with what the key's
+account was charged: `@typesafe-ai/sdk` 0.6.0 exposes only `systemOne` and
+`models.list`, with no usage or credits endpoint, so the TypeSafe console is the
+only cross-check for spend the log did not see.
+
+The automatic recall covers only the session's repository and the global
+memories. Before working in another repository, run
+`throne recall --directory <that repo> "<task>"` instead of grepping its memory
+directory by hand.
+
+Config: `docs/CONFIG.md`, "recall". Engine:
 `src/memory-recall/`, classifier contract: `src/relevance-classifier/`.
+
+### What the memory-read log sees
+
+The report measures digs through the memory read log hook (see
+`ensure-harness-setup`), which records every hand read or search of a memory
+directory. A Grep, or a Bash `grep`, `rg` or `find`, over memory counts as
+having found each memory file its output named, graded like a full read even
+if the file was never opened; a search of one file, whose output names no
+file, counts that file when it printed anything. Each named memory is recorded
+with its sha256 in `memoryFileHashes` and copied to the same `memory-versions/`
+store. A read from a directory that names no throne agent takes its agent name
+from the herdr pane (`herdrPaneId` is on every line). Reads made inside a
+Claude Code subagent (the Agent tool) are logged: a live test on 2026-09-28
+had a subagent Read a memory file, and the line landed in
+`memory-reads.jsonl` under the parent session's `sessionId`, the parent's
+agent name and the parent's `transcriptPath`, so a subagent's read counts as
+the parent's own. A tool call that fails, such as a Read of a path that does
+not exist, fires no hook and logs nothing. A memory read through a shell
+variable that is not an environment variable (`cat "$DIR/X.md"` after
+`DIR=...` in the same command) is not logged, because the hook cannot expand
+it. The recall and read hooks are Claude Code hooks; sessions on any other
+harness are not measured at all.
+
+### `--report`
+
+`--report [--since DATE]` measures whether the hook does useful work. It reads
+the hook prompts in the ledger (`source: "hook"`, joined to `prompts.jsonl` by
+time and input hash), `memory-reads.jsonl`, `memory-reads.failures.jsonl` and
+`spot-checks.jsonl`, all bounded by `--since` (an ISO date or date-time;
+default all time; anything else is refused with exit 2), and every live and
+reaped `spawn.json` under `~/.throne/data/`. A dig is the memory reads of one
+session after a prompt and before that session's next prompt; a read with no
+earlier prompt in its session is a memory read matched to no prompt. What a dig found
+is every memory it read in full or that a search named, never a `MEMORY.md`
+index. Each found and each served (in the shadow arm, would-be served) memory
+is judged against the prompt by the relevance classifier, with the keyword
+rules as its fallback; when Jev is on, the judge sends the prompt and each
+memory's full text to Jev, whatever `recall.rankAllowedRoots` says. The text
+judged is the version that was seen: the hash the read recorded, else the hash
+the ledger recorded, looked up in `memory-versions/`, else the file as it is
+now. Every grade is stored in `~/.throne/data/recall/grades.jsonl`, keyed by
+version, and reused, never asked again.
+
+A prompt's scope is its recorded `searchedMemoryDirectories`; a line recorded
+before scopes existed is read as the memory directory of the `cwd` on the
+first of its dig's reads that recorded one, plus the global directories. When
+that `cwd` no longer resolves to a memory directory (a removed checkout), the
+repository is taken from the reading agent's recorded `tree-base.json` `repo`,
+live under `~/.throne/data/<name>/` or reaped under
+`~/.throne/data/.reaped/<name>/`; with neither, the scope is the global
+directories alone. A line without `promptKind` is read as `other`, and a line
+without `hookOutcome` as a run that did not fail.
+
+Some relevant finds never count against Jev, and the report lists them apart
+under Supporting:
+
+- **found its own later note**: the memory was created after the prompt. A
+  memory's creation time is the earliest of its file birth time, its modified
+  time and its first sighting in the ledger or the read log. On macOS an
+  edit that replaces the file resets its birth time, which is why the other
+  two are needed.
+- **after a timed-out or errored hook run**: Jev never got a fair answer, so
+  the dig's finds are neither missed-and-found nor out of scope, and the
+  prompt is left out of both verdict tables.
+- **already shown earlier in the session**: recorded as suppressed, or served
+  on an earlier prompt of the same session. Found, served and suppressed
+  memories are compared by physical path, as scope membership is, so a path
+  spelled through a symlinked home still matches.
+
+The report prints, by arm where it applies:
+
+- Its second line: the time prompt kinds started being recorded (the earliest
+  logged line with a `promptKind`), so numbers before and after this change
+  can be told apart.
+- MAIN, the missed-and-found rate per 100 prompts: Jev served nothing relevant
+  and the dig found a relevant memory inside the scope that it had not served,
+  with the ten most recent examples. Under each example, every memory the dig
+  found gets one line: judged, with Jev's probability of yes; never a
+  candidate (the summary says every answer was logged and none names it); or
+  candidacy unknown (a prompt logged before every answer was, when a confident
+  no left no line); then the memory's ask as the file reads now, `no ask`, or
+  `file unreadable`.
+- OUT OF SCOPE, on its own line: a relevant memory the dig found in a memory
+  directory outside the scope, with how many of them followed an earlier
+  `throne recall` in the same dig whose explicit scope covered that memory's
+  directory, and in how many the hook had listed that memory's repository
+  among the other repositories (any of the prompt's out-of-scope finds lying in
+  a listed repository's memory directory counts; shadow-arm prompts count what
+  would have been listed).
+- BONUS, verdict calibration over every prompt, in confidence buckets of 0.1.
+  A prompt with a dig is scored on its dig; a prompt without one is right to
+  say "memory likely exists" when a memory Jev served or would have served was
+  graded relevant, and "no relevant memory" when none was. A prompt whose
+  hook run timed out or errored is left out.
+- BONUS, verdict calibration over prompts with a dig inside the verdict's
+  scope (a dig whose relevant finds all lie outside it, or that followed a
+  timed-out or errored hook run, is left out), and the
+  lowest confidence from which "no relevant memory" was right at least 95% of
+  the time over at least 30 digs.
+- Supporting: digs per 100 prompts; useful serves (at least one served memory
+  graded relevant); the acted-on rate, the share of served memories graded
+  relevant that the agent cited or followed within the next five assistant
+  messages of the prompt's transcript (text and tool-use inputs, judged by the
+  same judge; a memory whose transcript is missing, unreadable or has no
+  assistant message after the prompt is counted apart as transcript
+  unavailable); empty-handed serves; every metric again per prompt kind; the
+  finds that do not count against Jev; repeat mistakes; duplicates;
+  corrections an existing memory covered; the judge error rate; which backend
+  judged; the judge's agreement with the Lord; classifier questions per day by
+  backend; memory-read logging failures; memory reads matched to no prompt;
+  memory reads with no agent name; and unmeasured sessions.
+
+A repeat mistake is a memory changed inside the window (from `--since`, or
+else the first logged prompt) whose closest earlier memory by the `rank`
+ranking the judge says already teaches the same lesson, and that existing
+memory must predate the day of the new memory's incident (its `learned:`
+frontmatter, else its creation day). When both fall on the same day and the
+judge says they record the same incident, the pair is a duplicate, listed
+apart; who wrote either memory is not recorded anywhere, so it plays no part.
+
+Corrections an existing memory covered: for each typed prompt judged a
+correction, the memories created before the prompt in every memory directory
+the repeat-mistake check reads (every `~/.memories/*`, `~/.throne/memories/*`
+and `~/.claude/projects/*/memory`, the global directories, and the prompt's own
+scope) are ranked against it, and the judge is asked whether the closest one
+already covered the lesson. The rate is per 100 typed prompts judged for a
+correction, with the corrections recorded and the most recent examples; an
+example whose covering memory lies outside the memory directories the hook
+searched says so and names that memory's directory.
+
+Memory reads with no agent name are attributed first through the nearest
+named read from the same herdr pane, then through the one agent whose recorded
+`cwd` maps to the read's transcript directory; the report prints how many were
+attributed and how many are still unattributed. Unmeasured sessions counts,
+by harness, the agents spawned inside the window whose `spawn.json` names a
+harness that does not run on Claude Code, so work routed to Codex does not
+silently shrink the sample.
+
+Every rate prints its count and denominator, and a rate with nothing to count
+says so. The report adds grades to `grades.jsonl` and never changes the other
+logs.
+
+### `--lint-asks`
+
+`--lint-asks [--directory DIR]... [--global]` checks every memory's `ask`
+against the rules for an ask recall can find, in pure code: it calls no
+classifier, neither Jev nor the keyword rules, reads no Jev key, and never
+edits a file. With no flag it reads every memory directory directly under
+`~/.memories/`; `--directory DIR` (repeatable, a repository or any path inside
+it) reads that repository's memory directory, resolved as in a hand recall and
+refused with exit 2 when it cannot be; `--global` adds
+`recall.globalMemoryDirectories`. Task text or any other flag is refused with
+exit 2, except `--hook`, which, as always, runs nothing and exits 0. It reads
+every `*.md` but `MEMORY.md`, `README.md` and `REPOSITORY.md` and skips
+`status: superseded`, then checks the `ask:` of each directory's
+`REPOSITORY.md`, when there is one, by the same rules except the bare
+repository name rule (a repository ask names its repository on purpose); a
+`REPOSITORY.md` with no ask is flagged `missing-ask`.
+
+Each violation is one stdout line, `<memory file path>\t<rule>\t<ask>` (the
+ask is `(no ask)` when there is none), sorted by path and then in the rule
+order below. Stderr gets one summary line:
+`recall --lint-asks: N violations; F of M memories flagged; D memory
+directories read`. The exit code is 0 with no violation and 1 with any.
+
+An ask passes in the house form `Does the task touch <area> in any way?`
+(`Does the task involve <area>?` and `Is the task about <area>?` are accepted
+too), where the area is what the lesson is about as the memory names it. The
+rules, each named after the lesson that taught it:
+
+| Rule | Flags | Lesson |
+| --- | --- | --- |
+| `missing-ask` | no `ask`, or an empty one | |
+| `bare-narrow-ask` | a first sentence in none of the house forms, such as one that asks whether the task will run, open, edit or debug the subject | `JEV_ANSWERS_THE_BARE_NARROW_ASK_QUESTION_NEAR_EVEN_ODDS` |
+| `kept-narrow-trigger` | text after the first sentence that does not start with `That includes, but is not limited to:` | `A_KEPT_NARROW_TRIGGER_SENTENCE_DRAGS_JEV_BACK_TO_NO_ON_A_BROADENED_ASK` |
+| `token-area` | an area that is or holds a code token: backticked text, a path, a file name with an extension, a flag, a command line, a camelCase or snake_case identifier, a word mixing letters and digits, a version, or a single all-capitals word as the whole area | `THE_TOKEN_GATE_ON_AREA_PICKS_STILL_PASSES_GENERIC_NOUNS_FRAGMENTS_AND_POSSESSIVE_CODE_NAMES` |
+| `bare-repository-name` | an area that is only the name of the repository the memory directory belongs to, alone or followed by repo, repository or codebase | `THE_BARE_REPOSITORY_NAME_IS_NO_AREA_FOR_A_MEMORY_IN_THAT_REPOSITORYS_DIRECTORY` |
+| `repository-wide-noun` | an area whose head noun (the last word before a preposition, for each part joined by and, or or a comma) is repository, repo, branch, commit, PR, pull request, worktree, agent, Alpha, Shadow, Stager, Regent, campaign, slice, row, trunk or main | `JEV_CANNOT_TELL_A_REPOSITORY_WIDE_NOUN_FROM_A_LESSONS_AREA_USE_STRUCTURE_AND_CONFIDENT_THRESHOLDS` |
+| `verb-ending-fragment` | an area that ends on a verb: one of a closed list (needs, picks, refuses, fails ...) or any word after a modal, an auxiliary or a negation | `VERB_ENDING_FRAGMENTS_WITHOUT_AN_AUXILIARY_PASS_BOTH_AREA_GATES_UNLESS_THE_TOKEN_QUESTION_NAMES_THEM` |
+| `general-computing-term` | an area that, leading article dropped, is wholly a general computing term from a closed list (env vars, file paths, test fixtures, markdown, JSON ...); a qualified area such as "the shop's config" passes | `JEV_CANNOT_TELL_A_REPOSITORY_WIDE_NOUN_FROM_A_LESSONS_AREA_USE_STRUCTURE_AND_CONFIDENT_THRESHOLDS` |
+
+The area rules judge only an ask in a house form. The repository name comes
+from walking the file system along the memory directory's slug to the
+checkout it names; a directory whose slug names no checkout on this machine,
+and every global directory, skip `bare-repository-name`. The memory read log
+hook does not log a `recall --lint-asks` call. Rules:
+`src/memory-recall/ask-lint-rules.ts`; command: `src/memory-recall/ask-lint.ts`.
+
+### `--spot-check`, `--agree`, `--disagree`
+
+`--spot-check [--count N]` prints N (default 10) prompts chosen at random from
+those the judge has graded: an id, the time, arm and kind, the first 300
+characters of the prompt, what Jev served or would have served, what the dig
+found, and every grade the judge gave. `--agree ID ["<reason>"]` and
+`--disagree ID "<reason>"` (the reason is required) append
+`{at, id, verdict, reason}` to `~/.throne/data/recall/spot-checks.jsonl`; an
+unknown id is refused with exit 2. Each of the three flags goes alone, and
+`--count` only with `--spot-check`. Every verdict counts, repeats included,
+and the report shows the judge's agreement rate with the Lord once there are
+at least 10 verdicts inside the window.
 
 ## rank
 
@@ -1832,6 +2233,38 @@ common failure word (`error`, `fail`, `not ok`, `exception`, `panic`,
 `traceback`). With `recall.jevEnabled` true the raw chunk text is sent to
 TypeSafe.
 
+## jev-probe
+
+```bash
+throne jev-probe --question "<yes/no question>" (--state "<text>" | --state-file <path>) [--repeat N] [--json]
+```
+
+The only sanctioned way to test a Jev wording: never a scratch script that
+imports the SDK, never a copy of the key. It asks one yes/no question about one
+state through the same budgeted Jev backend `recall`, `rank` and `sift` use
+(caller `probe` in `jev-usage.jsonl` and `recall --report`), so every run
+reserves from the machine's Jev budget and is charged. `--repeat` runs the same
+question again, default 1, capped at 5; a larger value is refused, not
+clamped.
+
+Cost first: before sending anything it prints the estimated tokens of the whole
+call (every run, using the backend's own estimate) and today's and this hour's
+budget with what is left. When the whole call would not fit in either, it
+refuses, sends nothing, never opens the key, and exits 1. When Jev is off
+(`recall.jevEnabled` false, a limit at 0, or `THRONE_JEV_DISABLED`) it refuses
+with the same reason `--status` gives and exits 1, rather than answering with
+the rules as if they were a probe result.
+
+Per run it prints the pick, its probability and who answered: `Jev (N% sure)`,
+or the verdict line's honest label (`rules (Jev budget used up)`,
+`rules (Jev budget lock busy)`, `rules (Jev failed)`) when a run was refused
+mid-call or Jev failed and the rules answered instead. It ends with the tokens
+reserved and spent (real tokens where the SDK reported them) and what is left of
+today's and this hour's budget. `--json` prints the same as one JSON object:
+`estimatedTokens`, `leftBefore`, `runs` (`pick`, `probability`, `answeredBy`),
+`reservedTokens`, `spentTokens`, `leftAfter`. A bad invocation exits 2 with the
+usage.
+
 ## ensure-heartbeat
 
 ```bash
@@ -1856,22 +2289,15 @@ harness launch.
 ./bin/throne-cli install-services [--dry-run] [--throne-root <absolute path>]
 ```
 
-Reads the strict JSON boolean `herdr-decouple` from
-`$XDG_CONFIG_HOME/throne/features.json` (fallback
-`~/.config/throne/features.json`), defaulting OFF when absent. In both states it
-installs unrelated throne hooks and services for the current user. OFF does not
-acquire or verify the pinned client, install the public `throne` seam, or
-install/control the decoupled Herdr service; runtime calls retain legacy bare
-PATH Herdr and its implicit/default session. ON adds the owned v0.7.5 client,
-public attach seam, and isolated named-session service.
+Installs the throne's hooks and services for the current user, together with
+the owned pinned herdr client, the public attach seam, and the isolated
+named-session herdr service.
 
 Linux installs and enables `throne-backend.service`, `ntfy.service` and the
-three `sweep-tmp-scratch-*` timer pairs, and with the flag ON also installs
-and enables `throne-herdr.service`; these are rendered into
+three `sweep-tmp-scratch-*` timer pairs and `throne-herdr.service`; these are rendered into
 `$XDG_CONFIG_HOME/systemd/user` (fallback `~/.config/systemd/user`). macOS
-installs and bootstraps `com.throne.throne-backend` and `com.throne.ntfy`,
-and with the flag ON also installs and bootstraps `com.throne.throne-herdr`,
-in `~/Library/LaunchAgents`. The sweep timers have no mac counterpart: they
+installs and bootstraps `com.throne.throne-backend`, `com.throne.ntfy` and
+`com.throne.throne-herdr` in `~/Library/LaunchAgents`. The sweep timers have no mac counterpart: they
 exist for a tmpfs inode cap macOS does not impose. The ntfy unit on both
 platforms runs `systemd/ntfy-serve`, which starts the pinned
 `binwiederhier/ntfy` image under docker or podman — `./install.sh` pulls it;
@@ -1912,15 +2338,44 @@ second run reports `unchanged`. Its own tests live beside it
 (`claude-hooks/test_skill_write_guard.py`) and run under `npm test` through
 `test/skill-write-guard-hook.test.ts`.
 
+Both platforms also turn off herdr's own agent resume: the herdr config
+(`HERDR_CONFIG_PATH`, else `$XDG_CONFIG_HOME/herdr/config.toml`, else
+`~/.config/herdr/config.toml`) gets `[session] resume_agents_on_restore =
+false`, every other line kept, so a restored pane comes back as a shell that
+startup reconciliation relaunches on the pinned harness
+(`src/install-services/pinned-harness-on-restore.ts`).
+
+The same pass writes `<throne root>/shell/throne-session.bash` and adds the
+throne shell block, one line between two marker comments, to the end of
+`~/.bashrc`, writing through the file when `~/.bashrc` is a symlink. The
+line sources the session file only when `HERDR_SESSION=throne`, so a shell in
+the throne herdr session gets the throne `bin/` first on `PATH` and
+`CLAUDE_BIN`/`CODEX_BIN` on the vendored harnesses. Each of the three writes
+reports `unchanged`, or `would …` under `--dry-run`, and none restarts herdr.
+
 ## ensure-harness-setup
 
 ```bash
 ./bin/throne-cli ensure-harness-setup [--throne-root <absolute path>]
 ```
 
-Re-registers only the harness hooks: the two Claude guard hooks above and the
-Codex `SessionStart` hook in `.codex/hooks.json`, through the same functions
-`install-services` calls. It renders no service unit and restarts nothing.
+Re-registers only the harness hooks: the two Claude guard hooks above, the
+Claude memory read log hook below, the Jev fence, and the Codex `SessionStart`
+hook in `.codex/hooks.json`, through the same functions `install-services`
+calls. It renders no service unit and restarts nothing.
+
+The Jev fence, `claude-hooks/jev-fence.py`, is a `PreToolUse` hook on
+`Bash|Read|Grep|Write|Edit|MultiEdit` (`src/install-services/jev-fence-hook.ts`).
+It refuses, with no bypass, a call that reads, copies or links a Jev key file
+(any `.jev-key*` file, and the path `recall.jevKeyFile` names in the live
+`config.user.ts`), imports `@typesafe-ai/sdk` anywhere but
+`src/relevance-classifier/jev-backend.ts`, changes `jevTokensPerDay` or
+`jevTokensPerHour` in a `config.user.ts`, or runs `recall`, `rank`, `sift` or
+`jev-probe` from a build whose compiled `jev-backend.js` does not import
+`./jev-budget.js`. It matches the operation, not the text: a grep pattern, a
+commit message or a document that names the key or the SDK passes. Its tests
+live beside it (`claude-hooks/test_jev_fence.py`) and run under `npm test`
+through `test/claude-guard-hook.test.ts`.
 It prints one line per hook, `unchanged`, `added`, or `failed: <reason>`, and
 on any failure exits 1 and sends the Lord an ntfy message. Without
 `--throne-root` it registers the running checkout, and refuses when that is
@@ -1939,6 +2394,30 @@ Three callers run it:
   `.claude/skill-dependencies.tsv` missing under `~/.claude/skills`; it
   never creates or edits either.
 - `throne-backend`, once on startup, when it runs from the live checkout.
+
+The memory read log hook, `claude-hooks/memory-read-log.py`, is a
+`PostToolUse` entry with matcher `Read|Grep|Glob|Bash`
+(`src/install-services/memory-read-log-hook.ts`); only this command registers
+it. It appends one JSON line to `~/.throne/data/recall/memory-reads.jsonl`
+whenever an agent reads memory by hand: a Read, Grep or Glob inside a memory
+directory, a Bash `cat`, `head`, `tail`, `sed`, `less`, `grep`, `rg`, `ls` or
+`find` against one, or any `throne recall` but `recall --lint-asks`, `rank`
+or `sift`. Memory
+directories are `~/.memories/`, `~/.throne/memories/`,
+`~/.claude/projects/*/memory/`, any `agent_docs/MEMORY/`, and each
+`recall.globalMemoryDirectories` entry, which the registration passes to the
+hook as arguments, so a changed list replaces the entry on the next launch and
+an unreadable config registers it with none. Each line carries `at`,
+`sessionId`, `agentName`, `tool`, `kind` (`read`, `search`, `list`,
+`recall-command`), `target`, `memoryFiles`, `returnedSomething`, `readInFull`,
+`transcriptPath`, `cwd`, `herdrPaneId`, `memoryFileHashes` (sha256 of each named
+memory file, whose text is copied to `~/.throne/data/recall/memory-versions/`)
+and, for a `throne recall` call, `recallArguments`. A search records only the
+memory files its output named. When the working directory names no throne
+agent, the agent name comes from `herdr agent list` for the hook's pane, the
+one process the hook starts, bounded at one second. The hook always exits 0
+with no output and appends `{"at", "error"}` to `memory-reads.failures.jsonl` when it
+cannot write a line. Its tests are `test/memory-read-log-hook.test.ts`.
 
 `.claude/skill-dependencies.tsv` records every skill that `AGENTS.md` or a
 shipped `SKILL.md` names, as `shipped`, `global`, `harness`, `generated`, or
@@ -2013,6 +2492,21 @@ Runs one published autoscale watchdog tick through the hosted worker's same
 `runOnce()` path. It exists for bounded operational checks where waiting for the
 five-minute cron would obscure which generation acted; it does not call the
 Stager decision helper or either spawn primitive directly.
+
+`alpha-autoscale-tick` and its alias `autoscale-now` run that
+sweep inside `throne-backend` over REST by default, so a manual poke shares the
+cron tick's process, its in-process gate and its lock. A REST failure exits
+non-zero naming `--local`; it never falls back on its own. `--local` runs the
+sweep in the calling process and takes the same lock.
+
+Every sweep, from every entry, first takes the cross-process lock
+`<data home>/locks/alpha-autoscale.lock` inside `runOnce()`. A sweep that finds
+it held does not wait: it logs one `skip: another alpha-autoscale sweep holds
+...` line naming the holder's pid and how long ago it renewed, sends no
+floor-breach page, and exits 0. The lock expires 60 seconds after its last
+renewal; the holder renews every 20 seconds and stops renewing 10 minutes after
+acquiring it, so it is free at most 60 seconds after its holder dies or hangs
+and never later than 11 minutes after it was taken.
 
 ## throne-startup
 

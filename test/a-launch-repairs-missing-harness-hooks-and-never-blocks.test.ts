@@ -35,6 +35,8 @@ async function machine(repairExitCode: number): Promise<Machine> {
   await mkdir(path.join(throneRoot, ".codex"), { recursive: true });
   await writeFile(path.join(throneRoot, "claude-hooks", "scratch-path-guard.py"), "");
   await writeFile(path.join(throneRoot, "claude-hooks", "skill-write-guard.py"), "");
+  await writeFile(path.join(throneRoot, "claude-hooks", "memory-read-log.py"), "");
+  await writeFile(path.join(throneRoot, "claude-hooks", "jev-fence.py"), "");
   await writeFile(path.join(throneRoot, ".claude", "skill-dependencies.tsv"), "share-stuff\tglobal\nloop\tharness\n");
   const repairCommand = path.join(throneRoot, "bin", "throne-cli");
   await writeFile(repairCommand, `#!/bin/bash\necho "$*" >> "${repairLog}"\nexit ${repairExitCode}\n`);
@@ -43,7 +45,7 @@ async function machine(repairExitCode: number): Promise<Machine> {
 }
 
 async function registerEveryHook(target: Machine): Promise<void> {
-  const hooks = ["scratch-path-guard.py", "skill-write-guard.py"].map(
+  const hooks = ["scratch-path-guard.py", "skill-write-guard.py", "memory-read-log.py", "jev-fence.py"].map(
     (name) => `python3 \\"${path.join(target.throneRoot, "claude-hooks", name)}\\"`,
   );
   await writeFile(path.join(target.home, ".claude", "settings.json"), `{"hooks": "${hooks.join(" ")}"}\n`);
@@ -77,6 +79,7 @@ test("a machine missing its hook registrations runs the repair against the launc
 
   assert.equal(repairs, `ensure-harness-setup --throne-root ${target.throneRoot}\n`);
   assert.match(stderr, /scratch-path-guard\.py is not registered/);
+  assert.match(stderr, /memory-read-log\.py is not registered/);
   assert.match(stderr, /codex session start hook is not registered/);
   assert.match(stderr, /launched\n$/);
 });
@@ -102,6 +105,18 @@ test("a missing global skill and a dangling skills link are reported", async () 
   assert.match(stderr, /\.claude\/skills is a link that resolves to nothing/);
   assert.match(stderr, /expects the global skill share-stuff/);
   assert.doesNotMatch(stderr, /\bloop\b/);
+});
+
+test("a missing skill dependency manifest is reported without triggering a repair", async () => {
+  const target = await machine(0);
+  await registerEveryHook(target);
+  await rm(path.join(target.throneRoot, ".claude", "skill-dependencies.tsv"));
+
+  const { stderr, repairs } = await launchCheck(target);
+
+  assert.equal(repairs, "");
+  assert.match(stderr, /skill-dependencies\.tsv is missing/);
+  assert.match(stderr, /launched\n$/);
 });
 
 test("a launcher running from a linked worktree never repairs the live settings", async () => {

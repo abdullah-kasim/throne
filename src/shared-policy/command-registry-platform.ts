@@ -14,6 +14,7 @@ import { RecallCommand } from "../memory-recall/recall.command.ts";
 import { RankCommand } from "../item-rank/rank.command.ts";
 import { LocateCommand } from "../file-locate/locate.command.ts";
 import { SiftCommand } from "../log-sift/sift.command.ts";
+import { JevProbeCommand } from "../jev-probe/jev-probe.command.ts";
 import { GitIdentityCommand } from "../git-identity/git-identity.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "../reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
 import {
@@ -25,6 +26,11 @@ import { ConsumeFenceHandoffOnStartCommand } from "../regent-fencing/consume-fen
 import { RecordSuiteHoldCommand } from "../regent-fencing/record-suite-hold.command.ts";
 import { RecordSuiteReleaseCommand } from "../regent-fencing/record-suite-release.command.ts";
 import { ReadSuiteArbitrationCommand } from "../regent-fencing/read-suite-arbitration.command.ts";
+import { ThroneBotSayCommand } from "../throne-bot/throne-bot-say.command.ts";
+import { ThroneBotSendFileCommand } from "../throne-bot/throne-bot-send-file.command.ts";
+import { ThroneBotRegisterBotCommand } from "../throne-bot/throne-bot-register-bot.command.ts";
+import { ThroneBotListBotsCommand } from "../throne-bot/throne-bot-list-bots.command.ts";
+import { ThroneBotLintObjectiveCommand } from "../throne-bot/throne-bot-lint-objective.command.ts";
 import type { CommandRegistryEntry } from "./command-registry-entry.ts";
 
 export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
@@ -133,7 +139,7 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: false,
     description:
-      "Print the bodies of the recorded memories that apply to a task, most relevant first and capped in size; --hook serves a prompt-submit hook payload from stdin.",
+      "Print the bodies of the recorded memories that apply to a task, searching the repositories named with --directory or the memory directories named with --memory-dir plus the global memories, most relevant first and capped in size; --hook serves a prompt-submit hook payload from stdin for the session's own repository.",
     ownHelp: true,
   },
   {
@@ -161,6 +167,15 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Read command output on stdin, save the full copy under ~/tmp, and print only the chunks that matter to what you are looking for, with line numbers.",
+    ownHelp: true,
+  },
+  {
+    name: "jev-probe",
+    provider: JevProbeCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Ask Jev one yes/no question about one state within the machine's Jev budget, printing the estimated cost first; the only sanctioned way to test a Jev wording.",
     ownHelp: true,
   },
   {
@@ -223,5 +238,42 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: false,
     description: "Prints the campaigns currently holding full-suite access.",
+  },
+  {
+    name: "throne-bot-say",
+    provider: ThroneBotSayCommand,
+    visibility: "public",
+    migrated: false,
+    description: "Post a text message into a bot's Matrix room.",
+  },
+  {
+    name: "throne-bot-send-file",
+    provider: ThroneBotSendFileCommand,
+    visibility: "public",
+    migrated: false,
+    description: "Post a file attachment into a bot's Matrix room.",
+  },
+  {
+    name: "throne-bot-register-bot",
+    provider: ThroneBotRegisterBotCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Register a bot's Matrix account and room against the running homeserver.",
+  },
+  {
+    name: "throne-bot-list-bots",
+    provider: ThroneBotListBotsCommand,
+    visibility: "public",
+    migrated: false,
+    description: "List registered bots and their room state.",
+  },
+  {
+    name: "throne-bot-lint-objective",
+    provider: ThroneBotLintObjectiveCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Check a bot-filed objective body for the mandatory DONE final step.",
   },
 ] as const;

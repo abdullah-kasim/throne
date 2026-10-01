@@ -98,6 +98,7 @@ export const REAL_NO_IDLING_DEPENDENCIES: NoIdlingDependencies = {
   // streak across real, minute-apart samples (FP2's fix).
   fullyIdleFamilyLiveChildrenTracker: new ConfirmedObservationTracker(),
   excludedFamilyObservations: new Set<string>(),
+  stillBlockedObservations: new Map<string, number>(),
 };
 
 export type { NoIdlingDependencies };

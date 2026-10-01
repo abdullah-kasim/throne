@@ -37,11 +37,6 @@ export interface DarwinAgentSpec {
 export const HERDR_SERVER_AGENT =
   LAUNCHD_AGENT_NAMES.THRONE_HERDR.basename;
 
-/** The darwin counterpart of linux.ts's HERDR_BIN_DEPENDENT_UNITS. */
-export const HERDR_BIN_DEPENDENT_AGENTS: readonly string[] = [
-  LAUNCHD_AGENT_NAMES.THRONE_HERDR.basename,
-];
-
 /**
  * The mac agent set, brought level with `LINUX_UNITS` (2026-09-02, the first
  * time a real mac ran this): `com.throne.throne-herdr` + `com.throne.throne-backend`

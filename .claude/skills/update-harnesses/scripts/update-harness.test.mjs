@@ -23,7 +23,6 @@ import {
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'update-harness.mjs');
 const THRONE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
-const SOURCE_FEATURE_FLAGS = path.join(THRONE_ROOT, 'src', 'shared-policy', 'feature-flags.service.ts');
 
 const CLAUDE_VENDOR_PINS = {
   _comment: [
@@ -55,7 +54,6 @@ function makeThroneRoot(root, { pinnedVersion = '2.1.226' } = {}) {
   const throneRoot = path.join(root, 'throne');
   mkdirSync(path.join(throneRoot, 'bin'), { recursive: true });
   mkdirSync(path.join(throneRoot, 'test'), { recursive: true });
-  mkdirSync(path.join(throneRoot, 'src', 'shared-policy'), { recursive: true });
   mkdirSync(path.join(throneRoot, 'vendor', 'node_modules', '.bin'), { recursive: true });
 
   const pins = JSON.parse(JSON.stringify(CLAUDE_VENDOR_PINS));
@@ -68,7 +66,6 @@ function makeThroneRoot(root, { pinnedVersion = '2.1.226' } = {}) {
     dependencies: { '@anthropic-ai/claude-code': pinnedVersion },
   });
 
-  execFileSync('cp', [SOURCE_FEATURE_FLAGS, path.join(throneRoot, 'src', 'shared-policy', 'feature-flags.service.ts')]);
   execFileSync('ln', ['-s', path.join(THRONE_ROOT, 'node_modules'), path.join(throneRoot, 'node_modules')]);
   writeExecutable(path.join(throneRoot, 'bin', 'claudey'), '#!/usr/bin/env bash\nexec "${CLAUDE_BIN}" --version\n');
   writeFileSync(
@@ -187,10 +184,6 @@ process.stdout.write(\${JSON.stringify(versionOutput)} + '\\\\n');
   return dir;
 }
 
-function ownership() {
-  return { ownsHarnesses: true, plansHerdr: false };
-}
-
 function fakeThroneDir(root) {
   const dir = path.join(root, 'fake-throne-bin');
   mkdirSync(dir, { recursive: true });
@@ -305,7 +298,6 @@ test("update rewrites vendor-pins.json (byte-preserving _comment), vendor/packag
       managedRoot,
       registry: 'https://registry.npmjs.org',
       evidencePath: path.join(root, 'evidence.json'),
-      ownership: ownership(),
     });
     assert.equal(evidence.newVersion, '2.1.267');
     const pins = JSON.parse(readFileSync(path.join(throneRoot, 'vendor-pins.json'), 'utf8'));
@@ -366,7 +358,6 @@ test('a vendored binary that reports the wrong version fails the update after th
         managedRoot,
         registry: 'https://registry.npmjs.org',
         evidencePath,
-        ownership: ownership(),
       }),
       /vendored claude reports "2\.1\.226 \(Claude Code\)", expected 2\.1\.267/,
     );
@@ -398,7 +389,6 @@ test('a failed probe leaves vendor-pins.json, vendor/package.json, and the stamp
       managedRoot,
       registry: 'https://registry.npmjs.org',
       evidencePath: path.join(root, 'evidence.json'),
-      ownership: ownership(),
     }));
     assert.equal(readFileSync(path.join(throneRoot, 'vendor-pins.json'), 'utf8'), pinsBefore);
     assert.equal(readFileSync(path.join(throneRoot, 'vendor', 'package.json'), 'utf8'), vendorPackageBefore);
@@ -425,7 +415,6 @@ test('rollback restores the previous pin from evidence and re-vendors it', () =>
       sourceEvidencePath,
       registry: 'https://registry.npmjs.org',
       evidencePath: path.join(root, 'rollback-evidence.json'),
-      ownership: ownership(),
     });
     assert.equal(evidence.restoredVersion, '2.1.226');
     const pins = JSON.parse(readFileSync(path.join(throneRoot, 'vendor-pins.json'), 'utf8'));
@@ -437,33 +426,6 @@ test('rollback restores the previous pin from evidence and re-vendors it', () =>
   } finally {
     process.env.PATH = originalPath;
   }
-});
-
-test('harness ownership OFF exits before any registry, staging, or vendor mutation', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'update-harness-ownership-off-'));
-  const throneRoot = makeThroneRoot(root);
-  const configRoot = path.join(root, 'config');
-  mkdirSync(path.join(configRoot, 'throne'), { recursive: true });
-  writeJson(path.join(configRoot, 'throne', 'features.json'), { 'harness-decouple': false });
-  const npmDir = fakeNpmDir(root, {});
-  const managedRoot = path.join(root, 'managed');
-  const result = spawnSync(process.execPath, [
-    SCRIPT,
-    'check',
-    '--harness', 'claude',
-    '--throne-root', throneRoot,
-    '--managed-root', managedRoot,
-  ], {
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      XDG_CONFIG_HOME: configRoot,
-      PATH: `${npmDir}:${process.env.PATH}`,
-    },
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /ownership is OFF/);
-  assert.equal(existsSync(managedRoot), false);
 });
 
 test('importing update-harness.mjs as a module never runs main()', () => {

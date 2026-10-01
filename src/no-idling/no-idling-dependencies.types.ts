@@ -94,6 +94,7 @@ export interface NoIdlingDependencies {
   fullyIdleFamilyLiveChildrenTracker?: ConfirmedObservationTracker;
   /** Process-lifetime set of unchanged exclusion diagnostics already emitted. */
   excludedFamilyObservations?: Set<string>;
+  stillBlockedObservations?: Map<string, number>;
   /**
    * Optional output sinks, defaulting to `process.stdout.write`/
    * `process.stderr.write` when absent -- mirrors `KeepGoingDependencies`'

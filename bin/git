@@ -1,21 +1,43 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+guard_marker=throne-git-guard-shim
 shim_dir=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+is_a_git_guard_copy() {
+    grep -Iqs -e "^guard_marker=$guard_marker\$" -e 'throne git guard' -- "$1"
+}
+
 real_git=""
+first_unguarded_git=""
 IFS=: read -r -a search_path <<<"${PATH:-}"
 for path_dir in "${search_path[@]}"; do
     [ -n "$path_dir" ] || path_dir=.
-    candidate="$path_dir/git"
-    if [ -x "$candidate" ] && [ "$(cd -P "$(dirname "$candidate")" && pwd -P)/$(basename "$candidate")" != "$shim_dir/git" ]; then
-        real_git="$candidate"
-        break
+    [ -f "$path_dir/git" ] && [ -x "$path_dir/git" ] || continue
+    if [ "$(cd -P "$path_dir" 2>/dev/null && pwd -P)" = "$shim_dir" ]; then
+        real_git=""
+        continue
     fi
+    [ -n "$real_git" ] || real_git="$path_dir/git"
+    [ -n "$first_unguarded_git" ] || is_a_git_guard_copy "$path_dir/git" || first_unguarded_git="$path_dir/git"
 done
+[ -n "$real_git" ] || real_git="$first_unguarded_git"
 
 if [ -z "$real_git" ]; then
     echo "throne git guard: real git binary not found" >&2
     exit 127
+fi
+
+next_git_is_another_guard=false
+is_a_git_guard_copy "$real_git" && next_git_is_another_guard=true
+
+bypass_requested=false
+if [ "${1:-}" = "--bypass" ]; then
+    bypass_requested=true
+    shift
+fi
+real_git_prefix=()
+if [ "$bypass_requested" = true ] && [ "$next_git_is_another_guard" = true ]; then
+    real_git_prefix=(--bypass)
 fi
 
 subcommand=""
@@ -35,6 +57,86 @@ for ((i = 1; i <= $#; i++)); do
             ;;
     esac
 done
+
+subcommand_index=$i
+case "$subcommand" in
+    commit|merge|revert|tag|notes)
+        attribution_fence_pattern='co-authored-by:.*(claude|anthropic|copilot|chatgpt|openai|gpt|codex|gemini|cursor)|generated[[:space:]]+with.{0,6}claude|noreply@anthropic\.com'
+
+        text_carries_ai_attribution() {
+            local verdict=0
+            printf '%s' "$1" | grep -Eiq -- "$attribution_fence_pattern" || verdict=$?
+            if [ "$verdict" -gt 1 ]; then
+                echo "throne attribution fence: the pattern check itself failed; refusing rather than letting the text through" >&2
+                return 0
+            fi
+            return "$verdict"
+        }
+
+        refuse_ai_attribution() {
+            local tool="$1"
+            local offending_line
+            offending_line=$(printf '%s' "$2" | grep -Eio -- "$attribution_fence_pattern" | head -1)
+            echo "throne $tool guard: STOP — this text carries an AI attribution line ($offending_line)." >&2
+            echo "Commit messages, PR bodies, comments and titles never credit an AI tool: no Co-Authored-By for Claude or any other model, no 'Generated with Claude Code', no noreply@anthropic.com." >&2
+            echo "Remove the line and run the command again. There is no bypass for this check." >&2
+        }
+        fenced_args=("$@")
+        fenced_text=""
+        read_message_file() {
+            local source="$1" position="$2"
+            if [ "$source" = - ]; then
+                local stdin_copy
+                stdin_copy=$(mktemp "${TMPDIR:-/tmp}/throne-git-message.XXXXXX")
+                cat >"$stdin_copy"
+                fenced_args[$position]="$stdin_copy"
+                fenced_text+="$(<"$stdin_copy")"$'\n'
+            elif [ -f "$source" ]; then
+                fenced_text+="$(<"$source")"$'\n'
+            fi
+        }
+        for ((fence_i = subcommand_index; fence_i < ${#fenced_args[@]}; fence_i++)); do
+            fence_arg="${fenced_args[fence_i]}"
+            case "$fence_arg" in
+                --)
+                    break
+                    ;;
+                -m|--message|--trailer)
+                    ((fence_i++))
+                    fenced_text+="${fenced_args[fence_i]:-}"$'\n'
+                    ;;
+                --message=*|--trailer=*)
+                    fenced_text+="${fence_arg#*=}"$'\n'
+                    ;;
+                -F|--file)
+                    ((fence_i++))
+                    read_message_file "${fenced_args[fence_i]:-}" "$fence_i"
+                    ;;
+                --file=*)
+                    read_message_file "${fence_arg#*=}" "$fence_i"
+                    ;;
+                --*)
+                    ;;
+                -*m)
+                    ((fence_i++))
+                    fenced_text+="${fenced_args[fence_i]:-}"$'\n'
+                    ;;
+                -*F)
+                    ((fence_i++))
+                    read_message_file "${fenced_args[fence_i]:-}" "$fence_i"
+                    ;;
+                -m?*)
+                    fenced_text+="${fence_arg#-m}"$'\n'
+                    ;;
+            esac
+        done
+        if text_carries_ai_attribution "$fenced_text"; then
+            refuse_ai_attribution git "$fenced_text"
+            exit 67
+        fi
+        set -- "${fenced_args[@]}"
+        ;;
+esac
 
 # Identity guard — before any command that CREATES commits. The court signs
 # every commit with the Lord's identity from the live throne config.user.ts
@@ -114,15 +216,52 @@ case "$subcommand" in
         ;;
 esac
 
+running_in_a_court_session() {
+    [ "${THRONE_AGENT_PANE:-}" = 1 ] || [ -n "${THRONE_LIVE_ROOT:-}" ]
+}
+
+global_push_check_directory() {
+    local configured physical
+    configured=$("$real_git" config --global --type=path --get core.hooksPath 2>/dev/null) || return 1
+    physical=$(cd -P "$configured" 2>/dev/null && pwd -P) || return 1
+    [ -x "$physical/checks-only/pre-push" ] || return 1
+    printf '%s\n' "$physical"
+}
+
 if [ "$subcommand" = push ]; then
+    git_options=("${@:1:$((subcommand_index - 1))}")
+    push_arguments=("${@:$((subcommand_index + 1))}")
+
+    effective_hooks_directory() {
+        local configured
+        configured=$("$real_git" ${git_options[@]+"${git_options[@]}"} rev-parse --path-format=absolute --git-path hooks 2>/dev/null) || return 1
+        (cd -P "$configured" 2>/dev/null && pwd -P) || printf '%s\n' "$configured"
+    }
+
+    push_checks_are_configured() {
+        [ -n "$("$real_git" ${git_options[@]+"${git_options[@]}"} config --get-all push-check.command 2>/dev/null)" ]
+    }
+
     push_remote=""
-    for ((j = i + 1; j <= $#; j++)); do
-        push_arg="${!j}"
+    push_skips_hooks=false
+    next_argument_is_a_value=false
+    options_ended=false
+    for push_arg in ${push_arguments[@]+"${push_arguments[@]}"}; do
+        if [ "$next_argument_is_a_value" = true ]; then
+            next_argument_is_a_value=false
+            continue
+        fi
+        if [ "$options_ended" = true ]; then
+            [ -n "$push_remote" ] || push_remote="$push_arg"
+            continue
+        fi
         case "$push_arg" in
-            --repo=*|--receive-pack=*|--exec=*|--push-option=*|-o=*) ;;
-            --repo|--receive-pack|--exec|--push-option|-o) ((j++)) ;;
+            --) options_ended=true ;;
+            --no-veri|--no-verif|--no-verify) push_skips_hooks=true ;;
+            --veri|--verif|--verify) push_skips_hooks=false ;;
+            --repo|--receive-pack|--exec|--push-option|-o) next_argument_is_a_value=true ;;
             -*) ;;
-            *) push_remote="$push_arg"; break ;;
+            *) [ -n "$push_remote" ] || push_remote="$push_arg" ;;
         esac
     done
     [ -n "$push_remote" ] || push_remote=origin
@@ -130,6 +269,20 @@ if [ "$subcommand" = push ]; then
         /*|file://*|./*|../*) push_remote_is_local=true ;;
         *) push_remote_is_local=false ;;
     esac
+
+    push_check_skip_requested=false
+    [ "${PUSH_CHECK_SKIP:-}" = 1 ] && push_check_skip_requested=true
+    if [ "$push_remote_is_local" = false ] && running_in_a_court_session && { [ "$push_skips_hooks" = true ] || [ "$push_check_skip_requested" = true ]; }; then
+        if [ "$bypass_requested" = true ]; then
+            echo "throne git guard: BYPASSED by explicit --bypass: git $*" >&2
+        else
+            echo "throne git guard: STOP RIGHT THERE — a court session may not skip the push checks (git push --no-verify, or PUSH_CHECK_SKIP=1) when pushing to '$push_remote'." >&2
+            echo "The rule: every push runs the checks configured in push-check.command; only the Lord skips them. Push without the skip, fix what the checks report, and push again." >&2
+            echo "Only under an order that names this exact push, put --bypass first: git --bypass push ... . If the checks themselves are broken, tell your supervisor; do not route around them." >&2
+            exit 68
+        fi
+    fi
+
     if [ "$push_remote_is_local" = false ]; then
         push_repo_dir=$("$real_git" "${@:1:$((i-1))}" rev-parse --show-toplevel 2>/dev/null || pwd -P)
         push_agent_name=$(basename "$push_repo_dir")
@@ -196,10 +349,24 @@ if [ "$subcommand" = push ]; then
             fi
         fi
     fi
+
+    if [ "$push_skips_hooks" = false ] && [ "$push_remote_is_local" = false ] && [ "$next_git_is_another_guard" = false ] \
+        && push_checks_are_configured && global_dispatcher=$(global_push_check_directory); then
+        hooks_directory=$(effective_hooks_directory || true)
+        if [ "$hooks_directory" != "$global_dispatcher" ]; then
+            echo "throne git guard: this repository's hooks directory (${hooks_directory:-unknown}) hides the global push checks in $global_dispatcher, so they run here first" >&2
+            dry_run_status=0
+            "$real_git" ${git_options[@]+"${git_options[@]}"} -c "core.hooksPath=$global_dispatcher/checks-only" push --dry-run ${push_arguments[@]+"${push_arguments[@]}"} || dry_run_status=$?
+            if [ "$dry_run_status" -ne 0 ]; then
+                echo "throne git guard: nothing was pushed — the push checks failed, or the dry run that feeds them their ref lines failed (exit $dry_run_status); see above" >&2
+                exit "$dry_run_status"
+            fi
+        fi
+    fi
 fi
 
 if [ "$subcommand" != commit ]; then
-    exec "$real_git" "$@"
+    exec "$real_git" ${real_git_prefix[@]+"${real_git_prefix[@]}"} "$@"
 fi
 
 message=""
@@ -225,4 +392,4 @@ if [[ "$message" =~ (^|[^[:alnum:]])(todo([[:space:]]+skills?)?|Herdr|terminal[[
     exit 65
 fi
 
-exec "$real_git" "$@"
+exec "$real_git" ${real_git_prefix[@]+"${real_git_prefix[@]}"} "$@"

@@ -1,5 +1,5 @@
 import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
-import { resolveAgent } from "../herdr/herdr-runtime.service.ts";
+import { resolveAgentAcrossSessions } from "../herdr/herdr-runtime.service.ts";
 import { submitToAgent } from "../herdr/herdr-send.service.ts";
 import { clearBlockedMarker } from "../agentdata/blocked-marker.service.ts";
 import { markAgentTasked } from "../agentdata/spawn-data-contracts.ts";
@@ -56,7 +56,7 @@ export interface MessageDeliveryHandlerDeps {
 }
 
 export const REAL_MESSAGE_DELIVERY_HANDLER_DEPS: MessageDeliveryHandlerDeps = {
-  resolveAgent,
+  resolveAgent: resolveAgentAcrossSessions,
   submitToAgent,
   clearBlockedMarker,
   readAgentRole,

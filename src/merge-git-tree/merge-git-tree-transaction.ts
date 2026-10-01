@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { realpath } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 import { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import { acquireAtomicMkdirLock } from "../alpha-monitoring/atomic-mkdir-lock.ts";
 import {
@@ -11,7 +9,6 @@ import {
 } from "../regent-queue/regent-queue.store.ts";
 import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
 
-const execFileAsync = promisify(execFile);
 export const TARGET_DELIVERY_LOCK_TTL_MS = 60_000;
 
 export async function withTargetDeliveryLock<T>(
@@ -78,14 +75,4 @@ export async function markDeliveryValidationRequired(
   } finally {
     store.close();
   }
-}
-
-export async function notifyDeliveryValidationRequired(
-  name: string,
-): Promise<void> {
-  await execFileAsync("throne", [
-    "send-agent",
-    "Regent",
-    `VALIDATION ALPHA required: ${name} absorbed new target content before delivery.`,
-  ]);
 }

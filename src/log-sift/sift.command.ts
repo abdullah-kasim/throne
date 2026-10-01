@@ -11,12 +11,19 @@ import {
   type ClassifierBackend,
   type FailOpenQuestion,
 } from '../relevance-classifier/classifier.types.ts';
-import { askFailingOpen } from '../relevance-classifier/fail-open-classifier.ts';
+import {
+  askFailingOpen,
+  isLeftWithoutAnAnswer,
+} from '../relevance-classifier/fail-open-classifier.ts';
 import {
   readJevSwitch,
   renderedJevStatus,
   type JevSwitch,
 } from '../relevance-classifier/jev-switch.ts';
+import {
+  readJevSpendingOnThisMachine,
+  type JevSpending,
+} from '../relevance-classifier/jev-spending.ts';
 import {
   loadRecallConfig,
   type RecallConfig,
@@ -45,6 +52,7 @@ export interface SiftDependencies {
   loadConfig(): Promise<RecallConfig>;
   chooseBackend(config: RecallConfig): Promise<ClassifierBackend>;
   readJevSwitch(config: RecallConfig): Promise<JevSwitch>;
+  readJevSpending(config: RecallConfig): Promise<JevSpending>;
   readStdin(): Promise<string>;
   saveFullInput(text: string): Promise<string>;
   writeStdout(text: string): void;
@@ -72,8 +80,9 @@ async function saveFullInputUnderHomeTmp(text: string): Promise<string> {
 
 const PRODUCTION_DEPENDENCIES: SiftDependencies = {
   loadConfig: () => loadRecallConfig(),
-  chooseBackend: (config) => chooseClassifierBackend(config),
+  chooseBackend: (config) => chooseClassifierBackend(config, 'sift'),
   readJevSwitch: (config) => readJevSwitch(config),
+  readJevSpending: (config) => readJevSpendingOnThisMachine(config),
   readStdin: () => readStreamAsText(process.stdin),
   saveFullInput: saveFullInputUnderHomeTmp,
   writeStdout: (text) => process.stdout.write(text),
@@ -130,7 +139,7 @@ async function chunksWorthKeeping(
       if (groupAnswers[index]?.[0]?.pick === YES) kept.push(chunk);
     });
     theBackendHasStoppedAnswering = groupAnswers.every(
-      (answers) => answers[0]?.failedOpen === true,
+      (answers) => answers[0] !== undefined && isLeftWithoutAnAnswer(answers[0], backend),
     );
   }
   return lastChunk === undefined ? kept : [...kept, lastChunk];
@@ -145,9 +154,11 @@ export async function runSift(
   dependencies: SiftDependencies = PRODUCTION_DEPENDENCIES,
 ): Promise<number> {
   if (commandArguments.length === 1 && commandArguments[0] === '--status') {
+    const config = await dependencies.loadConfig();
     dependencies.writeStdout(
       renderedJevStatus(
-        await dependencies.readJevSwitch(await dependencies.loadConfig()),
+        await dependencies.readJevSwitch(config),
+        await dependencies.readJevSpending(config),
       ),
     );
     return 0;

@@ -4,6 +4,7 @@ import type { SwitchRequest } from "../session/session.contracts.ts";
 import {
   activePlanPresetName,
   classifyPlanRole,
+  targetEffortForAgent,
   planRolePool,
   type PlanPresetName,
 } from "../config.ts";
@@ -165,7 +166,9 @@ export async function resolveRegisteredSwitchPolicy(opts: {
     model: requestedPair.model,
     requestedEffort: opts.requested.effort,
     bypassEffort: opts.bypass.effort,
-    targetEffort: opts.deps.targetEffort,
+    targetEffort:
+      opts.deps.targetEffort ??
+      targetEffortForAgent(role, opts.agentName, objectiveCode),
   });
   if (effort.kind === "refuse") return { ok: false, reason: effort.message };
 

@@ -18,18 +18,25 @@ export function executableName(value: string): string {
   return normalized.slice(normalized.lastIndexOf('/') + 1);
 }
 
+export function argvExecutablePathCandidates(argv: readonly string[]): string[] {
+  const executablePath = argv[0] ?? '';
+  if (!HARNESS_INTERPRETER_NAMES.has(executableName(executablePath))) return [executablePath];
+  return [executablePath, ...argv.slice(1, 5)
+    .filter((arg) => !arg.startsWith('-') && !arg.includes('='))];
+}
+
 export function argvExecutableCandidates(argv: readonly string[]): string[] {
-  const executable = executableName(argv[0] ?? '');
-  if (!HARNESS_INTERPRETER_NAMES.has(executable)) return [executable];
-  return [executable, ...argv.slice(1, 5)
-    .filter((arg) => !arg.startsWith('-') && !arg.includes('='))
-    .map(executableName)];
+  return argvExecutablePathCandidates(argv).map(executableName);
+}
+
+export function isHarnessExecutableName(name: string): boolean {
+  return ALL_HARNESS_EXECUTABLE_NAMES.has(name);
 }
 
 export function isLiveHarnessProcess(processInfo: HerdrForegroundProcess): boolean {
   if (isCodexNpmWrapperProcess(processInfo)) return true;
-  if (ALL_HARNESS_EXECUTABLE_NAMES.has(executableName(processInfo.name))) return true;
-  return argvExecutableCandidates(processInfo.argv).some((name) => ALL_HARNESS_EXECUTABLE_NAMES.has(name));
+  if (isHarnessExecutableName(executableName(processInfo.name))) return true;
+  return argvExecutableCandidates(processInfo.argv).some(isHarnessExecutableName);
 }
 
 export function isRegisteredHarnessProcess(registeredHarness: Harness, processInfo: HerdrForegroundProcess): boolean {

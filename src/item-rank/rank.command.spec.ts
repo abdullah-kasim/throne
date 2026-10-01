@@ -12,6 +12,7 @@ import {
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
 import { RECALL_LEDGER_FILE_NAME } from '../memory-recall/recall-records.ts';
+import { SWITCHED_OFF_JEV_STATUS_READERS } from '../relevance-classifier/jev-status.test-support.ts';
 import { gatherFileItems } from './rank-items.ts';
 import { CHARACTERS_IN_THE_LARGEST_PIECE } from './rank-requests.ts';
 import { runRank, type RankDependencies } from './rank.command.ts';
@@ -80,14 +81,7 @@ function fixture(options: {
         (() => Promise.resolve({ ...DEFAULT_RECALL_CONFIG, rankAllowedRoots: [allowedDirectory] })),
       chooseBackend: async () =>
         backend ?? (await import('../relevance-classifier/rules-backend.ts')).RULES_BACKEND,
-      readJevSwitch: () =>
-        Promise.resolve({
-          on: false,
-          enabledInConfig: false,
-          disabledByEnvironment: false,
-          keyFile: 'not-checked',
-          keyFilePath: '/keys/jev',
-        }),
+      ...SWITCHED_OFF_JEV_STATUS_READERS,
       gatherFileItems,
       readStdin: () => Promise.resolve(options.stdin ?? ''),
       dataDirectory,

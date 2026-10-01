@@ -45,11 +45,12 @@ file, one function) and say so in `SCOPE:`.
 When the objective is to split an existing pull request into several,
 `/pr-split` governs the cut and the bodies; come back here for the filing.
 
-### 2. Write the body — five markers, for a Sonnet reader
+### 2. Write the body — five markers, for the weakest configured reader
 
-The consuming Alpha and its Shadows are `claude/sonnet` at low effort
-(`config.user.ts`; committed default `UnifiedRouting`). Write for that
-reader (AGENTS.md checklist item 4): every fork carries a default, every
+The consuming Alpha and its Shadows run the committed default `OpusOnly`
+(`claude/opus` at high effort) unless `config.user.ts` routes them
+elsewhere; `throne check-config` prints the live route. Write for the
+weakest reader it could be (AGENTS.md checklist item 4): every fork carries a default, every
 sweep carries its literal command and a stopping condition, traps are stated
 as traps, slice boundaries are independently executable.
 
@@ -114,7 +115,7 @@ throne add-to-queue --objective-code <code> \
   --target-repo <absolute path of the repo the campaign changes> \
   --target-branch <branch it merges into> \
   --base-commit "$(git -C <target-repo> rev-parse <target-branch>)" \
-  [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] [--shadowless | --sliceless] \
+  [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] [--effort <level>] [--shadowless | --sliceless] \
   "<the five-marker body>"
 ```
 
@@ -169,6 +170,13 @@ throne add-to-queue --objective-code <code> \
   stores both flags and the autoscaler forwards `create-agent --sliceless
   --shadowless`. Never infer it from size, never pass it on a relayed
   request, and record the Lord's word under `RULINGS:`.
+- **`--effort <level>` only on the Lord's own words for THIS objective**,
+  like "high effort": `low` 1, `medium` 2, `high` 3, `xhigh` 4, `max` 5, or a
+  number 1–6 (6 is claude `ultracode`). The autoscaler launches the Alpha at that
+  effort and every Shadow it spawns inherits it with no flag. Never infer it
+  from size or difficulty, never pass it on a relayed request, and record the
+  Lord's words under `RULINGS:`. The filer can change it later with
+  `update-queue --effort <level>` or remove it with `--clear-effort`.
 - Supplying the four launch facts here marks the row launch-eligible in the
   same write. `mark-queue-launch-eligible` exists only for rows filed
   earlier without them. Prose is never read as launch intent.

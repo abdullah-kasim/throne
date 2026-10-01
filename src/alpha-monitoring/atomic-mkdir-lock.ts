@@ -34,6 +34,10 @@ interface StaleClaimRecord {
 
 const RECORD_FILE = "holder.json";
 
+export class AtomicMkdirLockTimedOutError extends Error {
+  override readonly name = "AtomicMkdirLockTimedOutError";
+}
+
 function staleClaimPath(lockPath: string): string {
   return `${lockPath}.stale-claim`;
 }
@@ -298,5 +302,7 @@ export async function acquireAtomicMkdirLock(
   if (ownsStaleClaim) {
     await releaseStaleReclamationClaim(options.lockPath, token);
   }
-  throw new Error(`atomic mkdir lock timed out: ${options.lockPath}`);
+  throw new AtomicMkdirLockTimedOutError(
+    `atomic mkdir lock timed out: ${options.lockPath}`,
+  );
 }

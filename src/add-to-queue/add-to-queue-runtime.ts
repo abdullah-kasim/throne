@@ -17,6 +17,7 @@
 //      with a "not-started" mirror. That is not an optimistic guess — it is the
 //      one verdict that is true by construction at insert time.
 
+import { parseQueueEffort } from "../harness-routing/effort-level.ts";
 import {
   openRegentQueueStore,
   type RegentQueueStore,
@@ -63,6 +64,7 @@ const MODEL_HINT_FLAG = "--model-hint";
 const DELIVERABLE_SHAPE_FLAG = "--deliverable-shape";
 const SHADOWLESS_FLAG = "--shadowless";
 const SLICELESS_FLAG = "--sliceless";
+const EFFORT_FLAG = "--effort";
 
 export interface LaunchMetadata {
   alphaName: string;
@@ -90,6 +92,7 @@ export interface ParsedAddToQueueArgs {
   deliverableShape?: QueueDeliverableShape;
   shadowless?: boolean;
   sliceless?: boolean;
+  effort?: number;
   body: string;
 }
 
@@ -114,6 +117,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
   let deliverableShape: QueueDeliverableShape | undefined;
   let shadowless: boolean | undefined;
   let sliceless: boolean | undefined;
+  let effort: number | undefined;
   const launchValues: Record<string, string> = {};
   const bodyWords: string[] = [];
   for (let i = 0; i < args.length; i++) {
@@ -144,6 +148,10 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
     if (args[i] === SLICELESS_FLAG) {
       sliceless = true;
       shadowless = true;
+      continue;
+    }
+    if (args[i] === EFFORT_FLAG) {
+      effort = parseQueueEffort(args[++i]);
       continue;
     }
     if (args[i] === PRIORITY_FLAG) {
@@ -248,6 +256,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
     ...(deliverableShape === undefined ? {} : { deliverableShape }),
     ...(shadowless === undefined ? {} : { shadowless }),
     ...(sliceless === undefined ? {} : { sliceless }),
+    ...(effort === undefined ? {} : { effort }),
     launchOverrides,
   };
 }
@@ -429,6 +438,7 @@ export async function run(
         : { deliverableShape: parsed.deliverableShape }),
       ...(parsed.shadowless === undefined ? {} : { shadowless: parsed.shadowless }),
       ...(parsed.sliceless === undefined ? {} : { sliceless: parsed.sliceless }),
+      ...(parsed.effort === undefined ? {} : { effort: parsed.effort }),
       launch,
       deliveryMirror: {
         verdict: "not-started",

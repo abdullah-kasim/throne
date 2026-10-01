@@ -60,10 +60,8 @@ Claude Code and Codex CLI updates use the one throne-local skill at
 alongside the todo skills; the architecture has no harness-specific skill copy
 or discovery overlay.
 
-The strict feature loader is the ownership boundary. Missing or false
-`harness-decouple` leaves PATH/system harnesses entirely outside throne
-control, so every updater action exits before discovery or filesystem effects.
-When explicitly true, each local harness transaction proceeds serially through
+The throne always owns its vendored harnesses. Each local harness transaction
+proceeds serially through
 authoritative discovery, package and integrity verification, isolated staging,
 non-destructive CLI and throne-contract probes, and atomic promotion with the
 previous artifact retained for rollback. Mode `0600` JSON evidence records
@@ -72,10 +70,8 @@ Hosted services and model behavior remain mutable outside that local evidence.
 
 The probe boundary uses staged binary overrides and hermetic launcher,
 create-agent, and stored-resume tests. It does not authenticate, resume a live
-session, attach to Herdr, or mutate a remote. Herdr is only reported as eligible
-for separate planning when `shouldOwnHarnessUpdates()` and
-`shouldUpdateHerdrInHarnessUpdate()` are both true; the updater has no live
-Herdr operation or restart path.
+session, attach to Herdr, or mutate a remote. A herdr update is planned
+separately; the updater has no live Herdr operation or restart path.
 
 ## The herdr contract
 
@@ -83,12 +79,8 @@ Herdr operation or restart path.
 commands shell out to it through the responsibility-owned modules under
 `src/`. Nest-owned capabilities keep their current-pane and agent-list
 queries in their respective domains.
-Its durable mode comes from `$XDG_CONFIG_HOME/throne/features.json` (fallback
-`~/.config/throne/features.json`), whose strict JSON boolean
-`{"herdr-decouple": true|false}` defaults OFF when absent. OFF preserves legacy
-bare-PATH Herdr and its implicit/default session. ON selects the verified owned
-client and isolated named `throne` session. Changing the flag never touches a
-live server; service handoff is a separate operator action.
+Every call goes through the verified owned client and the isolated named
+`throne` session. Service handoff is a separate operator action.
 
 The Lord-facing roles (Stager, Regent) carry a generated `herdr` skill in
 their cwd so they can focus tabs and read panes on request; it is rendered at

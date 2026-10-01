@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { ghProgramFor, parsePullRequestUrl } from '../pr-merge/stack.mjs';
+import { ghEnvironmentFor, ghProgramFor, ghWorkingDirectoryFor, parsePullRequestUrl } from '../pr-merge/stack.mjs';
 
 const usage = 'usage: node threads.mjs <pull request url> [--all] [--json]';
 const automatedAuthorSuffix = '[bot]';
 
 function runGh(program, args) {
-  const result = spawnSync(program, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const result = spawnSync(program, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: ghEnvironmentFor(program), cwd: ghWorkingDirectoryFor(program) });
   if (result.status !== 0) throw new Error(`${program} ${args.join(' ')} failed (exit ${result.status}):\n${result.stderr}`);
   return result.stdout;
 }
@@ -44,9 +44,30 @@ export function latestPerAutomatedAuthor(conversation) {
   return new Set([...latest.values()].map((entry) => entry.id));
 }
 
+function pullRequestsBasedOn(program, owner, repo, branch) {
+  return JSON.parse(runGh(program, ['pr', 'list', '--repo', `${owner}/${repo}`, '--base', branch, '--state', 'all', '--json', 'number,headRefName,state', '--limit', '100']))
+    .filter((pr) => pr.state !== 'OPEN');
+}
+
 export function rolledPullRequestsOf(program, owner, repo, headBranch) {
-  const merged = JSON.parse(runGh(program, ['pr', 'list', '--repo', `${owner}/${repo}`, '--base', headBranch, '--state', 'merged', '--json', 'number', '--limit', '50']));
-  return merged.map((pr) => pr.number);
+  const found = [];
+  const seenBranches = new Set([headBranch]);
+  let frontier = [headBranch];
+  while (frontier.length > 0) {
+    const next = [];
+    for (const branch of frontier) {
+      for (const pr of pullRequestsBasedOn(program, owner, repo, branch)) {
+        if (found.includes(pr.number)) continue;
+        found.push(pr.number);
+        if (!seenBranches.has(pr.headRefName)) {
+          seenBranches.add(pr.headRefName);
+          next.push(pr.headRefName);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return found;
 }
 
 export function renderThreads(pullRequests) {

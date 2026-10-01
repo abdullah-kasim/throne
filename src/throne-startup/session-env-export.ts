@@ -1,21 +1,33 @@
 import path from "node:path";
-import { shellQuote } from "../herdr/herdr-launch-command.ts";
+import { HARNESS_NAMES } from "../harness-routing/harness.ts";
+import { shellQuote, vendoredHarnessBinaryDirectory } from "../herdr/herdr-launch-command.ts";
+
+export const PUT_LIVE_BIN_FIRST_FUNCTION = "throne_put_live_bin_first";
 
 export interface SessionEnvExportInput {
   liveRoot: string;
-  currentPath: string | undefined;
 }
 
-export function sessionEnvExportLines({ liveRoot, currentPath }: SessionEnvExportInput): string[] {
-  const shimDir = path.join(liveRoot, "bin");
-  const lines = [`export THRONE_LIVE_ROOT=${shellQuote(liveRoot)}`];
-  const alreadyOnPath = (currentPath ?? "")
-    .split(path.delimiter)
-    .some((entry) => entry === shimDir);
-  if (!alreadyOnPath) {
-    lines.push(`export PATH=${shellQuote(shimDir)}:"$PATH"`);
-  }
-  return lines;
+function putDirectoryFirstOnPathFunction(directory: string): string {
+  const body = [
+    `local live_entry=:${shellQuote(directory)}: remaining_path=":\${PATH}:"`,
+    'while [[ $remaining_path == *"$live_entry"* ]]; do remaining_path=${remaining_path/"$live_entry"/:}; done',
+    "remaining_path=${remaining_path#:}",
+    "remaining_path=${remaining_path%:}",
+    `export PATH=${shellQuote(directory)}\${remaining_path:+:$remaining_path}`,
+  ];
+  return `${PUT_LIVE_BIN_FIRST_FUNCTION}() { ${body.join("; ")}; }`;
+}
+
+export function sessionEnvExportLines({ liveRoot }: SessionEnvExportInput): string[] {
+  const harnessDirectory = vendoredHarnessBinaryDirectory(liveRoot);
+  return [
+    `export THRONE_LIVE_ROOT=${shellQuote(liveRoot)}`,
+    putDirectoryFirstOnPathFunction(path.join(liveRoot, "bin")),
+    PUT_LIVE_BIN_FIRST_FUNCTION,
+    `export CLAUDE_BIN=${shellQuote(path.join(harnessDirectory, HARNESS_NAMES.CLAUDE))}`,
+    `export CODEX_BIN=${shellQuote(path.join(harnessDirectory, HARNESS_NAMES.CODEX))}`,
+  ];
 }
 
 export type SessionEnvExportOutcome = "written" | "no-session-env-file" | "failed";
@@ -23,7 +35,6 @@ export type SessionEnvExportOutcome = "written" | "no-session-env-file" | "faile
 export interface SessionEnvExportContract {
   sessionEnvFile: string | undefined;
   liveRoot: () => Promise<string>;
-  currentPath: string | undefined;
   appendToFile: (file: string, text: string) => Promise<void>;
   writeStderr: (text: string) => void;
 }
@@ -36,7 +47,7 @@ export async function exportGitShimToSession(
   }
   try {
     const liveRoot = await contract.liveRoot();
-    const lines = sessionEnvExportLines({ liveRoot, currentPath: contract.currentPath });
+    const lines = sessionEnvExportLines({ liveRoot });
     await contract.appendToFile(contract.sessionEnvFile, `${lines.join("\n")}\n`);
     return "written";
   } catch (error) {

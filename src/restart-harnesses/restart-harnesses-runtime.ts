@@ -32,6 +32,14 @@ import {
 } from "../regent-state/regent-state.service.ts";
 import { errorText } from "../shared-policy/error-text.ts";
 import {
+  IdentityLineReadStatus,
+  readAgentRole,
+  readAgentSupervisor,
+} from "../agentdata/identity-data.service.ts";
+import { resolveTargetEffort, targetEffortForAgent } from "../config.ts";
+import { parseHarness } from "../harness-routing/model-registry.ts";
+import { modelEffortRange } from "../harness-routing/policy/capabilities.ts";
+import {
   REAL_RESUME_CONTRACT,
   resumeOrphan,
 } from "../throne-startup/throne-startup-reconciliation.service.ts";
@@ -52,6 +60,11 @@ export interface RestartHarnessesDeps {
   readLiveModel: (agent: HerdrAgent) => Promise<string | undefined>;
   readHarnessRecord: (name: string) => Promise<string | undefined>;
   resume: (name: string) => Promise<void>;
+  configuredEffort: (
+    name: string,
+    role: string | undefined,
+    spec: SpawnSpec,
+  ) => Promise<number | undefined>;
   renameAgent: (paneId: string, name: string) => Promise<void>;
   acquireRegentRestartLock: () => Promise<string | null>;
   releaseRegentRestartLock: (token: string) => Promise<void>;
@@ -114,12 +127,58 @@ export const REAL_DEPS: RestartHarnessesDeps = {
       ...REAL_RESUME_CONTRACT,
       exactResumePrompt: buildHarnessRestartPrompt,
     }),
+  configuredEffort: readConfiguredEffort,
   renameAgent: (paneId, name) => renameAgent(paneId, name),
   acquireRegentRestartLock: () => acquireResurrectLock(REGENT_DIR),
   releaseRegentRestartLock: (token) => releaseResurrectLock(REGENT_DIR, token),
   log: (message) => process.stdout.write(message),
   warn: (message) => process.stderr.write(message),
 };
+
+async function campaignEffortOfSupervisor(name: string): Promise<number | undefined> {
+  const supervisor = await readAgentSupervisor(name);
+  if (supervisor.status !== IdentityLineReadStatus.Found) return undefined;
+  const supervisorSpec = await readSpawnSpec(supervisor.value).catch(() => null);
+  return supervisorSpec?.campaign_effort;
+}
+
+export async function readConfiguredEffort(
+  name: string,
+  role: string | undefined,
+  spec: SpawnSpec,
+): Promise<number | undefined> {
+  if (role === undefined) {
+    const identityRole = await readAgentRole(name);
+    if (identityRole.status !== IdentityLineReadStatus.Found) return undefined;
+    role = identityRole.value;
+  }
+  const campaignEffort = spec.campaign_effort ?? await campaignEffortOfSupervisor(name);
+  if (campaignEffort !== undefined) return undefined;
+  let range;
+  try {
+    range = modelEffortRange(parseHarness(spec.harness), spec.model);
+  } catch {
+    return undefined;
+  }
+  if (range === undefined) return undefined;
+  return resolveTargetEffort(
+    targetEffortForAgent(role, name, spec.objective_code),
+    range,
+  );
+}
+
+async function applyConfiguredEffort(
+  agent: HerdrAgent,
+  name: string,
+  deps: RestartHarnessesDeps,
+): Promise<string> {
+  const spec = await deps.readSpawnSpec(name);
+  if (spec === null) return "";
+  const effort = await deps.configuredEffort(name, isRegent(agent) ? "regent" : undefined, spec);
+  if (effort === undefined || effort === spec.effort) return "";
+  await deps.writeSpawnSpec(name, { ...spec, effort });
+  return ` at effort ${effort} (was ${spec.effort})`;
+}
 
 export class RestartHarnessesUsageError extends Error {
   readonly name = "RestartHarnessesUsageError";
@@ -303,11 +362,12 @@ async function restartAgentInPlace(
   } else {
     await recordLiveSessionAndModel(name, existingSpec, agent.sessionId!, liveModel, deps);
   }
+  const effortNote = await applyConfiguredEffort(agent, name, deps);
   await stopHarnessInPane(agent.paneId, deps);
   await deps.resume(name);
   await ensurePaneCarriesName(agent, name, deps);
   const modelNote = existingSpec !== null && liveModel !== undefined && liveModel !== existingSpec.model ? ` on ${liveModel} (was ${existingSpec.model})` : "";
-  return { name, verdict: "restarted", detail: `resumed native session ${agent.sessionId}${modelNote}${synthesisNote}` };
+  return { name, verdict: "restarted", detail: `resumed native session ${agent.sessionId}${modelNote}${effortNote}${synthesisNote}` };
 }
 
 async function restartRegentUnderLock(

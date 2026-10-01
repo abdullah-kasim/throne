@@ -1,0 +1,34 @@
+# throne-bot-bridge@.service — per-bot Matrix<->pane bridge daemon. The
+# instance name (%i) is the bot name: it syncs that bot's Matrix room via
+# matrix-bot-sdk and delivers inbound human messages into the bot's pane in
+# the `throne-bot` herdr session.
+#
+# THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{THRONE_ROOT}}`
+# (absolute path of the throne directory) and `{{NODE_BIN}}` (absolute path
+# of the node interpreter) are substituted at install time; only the
+# rendered copy in the systemd user unit dir is a working unit. Install
+# with:
+#   cd <throne root> && ./bin/throne-cli install-services
+#
+# One unit instance per bot, started per `bots/<bot-name>/` folder by
+# install-throne-bot.sh (`systemctl --user start throne-bot-bridge@<bot>`).
+
+[Unit]
+Description=throne-bot bridge daemon for bot %i (Matrix <-> pane)
+After=throne-bot-herdr.service
+Wants=throne-bot-herdr.service
+
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory={{THRONE_ROOT}}
+Environment=THRONE_HERDR_SESSION_NAME_OVERRIDE=throne-bot
+ExecStart={{NODE_BIN}} {{THRONE_ROOT}}/dist/src/throne-bot/bridge/bridge-main.js %i
+Restart=always
+RestartSec=3
+SyslogIdentifier=throne-bot-bridge-%i
+
+[Install]
+WantedBy=default.target

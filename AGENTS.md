@@ -67,6 +67,12 @@ Reference material, not boot-critical law — moved to
 `agent_docs/public-release-hygiene.md` for the generalise-before-writing rule,
 the `lint:private-refs` backstop, and its external pattern-file contract.
 
+## Throne-bot
+
+Reference material, not boot-critical law — the Matrix-fronted bot session,
+its bridge, its CLI, and its bot-registration workflow are documented in
+`agent_docs/throne-bot.md`.
+
 ## Objective-coded campaign names
 
 **Every future campaign Alpha and Shadow uses a canonical name with the
@@ -444,12 +450,13 @@ body filed with `add-to-queue` as launch-ready MUST:
    `99c` opens the draft PR from that branch (`/execute-todos`,
    "Pull-request delivery"); the default branch is neither merged into nor
    pushed.
-4. **Write for the Alpha who will actually read it: Sonnet 5, with Sonnet 5
-   Shadows (Lord, 2026-08-24).** The consuming Alpha and every Shadow under it
-   are `claude`/`sonnet` at `activeTargetEffort: 1` (`SonnetLow` in the live
-   `config.user.ts`; the committed default `UnifiedRouting` is Sonnet-only
-   too). A body pitched at a strong reader silently becomes a weaker reader's
-   guess. Concretely, this means: **every fork carries a default** the Alpha
+4. **Write for the Alpha who will actually read it (Lord, 2026-08-24).** The
+   committed default is `OpusOnly` at high effort: the consuming Alpha and
+   every Shadow under it are `claude`/`opus` at `roleEfforts` 3 (Lord,
+   2026-10-01). Check the live `config.user.ts` with `throne check-config`,
+   because an operator can still route campaigns to `claude`/`sonnet` at low
+   effort. Write so that weakest configured reader succeeds: a body pitched at
+   a strong reader silently becomes a weaker reader's guess. Concretely, this means: **every fork carries a default** the Alpha
    may deviate from with a stated reason, never a menu of candidate shapes;
    **every sweep carries its literal command and a stopping condition**, never
    "sweep the surface"; **traps are stated as traps**, because a weaker reader
@@ -915,7 +922,7 @@ evidence of it.
   harness/model/effort. See
   `agent_docs/MODEL_POLICY.md` for the stable selection and inspection contract.
 - **Default every unspecified campaign to Luna effort 1 end to end (Lord,
-  2026-08-05) — SUPERSEDED for as long as `UnifiedRouting` stays the active
+  2026-08-05) — SUPERSEDED for as long as `OpusOnly` stays the active
   plan preset.** The Lord's order stands as written: unless he explicitly
   names another model for the current objective, the Regent is to launch its
   Alpha on native `codex` with `gpt-5.6-luna` at effort `1`, and the Alpha is
@@ -923,14 +930,15 @@ evidence of it.
   terminal-gate Shadow. It is recorded here, not erased, because it remains
   the standing order the moment routing configuration changes it back. But
   the committed default steering config (`src/steering-user-config.ts`,
-  `DEFAULT_STEERING_CONFIG.activePlanPresetName: 'UnifiedRouting'`) currently
-  activates the `UnifiedRouting` plan preset (`src/config.ts`), whose
+  `DEFAULT_STEERING_CONFIG.activePlanPresetName: 'OpusOnly'`) currently
+  activates the `OpusOnly` plan preset (`src/config.ts`), whose
   `rolePools.Alpha`, `rolePools.Shadow`, and `rolePools.ShadowSlice99` are each
-  the single pair `claude`/`sonnet`. Role pools are a hard admission wall —
-  `create-agent` refuses any pair outside the active pool rather than
-  substituting a default — so `gpt-5.6-luna`/`codex` cannot be admitted for any
-  campaign role while `UnifiedRouting` is active, and the Luna order cannot
-  execute. Every campaign launches `claude`/`sonnet` today as a direct,
+  the single pair `claude`/`opus`, at `roleEfforts` 3 (Lord, 2026-10-01). Role
+  pools are a hard admission wall — `create-agent` refuses any pair outside
+  the active pool rather than substituting a default — so
+  `gpt-5.6-luna`/`codex` cannot be admitted for any campaign role while
+  `OpusOnly` is active, and the Luna order cannot execute. Every campaign
+  launches `claude`/`opus` by default as a direct,
   intentional consequence of that preset choice, not as silent drift from the
   order. A model named for one objective does not become a nearby campaign's
   default. Never infer Fable, Sol, Claude, OpenCode, Omni, or another route
@@ -1236,12 +1244,12 @@ exists.
 | `reap-agent <name> --reason <enum> [--force] [--archive-cancelled-unmerged]` | Tear an agent down through the tooling: close its herdr tab, remove its worktree (`git worktree remove`), and archive its `~/.throne/data/<name>/` → `~/.throne/data/.reaped/<name>/`. Before archiving, it records `reaped_at` + `reap_reason` and appends the timing row to `~/.throne/data/stats/agent-timings.jsonl`; `--reason` is REQUIRED. Ordinary reap accepts `completed|stalled|force|orphan|superseded|cancelled|scratch|error|other`; `--reason cancelled` alone runs ordinary teardown and still refuses a branch carrying content that cannot be proven delivered. `--reason scratch` marks a disposable diagnostic probe that completed no real work (e.g. a send-agent canary target); `agent-stats` excludes `scratch` rows from its completion/stall breakdowns entirely, distinct from `completed` (a real completion) and `other` (neither of the above). The cancelled-unmerged archival form is `reap-agent <name> --reason cancelled --archive-cancelled-unmerged` — `--archive-cancelled-unmerged` requires `--reason cancelled`, but not the reverse. It retains the exact intentionally-unmerged local ref/tip and moves byte-identical provenance to `tree-base.cancelled-unmerged.json`; it never merges, deletes, renames, or makes that branch name reusable. A `--force` reap carrying any other `--reason` (e.g. `completed`) that cannot prove delivery is retained through the same mechanism but reported as `UNMERGED-RETAINED`, not `CANCELLED-UNMERGED` — the timing row still records the caller's actual `--reason` untouched, so `agent-stats` is unaffected; only the human-facing label and archival vocabulary differ from the explicit `--reason cancelled --archive-cancelled-unmerged` form. `--force` remains only the live-child/liveness override; agent memory lives outside every worktree (`memory-dir`), so reap has nothing of it to protect. A successful `--reason completed` reap notifies completed Alphas by default; set `THRONE_NOTIFY_SHADOWS=1` to opt Shadows in too. Ordinary reap is idempotent when the lifecycle is already gone; explicit cancellation instead requires live `tree-base.json` or preserved `tree-base.cancelled-unmerged.json` authority until archival succeeds, so rerunning it after successful archival is not the ordinary already-gone no-op. Initial cancellation proof refuses delivered, missing, corrupt, mismatched, foreign, or duplicate-checkout authority before tab/worktree/ledger mutation; a ref move after preflight is detected only by post-teardown verification while the moved ref and preserved marker remain recoverable. Plain reap **refuses a LIVE agent** unless it is completion-proven (its `REPORT.md` landed and herdr no longer says `working`). Plain reap also refuses while live children still report to the target; `--force` cascades through those live children first and is the only path that may kill genuinely-working agents. Dead/complete agents reap freely. Refuses the Regent outright. Ordinary cleanup first accepts commit reachability, then accepts squash-equivalent delivery only when recorded delivery evidence is retained by the recorded target and the candidate content carries the same canonical Git tree; cleanup repeats that authority check immediately before deletion. Unique, unequal, or unverifiable content remains protected and requires the explicit retention/discard path. See `agent_docs/commands.md` under reap-agent for the mechanism. See `agent_docs/commands.md` for cancellation's strict proof and retry boundary, and `agent_docs/ntfy-phone-notifications.md` for the server/topic/operator contract. The teardown counterpart to `create-agent`/`spawn-git-tree` (E2/D2 build on it). |
 | `complete-agent <name> \| --all` | Reap-on-complete: reap a **finished** agent only. Verifies E1's durable completion signal via `getRoster`, then delegates teardown to `reap-agent` (re-implements no teardown). Reaps both a gone COMPLETE agent and a completion-proven LIVE agent whose status is no longer `working`; preserves `reap-agent`'s live-child refusal/cascade gate; **refuses every other LIVE** agent and any **DEAD** agent (died mid-work, no report — a D2 orphan call); idempotent no-op on an unknown/already-reaped name; never reaps the Regent. `--all` sweeps COMPLETE and completion-proven stuck agents, failure-isolated. **Commit-before-report is machine-gated, not merely instructed:** both `complete-agent` and plain `reap-agent --reason completed` (no `--force`) run `checkOwnWorktreeCommittedPrecondition` (`src/slice-evidence/agent-evidence-gate.ts`) before accepting the agent as done, and refuse when its own recorded worktree still carries uncommitted **tracked** changes (staged, modified, or deleted files already known to git) — untracked debris (a scratch note, a stray `node_modules`) never trips it. The refusal names the concrete remedy (`git add -A && git commit`) and the agent's own branch. Three cases are exempt, each its own distinguishable outcome rather than a shared silent pass: `deliverable_shape: "verdict-only"` agents (a verdict gate produces no diff by design), `isTerminalDeliveryShadowName` (`99b`, or legacy `99e`) agents (their content lands via their supervising Alpha, not their own branch), and agents with no resolvable `spawn.json` cwd / `tree-base.json` branch (nothing to check against). **Honest limit:** this does not recover uncommitted in-progress work lost before a commit — it only prevents an agent from being accepted as COMPLETE while committed-but-unreported work still sits on disk. `--force` still tears the agent down over a dirty tree but prints a loud warning naming what was skipped instead of silently skipping it. |
 | `keep-going` | Background nudge: without `--name`, read the Regent's desired state, resolve the uniquely named live Regent, and route the queue-aware nudge through the same sender-aware submit engine with explicit non-agent origin `keep-going`, yielding `keep-going said: run render-queue, queue and dispatch more work as necessary, check for stalled agents and poke them, and continue any active work`. If the Regent is dismissed, do nothing. If no live Regent exists while desired state is running, resurrect one instead of sending, without reading any provider sensor. With `--name <agent>`, skip desired-state/resurrection and nudge that named agent; a named Regent gets the same queue-aware literal, while any other named agent gets the generic nudge. It never dispatches itself and exits non-zero only on genuine ambiguity or resolution failure. Whenever the target is the Regent, the exact live Regent harness label is the sole pacing selector: `codex` reads only Codex quota, `claude` only Claude quota, `opencode` only the opencode-go sensor, opposite-provider telemetry cannot change cadence, a harness change or legacy driverless state starts a fresh pacing domain, and a label outside `HARNESSES` reads no provider getter and nudges unthrottled with an explicit diagnostic. A throttle-evaluation failure nudges unthrottled (NORMAL); a state-read failure can still compute a matching non-NORMAL band; a state-write failure can retain a computed non-NORMAL band — no failure ever suppresses the heartbeat. Output is byte-identical to the pinned literal only when the evaluated band carries no advisory. |
-| `add-to-queue [--objective-code <code>] [--shadowless \| --sliceless] <body words...>` | Add a new `open`-status item to the SQLite-backed Regent queue store (`src/regent-queue/`). `--shadowless` (Stager, on the Lord's own words only) authorizes the campaign Alpha to execute its todo slices itself; the autoscaler forwards it as `create-agent --shadowless`. `--sliceless` (Stager, on the Lord's own word "sliceless" only, for single-seam work) authorizes the Alpha to skip /write-todos and work straight from the queue body with no bundle and no Shadows; sliceless implies shadowless, so the row stores both flags and the autoscaler forwards `create-agent --sliceless --shadowless`. The push gate then demands `~/.throne/data/<alpha>/sliceless/<code>/verify.md` (/execute-todos "Sliceless mode"). `--model-hint <harness>/<model>` outside the Alpha pool records the Lord's order as a recipient-`*` authorization in both Regent bypass registries and puts the pair in the Alpha's model allowlist, so the autoscaler launches it with no Regent step (agent_docs/commands.md, add-to-queue). |
-| `update-queue --objective-code <code> <field flags>` | Replace the body or correct status and lifecycle provenance on an existing queue item. Nullable provenance fields have explicit `--clear-*` flags. |
+| `add-to-queue [--objective-code <code>] [--effort <level>] [--shadowless \| --sliceless] <body words...>` | Add a new `open`-status item to the SQLite-backed Regent queue store (`src/regent-queue/`). `--shadowless` (Stager, on the Lord's own words only) authorizes the campaign Alpha to execute its todo slices itself; the autoscaler forwards it as `create-agent --shadowless`. `--sliceless` (Stager, on the Lord's own word "sliceless" only, for single-seam work) authorizes the Alpha to skip /write-todos and work straight from the queue body with no bundle and no Shadows; sliceless implies shadowless, so the row stores both flags and the autoscaler forwards `create-agent --sliceless --shadowless`. The push gate then demands `~/.throne/data/<alpha>/sliceless/<code>/verify.md` (/execute-todos "Sliceless mode"). `--model-hint <harness>/<model>` outside the Alpha pool records the Lord's order as a recipient-`*` authorization in both Regent bypass registries and puts the pair in the Alpha's model allowlist, so the autoscaler launches it with no Regent step (agent_docs/commands.md, add-to-queue). `--effort <1-6 \| low \| medium \| high \| xhigh \| max>` (Stager, on the Lord's own words only) stores the campaign's reasoning effort on the row, names mapping to the launch numbers `low` 1, `medium` 2, `high` 3, `xhigh` 4, `max` 5; the autoscaler forwards it as `create-agent --effort <n> --bypass-effort` and every Shadow of that Alpha inherits it with no flag. |
+| `update-queue --objective-code <code> <field flags>` | Replace the body or correct status and lifecycle provenance on an existing queue item. Nullable provenance fields have explicit `--clear-*` flags. `--effort <level>` sets the row's campaign effort and `--clear-effort` removes it. |
 | `reconcile-queue --objective-code <code> --absorbed-by <campaign> --delivery-commit <commit>` | Close work delivered by another campaign and record the absorbing campaign and delivery commit. |
 | `trim-queue [--apply]` | Remove terminal (`complete`/`abandoned`) items from the SQLite-backed Regent queue store. Dry-run by default (reports what would be removed); `--apply` performs the removal. A non-terminal (`open`/`in-flight`) item is never removable regardless of flags. |
 | `ensure-heartbeat` | Idempotently arm the keep-going timer: render the `throne-keep-going` service+timer sources into the systemd user unit dir as real files through the same shared install core `install-services` uses, then `daemon-reload` + `enable --now` — so no operator runs `systemctl --user enable --now` by hand. It owns the keep-going pair only; because both commands render the same sources with the same tokens into the same paths, whichever runs second finds byte-identical content and writes nothing. Degrades gracefully where systemd is unreachable. |
-| `install-services [--dry-run] [--offline] [--throne-root <absolute path>]` | Read `$XDG_CONFIG_HOME/throne/features.json` (fallback `~/.config/throne/features.json`) as strict JSON `{"herdr-decouple": true|false}`, default OFF when absent. Both states render/install unrelated hooks and services. OFF preserves legacy PATH/default-session Herdr and does not acquire/verify the pin, install the public `throne` seam, or install/control the decoupled Herdr service. ON additionally owns those HVP artifacts and the isolated named `throne` session. A flag transition itself never touches or restarts a server; explicit handoff remains separate. Sources carry `{{THRONE_ROOT}}` or `{{HERDR_BIN}}` substitutions and leftover tokens are refused. **NO-CLOBBER** — installation never issues `restart`/`stop`/`kill` on linux nor `bootout`/`kickstart`/`kill` on mac; changed live units are reported for a deliberate between-runs handoff. Both states also register the throne's Claude Code guard hook `claude-hooks/scratch-path-guard.py` in `~/.claude/settings.json` (refuses Bash writes and removals under `/tmp` or at the filesystem root, steering to the literal home `tmp` directory; see `agent_docs/commands.md`). `--dry-run` prints the plan and mutates nothing; `--throne-root` changes only paths baked into rendered artifacts. |
+| `install-services [--dry-run] [--offline] [--throne-root <absolute path>]` | Acquire and verify the pinned herdr client, install the public `throne` seam, and render/install the throne's hooks and services, including the herdr service for the isolated named `throne` session. Installing never touches or restarts a running server; explicit handoff remains separate. Sources carry `{{THRONE_ROOT}}` or `{{HERDR_BIN}}` substitutions and leftover tokens are refused. **NO-CLOBBER** — installation never issues `restart`/`stop`/`kill` on linux nor `bootout`/`kickstart`/`kill` on mac; changed live units are reported for a deliberate between-runs handoff. It also registers the throne's Claude Code guard hook `claude-hooks/scratch-path-guard.py` in `~/.claude/settings.json` (refuses Bash writes and removals under `/tmp` or at the filesystem root, steering to the literal home `tmp` directory; see `agent_docs/commands.md`). It turns off herdr's own agent resume in the herdr config and adds the throne shell block, guarded on `HERDR_SESSION=throne`, to `~/.bashrc` (through its symlink) beside a rendered `shell/throne-session.bash`. `--dry-run` prints the plan and mutates nothing; `--throne-root` changes only paths baked into rendered artifacts. |
 | `throne-startup` | SessionStart-hook entry point: self-configures a fresh throne harness — renames an unnamed top-level harness to `Regent` (and claims its herdr **tab** as `Regent`, self-healing a stale label) and runs `ensure-heartbeat` — full no-op outside the throne top-level harness. |
 | `agent-stats` | Report trailing-7-day stall rate and average completion by harness from the agent timing log, with by-role and reap-reason breakdowns; `--json` emits machine-readable output. |
 
@@ -1686,10 +1694,8 @@ tokens and are templates rather than directly loadable units.
 `./bin/throne-cli install-services` substitutes the tokens and installs the
 rendered services as real files where the platform's service manager looks —
 `$XDG_CONFIG_HOME/systemd/user` (fallback `~/.config/systemd/user`) or
-`~/Library/LaunchAgents`. Only when the durable `herdr-decouple` flag is ON
-does it also install and enable the herdr template; OFF never acquires or
-controls that pinned client/service. Neither a flag transition nor
-installation restarts a running herdr server. Both paths are proven live:
+`~/Library/LaunchAgents`, including the herdr template for the pinned client.
+Installation never restarts a running herdr server. Both platforms are proven live:
 linux on the court's own box, mac on a real mac (2026-09-02, macOS 26). The
 operator's separate `herdr` package keeps its own untemplated
 `herdr-server.service` for running herdr standalone without the throne.
@@ -1742,6 +1748,40 @@ the guard under the other name, so `gh --bypass` still reaches a `ghe` that a
 `gh` shim routes to. Bypassing is for a Lord-ordered mutation a skill performs
 (`/pr-media publish`), never a way around a refusal.
 
+**Push checks run on every push, and the court never skips them.**
+`git-hooks/` is installed machine-wide with `git config --global
+core.hooksPath <throne>/git-hooks`. Its `pre-push` runs every command listed in
+the multi-valued `git config push-check.command` (each through `sh -c`, with
+git's two pre-push arguments and the same ref lines on stdin; the first
+non-zero exit stops the push), then the repository's own `pre-push`; every
+other hook name forwards to the repository's own hook in
+`$(git rev-parse --git-common-dir)/hooks`. Branch deletions, tag-only pushes
+and pushes to a local path skip the checks. Which checks exist is configured
+outside the throne. `git config --global push-check.enabled false` switches
+them all off (`--unset` switches them back on; without `--global` it applies
+to one repository), and `git config --global --unset core.hooksPath` removes
+the dispatcher entirely. The Lord skips them once with `git push --no-verify`
+or `PUSH_CHECK_SKIP=1`; from a court session (`THRONE_AGENT_PANE=1` or
+`THRONE_LIVE_ROOT` set) `bin/git` refuses both with exit 68 unless `--bypass`
+is the FIRST argument (`git --bypass push --no-verify …`), which is only for a
+push the Lord's order names. When a repository's own `core.hooksPath` hides
+the global directory, `bin/git` runs the checks itself first, through a
+`push --dry-run` that feeds them git's own ref lines. `bin/git` and `bin/gh`
+run the first binary of their name AFTER their own PATH directory, so other
+shims can be stacked before or after them.
+
+**No AI attribution, ever, and no bypass for it.** Both shims refuse, with exit
+67, any text that credits an AI tool: a `Co-Authored-By:` line naming Claude or
+any other model, "Generated with Claude Code", or `noreply@anthropic.com`.
+`bin/git` checks the message of `commit` (`-m`, `-am`, `-mTEXT`,
+`--message=`, `-F` including `-F -`, `--trailer`), `merge`, `revert`, `tag`
+and `notes`; `bin/gh` and `bin/ghe` check every argument and every file a
+body is read from (`--body-file`, `-F`, `--input`, `field=@file`, stdin),
+before `--bypass` or an outer waiver is honoured. A human co-author passes.
+Remove the line and rerun; the harness's own attribution setting is not
+trusted to do this (Lord, 2026-09-25, after four commits on a PR branch carried
+`Co-Authored-By: Claude Opus 5.5` despite it).
+
 ## Discovery + learning (every prompt)
 
 Before acting on any task:
@@ -1751,6 +1791,20 @@ MEMORY_DIR="$(throne memory-dir .)"                # your identity names it too;
 ls -1 agent_docs/ "$MEMORY_DIR" 2>/dev/null
 grep -R -li "<keyword>" agent_docs "$MEMORY_DIR" 2>/dev/null   # read anything relevant
 ```
+
+The automatic recall on each prompt covers only the session's repository and
+the global memories. Before working in another repository, run
+`throne recall --directory <that repo> "<task>"` instead of grepping its
+memory directory by hand.
+
+**Jev is reached only through `throne recall`, `throne rank` or `throne sift`,
+which spend from the machine's Jev budget.** Never call the `@typesafe-ai/sdk`
+directly, never copy or read the Jev key, and never raise `jevTokensPerDay` or
+`jevTokensPerHour` without the Lord's order through /modify-config. A task
+that needs more Jev than the budget allows stops and says so. `throne
+jev-probe` is the only way to test a Jev wording. The `claude-hooks/jev-fence.py`
+PreToolUse hook refuses every way around this, with no bypass (Lord,
+2026-09-29, after one audit spent 451 million Jev tokens).
 
 Learning mode is always on: when you get corrected, bust an assumption, or hit
 an unexpected dead end, write it to `"$(throne memory-dir <repo>)"` immediately — `.` when the lesson is about the repo you stand in, that repo's path when it is not —
@@ -1764,6 +1818,30 @@ main checkout, so every worktree of one project shares one directory: a
 Shadow's learning is visible to its siblings the instant it is written,
 nothing merges, nothing dies on reap. `create-agent` resolves this at spawn and
 writes it into your identity; see `agent_docs/commands.md` under `memory-dir`.
+
+Memory is layered, and a memory's front matter `ask` serves only the first
+layer. Recall is stage 1 and casts wide: it puts each ask to every task as a
+yes/no question and only has to find the memories that might be related.
+Stage 2 is the reader, who narrows those down by their bodies to the ones that
+are. So the ask names the AREA the lesson lives in, as the memory itself names
+it (a service, a subsystem, a tool, a workflow), in the house form
+"Does the task touch <area> in any way?", and precision lives in the body. The
+area is never a code token (a path, a flag, a command, an identifier), a
+repository-wide noun (branch, commit, PR, worktree, agent, campaign ...), the
+bare repository name, or a sentence fragment. A precise trigger may be kept
+only after the lead-in "That includes, but is not limited to:". A lesson about
+a bakery app's invoice renderer dropping accented letters, learned while
+exporting one Friday batch, is invisible to a task that restyles the invoices
+under the narrow form:
+
+```yaml
+ask: "Will the task export the Friday invoice batch?"
+ask: "Does the task touch the bakery app's invoice renderer in any way? That includes, but is not limited to: exporting an invoice batch."
+```
+
+The first is narrow; the second is the area form. After writing a memory, run
+`throne recall --lint-asks --directory <repo>` and fix every line that names
+the new file (see `agent_docs/commands.md` under `recall`).
 
 See `agent_docs/architecture.md` for the tooling internals and the herdr
 contract.

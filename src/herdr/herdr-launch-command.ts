@@ -232,12 +232,12 @@ function untranslatedLaunchContext(opts: StartOptions): LaunchContext {
   };
 }
 
-export const VENDORED_HARNESS_BINARY_DIRECTORY = path.join(
-  RUNTIME_THRONE_ROOT,
-  "vendor",
-  "node_modules",
-  ".bin",
-);
+export function vendoredHarnessBinaryDirectory(throneRoot: string): string {
+  return path.join(throneRoot, "vendor", "node_modules", ".bin");
+}
+
+export const VENDORED_HARNESS_BINARY_DIRECTORY =
+  vendoredHarnessBinaryDirectory(RUNTIME_THRONE_ROOT);
 
 const PINNED_BINARY_OVERRIDE_VARIABLES: Readonly<
   Partial<Record<SupportedComposerHarness, "CLAUDE_BIN" | "CODEX_BIN">>

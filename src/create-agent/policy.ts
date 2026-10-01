@@ -8,6 +8,7 @@ import {
   activePlanPresetName,
   classifyPlanRole,
   planRolePool,
+  targetEffortForAgent,
   type ModelPair,
   type ModelPairPool,
   type PlanPresetName,
@@ -40,6 +41,7 @@ import {
   resolveObjectiveContract,
 } from "./policy-objective.ts";
 import { resolveStagerRouteAuthorization } from "./stager-route-authorization.ts";
+import { campaignEffortOfAlpha, inheritedCampaignEffort } from "./campaign-effort.ts";
 import { resolveLaneEvidenceStage } from "./lane-inheritance.ts";
 import { laneGateRefusal } from "./lane-gate.ts";
 import { parseQueueModelHint } from "../regent-queue/model-hint.ts";
@@ -288,12 +290,20 @@ export async function resolveSpawnPolicy(
       .join("; ");
     durableRoutingNote = true;
   } else if (!request.resuming) {
+    const inheritedEffort = await inheritedCampaignEffort(request, deps);
     const effortSteer = resolveFreshEffort({
       harness: requestedPair.harness,
       model: request.model,
       requestedEffort: request.requestedEffort,
       bypassEffort: request.flags["bypass-effort"] === true,
-      targetEffort: deps.targetEffort,
+      targetEffort:
+        inheritedEffort ??
+        deps.targetEffort ??
+        (deps.targetEffortForAgent ?? targetEffortForAgent)(
+          request.role,
+          request.name,
+          campaignObjectiveCode,
+        ),
     });
     if (effortSteer.kind === "refuse") {
       writeStderr(
@@ -370,6 +380,7 @@ export async function resolveSpawnPolicy(
       bypassedObjectiveCode,
       laneEvidence,
       modelHint,
+      campaignEffort: campaignEffortOfAlpha(request, launchEffort),
     },
   };
 }

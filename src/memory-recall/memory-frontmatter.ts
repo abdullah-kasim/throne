@@ -14,26 +14,58 @@ export interface SplitMemoryText {
   readonly body: string;
 }
 
-export function splitFrontmatterFromBody(text: string): SplitMemoryText {
-  const lines = text.split('\n');
-  if (lines[0]?.trimEnd() !== FRONTMATTER_FENCE) {
-    return { frontmatterLines: [], body: text };
-  }
+function closingFenceIndexOf(lines: readonly string[]): number | undefined {
+  if (lines[0]?.trimEnd() !== FRONTMATTER_FENCE) return undefined;
   const closingFenceIndex = lines.findIndex(
     (line, index) => index > 0 && line.trimEnd() === FRONTMATTER_FENCE,
   );
-  if (closingFenceIndex === -1) return { frontmatterLines: [], body: text };
-  const linesBetweenFences = lines
+  if (closingFenceIndex === -1) return undefined;
+  const everyLineIsAKeyOrBlank = lines
     .slice(1, closingFenceIndex)
-    .map((line) => line.trimEnd());
-  const everyLineIsAKeyOrBlank = linesBetweenFences.every(
-    (line) => line.length === 0 || KEY_AND_VALUE.test(line),
-  );
-  if (!everyLineIsAKeyOrBlank) return { frontmatterLines: [], body: text };
+    .map((line) => line.trimEnd())
+    .every((line) => line.length === 0 || KEY_AND_VALUE.test(line));
+  return everyLineIsAKeyOrBlank ? closingFenceIndex : undefined;
+}
+
+export function splitFrontmatterFromBody(text: string): SplitMemoryText {
+  const lines = text.split('\n');
+  const closingFenceIndex = closingFenceIndexOf(lines);
+  if (closingFenceIndex === undefined) return { frontmatterLines: [], body: text };
   return {
-    frontmatterLines: linesBetweenFences,
+    frontmatterLines: lines.slice(1, closingFenceIndex).map((line) => line.trimEnd()),
     body: lines.slice(closingFenceIndex + 1).join('\n'),
   };
+}
+
+function askLineOf(ask: string): string {
+  const escapedAsk = ask.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+  return `ask: "${escapedAsk}"`;
+}
+
+function isAskLine(line: string): boolean {
+  const match = KEY_AND_VALUE.exec(line.trimEnd());
+  return match !== null && match[1] === '' && match[2] === 'ask';
+}
+
+function carriageReturnOf(line: string): string {
+  return line.endsWith('\r') ? '\r' : '';
+}
+
+export function withAskLine(fileText: string, ask: string): string {
+  const lines = fileText.split('\n');
+  const closingFenceIndex = closingFenceIndexOf(lines);
+  if (closingFenceIndex === undefined) {
+    return [FRONTMATTER_FENCE, askLineOf(ask), FRONTMATTER_FENCE, fileText].join('\n');
+  }
+  const askLineIndex = lines.findIndex(
+    (line, index) => index > 0 && index < closingFenceIndex && isAskLine(line),
+  );
+  if (askLineIndex === -1) {
+    const openingFence = lines[0] as string;
+    return [openingFence, askLineOf(ask) + carriageReturnOf(openingFence), ...lines.slice(1)].join('\n');
+  }
+  const oldAskLine = lines[askLineIndex] as string;
+  return lines.with(askLineIndex, askLineOf(ask) + carriageReturnOf(oldAskLine)).join('\n');
 }
 
 function withoutSurroundingQuotes(value: string): string {

@@ -7,26 +7,89 @@ guarded_command=${THRONE_GUARDED_COMMAND:-gh}
 shim_dir=$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 real_gh=""
 IFS=: read -r -a search_path <<<"${PATH:-}"
+first_unguarded_gh=""
 for path_dir in "${search_path[@]}"; do
     [ -n "$path_dir" ] || path_dir=.
-    candidate="$path_dir/$guarded_command"
-    [ -x "$candidate" ] || continue
-    # Skip our own path, and skip ANY other copy of this guard: with two throne
-    # checkouts on PATH the old checkout's shim would otherwise be taken for the
-    # real binary, so it re-judged the command and a waived one was denied twice.
-    [ "$(cd -P "$(dirname "$candidate")" && pwd -P)/$(basename "$candidate")" = "$shim_dir/$guarded_command" ] && continue
-    # `grep -I` reports no match on the real (binary) gh, so only a text copy of
-    # this guard is skipped. Match the denial string as well as the marker: an
-    # older deployed copy predates the marker and must still be recognised.
-    grep -Iqs -e "$guard_marker" -e 'throne gh guard' -- "$candidate" && continue
-    real_gh="$candidate"
-    break
+    [ -f "$path_dir/$guarded_command" ] && [ -x "$path_dir/$guarded_command" ] || continue
+    if [ "$(cd -P "$path_dir" 2>/dev/null && pwd -P)" = "$shim_dir" ]; then
+        real_gh=""
+        continue
+    fi
+    [ -n "$real_gh" ] || real_gh="$path_dir/$guarded_command"
+    [ -n "$first_unguarded_gh" ] || grep -Iqs -e "$guard_marker" -e 'throne gh guard' -- "$path_dir/$guarded_command" || first_unguarded_gh="$path_dir/$guarded_command"
 done
+[ -n "$real_gh" ] || real_gh="$first_unguarded_gh"
 
 if [ -z "$real_gh" ]; then
     echo "throne gh guard: real $guarded_command binary not found" >&2
     exit 127
 fi
+
+attribution_fence_pattern='co-authored-by:.*(claude|anthropic|copilot|chatgpt|openai|gpt|codex|gemini|cursor)|generated[[:space:]]+with.{0,6}claude|noreply@anthropic\.com'
+
+text_carries_ai_attribution() {
+    local verdict=0
+    printf '%s' "$1" | grep -Eiq -- "$attribution_fence_pattern" || verdict=$?
+    if [ "$verdict" -gt 1 ]; then
+        echo "throne attribution fence: the pattern check itself failed; refusing rather than letting the text through" >&2
+        return 0
+    fi
+    return "$verdict"
+}
+
+refuse_ai_attribution() {
+    local tool="$1"
+    local offending_line
+    offending_line=$(printf '%s' "$2" | grep -Eio -- "$attribution_fence_pattern" | head -1)
+    echo "throne $tool guard: STOP — this text carries an AI attribution line ($offending_line)." >&2
+    echo "Commit messages, PR bodies, comments and titles never credit an AI tool: no Co-Authored-By for Claude or any other model, no 'Generated with Claude Code', no noreply@anthropic.com." >&2
+    echo "Remove the line and run the command again. There is no bypass for this check." >&2
+}
+fenced_args=("$@")
+fenced_text=""
+read_fenced_file() {
+    local source="$1" position="$2" prefix="${3:-}"
+    if [ "$source" = - ]; then
+        local stdin_copy
+        stdin_copy=$(mktemp "${TMPDIR:-/tmp}/throne-gh-body.XXXXXX")
+        cat >"$stdin_copy"
+        fenced_args[$position]="$prefix$stdin_copy"
+        fenced_text+="$(<"$stdin_copy")"$'\n'
+    elif [ -f "$source" ]; then
+        fenced_text+="$(<"$source")"$'\n'
+    fi
+}
+for ((fence_i = 0; fence_i < ${#fenced_args[@]}; fence_i++)); do
+    fence_arg="${fenced_args[fence_i]}"
+    fenced_text+="$fence_arg"$'\n'
+    case "$fence_arg" in
+        --body-file|--input)
+            ((fence_i++))
+            read_fenced_file "${fenced_args[fence_i]:-}" "$fence_i"
+            ;;
+        --body-file=*|--input=*)
+            read_fenced_file "${fence_arg#*=}" "$fence_i" "${fence_arg%%=*}="
+            ;;
+        -F)
+            ((fence_i++))
+            fence_value="${fenced_args[fence_i]:-}"
+            fenced_text+="$fence_value"$'\n'
+            case "$fence_value" in
+                *=@*) read_fenced_file "${fence_value#*=@}" "$fence_i" "${fence_value%%=@*}=@" ;;
+                *=*) ;;
+                *) read_fenced_file "$fence_value" "$fence_i" ;;
+            esac
+            ;;
+        *=@*)
+            read_fenced_file "${fence_arg#*=@}" "$fence_i" "${fence_arg%%=@*}=@"
+            ;;
+    esac
+done
+if text_carries_ai_attribution "$fenced_text"; then
+    refuse_ai_attribution gh "$fenced_text"
+    exit 67
+fi
+set -- "${fenced_args[@]}"
 
 if [ "${THRONE_GH_GUARD_WAIVED:-}" = 1 ]; then
     echo "throne gh guard: BYPASSED by an outer guard's --bypass: $guarded_command $*" >&2

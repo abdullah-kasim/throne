@@ -162,6 +162,12 @@ const EFFORT_TOKENS: Readonly<Record<RuntimeHarness, readonly string[]>> = {
 const MIN_EFFORT = 1;
 const MAX_EFFORT = 6;
 
+export function effortScoreForToken(harness: Harness, token: string): number {
+  const score = EFFORT_TOKENS[runtimeHarness(harness)].indexOf(token);
+  if (score < MIN_EFFORT) throw new Error(`${harness} has no effort token "${token}"`);
+  return score;
+}
+
 /** Translate a numeric effort score to the harness's launch token. */
 export function effortToken(harness: Harness, effort: number): string {
   if (!Number.isInteger(effort) || effort < MIN_EFFORT || effort > MAX_EFFORT) {

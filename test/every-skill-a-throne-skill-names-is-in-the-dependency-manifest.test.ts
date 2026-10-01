@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+
+import { shippedSkills } from "./skill-contract-test-helpers.ts";
 
 const THRONE_ROOT = join(import.meta.dirname, "..");
 const SKILLS_DIRECTORY = join(THRONE_ROOT, ".claude", "skills");
@@ -28,18 +31,10 @@ function readManifest(): Map<string, string> {
   return manifest;
 }
 
-function shippedSkills(): Set<string> {
-  return new Set(
-    readdirSync(SKILLS_DIRECTORY).filter((name) =>
-      existsSync(join(SKILLS_DIRECTORY, name, "SKILL.md")),
-    ),
-  );
-}
-
 function referencedSkills(): Map<string, string> {
   const documents = [
     join(THRONE_ROOT, "AGENTS.md"),
-    ...[...shippedSkills()].map((name) => join(SKILLS_DIRECTORY, name, "SKILL.md")),
+    ...[...shippedSkills(SKILLS_DIRECTORY)].map((name) => join(SKILLS_DIRECTORY, name, "SKILL.md")),
   ];
   const references = new Map<string, string>();
   for (const document of documents) {
@@ -55,7 +50,7 @@ function referencedSkills(): Map<string, string> {
 
 test("every skill named by a throne skill or AGENTS.md is shipped or recorded in the manifest", () => {
   const manifest = readManifest();
-  const shipped = shippedSkills();
+  const shipped = shippedSkills(SKILLS_DIRECTORY);
   const unrecorded = [...referencedSkills()]
     .filter(([name]) => !shipped.has(name) && !manifest.has(name))
     .map(([name, document]) => `${name} (named in ${document.slice(THRONE_ROOT.length + 1)})`);
@@ -63,7 +58,7 @@ test("every skill named by a throne skill or AGENTS.md is shipped or recorded in
 });
 
 test("a manifest entry marked shipped really ships, and one marked global does not", () => {
-  const shipped = shippedSkills();
+  const shipped = shippedSkills(SKILLS_DIRECTORY);
   for (const [name, kind] of readManifest()) {
     if (kind === "shipped") assert.ok(shipped.has(name), `${name} is marked shipped but .claude/skills/${name}/SKILL.md is missing`);
     else assert.ok(!shipped.has(name), `${name} is marked ${kind} but throne ships it; mark it shipped`);
@@ -72,9 +67,17 @@ test("a manifest entry marked shipped really ships, and one marked global does n
 
 test("every referenced shipped skill is recorded as shipped", () => {
   const manifest = readManifest();
-  const shipped = shippedSkills();
+  const shipped = shippedSkills(SKILLS_DIRECTORY);
   const missing = [...referencedSkills().keys()].filter(
     (name) => shipped.has(name) && manifest.get(name) !== "shipped",
   );
   assert.deepEqual(missing, []);
+});
+
+test("the manifest is tracked by git, not silently re-ignored", () => {
+  const result = spawnSync("git", ["ls-files", "--error-unmatch", MANIFEST_PATH], {
+    cwd: THRONE_ROOT,
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, `.claude/skill-dependencies.tsv is not tracked by git: ${result.stderr}`);
 });

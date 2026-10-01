@@ -47,7 +47,12 @@ export async function resolveBlockedTag(
       await ledger.clearBlockedMarker(name);
       return tag;
     }
-    return { kind: 'blocked', blockedBy: marker.blockedBy ?? [] };
+    const persistedChildren = marker.blockedBy ?? [];
+    if (persistedChildren.length === 0 && tag.kind === 'blocked' && tag.blockedBy.length > 0) {
+      await ledger.writeBlockedMarker(name, tag.blockedBy);
+      return tag;
+    }
+    return { kind: 'blocked', blockedBy: persistedChildren };
   }
   if (tag.kind === 'blocked') {
     await ledger.writeBlockedMarker(name, tag.blockedBy);

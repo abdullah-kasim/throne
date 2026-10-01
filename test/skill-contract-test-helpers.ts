@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 // A line only counts as a heading when it is real prose structure. Inside a
 // fenced code block `# ...` is a shell comment, and the skills are full of
@@ -75,4 +76,12 @@ export function todoAliasSkillNames(skillsDirectory: string): string[] {
         statSync(`${skillsDirectory}/${entry}`).isDirectory(),
     )
     .sort();
+}
+
+export function shippedSkills(skillsDirectory: string): Set<string> {
+  return new Set(
+    readdirSync(skillsDirectory).filter((name) =>
+      existsSync(join(skillsDirectory, name, 'SKILL.md')),
+    ),
+  );
 }

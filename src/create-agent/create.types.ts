@@ -200,6 +200,11 @@ export interface CreateAgentDeps {
   openQueueStore?: () => RegentQueueStore;
   planPresetName?: PlanPresetName;
   targetEffort?: number;
+  targetEffortForAgent?: (
+    role: string,
+    finalName?: string,
+    objectiveCode?: string,
+  ) => number;
   sleep: (ms: number) => Promise<void>;
   now?: () => string;
   afterRegistration?: () => Promise<void>;
@@ -263,6 +268,7 @@ export interface PolicyResolution extends RegistrationResolution {
   bypassedObjectiveCode: boolean;
   laneEvidence?: LaneEvidence;
   modelHint?: ModelPair;
+  campaignEffort?: number;
 }
 
 export interface StageSuccess<T> {

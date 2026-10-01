@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import {
   NO,
   YES,
@@ -8,6 +8,25 @@ import {
   type ClassifierQuestion,
   type ClassifierState,
 } from './classifier.types.ts';
+import {
+  JEV_BUDGET_GRANTED,
+  JEV_BUDGET_LOCK_BUSY,
+  JEV_BUDGET_REFUSED,
+  reserveJevTokens,
+  settleJevReservation,
+  type JevLimits,
+  type JevReservation,
+} from './jev-budget.ts';
+import {
+  JEV_LIMITER_VERSION,
+  isInsideTheLiveCheckoutBuild,
+  type JevLimiterBuild,
+} from './jev-limiter-build.ts';
+import {
+  appendJevUsageLine,
+  type JevCallerKind,
+  type JevRequestOutcome,
+} from './jev-usage-log.ts';
 
 export const JEV_MODEL = 'jev-1.13.0';
 export const JEV_TIMEOUT_MILLISECONDS = 8000;
@@ -17,6 +36,13 @@ export const JEV_STATE_AND_LONGEST_QUESTION_TOKEN_LIMIT = 32_000;
 const CHARACTERS_PER_ESTIMATED_TOKEN = 3;
 const ESTIMATED_TOKENS_OF_OVERHEAD_PER_QUESTION = 16;
 const SHARE_OF_EACH_LIMIT_WE_FILL = 0.9;
+
+export async function thisJevLimiterBuild(): Promise<JevLimiterBuild> {
+  return {
+    limiterVersion: JEV_LIMITER_VERSION,
+    runsFromTheLiveCheckout: await isInsideTheLiveCheckoutBuild(await realpath(import.meta.filename)),
+  };
+}
 
 export type JevQuestion =
   | { readonly type: 'noul'; readonly instructions: string }
@@ -42,7 +68,19 @@ export interface JevClient {
       readonly questions: Record<string, JevQuestion>;
     },
     options?: { readonly signal?: AbortSignal },
-  ): PromiseLike<{ readonly answers: Readonly<Record<string, JevResponse>> }>;
+  ): PromiseLike<JevReply>;
+}
+
+export interface JevReply {
+  readonly answers: Readonly<Record<string, JevResponse>>;
+  readonly usage?: { readonly input_tokens: number; readonly output_tokens: number };
+}
+
+export interface JevBudget {
+  readonly dataHome: string;
+  readonly limits: JevLimits;
+  readonly caller: JevCallerKind;
+  readonly invocationId?: string;
 }
 
 export interface JevBackendDependencies {
@@ -68,6 +106,18 @@ class JevKeyUnavailableError extends Error {
   override readonly name = 'JevKeyUnavailableError';
 }
 
+export class JevBudgetUsedUpError extends Error {
+  override readonly name = 'JevBudgetUsedUpError';
+}
+
+export class JevBudgetLockBusyError extends Error {
+  override readonly name = 'JevBudgetLockBusyError';
+}
+
+export class JevBuildWithoutLimiterError extends Error {
+  override readonly name = 'JevBuildWithoutLimiterError';
+}
+
 export function estimatedTokens(text: string): number {
   return Math.ceil(text.length / CHARACTERS_PER_ESTIMATED_TOKEN);
 }
@@ -82,6 +132,16 @@ function estimatedQuestionTokens(question: ClassifierQuestion): number {
 function estimatedStateTokens(state: ClassifierState): number {
   return estimatedTokens(
     typeof state === 'string' ? state : JSON.stringify(state),
+  );
+}
+
+export function estimatedRequestTokens(
+  state: ClassifierState,
+  questions: readonly ClassifierQuestion[],
+): number {
+  return questions.reduce(
+    (total, question) => total + estimatedQuestionTokens(question),
+    estimatedStateTokens(state),
   );
 }
 
@@ -199,16 +259,21 @@ function asBackendAnswer(
   return undefined;
 }
 
+interface AnsweredRequest {
+  readonly answers: readonly BackendAnswer[];
+  readonly realTokens: number | undefined;
+}
+
 async function answerOneRequest(
   client: JevClient,
   state: ClassifierState,
   questions: readonly ClassifierQuestion[],
   abandoned: AbortSignal | undefined,
-): Promise<readonly BackendAnswer[]> {
+): Promise<AnsweredRequest> {
   const questionsByRequestName = new Map(
     questions.map((question, index) => [`question_${index}`, question]),
   );
-  const { answers } = await client.systemOne(
+  const { answers, usage } = await client.systemOne(
     {
       state,
       questions: Object.fromEntries(
@@ -220,10 +285,88 @@ async function answerOneRequest(
     },
     abandoned === undefined ? {} : { signal: abandoned },
   );
-  return [...questionsByRequestName].flatMap(([requestName, question]) => {
-    const answer = asBackendAnswer(question, answers[requestName]);
-    return answer === undefined ? [] : [answer];
+  return {
+    answers: [...questionsByRequestName].flatMap(([requestName, question]) => {
+      const answer = asBackendAnswer(question, answers[requestName]);
+      return answer === undefined ? [] : [answer];
+    }),
+    realTokens: usage === undefined ? undefined : usage.input_tokens + usage.output_tokens,
+  };
+}
+
+async function logJevRequest(
+  budget: JevBudget,
+  estimatedTokens: number,
+  realTokens: number | undefined,
+  outcome: JevRequestOutcome,
+): Promise<void> {
+  await appendJevUsageLine(budget.dataHome, {
+    at: new Date().toISOString(),
+    caller: budget.caller,
+    estimatedTokens,
+    realTokens: realTokens ?? null,
+    outcome,
+    invocationId: budget.invocationId,
   });
+}
+
+type UnsentReservation = Exclude<JevReservation, { readonly outcome: typeof JEV_BUDGET_GRANTED }>;
+
+function usageOutcomeOf(reservation: UnsentReservation): JevRequestOutcome {
+  if (reservation.outcome === JEV_BUDGET_REFUSED) return 'rate-limited';
+  if (reservation.outcome === JEV_BUDGET_LOCK_BUSY) return 'lock-busy';
+  return 'outdated-build';
+}
+
+async function logUnsentRequests(
+  budget: JevBudget,
+  estimates: readonly number[],
+  reservation: UnsentReservation,
+): Promise<void> {
+  const outcome = usageOutcomeOf(reservation);
+  for (const estimate of estimates) await logJevRequest(budget, estimate, undefined, outcome);
+}
+
+function budgetErrorOf(reservation: UnsentReservation): Error {
+  if (reservation.outcome === JEV_BUDGET_REFUSED) {
+    return new JevBudgetUsedUpError(
+      `the Jev budget of ${reservation.limitTokens} ${reservation.limit} is used up (${reservation.spentTokens} spent)`,
+    );
+  }
+  if (reservation.outcome === JEV_BUDGET_LOCK_BUSY) {
+    return new JevBudgetLockBusyError('the Jev budget lock stayed busy');
+  }
+  return new JevBuildWithoutLimiterError(
+    `this build's Jev limiter version ${JEV_LIMITER_VERSION} is older than version ${reservation.recordedLimiterVersion}, which the live build has spent with`,
+  );
+}
+
+interface EstimatedRequest {
+  readonly questions: readonly ClassifierQuestion[];
+  readonly estimatedTokens: number;
+}
+
+interface ReservedRequest extends EstimatedRequest {
+  readonly reservationId: string;
+}
+
+async function answerOneReservedRequest(
+  clientCreatedOnFirstUse: () => Promise<JevClient>,
+  state: ClassifierState,
+  request: ReservedRequest,
+  budget: JevBudget,
+  abandoned: AbortSignal | undefined,
+): Promise<readonly BackendAnswer[]> {
+  let answered: AnsweredRequest;
+  try {
+    answered = await answerOneRequest(await clientCreatedOnFirstUse(), state, request.questions, abandoned);
+  } catch (error) {
+    await logJevRequest(budget, request.estimatedTokens, undefined, 'failed');
+    throw error;
+  }
+  await settleJevReservation(budget.dataHome, request.reservationId, answered.realTokens, new Date());
+  await logJevRequest(budget, request.estimatedTokens, answered.realTokens, 'answered');
+  return answered.answers;
 }
 
 async function readApiKey(
@@ -244,6 +387,7 @@ async function readApiKey(
 
 export function createJevBackend(
   keyFilePath: string,
+  budget: JevBudget,
   dependencies: JevBackendDependencies = PRODUCTION_JEV_DEPENDENCIES,
 ): ClassifierBackend {
   let clientOnceCreated: Promise<JevClient> | undefined;
@@ -259,17 +403,34 @@ export function createJevBackend(
   return {
     name: 'jev',
     answer: async (state, questions, abandoned) => {
-      const client = await clientCreatedOnFirstUse();
       const stateWithinLimit = stateWithinJevLimit(state, questions);
+      const requests: readonly EstimatedRequest[] = questionsSplitAcrossRequests(stateWithinLimit, questions).map(
+        (requestQuestions) => ({
+          questions: requestQuestions,
+          estimatedTokens: estimatedRequestTokens(stateWithinLimit, requestQuestions),
+        }),
+      );
+      const estimates = requests.map((request) => request.estimatedTokens);
+      const reservation = await reserveJevTokens(
+        budget.dataHome,
+        budget.limits,
+        estimates,
+        new Date(),
+        await thisJevLimiterBuild(),
+      );
+      if (reservation.outcome !== JEV_BUDGET_GRANTED) {
+        await logUnsentRequests(budget, estimates, reservation);
+        throw budgetErrorOf(reservation);
+      }
       const answersPerRequest = await Promise.all(
-        questionsSplitAcrossRequests(stateWithinLimit, questions).map(
-          (requestQuestions) =>
-            answerOneRequest(
-              client,
-              stateWithinLimit,
-              requestQuestions,
-              abandoned,
-            ),
+        requests.map((request, index) =>
+          answerOneReservedRequest(
+            clientCreatedOnFirstUse,
+            stateWithinLimit,
+            { ...request, reservationId: reservation.reservationIds[index] as string },
+            budget,
+            abandoned,
+          ),
         ),
       );
       return answersPerRequest.flat();

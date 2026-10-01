@@ -1,0 +1,15 @@
+#!/bin/sh
+hook_name=$1
+shift
+
+dispatcher_directory=$(cd -P "$(dirname "$0")" && pwd -P)
+
+common_directory=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || exit 0
+
+repository_hook="$common_directory/hooks/$hook_name"
+[ -f "$repository_hook" ] && [ -x "$repository_hook" ] || exit 0
+
+repository_hooks_directory=$(cd -P "$common_directory/hooks" && pwd -P)
+[ "$repository_hooks_directory" = "$dispatcher_directory" ] && exit 0
+
+exec "$repository_hook" "$@"

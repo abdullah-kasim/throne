@@ -147,12 +147,13 @@ test('judgeCandidates uses the rules backend when THRONE_JEV_DISABLED overrides 
   const fileText = 'this file rotates signing credentials';
   const dependencies = fakeDependencies(
     (config) =>
-      chooseClassifierBackend(config, {
+      chooseClassifierBackend(config, 'locate', {
         jevSwitch: {
           environment: { THRONE_JEV_DISABLED: '1' },
-          readKeyFile: async () => 'unused-key-material',
+          statKeyFile: () => Promise.resolve({ isFile: () => true, size: 14 }),
         },
         jevBackend: PRODUCTION_JEV_DEPENDENCIES,
+        jevDataHome: '/nonexistent-jev-data-home',
         writeStderr: () => undefined,
       }),
     { [ALLOWED_PATH]: fileText },

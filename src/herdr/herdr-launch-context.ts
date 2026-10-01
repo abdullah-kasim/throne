@@ -1,5 +1,4 @@
-import { runHerdr, type HerdrRuntimeMode } from "./herdr-client.ts";
-import { DEFAULT_HERDR_RUNTIME_MODE } from "./herdr-client.ts";
+import { runHerdr } from "./herdr-client.ts";
 import type {
   StartCallerContext,
   StartCallerContextDeps,
@@ -14,7 +13,6 @@ export async function collectStartCallerContext(
     runHerdr,
     cwd: () => process.cwd(),
     env: process.env,
-    runtimeMode: DEFAULT_HERDR_RUNTIME_MODE,
   },
 ): Promise<StartCallerContext> {
   const env: Record<string, string> = {};
@@ -26,8 +24,7 @@ export async function collectStartCallerContext(
   }
   const context: StartCallerContext = {
     callerCwd: deps.cwd(),
-    herdrSession: deps.runtimeMode.herdrDecouple ? THRONE_HERDR_SESSION : null,
-    herdrDecouple: deps.runtimeMode.herdrDecouple,
+    herdrSession: THRONE_HERDR_SESSION,
     env,
   };
   try {

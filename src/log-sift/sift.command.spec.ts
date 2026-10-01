@@ -5,6 +5,7 @@ import {
   DEFAULT_RECALL_CONFIG,
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
+import { SWITCHED_OFF_JEV_STATUS_READERS } from '../relevance-classifier/jev-status.test-support.ts';
 import { RULES_BACKEND } from '../relevance-classifier/rules-backend.ts';
 import { LINES_PER_CHUNK, overlappingChunks } from './chunks.ts';
 import { runSift, type SiftDependencies } from './sift.command.ts';
@@ -40,14 +41,7 @@ function harness(
     dependencies: {
       loadConfig,
       chooseBackend: () => Promise.resolve(backend),
-      readJevSwitch: () =>
-        Promise.resolve({
-          on: false,
-          enabledInConfig: false,
-          disabledByEnvironment: false,
-          keyFile: 'not-checked',
-          keyFilePath: '/keys/jev',
-        }),
+      ...SWITCHED_OFF_JEV_STATUS_READERS,
       readStdin: () => Promise.resolve(stdin),
       saveFullInput: (text) => {
         savedInputs.push(text);

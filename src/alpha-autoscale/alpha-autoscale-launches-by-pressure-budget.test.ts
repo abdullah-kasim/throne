@@ -11,6 +11,7 @@ import {
 import type { LaunchQueueCandidate } from "../alpha-launch-queue/ready-queue.ts";
 import type { PressureClassification } from "../pressure-signal/classify-pressure.ts";
 import type { AlphaReadinessRecord } from "../keep-going/alpha-capacity.ts";
+import { acquireSweepLockOfItsOwn } from "./alpha-autoscale-sweep-lock-test-fixtures.ts";
 
 function queuedRow(code: string): LaunchQueueCandidate {
   return {
@@ -57,6 +58,7 @@ async function runOneTick(court: Court): Promise<string[]> {
   let pressureReads = 0;
   const deps: AlphaAutoscaleDependencies = {
     log: () => {},
+    acquireSweepLock: acquireSweepLockOfItsOwn,
     notifyOfFloorBreach: {
       resolveAgent: async () => ({ paneId: "test-pane" }) as never,
       submitToAgent: async () => {},

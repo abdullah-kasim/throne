@@ -10,14 +10,18 @@ import {
   classifyBlockedTransition,
   BLOCKED_TRANSITION_VERDICTS,
 } from './classify-blocked-transition.ts';
-import { buildBlockedAgentPagingMessage } from './blocked-agent-paging-message.ts';
+import {
+  buildBlockedAgentPagingMessage,
+  buildNamelessBlockPagingMessage,
+} from './blocked-agent-paging-message.ts';
 import { detectInteractivePrompt } from '../pane-prompts/detect-interactive-prompt.ts';
 import type { BlockedAgentPagingDependencies } from './blocked-agent-paging-dependencies.types.ts';
 import { decideConfirmation } from '../no-idling/confirmed-observation.ts';
 import { AGENT_LIFECYCLE_STATES } from '../agent-statuses/agent-statuses.types.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import { sameAgentName } from '../herdr/herdr-identity-contracts.ts';
-import { NO_IDLING_REGENT_NAME } from '../no-idling/idle-family.ts';
+import { isAlphaRole, isIdleStatus, NO_IDLING_REGENT_NAME } from '../no-idling/idle-family.ts';
+import { DELAY_BEFORE_TELLING_THE_REGENT_MS } from '../no-idling/dependency-cleared-wake.ts';
 import { NO_IDLING_SUBMIT_TIMEOUT_MS } from '../no-idling/no-idling-run.ts';
 import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
 import { getAgentStatusesRoster } from '../agent-statuses/agent-statuses-roster.ts';
@@ -31,7 +35,12 @@ import { resolveAgent } from '../herdr/herdr-runtime.service.ts';
 import { submitToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
 import { listLiveAgentStatuses } from '../agent-statuses/agent-statuses-herdr.ts';
 import { runNotifyLord } from '../notify-lord/notify-lord.command.ts';
-import { classifyLastMessageTags, lastMessageBlock, resolveBlockedTag } from '../no-idling/idle-family.ts';
+import {
+  classifyLastMessageTags,
+  lastMessageBlock,
+  resolveBlockedTag,
+  type LastMessageTagState,
+} from '../no-idling/idle-family.ts';
 import {
   appendBlockedPageLedgerEntry,
   blockedPageEscalationState,
@@ -142,6 +151,29 @@ async function pageRegentForStuckBlock(
   roster: readonly AgentStatusesRosterEntry[],
   deps: BlockedAgentPagingDependencies,
 ): Promise<void> {
+  const rosterEntry = roster.find((entry) => sameAgentName(entry.name, agentName));
+  await pageRegentWithinEscalationBound(
+    agentName,
+    blockedAgentPagingWindowKey(agentName, deps.now?.() ?? Date.now()),
+    async () =>
+      buildBlockedAgentPagingMessage({
+        agentName,
+        cwd: rosterEntry?.cwd,
+        paneId: event.paneId,
+        title: event.title,
+        stateLabels: event.stateLabels,
+        prompt: detectInteractivePrompt(await deps.readVisiblePaneText(event.paneId)),
+      }),
+    deps,
+  );
+}
+
+async function pageRegentWithinEscalationBound(
+  agentName: string,
+  pageKey: string,
+  buildMessage: () => Promise<string>,
+  deps: BlockedAgentPagingDependencies,
+): Promise<void> {
   const priorState = blockedPageEscalationState(agentName, await deps.readEscalationLedger());
   if (priorState.pageCount >= BLOCKED_PAGE_ESCALATION_BOUND) {
     if (!priorState.lordNotified) {
@@ -149,20 +181,7 @@ async function pageRegentForStuckBlock(
     }
     return;
   }
-  const rosterEntry = roster.find((entry) => sameAgentName(entry.name, agentName));
-  const pageKey = blockedAgentPagingWindowKey(agentName, deps.now?.() ?? Date.now());
-  await submitPageToRegent(
-    buildBlockedAgentPagingMessage({
-      agentName,
-      cwd: rosterEntry?.cwd,
-      paneId: event.paneId,
-      title: event.title,
-      stateLabels: event.stateLabels,
-      prompt: detectInteractivePrompt(await deps.readVisiblePaneText(event.paneId)),
-    }),
-    pageKey,
-    deps,
-  );
+  await submitPageToRegent(await buildMessage(), pageKey, deps);
   const observedAt = new Date(deps.now?.() ?? Date.now()).toISOString();
   const entriesAfterEnqueue = await deps.readEscalationLedger();
   if (!hasBlockedPageCredit(agentName, pageKey, entriesAfterEnqueue)) {
@@ -188,6 +207,60 @@ async function notifyLordOfBoundedBlockedEscalation(
   }
 }
 
+async function readBlockedTagForPaging(
+  agentName: string,
+  deps: BlockedAgentPagingDependencies,
+): Promise<LastMessageTagState | undefined> {
+  try {
+    return await resolveBlockedTag(
+      agentName,
+      async () => classifyLastMessageTags(lastMessageBlock(await deps.readAgent(agentName))),
+      deps.blockedMarkerLedger,
+    );
+  } catch (error) {
+    (deps.stderr ?? ((text: string) => process.stderr.write(text)))(
+      `blocked-agent-paging: could not read ${agentName} to look for a blocked marker: ${errText(error)}\n`,
+    );
+    return undefined;
+  }
+}
+
+function namelessBlockPageKey(agentName: string, blockedAt: string): string {
+  return `blocked-agent-paging:nameless:${agentName}:${blockedAt}`;
+}
+
+async function pageRegentForNamelessBlock(
+  entry: AgentStatusesRosterEntry,
+  paneId: string,
+  deps: BlockedAgentPagingDependencies,
+): Promise<void> {
+  if (!isAlphaRole(entry.role) || !isIdleStatus(entry)) {
+    return;
+  }
+  const marker = await deps.blockedMarkerLedger.readBlockedMarker(entry.name);
+  if (marker === null || marker.origin === 'regent' || (marker.blockedBy ?? []).length > 0) {
+    return;
+  }
+  const blockedForMilliseconds = (deps.now?.() ?? Date.now()) - Date.parse(marker.blockedAt);
+  if (Number.isNaN(blockedForMilliseconds) || blockedForMilliseconds < DELAY_BEFORE_TELLING_THE_REGENT_MS) {
+    return;
+  }
+  const blockedTag = await readBlockedTagForPaging(entry.name, deps);
+  if (blockedTag?.kind !== 'blocked' || blockedTag.blockedBy.length > 0) {
+    return;
+  }
+  const pageKey = namelessBlockPageKey(entry.name, marker.blockedAt);
+  if (hasBlockedPageCredit(entry.name, pageKey, await deps.readEscalationLedger())) {
+    return;
+  }
+  await pageRegentWithinEscalationBound(
+    entry.name,
+    pageKey,
+    async () => buildNamelessBlockPagingMessage({ agentName: entry.name, cwd: entry.cwd, paneId }),
+    deps,
+  );
+}
+
 export async function reconcileBlockedAgentPages(
   deps: BlockedAgentPagingDependencies,
 ): Promise<void> {
@@ -197,26 +270,17 @@ export async function reconcileBlockedAgentPages(
     if (
       entry.lifecycle !== AGENT_LIFECYCLE_STATES.LIVE ||
       entry.reportLanded ||
-      classifyBlockedTransition(entry.name, roster, supervisors) !== BLOCKED_TRANSITION_VERDICTS.STUCK ||
       entry.paneId === undefined
     ) {
       continue;
     }
+    if (classifyBlockedTransition(entry.name, roster, supervisors) !== BLOCKED_TRANSITION_VERDICTS.STUCK) {
+      await pageRegentForNamelessBlock(entry, entry.paneId, deps);
+      continue;
+    }
     if (entry.liveStatus !== 'blocked') {
-      let blockedTag;
-      try {
-        blockedTag = await resolveBlockedTag(
-          entry.name,
-          async () => classifyLastMessageTags(lastMessageBlock(await deps.readAgent(entry.name))),
-          deps.blockedMarkerLedger,
-        );
-      } catch (error) {
-        (deps.stderr ?? ((text: string) => process.stderr.write(text)))(
-          `blocked-agent-paging: could not read ${entry.name} to look for a blocked marker: ${errText(error)}\n`,
-        );
-        continue;
-      }
-      if (blockedTag.kind !== 'blocked') {
+      const blockedTag = await readBlockedTagForPaging(entry.name, deps);
+      if (blockedTag?.kind !== 'blocked') {
         continue;
       }
     }

@@ -71,9 +71,9 @@ export async function installThroneCommand(
 ): Promise<ThroneCommandOutcome> {
   // Same target as ensurePathSymlinks' legacy `~/.local/bin/throne` entry —
   // both must agree on the source, or the two self-healers permanently
-  // fight over the symlink and install-services can never report success
-  // while herdr-decouple is ON. bin/throne is the dispatcher (no args opens
-  // the session, any args forward to the CLI), so PATH `throne` gets both.
+  // fight over the symlink and install-services can never report success.
+  // bin/throne is the dispatcher (no args opens the session, any args
+  // forward to the CLI), so PATH `throne` gets both.
   const sourcePath = path.join(options.throneRoot, 'bin', 'throne');
   const targetPath = deps.throneCommandPath();
   const installed = await deps.inspectThroneCommand(targetPath);

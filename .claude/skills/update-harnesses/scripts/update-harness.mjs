@@ -82,17 +82,6 @@ function run(command, args, options = {}) {
   }).trim();
 }
 
-async function loadOwnership(throneRoot) {
-  const modulePath = path.join(throneRoot, 'src', 'shared-policy', 'feature-flags.service.ts');
-  const featureFlags = await import(`${pathToFileURL(modulePath).href}?update=${Date.now()}`);
-  const flags = featureFlags.loadFeatureFlags();
-  return {
-    ownsHarnesses: featureFlags.shouldOwnHarnessUpdates(flags),
-    plansHerdr: featureFlags.shouldOwnHarnessUpdates(flags)
-      && featureFlags.shouldUpdateHerdrInHarnessUpdate(flags),
-  };
-}
-
 function discoverPackage(config, registry) {
   const raw = run('npm', [
     'view',
@@ -425,7 +414,7 @@ function writeEvidence(destination, evidence) {
 
 const MUTABLE_SERVICE_CAVEAT = 'Hosted services and model behavior remain mutable independently of these local CLI artifacts.';
 
-export function runUpdate({ harness, throneRoot, managedRoot, registry, evidencePath, ownership }) {
+export function runUpdate({ harness, throneRoot, managedRoot, registry, evidencePath }) {
   const config = HARNESS[harness];
   assertCourtLivenessIsReadable();
   const oldVersion = readPinnedVersion(throneRoot, harness);
@@ -446,7 +435,6 @@ export function runUpdate({ harness, throneRoot, managedRoot, registry, evidence
       integrity: metadata.integrity,
       probes,
       diff,
-      herdrPlanned: ownership.plansHerdr,
       herdrTouchedOrRestarted: false,
       mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
     };
@@ -458,7 +446,7 @@ export function runUpdate({ harness, throneRoot, managedRoot, registry, evidence
   }
 }
 
-export function runRollback({ harness, throneRoot, sourceEvidencePath, registry, evidencePath, ownership }) {
+export function runRollback({ harness, throneRoot, sourceEvidencePath, registry, evidencePath }) {
   const { previousVersion, diff, vendoredVersion } = rollbackHarnessTransaction({ harness, throneRoot, sourceEvidencePath, registry });
   const evidence = {
     action: 'rollback',
@@ -466,7 +454,6 @@ export function runRollback({ harness, throneRoot, sourceEvidencePath, registry,
     restoredVersion: previousVersion,
     vendoredVersion,
     diff,
-    herdrPlanned: ownership.plansHerdr,
     mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
   };
   writeEvidence(evidencePath, evidence);
@@ -476,11 +463,6 @@ export function runRollback({ harness, throneRoot, sourceEvidencePath, registry,
 
 async function main() {
   const options = parseArguments(process.argv.slice(2));
-  const ownership = await loadOwnership(options.throneRoot);
-  if (!ownership.ownsHarnesses) {
-    process.stdout.write('Harness ownership is OFF; no discovery, download, pin, update, promotion, rollback, or ownership action was performed.\n');
-    return;
-  }
   const transactionLock = acquireTransactionLock(options.managedRoot);
   try {
     if (options.action === 'check') {
@@ -488,7 +470,6 @@ async function main() {
       writeEvidence(options.evidence, {
         action: 'check',
         ...state,
-        herdrPlanned: ownership.plansHerdr,
         mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
       });
       process.stdout.write(`${renderCheckReport(state)}\nevidence: ${options.evidence}\n`);
@@ -496,11 +477,11 @@ async function main() {
     }
     if (options.action === 'rollback') {
       if (!options.sourceEvidence) fail('--source-evidence is required for rollback');
-      const evidence = runRollback({ ...options, sourceEvidencePath: path.resolve(options.sourceEvidence), evidencePath: options.evidence, ownership });
+      const evidence = runRollback({ ...options, sourceEvidencePath: path.resolve(options.sourceEvidence), evidencePath: options.evidence });
       process.stdout.write(`${options.harness} rolled back to ${evidence.restoredVersion}; evidence: ${options.evidence}\n${evidence.diff}\n`);
       return;
     }
-    const evidence = runUpdate({ ...options, evidencePath: options.evidence, ownership });
+    const evidence = runUpdate({ ...options, evidencePath: options.evidence });
     process.stdout.write(`${options.harness} pinned to ${evidence.newVersion}; evidence: ${options.evidence}\n${evidence.diff}\n`);
   } finally {
     rmSync(transactionLock, { recursive: true, force: true });

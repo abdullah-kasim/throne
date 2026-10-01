@@ -4,6 +4,7 @@ import {
   type ClassifierAnswer,
   type ClassifierBackend,
   type FailOpenQuestion,
+  type SharedWordsRule,
 } from '../relevance-classifier/classifier.types.ts';
 import {
   askFailingOpen,
@@ -12,9 +13,10 @@ import {
 import type { RecallConfig } from '../relevance-classifier/recall-user-config.ts';
 import { RULES_BACKEND } from '../relevance-classifier/rules-backend.ts';
 import { GLOBAL_SCOPE, type Memory } from './memory-frontmatter.types.ts';
+import { fileNameAsWords, isSuperseded } from './memory-files.ts';
 
 const SHARED_WORDS_FOR_CERTAINTY = 3;
-export const LOWEST_PROBABILITY_WORTH_SERVING = 0.65;
+export const LOWEST_PROBABILITY_WORTH_SERVING = 0.4;
 export const TASK_STATE_FIELD = 'task';
 export const REPOSITORY_STATE_FIELD = 'repository';
 
@@ -22,6 +24,7 @@ export interface MemoryDecision {
   readonly memory: Memory;
   readonly answer: ClassifierAnswer;
   readonly served: boolean;
+  readonly servedEarlierInSession: boolean;
 }
 
 export interface MemorySelectionRequest {
@@ -36,10 +39,39 @@ export interface MemorySelectionRequest {
     'serveThreshold' | 'serveThresholdWhenCostIsHigh' | 'maximumInjectedCharacters'
   >;
   readonly timeoutMilliseconds?: number;
+  readonly questionsAskedAlongside?: readonly FailOpenQuestion[];
 }
 
-export function isSuperseded(memory: Memory): boolean {
-  return memory.frontmatter.status === 'superseded';
+export interface MemorySelection {
+  readonly decisions: readonly MemoryDecision[];
+  readonly answersAlongside: readonly ClassifierAnswer[];
+}
+
+export const BELOW_THE_SERVING_FLOOR = 'below the serving floor';
+export const OVER_THE_SIZE_LIMIT = 'over the size limit';
+export type WithheldReason = typeof BELOW_THE_SERVING_FLOOR | typeof OVER_THE_SIZE_LIMIT;
+
+export interface WithheldMemory {
+  readonly decision: MemoryDecision;
+  readonly reason: WithheldReason;
+}
+
+export function isWorthServing(answer: ClassifierAnswer): boolean {
+  return answer.pick === YES && answer.probability >= LOWEST_PROBABILITY_WORTH_SERVING;
+}
+
+function isWithheld(decision: MemoryDecision): boolean {
+  return decision.answer.pick === YES && !decision.served && !decision.servedEarlierInSession;
+}
+
+function withheldReasonOf(decision: MemoryDecision): WithheldReason {
+  return isWorthServing(decision.answer) ? OVER_THE_SIZE_LIMIT : BELOW_THE_SERVING_FLOOR;
+}
+
+export function withheldMemoriesOf(decisions: readonly MemoryDecision[]): readonly WithheldMemory[] {
+  return decisions
+    .filter(isWithheld)
+    .map((decision) => ({ decision, reason: withheldReasonOf(decision) }));
 }
 
 export function isInScope(
@@ -54,31 +86,31 @@ export function isInScope(
   );
 }
 
-function fileNameAsWords(memory: Memory): string {
-  return memory.fileName.replace(/\.md$/, '').replaceAll(/[_-]+/g, ' ');
-}
-
 function relevanceInstructions(memory: Memory): string {
   return (
     memory.frontmatter.ask ??
-    `Is a recorded lesson titled "${fileNameAsWords(memory).toLowerCase()}" relevant to the work described in \`${TASK_STATE_FIELD}\`?`
+    `Is a recorded lesson titled "${fileNameAsWords(memory.fileName).toLowerCase()}" relevant to the work described in \`${TASK_STATE_FIELD}\`?`
   );
+}
+
+export function relevanceRuleOf(memory: Memory): SharedWordsRule {
+  const { ask, description, name } = memory.frontmatter;
+  return {
+    kind: 'shared-words',
+    text: [ask, fileNameAsWords(memory.fileName), description, name].join(' '),
+    sharedWordsForCertainty: SHARED_WORDS_FOR_CERTAINTY,
+  };
 }
 
 function relevanceQuestion(
   memory: Memory,
   config: MemorySelectionRequest['config'],
 ): FailOpenQuestion {
-  const { ask, description, name } = memory.frontmatter;
   return {
     ...yesOrNoQuestion(
       memory.filePath,
       relevanceInstructions(memory),
-      {
-        kind: 'shared-words',
-        text: [ask, fileNameAsWords(memory), description, name].join(' '),
-        sharedWordsForCertainty: SHARED_WORDS_FOR_CERTAINTY,
-      },
+      relevanceRuleOf(memory),
       TASK_STATE_FIELD,
     ),
     safePick: YES,
@@ -105,14 +137,14 @@ function mostRelevantFirst(
 export async function selectMemories(
   request: MemorySelectionRequest,
   dependencies?: FailOpenDependencies,
-): Promise<readonly MemoryDecision[]> {
+): Promise<MemorySelection> {
   const candidates = request.memories.filter(
     (memory) =>
       !isSuperseded(memory) &&
       isInScope(memory, request.repositoryScopes) &&
-      !request.alreadyServedFilePaths.has(memory.filePath) &&
       memory.body.length > 0,
   );
+  const questionsAskedAlongside = request.questionsAskedAlongside ?? [];
   const answers = await askFailingOpen(
     request.backend,
     {
@@ -121,7 +153,10 @@ export async function selectMemories(
         ? {}
         : { [REPOSITORY_STATE_FIELD]: request.repositoryName }),
     },
-    candidates.map((memory) => relevanceQuestion(memory, request.config)),
+    [
+      ...candidates.map((memory) => relevanceQuestion(memory, request.config)),
+      ...questionsAskedAlongside,
+    ],
     dependencies,
     {
       timeoutMilliseconds: request.timeoutMilliseconds,
@@ -138,15 +173,14 @@ export async function selectMemories(
     .sort(mostRelevantFirst);
   let charactersLeft =
     request.config.maximumInjectedCharacters - RECALLED_MEMORIES_HEADING.length;
-  return answered.map(({ memory, answer }) => {
+  const decisions = answered.map(({ memory, answer }) => {
+    const servedEarlierInSession = request.alreadyServedFilePaths.has(memory.filePath);
     const fits = renderedMemory(memory).length <= charactersLeft;
-    const served =
-      answer.pick === YES &&
-      answer.probability >= LOWEST_PROBABILITY_WORTH_SERVING &&
-      fits;
+    const served = !servedEarlierInSession && isWorthServing(answer) && fits;
     if (served) charactersLeft -= renderedMemory(memory).length;
-    return { memory, answer, served };
+    return { memory, answer, served, servedEarlierInSession };
   });
+  return { decisions, answersAlongside: answers.slice(candidates.length) };
 }
 
 export function renderedMemory(memory: Memory): string {

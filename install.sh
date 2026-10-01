@@ -340,22 +340,6 @@ if [ "$WITH_SERVICES" -eq 0 ]; then
     step "Services"
     ok "skipped (--no-services)"
 else
-    step "Feature flags"
-
-    flags_file="${XDG_CONFIG_HOME:-$HOME/.config}/throne/features.json"
-    mkdir -p "$(dirname "$flags_file")"
-    desired_flags='{"herdr-decouple": true, "harness-decouple": true}'
-    if [ -f "$flags_file" ] && [ "$FORCE" -eq 0 ] &&
-       node -e '
-         const flags = require(process.argv[1]);
-         process.exit(flags["herdr-decouple"] && flags["harness-decouple"] ? 0 : 1);
-       ' "$flags_file" 2>/dev/null; then
-        ok "decoupling flags already on"
-    else
-        printf '%s\n' "$desired_flags" > "$flags_file"
-        did "enabled herdr-decouple and harness-decouple"
-    fi
-
     step "ntfy (phone notifications)"
     install_ntfy
 

@@ -8,6 +8,10 @@ import {
   type JevSwitch,
 } from '../relevance-classifier/jev-switch.ts';
 import {
+  readJevSpendingOnThisMachine,
+  type JevSpending,
+} from '../relevance-classifier/jev-spending.ts';
+import {
   loadRecallConfig,
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
@@ -31,6 +35,7 @@ const ORDERING_USES_STAGE_TWO_JUDGED_PROBABILITY = false;
 export interface LocateDependencies {
   loadConfig(): Promise<RecallConfig>;
   readJevSwitch(config: RecallConfig): Promise<JevSwitch>;
+  readJevSpending(config: RecallConfig): Promise<JevSpending>;
   gatherCandidates(
     task: string,
     roots: readonly string[],
@@ -50,6 +55,7 @@ export interface LocateDependencies {
 const PRODUCTION_DEPENDENCIES: LocateDependencies = {
   loadConfig: () => loadRecallConfig(),
   readJevSwitch: (config) => readJevSwitch(config),
+  readJevSpending: (config) => readJevSpendingOnThisMachine(config),
   gatherCandidates: (task, roots, opts) => gatherCandidates(task, roots, opts),
   judgeCandidates: (candidates, task, config) =>
     judgeCandidates(candidates, task, config),
@@ -257,7 +263,12 @@ export async function runLocate(
   }
   const config = await dependencies.loadConfig();
   if (parsed.status) {
-    dependencies.writeStdout(renderedJevStatus(await dependencies.readJevSwitch(config)));
+    dependencies.writeStdout(
+      renderedJevStatus(
+        await dependencies.readJevSwitch(config),
+        await dependencies.readJevSpending(config),
+      ),
+    );
     return 0;
   }
   await locateAndPrint(parsed, config, dependencies);

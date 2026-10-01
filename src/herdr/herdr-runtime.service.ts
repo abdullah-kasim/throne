@@ -15,6 +15,7 @@ import {
 import { AgentResolutionError, sameAgentName } from './herdr-identity-contracts.ts';
 
 export { AgentResolutionError } from './herdr-identity-contracts.ts';
+export { DuplicateAgentNameAcrossSessionsError } from './herdr-client.ts';
 import {
   parseAgentList,
   parseNameOwners,
@@ -31,7 +32,12 @@ import {
   type HerdrTab,
   type ReadOptions,
 } from './herdr-inventory.service.ts';
-import { runHerdr } from './herdr-client.ts';
+import {
+  runHerdr,
+  THRONE_HERDR_SESSION_NAMES,
+  DuplicateAgentNameAcrossSessionsError,
+} from './herdr-client.ts';
+import { listAgentsInSession } from './herdr-runtime-session-reads.ts';
 import { resolveLowercaseTabIdentity, SharedIdentityResolutionError } from '../shared-identity/shared-identity.ts';
 import { pathsResolveEqual } from '../shared-policy/path-equivalence.ts';
 import {
@@ -69,7 +75,6 @@ export async function listAgents(
 ): Promise<HerdrAgent[]> {
   const { stdout } = await runHerdr(
     ['agent', 'list'],
-    undefined,
     undefined,
     options.timeoutMilliseconds === undefined ? undefined : options,
   );
@@ -116,7 +121,6 @@ export async function readAgent(
   }
   const { stdout } = await runHerdr(
     args,
-    undefined,
     undefined,
     opts?.timeoutMilliseconds === undefined
       ? undefined
@@ -200,6 +204,33 @@ export async function resolveAgent(
   const repaired = await repairRecipientByExactTabLabel(name, agents, repairDeps);
   if (repaired !== undefined) return repaired;
   throw new AgentResolutionError(name, 0);
+}
+
+export async function resolveAgentAcrossSessions(
+  name: string,
+  sessionNames: readonly string[] = THRONE_HERDR_SESSION_NAMES,
+  listAgentsForSession: (sessionName: string) => Promise<HerdrAgent[]> = listAgentsInSession,
+): Promise<HerdrAgent> {
+  const perSessionMatches = await Promise.all(
+    sessionNames.map(async (sessionName) => ({
+      sessionName,
+      matches: (await listAgentsForSession(sessionName)).filter((agent) =>
+        sameAgentName(agent.name, name),
+      ),
+    })),
+  );
+  const sessionsWithMatch = perSessionMatches.filter((entry) => entry.matches.length > 0);
+  if (sessionsWithMatch.length > 1) {
+    throw new DuplicateAgentNameAcrossSessionsError(
+      name,
+      sessionsWithMatch.map((entry) => entry.sessionName),
+    );
+  }
+  const resolvingSessionName = sessionsWithMatch[0]?.sessionName ?? sessionNames[0]!;
+  const resolved = await resolveAgent(name, {
+    listAgents: () => listAgentsForSession(resolvingSessionName),
+  });
+  return { ...resolved, herdrSessionName: resolvingSessionName };
 }
 
 /** Injectable owner for the Herdr runtime inventory and identity effects. */

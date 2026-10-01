@@ -26,6 +26,7 @@ import { NoIdlingCommand } from "./no-idling/no-idling.command.ts";
 import { UsageRateCommand } from "./usage-rate/usage-rate.command.ts";
 import { DeriveShadowNameFromAlphaCommand } from "./derive-shadow-name-from-alpha/derive-shadow-name-from-alpha.command.ts";
 import { NotifyLordCommand } from "./notify-lord/notify-lord.command.ts";
+import { CheckConfigCommand } from "./check-config/check-config.command.ts";
 import { ListHarnessesAndModelsCommand } from "./list-harnesses-and-models/list-harnesses-and-models.command.ts";
 import { SwitchPersonaCommand } from "./switch-persona/switch-persona.command.ts";
 import { AgentStatusesModule } from "./agent-statuses/agent-statuses.module.ts";
@@ -49,6 +50,11 @@ import { CheckMainIntegrityCommand } from "./check-main-integrity/check-main-int
 import { TrimQueueCommand } from "./trim-queue/trim-queue.command.ts";
 import { RegentQueueMigrateCommand } from "./regent-queue/regent-queue-migrate.command.ts";
 import { AddToQueueCommand } from "./add-to-queue/add-to-queue.command.ts";
+import { ThroneBotSayCommand } from "./throne-bot/throne-bot-say.command.ts";
+import { ThroneBotSendFileCommand } from "./throne-bot/throne-bot-send-file.command.ts";
+import { ThroneBotRegisterBotCommand } from "./throne-bot/throne-bot-register-bot.command.ts";
+import { ThroneBotListBotsCommand } from "./throne-bot/throne-bot-list-bots.command.ts";
+import { ThroneBotLintObjectiveCommand } from "./throne-bot/throne-bot-lint-objective.command.ts";
 import { UpdateQueueCommand } from "./update-queue/update-queue.command.ts";
 import { AmendmentCommand } from "./amendment/amendment.command.ts";
 import { CheckQueueAmendmentsReconciledCommand } from "./amendment/check-reconciled.command.ts";
@@ -80,6 +86,7 @@ import { RecallCommand } from "./memory-recall/recall.command.ts";
 import { RankCommand } from "./item-rank/rank.command.ts";
 import { LocateCommand } from "./file-locate/locate.command.ts";
 import { SiftCommand } from "./log-sift/sift.command.ts";
+import { JevProbeCommand } from "./jev-probe/jev-probe.command.ts";
 import { GitIdentityCommand } from "./git-identity/git-identity.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "./reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
 import {
@@ -253,6 +260,10 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
       useFactory: () => new NotifyLordCommand(),
     },
     {
+      provide: CheckConfigCommand,
+      useFactory: () => new CheckConfigCommand(),
+    },
+    {
       provide: ListHarnessesAndModelsCommand,
       useFactory: () => new ListHarnessesAndModelsCommand(),
     },
@@ -275,6 +286,11 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     TrimQueueCommand,
     RegentQueueMigrateCommand,
     AddToQueueCommand,
+    ThroneBotSayCommand,
+    ThroneBotSendFileCommand,
+    ThroneBotRegisterBotCommand,
+    ThroneBotListBotsCommand,
+    ThroneBotLintObjectiveCommand,
     UpdateQueueCommand,
     AmendmentCommand,
     CheckQueueAmendmentsReconciledCommand,
@@ -316,6 +332,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     RankCommand,
     LocateCommand,
     SiftCommand,
+    JevProbeCommand,
     GitIdentityCommand,
     ReclaimAgentScratchpadsCommand,
     SwitchPersonaCommand,

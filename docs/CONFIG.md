@@ -45,9 +45,9 @@ export default userConfig;
 | --- | --- | --- |
 | Persona (top level) | `roleplayPreset`, `addressTitle`, `tierTitles`, `throneTitle`, `campaignTitle`, `queueDescription`, `roleplayPrompt` | every identity text, opening prompt, resurrection prompt and user-facing message (`agent_docs/persona-config.md`) |
 | `ntfy` (top level) | `serverUrl`, `topic` | `notify-lord` phone pushes (`agent_docs/ntfy-phone-notifications.md`) |
-| `steering` | `activePlanPresetName`, `activeTargetEffort`, `activeHarness`, `messageQueueTransport`, `customPlanPresets`, `stagerPool`, `tokenBalanceEnabled`, `autoscaleEnabled` | every fresh spawn's harness/model/effort, the Stager pool, the autoscaler, the token balancer (`agent_docs/MODEL_POLICY.md`) |
+| `steering` | `activePlanPresetName`, `activeTargetEffort`, `activeHarness`, `messageQueueTransport`, `customPlanPresets`, `stagerPool`, `roleEfforts`, `regentRoute`, `tokenBalanceEnabled`, `autoscaleEnabled`, `regentHeartbeatNudgeEnabled` | every fresh spawn's harness/model/effort, the Stager pool, the Regent's model and effort, the autoscaler, the token balancer (`agent_docs/MODEL_POLICY.md`) |
 | `identity` | `name`, `email`, `signingKey`, `signingFormat`, `identities`, `remotes` | every git commit the court makes (`throne git-identity`, the `bin/git` shim, tab creation; `agent_docs/commands.md`) |
-| `recall` | `jevEnabled`, `jevKeyFile`, `hookEnabled`, `hookTimeoutMilliseconds`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `globalMemoryDirectories`, `rankAllowedRoots` | `throne recall`, `throne sift` and `throne rank` (`agent_docs/commands.md`) |
+| `recall` | `jevEnabled`, `jevKeyFile`, `hookEnabled`, `hookMode`, `verdictLineThreshold`, `hookTimeoutMilliseconds`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `repositoryMemoryNamesPerRepository`, `globalMemoryDirectories`, `rankAllowedRoots`, `jevTokensPerDay`, `jevTokensPerHour` | `throne recall`, `throne sift` and `throne rank` (`agent_docs/commands.md`) |
 
 ## Persona — how the court speaks
 
@@ -92,13 +92,16 @@ pair the harness cannot run, all refuse the whole file.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `activePlanPresetName` | `'GptOnly' \| 'AnthropicOnly' \| 'Optimized' \| 'Whichever' \| 'UnifiedRouting' \| <a `customPlanPresets` key>` | `'UnifiedRouting'` | Which preset's role pools a fresh Alpha, Shadow and ShadowSlice99 spawn steers toward. `UnifiedRouting` is Sonnet end to end. The `/switch-campaign-model` skill rewrites this for you. |
-| `activeTargetEffort` | number | `1` | The reasoning effort every fresh spawn is clamped toward, before the per-model clamp. `1` is "low". |
+| `activePlanPresetName` | `'GptOnly' \| 'AnthropicOnly' \| 'Optimized' \| 'Whichever' \| 'UnifiedRouting' \| 'OpusOnly' \| <a `customPlanPresets` key>` | `'OpusOnly'` | Which preset's role pools a fresh Alpha, Shadow and ShadowSlice99 spawn steers toward. `OpusOnly` runs every campaign role on claude/opus, the latest Opus the pinned Claude Code resolves; `UnifiedRouting` runs them all on claude/sonnet. The `/switch-campaign-model` skill rewrites this for you. |
+| `activeTargetEffort` | number | `1` | The reasoning effort every fresh spawn is clamped toward, before the per-model clamp, for any role `roleEfforts` does not name. The scale is 1 to 6; for claude 1 is low, 2 medium, 3 high, 4 xhigh, 5 max. |
+| `roleEfforts` | `{ alpha?, shadow?, shadowSlice99?, stager?, regent? }`, each 1 to 6 | `{ alpha: 3, shadow: 3, shadowSlice99: 3 }` | Per-role effort that overrides `activeTargetEffort` for that role on every fresh spawn (autoscaler, create-agent, the Stager floor, `--fork-of`, switch-agent-model) and on `/restart-harnesses`. An effort a queue row carries (`add-to-queue --effort`) still wins for its campaign. `regent` applies only when `regentRoute` is set. An unknown role or an effort outside 1 to 6 refuses the whole file. |
+| `regentRoute` | `{ harness, model }` | absent | The Regent's model. When set, resurrection and `summon-regent` launch the Regent on this pair at `roleEfforts.regent` (else `activeTargetEffort`). Absent keeps the old launch: the recorded `data/regent` route at effort 1, or bare `bin/claudey`. |
 | `activeHarness` | harness name | absent | Run every campaign role on THIS harness regardless of what the preset's pairs name. Absent means "each pair as written". Harness and model are independent choices, and this field exists so changing one never silently changes the other. The Stager is never moved by it. |
 | `messageQueueTransport` | `'sqlite'` | absent | Explicit queue-transport marker. Only the SQLite delivery path exists; omitting it keeps the feature-flag behaviour. |
 | `customPlanPresets` | `Record<name, { alpha, shadow, shadowSlice99 }>` | `{}` | Your own presets: each of the three campaign-role pools is a non-empty list of `{ harness, model }` pairs. Defining one changes nothing until `activePlanPresetName` names it. The Stager has no pool here by design. |
 | `stagerPool` | `{ harness, model }[]` | absent | The Stager's own pair pool. Absent means the committed pin in `src/config.ts` (currently `claude/fable`, `claude/opus`). This is the ONE place the Stager can be moved; no preset and no `activeHarness` touches it, so a court-wide switch can never relocate your point of contact by accident. |
 | `tokenBalanceEnabled` | boolean | `false` | Durable operator enable for the token-balance load balancer (`src/token-balance/`). Its ship-dark env kill switch `THRONE_TOKEN_BALANCE_ENABLED` must also be on; either being off fully de-gates it. |
+| `regentHeartbeatNudgeEnabled` | boolean | `false` | Whether the heartbeat timer nudges the Regent. |
 | `autoscaleEnabled` | boolean | `true` (absent means ON) | THE operator pause for the whole court's spawning. `false` makes every autoscale tick skip before it touches the queue; the worker re-reads the file each tick, no restart needed. The env switch `THRONE_ALPHA_AUTOSCALE_ENABLED` is permanently armed by the service templates, so this field is the deliberate off. Flip it with `/autoscaler off|on`. |
 
 Harness and model names come from the registry: `throne list-harnesses-and-models`
@@ -118,6 +121,8 @@ steering: {
     },
   },
   stagerPool: [{ harness: 'omp', model: 'opus' }],
+  regentRoute: { harness: 'claude', model: 'opus' },
+  roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3, stager: 3, regent: 3 },
   autoscaleEnabled: true,
 },
 ```
@@ -171,38 +176,81 @@ signing key that is missing).
 
 ## `recall` — which memories and log lines reach an agent
 
-`throne recall "<task>"` prints the bodies of the recorded memories that apply
-to a task; `throne sift "<query>"` prints only the chunks of a long command
-output that matter. Both decide with plain keyword rules unless Jev is on.
+`throne recall --directory <repo> "<task>"` prints the bodies of the recorded
+memories in that repository and the global memory directories that apply to a
+task (the prompt-submit hook searches only the session's repository and the
+global memories); `throne sift "<query>"` prints only the chunks of a long
+command output that matter. Both decide with plain keyword rules unless Jev is on.
 
 **Privacy.** With `jevEnabled: true`, the task text (the prompt), every
-candidate memory's `ask` line and, for `sift`, the raw log text piped in are
-sent to TypeSafe (`api.typesafe.ai`). Memory bodies are never sent. With
+candidate memory's `ask` line, for each other repository recall asks about its name, the `ask` in its `REPOSITORY.md` and its memory file titles, and, for `sift`, the raw log text piped in are
+sent to TypeSafe (`api.typesafe.ai`). `recall` and `sift` never send memory
+bodies; `throne recall --report` does, because its judge grades memories' full
+text against prompts, and for the acted-on rate it also sends the next five assistant messages of the session's transcript. With
 `jevEnabled: false` the TypeSafe SDK is never called and the key file is never
 read.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `jevEnabled` | boolean | `false` | Ask the Jev classifier instead of the keyword rules. Any Jev failure (timeout, HTTP 429, missing key, any error) falls back: recall asks the rules, sift keeps the chunk. |
-| `jevKeyFile` | string | `'~/.jev-key'` | File holding the TypeSafe API key. Read only at call time and only when `jevEnabled` is true. Keep it mode 600. |
+| `jevKeyFile` | string | `'~/.jev-key'` | File holding the TypeSafe API key. Whether it is usable is decided from the file alone (it exists, is a regular file and is not empty), never from its contents. Its contents are read only by the Jev backend, only when `jevEnabled` is true, and only after the budget has granted a request. Keep it mode 600. |
+| `jevTokensPerDay` | integer >= 0 | `15_000_000` | Most Jev tokens every process on this machine together may spend in one local calendar day. The budget is machine-wide, shared by every worktree and session, and kept under `~/.throne/data/recall/jev-budget/`. When a request would go over it, Jev is not called and the keyword rules answer. `0` switches Jev off. |
+| `jevTokensPerHour` | integer >= 0 | `1_250_000` | Most Jev tokens every process on this machine together may spend in a rolling hour (the last 60 minutes), from the same machine-wide budget. When a request would go over it, Jev is not called and the keyword rules answer. `0` switches Jev off. |
 | `rankAllowedRoots` | string[] | `[]` | With Jev on, `throne rank` sends FILE CONTENTS to TypeSafe only for files under one of these directories; every other file is ranked by word matching locally and named on stderr as not sent. Stdin items are sent only with `--allow-stdin-to-jev`. Empty means nothing is ever sent by `rank`. |
-| `hookEnabled` | boolean | `false` | While false, `throne recall --hook` prints nothing. The prompt-submit hook is shared by every session on the machine, so this is the one switch. |
-| `hookTimeoutMilliseconds` | integer >= 1 | `2500` | How long hook mode waits for the classifier before the rules answer instead. |
+| `hookEnabled` | boolean | `false` | While false, `throne recall --hook` judges and prints nothing, and records only a skipped run (`hook disabled`) in the ledger. The prompt-submit hook is shared by every session on the machine, so this is the one switch. |
+| `hookMode` | `'serve'`, `'shadow'` or `'split'` | `'serve'` | What `throne recall --hook` does with each prompt while `hookEnabled` is true. `'serve'` prints the chosen memories. `'shadow'` judges every prompt and records in the ledger what would have been served, but prints nothing. `'split'` flips a coin seeded from the session and the prompt, so each prompt lands in serve or shadow half the time and the same prompt always lands in the same one. The summary line of every judged prompt and every full decision line record the arm. `'shadow'` and `'split'` also log every answer, a confident no as a compact line (see `agent_docs/commands.md` under `recall`). Each hook prompt's first 2,000 characters are kept in `~/.throne/data/recall/prompts.jsonl`, which never leaves the machine. |
+| `verdictLineThreshold` | number 0..1 | `0.9` | Every recall ends with Jev's verdict, that a relevant memory likely exists or that there is no relevant memory in the scope it searched, and its confidence. In the serve arm the line is printed with any served memories; when nothing is served it is printed alone only when Jev is surer than this that no relevant memory exists. |
+| `hookTimeoutMilliseconds` | integer >= 1 | `2500` | How long hook mode waits for the classifier before the rules answer instead. Such a run is recorded as `timed out`, and `recall --report` never counts a dig after it as a miss. |
 | `serveThreshold` | number 0..1 | `0.5` | A memory is served when the probability that it applies is at least this. |
 | `serveThresholdWhenCostIsHigh` | number 0..1 | `0.3` | The lower bar for a memory whose frontmatter says `cost_if_missed: high`. |
 | `siftKeepThreshold` | number 0..1 | `0.5` | A log chunk is kept when the probability that it matters is at least this. |
 | `maximumInjectedCharacters` | integer >= 1 | `8000` | Total characters one recall may print. Claude Code spills hook output over 10,000 characters to a file. |
+| `repositoryMemoryNamesPerRepository` | integer >= 1 | `40` | How many memory titles, most recently modified first, recall sends Jev for each other repository it asks about (the repositories recall has seen, in `~/.throne/data/recall/repositories.json`, outside the lookup's scope). Titles only, never bodies. Each title adds Jev tokens to every lookup: a repository with hundreds of memories would add about 7k tokens uncapped. |
 | `globalMemoryDirectories` | string[] | `[]` | Memory directories shared by every project, read in addition to the project's own (`throne memory-dir .`). `~/` expands. |
 
 **Switching Jev off again.** Set `jevEnabled: false` (or delete it): the very
 next `recall`, `sift` or `rank` run obeys, with nothing to rebuild, restart or
 clear. `THRONE_JEV_DISABLED=1` in the environment wins over the file for that
 process and can only switch Jev off, never on. A missing, unreadable or empty
-key file also means off, with one stderr line. When off by any route there is
+key file also means off, with one stderr line. A `jevTokensPerDay` or
+`jevTokensPerHour` of `0` means off too. When off by any route there is
 no network call, no SDK client is constructed and the key file is not opened.
 `throne recall --status` (also `sift --status`, `rank --status`) prints which
-backend would answer now and why, never the key. Every ledger line names the
-backend that answered.
+backend would answer now and why, never the key, followed by today's Jev tokens
+out of `jevTokensPerDay`, the rolling hour's out of `jevTokensPerHour`, what is
+left of each, and today's count of requests not sent because the budget lock
+was busy. Every ledger line names the backend that answered, with a `reason`
+when Jev did not.
+
+**When the Jev budget is used up.** The tally is one file,
+`~/.throne/data/recall/jev-budget/tally.json`, shared by every process and
+worktree on the machine and changed only under the lock `jev-budget/lock`. A
+request the day's or the rolling hour's budget cannot cover is never sent: the
+keyword rules answer instead, and the hook's verdict line says
+`rules (Jev budget used up)`. If the lock stays busy the rules answer too,
+labelled `rules (Jev budget lock busy)`. Each request, sent or not, is logged to
+`~/.throne/data/recall/jev-usage.jsonl`, and `throne recall --report` sums that
+log per local day and per caller. The report also says that the TypeSafe API
+does not expose the account's charged usage, so the TypeSafe console is the
+only cross-check of that spend.
+
+**The budget belongs to the machine, not the environment.** The budget
+directory and the usage log are found from the home directory the operating
+system's user database records for the account, joined with
+`.throne/data/recall/`. `HOME`, `THRONE_DATA_HOME` and `THRONE_LIVE_ROOT` do
+not move them, so a process run with a scratch home still spends from the
+machine's one budget.
+
+**Builds older than the limiter.** Every build carries a Jev limiter version,
+and the tally records the highest version the live build (the `dist` of the
+main checkout) has spent with. A build whose version is lower is never sent to
+Jev: the rules answer, the verdict line says
+`rules (this build has no Jev limiter)`, the ledger `reason` is
+`build without Jev limiter`, and the usage log records `outdated-build`. A
+worktree build with a higher version may spend but never raises the recorded
+version, so it cannot lock the live build out. A build made before the limiter
+existed has no code to refuse with; the PreToolUse fence refuses running such
+a build instead.
 
 Memory frontmatter keys, all optional: `ask` (a yes/no test of WHEN the lesson
 applies), `scope` (`global` or the project memory directory's name), `kind`

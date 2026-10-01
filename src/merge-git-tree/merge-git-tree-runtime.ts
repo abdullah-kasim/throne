@@ -28,7 +28,6 @@ import {
 import { checkValidateDeliveryVerdict } from "../validate-delivery/validate-delivery-runtime.ts";
 import {
   markDeliveryValidationRequired,
-  notifyDeliveryValidationRequired,
   withTargetDeliveryLock,
 } from "./merge-git-tree-transaction.ts";
 export { withTargetDeliveryLock } from "./merge-git-tree-transaction.ts";
@@ -235,7 +234,6 @@ export interface MergeGitTreeDeps {
     name: string,
     dataDir: string | undefined,
   ) => Promise<void>;
-  notifyValidationRequired?: (name: string) => Promise<void>;
   refuseUnreconciledQueueAmendments?: (
     name: string,
     dataDir: string | undefined,
@@ -353,24 +351,10 @@ export async function run(
         return 1;
       }
       if (absorb.status === "merged-content") {
-        // A non-campaign agent has no queue row, so the mark is a no-op for
-        // it — but the notify below still fires, because the absorb happened
-        // and somebody should hear about it. See the note on
-        // `markDeliveryValidationRequired`.
         await (deps.markValidationRequired ?? markDeliveryValidationRequired)(
           name,
           parsed.dataDir,
         );
-        try {
-          await (
-            deps.notifyValidationRequired ?? notifyDeliveryValidationRequired
-          )(name);
-        } catch (error) {
-          err(
-            `merge-git-tree: validation-required is durable, but notification failed: ` +
-              `${error instanceof Error ? error.message : String(error)}\n`,
-          );
-        }
       }
 
       const result = await executeMergeBack(

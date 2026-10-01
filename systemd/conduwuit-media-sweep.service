@@ -1,0 +1,7 @@
+[Unit]
+Description=Trim conduwuit media older than 30 days
+StateDirectory=conduwuit
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'find "${XDG_STATE_HOME:-%h/.local/state}/conduwuit/media" -type f -mtime +30 -delete'

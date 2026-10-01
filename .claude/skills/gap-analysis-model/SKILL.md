@@ -43,8 +43,8 @@ Collect these values before spawning anything:
 as a second-tier Alpha, so each pair must be admissible as an Alpha under the
 live active plan. Read `<live-throne>/bin/throne-cli
 list-harnesses-and-models --json` and require both pairs to appear in
-`active_plan.rolePools.Alpha` (under `UnifiedRouting` that pool is
-`claude/fable`, `claude/opus`, and `codex/gpt-5.6-sol`). Role pools are walls,
+`active_plan.rolePools.Alpha` (under the default `OpusOnly` that pool is
+`claude/opus` alone). Role pools are walls,
 not steers: no bypass flag admits a pair the pool excludes, so reject an
 out-of-pool pair with that exact reason instead of substituting a different
 model. If a future in-pool pair's `planning` score falls below the Alpha floor

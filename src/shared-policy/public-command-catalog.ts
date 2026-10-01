@@ -66,11 +66,7 @@ export function renderPublicCommandUsage(featureFlags: string): string {
     "Usage: ./bin/throne-cli <command> [args...]",
     "",
     `Feature flags: ${featureFlags}`,
-    '  Strict JSON object: {"herdr-decouple": true|false}; absent defaults OFF.',
-    '  Optional "send-agent-file-backed-payloads": true|false; absent defaults OFF.',
-    '  OFF: do not acquire, install, or control the pinned client.',
-    '  ON: verify/install the pinned client, public throne seam, and decoupled service.',
-    '  Changing the flag never touches or restarts a live server; service handoff is separate.',
+    '  Strict JSON object: {"send-agent-file-backed-payloads": true|false}; absent means false.',
     "",
     "Commands:",
     ...Object.entries(PUBLIC_COMMANDS).map(([name, description]) =>

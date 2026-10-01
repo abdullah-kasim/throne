@@ -2,6 +2,9 @@ import {
   HerdrClientService,
   DEFAULT_HERDR_READ_ONLY_CLIENT_DEPENDENCIES,
   resolveHerdrReadOnlyInvocation,
+  resolveHerdrReadOnlyInvocationForSession,
+  DuplicateAgentNameAcrossSessionsError,
+  THRONE_HERDR_SESSION_NAMES,
   type HerdrReadOnlyClientDependencies,
 } from '../herdr/herdr-client.ts';
 
@@ -83,7 +86,6 @@ export async function listLiveAgentStatuses(
 ): Promise<LiveAgentStatus[]> {
   const invocation = resolveHerdrReadOnlyInvocation(
     ['agent', 'list'],
-    dependencies.isHerdrDecoupleEnabled(),
     dependencies.ownedHerdrClientPath,
   );
   const result = await dependencies.executeHerdrReadOnly(
@@ -92,6 +94,50 @@ export async function listLiveAgentStatuses(
   );
   const agents = parseHerdrAgentList(result.stdout);
   return agents;
+}
+
+export async function listLiveAgentStatusesInSession(
+  sessionName: string,
+  dependencies: HerdrReadOnlyClientDependencies =
+    DEFAULT_HERDR_READ_ONLY_CLIENT_DEPENDENCIES,
+): Promise<LiveAgentStatus[]> {
+  const invocation = resolveHerdrReadOnlyInvocationForSession(
+    sessionName,
+    ['agent', 'list'],
+    dependencies.ownedHerdrClientPath,
+  );
+  const result = await dependencies.executeHerdrReadOnly(
+    invocation.executablePath,
+    invocation.args,
+  );
+  return parseHerdrAgentList(result.stdout);
+}
+
+export async function listLiveAgentStatusesAcrossSessions(
+  sessionNames: readonly string[] = THRONE_HERDR_SESSION_NAMES,
+  listAgentsInSession: (
+    sessionName: string,
+  ) => Promise<LiveAgentStatus[]> = listLiveAgentStatusesInSession,
+): Promise<LiveAgentStatus[]> {
+  const bySession = await Promise.all(
+    sessionNames.map(async (sessionName) => ({
+      sessionName,
+      agents: await listAgentsInSession(sessionName),
+    })),
+  );
+  const sessionOwningName = new Map<string, string>();
+  for (const { sessionName, agents } of bySession) {
+    for (const agent of agents) {
+      const name = agent.tabLabel ?? agent.name;
+      if (name === undefined) continue;
+      const owningSession = sessionOwningName.get(name);
+      if (owningSession !== undefined && owningSession !== sessionName) {
+        throw new DuplicateAgentNameAcrossSessionsError(name, [owningSession, sessionName]);
+      }
+      sessionOwningName.set(name, sessionName);
+    }
+  }
+  return bySession.flatMap((entry) => entry.agents);
 }
 
 export async function listLiveAgentStatusesWithClient(

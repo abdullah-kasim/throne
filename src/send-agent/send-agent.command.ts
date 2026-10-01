@@ -26,7 +26,7 @@ import {
   appendSentMessageLedgerEntry,
   type SentMessageTransport,
 } from "./sent-message-ledger.ts";
-import { resolveAgent } from "../herdr/herdr-runtime.service.ts";
+import { resolveAgentAcrossSessions } from "../herdr/herdr-runtime.service.ts";
 import { resolveCurrentAgentName } from "../herdr/herdr-session.service.ts";
 import { submitToAgent } from "../herdr/herdr-send.service.ts";
 import {
@@ -48,7 +48,7 @@ const DIRECT_SEND_EXIT_CODE = {
 let productionDependencies: SendAgentCommandDependencies | undefined;
 
 const DEFAULT_PRODUCTION_DEPENDENCIES: SendAgentCommandDependencies = {
-  resolveAgent,
+  resolveAgent: resolveAgentAcrossSessions,
   resolveCurrentAgentName,
   submitToAgent,
   openMessageQueueStore: () => openMessageQueueStore(),

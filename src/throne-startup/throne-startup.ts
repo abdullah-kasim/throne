@@ -144,7 +144,6 @@ export const REAL_DEPS: ThroneStartupDeps = {
     exportGitShimToSession({
       sessionEnvFile: process.env.CLAUDE_ENV_FILE,
       liveRoot: () => resolveLiveThroneRoot(THRONE_ROOT),
-      currentPath: process.env.PATH,
       appendToFile: (file, text) => appendFile(file, text),
       writeStderr: (text) => process.stderr.write(text),
     }),

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import {
   NO,
@@ -21,6 +24,11 @@ import {
 } from './jev-backend.ts';
 
 const FAKE_KEY = 'not-a-real-key';
+const ROOMY_BUDGET = {
+  dataHome: await mkdtemp(path.join(tmpdir(), 'jev-backend-')),
+  limits: { tokensPerDay: 1_000_000_000, tokensPerHour: 1_000_000_000 },
+  caller: 'hand recall',
+} as const;
 const UNUSED_RULE = { kind: 'any-phrase', phrases: [] } as const;
 
 interface RecordedRequest {
@@ -69,7 +77,7 @@ test('a yes or no question is asked as a noul and answered with the likelier sid
     type: 'noul',
     noul: question.instructions.includes('billing') ? 0.9 : 0.2,
   }));
-  const answers = await createJevBackend('/keys/jev', jev.dependencies).answer('the task text', [
+  const answers = await createJevBackend('/keys/jev', ROOMY_BUDGET, jev.dependencies).answer('the task text', [
     yesOrNoQuestion('memory/one', 'Is this about billing?', UNUSED_RULE),
     yesOrNoQuestion('memory/two', 'Is this about wifi?', UNUSED_RULE),
   ]);
@@ -97,7 +105,7 @@ test('a question with named choices is asked as a choice', async () => {
     choices: ['working', 'blocked', 'finished'],
     yesOrNoRule: UNUSED_RULE,
   };
-  const answers = await createJevBackend('/keys/jev', jev.dependencies).answer('state', [question]);
+  const answers = await createJevBackend('/keys/jev', ROOMY_BUDGET, jev.dependencies).answer('state', [question]);
   assert.deepEqual(answers, [{ questionId: 'status', pick: 'blocked', probability: 0.7 }]);
   assert.deepEqual(Object.values(jev.requests[0]?.questions ?? {}), [
     {
@@ -114,7 +122,7 @@ test('more questions than one request may hold are split across requests, none l
   const questions = Array.from({ length: 200 }, (_unused, index) =>
     yesOrNoQuestion(`memory-${index}`, longInstructions, UNUSED_RULE),
   );
-  const answers = await createJevBackend('/keys/jev', jev.dependencies).answer('short task', questions);
+  const answers = await createJevBackend('/keys/jev', ROOMY_BUDGET, jev.dependencies).answer('short task', questions);
   assert.equal(answers.length, 200);
   assert.ok(jev.requests.length > 1);
   for (const request of jev.requests) {
@@ -131,7 +139,7 @@ test('more questions than one request may hold are split across requests, none l
 test('an over-long state is cut to fit beside the longest question', async () => {
   const jev = fakeJev(() => ({ type: 'noul', noul: 1 }));
   const question = yesOrNoQuestion('a', 'Is it relevant?', UNUSED_RULE);
-  await createJevBackend('/keys/jev', jev.dependencies).answer('x'.repeat(500_000), [question]);
+  await createJevBackend('/keys/jev', ROOMY_BUDGET, jev.dependencies).answer('x'.repeat(500_000), [question]);
   const sentState = String(jev.requests[0]?.state ?? '');
   assert.ok(sentState.length > 0);
   assert.ok(
@@ -142,7 +150,7 @@ test('an over-long state is cut to fit beside the longest question', async () =>
 
 test('a missing key file fails open without the path or any key text reaching stderr', async () => {
   const jev = fakeJev(() => ({ type: 'noul', noul: 0 }));
-  const backend = createJevBackend('/keys/jev', {
+  const backend = createJevBackend('/keys/jev', ROOMY_BUDGET, {
     ...jev.dependencies,
     readKeyFile: () => Promise.reject(new Error('ENOENT: no such file /keys/jev')),
   });
@@ -167,7 +175,7 @@ test('a missing key file fails open without the path or any key text reaching st
 
 test('a client error that quotes the key never reaches stderr, and neither does the key file path', async () => {
   const jev = fakeJev(() => ({ type: 'noul', noul: 0 }));
-  const backend = createJevBackend('/keys/jev', {
+  const backend = createJevBackend('/keys/jev', ROOMY_BUDGET, {
     ...jev.dependencies,
     createClient: () =>
       Promise.resolve({
@@ -188,13 +196,13 @@ test('a client error that quotes the key never reaches stderr, and neither does 
 
 test('an abandoned question hands the client a signal that is aborted at the timeout', async () => {
   const jev = fakeJev(() => ({ type: 'noul', noul: 0 }));
-  let receivedSignal: AbortSignal | undefined;
-  const backend = createJevBackend('/keys/jev', {
+  const signalTheClientReceived = Promise.withResolvers<AbortSignal | undefined>();
+  const backend = createJevBackend('/keys/jev', ROOMY_BUDGET, {
     ...jev.dependencies,
     createClient: () =>
       Promise.resolve({
         systemOne: (_request, options) => {
-          receivedSignal = options?.signal;
+          signalTheClientReceived.resolve(options?.signal);
           return new Promise<never>(() => undefined);
         },
       }),
@@ -205,12 +213,12 @@ test('an abandoned question hands the client a signal that is aborted at the tim
     minimumProbabilityOfSafePick: 0.5,
   };
   await askFailingOpen(backend, 'state', [question], { writeStderr: () => undefined }, { timeoutMilliseconds: 20 });
-  assert.equal(receivedSignal?.aborted, true);
+  assert.equal((await signalTheClientReceived.promise)?.aborted, true);
 });
 
 test('the key file is read once for many calls to one backend', async () => {
   const jev = fakeJev(() => ({ type: 'noul', noul: 1 }));
-  const backend = createJevBackend('/keys/jev', jev.dependencies);
+  const backend = createJevBackend('/keys/jev', ROOMY_BUDGET, jev.dependencies);
   await backend.answer('chunk one', [yesOrNoQuestion('a', 'Is it?', UNUSED_RULE)]);
   await backend.answer('chunk two', [yesOrNoQuestion('b', 'Is it?', UNUSED_RULE)]);
   assert.deepEqual(jev.keyFileReads, ['/keys/jev']);
@@ -220,7 +228,7 @@ test('the key file is read once for many calls to one backend', async () => {
 test('named state fields are sent as an object and an over-long field is cut to fit', async () => {
   const jev = fakeJev(() => ({ type: 'noul', noul: 1 }));
   const question = yesOrNoQuestion('a', 'Is `task` about billing?', UNUSED_RULE, 'task');
-  await createJevBackend('/keys/jev', jev.dependencies).answer(
+  await createJevBackend('/keys/jev', ROOMY_BUDGET, jev.dependencies).answer(
     { task: 'x'.repeat(500_000), repository: 'project' },
     [question],
   );

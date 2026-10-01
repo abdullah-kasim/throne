@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { access, readFile } from 'node:fs/promises';
+import { access, lstat, mkdir, readFile, readlink, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+
+import { makeScratchDirectory } from '../scratch-directory.test-support.ts';
 
 import {
   DARWIN_AGENTS,
@@ -19,6 +21,9 @@ import {
   type ServiceCommandResult,
 } from './service-unit-renderer.service.ts';
 import type { InstallServicesDeps, InstallServicesOptions } from './install-services.types.ts';
+import { installServices } from './install-services.ts';
+import { withInstallServicesOutput } from './output.ts';
+import { throneSessionFilePath, throneSessionFileText, throneShellBlock } from './throne-shell-block.ts';
 
 const TOKENS = {
   throneRoot: '/srv/throne',
@@ -43,7 +48,7 @@ interface FakeWorld {
   removed: string[];
 }
 
-function makeDeps(world: FakeWorld): InstallServicesDeps {
+function makeDeps(world: FakeWorld, home = '/srv/home'): InstallServicesDeps {
   const ok: ServiceCommandResult = { code: 0, stdout: '', stderr: '' };
   const missing: ServiceCommandResult = { code: 113, stdout: '', stderr: 'Could not find service' };
   return {
@@ -85,19 +90,22 @@ function makeDeps(world: FakeWorld): InstallServicesDeps {
     resolveNodeBin: () => TOKENS.nodeBin,
     ownedHerdrPath: () => TOKENS.herdrBin,
     herdrCacheDirectory: () => '/srv/cache',
-    installHerdr: async () => {
-      throw new Error('not exercised');
-    },
+    installHerdr: async (options) => ({
+      target: 'macos-aarch64',
+      source: 'installed',
+      installPath: options.installPath,
+    }),
     throneCommandPath: () => '/srv/bin/throne',
     inspectThroneCommand: async () => ({ kind: 'missing' }),
     createThroneCommandSymlink: async () => {},
-    herdrDecoupleEnabled: () => true,
     pathSymlinkTargets: () => [],
     inspectPathSymlink: async () => ({ kind: 'missing' }),
     writePathSymlink: async () => {},
     claudeSettingsPath: () => '/srv/claude/settings.json',
     readClaudeSettings: async () => null,
     writeClaudeSettings: async () => {},
+    herdrConfigPath: () => path.join(home, '.config', 'herdr', 'config.toml'),
+    bashrcPath: () => path.join(home, '.bashrc'),
   };
 }
 
@@ -205,4 +213,89 @@ test('dry-run reports the plan for a pre-consolidation mac and mutates nothing',
   assert.ok(world.loadedLabels.has(LAUNCHD_AGENT_NAMES.HERDR_SERVER.label));
   assert.equal(world.installedPlists.size, 1);
   assert.deepEqual(world.removed, []);
+});
+
+const HERDR_CONFIG_WITHOUT_SESSION_TABLE = 'onboarding = false\n[ui]\nagent_panel_sort = "spaces"\n';
+const DOTFILES_BASHRC = 'export EDITOR=vi\n';
+
+interface InstalledHome {
+  home: string;
+  throneRoot: string;
+  herdrConfig: string;
+  bashrcLink: string;
+  bashrcInDotfiles: string;
+}
+
+async function homeWithSymlinkedBashrc(): Promise<InstalledHome> {
+  const home = await makeScratchDirectory('install-services-home-');
+  const throneRoot = await makeScratchDirectory('install-services-throne-');
+  const herdrConfig = path.join(home, '.config', 'herdr', 'config.toml');
+  const bashrcInDotfiles = path.join(home, 'dotfiles', 'bash', '.bashrc');
+  const bashrcLink = path.join(home, '.bashrc');
+  await mkdir(path.dirname(herdrConfig), { recursive: true });
+  await writeFile(herdrConfig, HERDR_CONFIG_WITHOUT_SESSION_TABLE);
+  await mkdir(path.dirname(bashrcInDotfiles), { recursive: true });
+  await writeFile(bashrcInDotfiles, DOTFILES_BASHRC);
+  await symlink(bashrcInDotfiles, bashrcLink);
+  return { home, throneRoot, herdrConfig, bashrcLink, bashrcInDotfiles };
+}
+
+async function installInto(installed: InstalledHome, dryRun: boolean): Promise<{ code: number; lines: string[] }> {
+  const lines: string[] = [];
+  const options: InstallServicesOptions = { dryRun, throneRoot: installed.throneRoot, throneRootExplicit: true };
+  const { code } = await withInstallServicesOutput(
+    { writeLine: (line) => lines.push(line), writeError: (text) => lines.push(text) },
+    () => installServices(options, makeDeps(emptyWorld(), installed.home)),
+  );
+  return { code, lines };
+}
+
+test("installing turns off herdr's own agent resume", async () => {
+  const installed = await homeWithSymlinkedBashrc();
+  const { code } = await installInto(installed, false);
+  assert.equal(code, 0);
+  assert.equal(
+    await readFile(installed.herdrConfig, 'utf8'),
+    `${HERDR_CONFIG_WITHOUT_SESSION_TABLE}\n[session]\nresume_agents_on_restore = false\n`,
+  );
+});
+
+test("installing adds the throne shell block to the user's bashrc through its symlink", async () => {
+  const installed = await homeWithSymlinkedBashrc();
+  const { code } = await installInto(installed, false);
+  assert.equal(code, 0);
+  assert.ok((await lstat(installed.bashrcLink)).isSymbolicLink());
+  assert.equal(await readlink(installed.bashrcLink), installed.bashrcInDotfiles);
+  assert.equal(
+    await readFile(installed.bashrcInDotfiles, 'utf8'),
+    `${DOTFILES_BASHRC}${throneShellBlock(installed.throneRoot)}`,
+  );
+  assert.equal(
+    await readFile(throneSessionFilePath(installed.throneRoot), 'utf8'),
+    throneSessionFileText(installed.throneRoot),
+  );
+});
+
+test('a dry-run install says it would turn off herdr resume and add the throne shell block without writing either', async () => {
+  const installed = await homeWithSymlinkedBashrc();
+  const { code, lines } = await installInto(installed, true);
+  assert.equal(code, 0);
+  assert.ok(lines.includes(`would turn off herdr agent resume → ${installed.herdrConfig}`), lines.join('\n'));
+  assert.ok(lines.some((line) => line.startsWith('would add throne shell block → ')), lines.join('\n'));
+  assert.equal(await readFile(installed.herdrConfig, 'utf8'), HERDR_CONFIG_WITHOUT_SESSION_TABLE);
+  assert.equal(await readFile(installed.bashrcInDotfiles, 'utf8'), DOTFILES_BASHRC);
+  assert.equal(await exists(throneSessionFilePath(installed.throneRoot)), false);
+});
+
+test('installing twice leaves the herdr config and bashrc unchanged the second time', async () => {
+  const installed = await homeWithSymlinkedBashrc();
+  await installInto(installed, false);
+  const herdrConfigAfterFirstRun = await readFile(installed.herdrConfig, 'utf8');
+  const bashrcAfterFirstRun = await readFile(installed.bashrcInDotfiles, 'utf8');
+  const { code, lines } = await installInto(installed, false);
+  assert.equal(code, 0);
+  assert.equal(await readFile(installed.herdrConfig, 'utf8'), herdrConfigAfterFirstRun);
+  assert.equal(await readFile(installed.bashrcInDotfiles, 'utf8'), bashrcAfterFirstRun);
+  assert.ok(lines.includes(`herdr agent resume: unchanged → ${installed.herdrConfig}`), lines.join('\n'));
+  assert.ok(lines.some((line) => line.startsWith('throne shell block: unchanged → ')), lines.join('\n'));
 });

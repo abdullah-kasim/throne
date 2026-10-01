@@ -1,3 +1,4 @@
+import { effortLevelName } from "../harness-routing/effort-level.ts";
 import type {
   RegentQueueItemRow,
   RegentQueueReadResult,
@@ -101,6 +102,9 @@ function renderItem(
   const marker = STATUS_MARKERS[item.status];
   const label = item.objectiveCode ?? item.id;
   const lifecycleBits = [
+    item.effort == null
+      ? undefined
+      : `effort: ${item.effort}${effortLevelName(item.effort) === undefined ? "" : ` (${effortLevelName(item.effort)})`}`,
     item.prBranch ? `pr: ${item.prBranch}` : undefined,
     item.agentName ? `agent: ${item.agentName}` : undefined,
     item.targetRepo ? `repo: ${item.targetRepo}` : undefined,

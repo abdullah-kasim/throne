@@ -197,6 +197,13 @@ function copySystemdIntoStaging(stagingDir) {
   });
 }
 
+function copyBotSystemPromptTemplateIntoStaging(stagingDir) {
+  cpSync(
+    path.join(repoRoot, "src", "throne-bot", "prompt", "bot-system-prompt.md"),
+    path.join(stagingDir, "src", "throne-bot", "prompt", "bot-system-prompt.md"),
+  );
+}
+
 // `SelfRebuildHostedWorker` (compiled into `dist/src/throne-backend/`) imports
 // this module by its real relative path (`../../scripts/source-content-fingerprint.mjs`)
 // so it keeps resolving the same "what counts as build input" list -- `nest
@@ -337,6 +344,7 @@ function populateStagingDirWithCompiledOutput(stagingDir, scratchDir) {
   compileNestIntoStaging(stagingDir, scratchDir);
   compileMutexFixtureIntoStaging(stagingDir, scratchDir);
   copySystemdIntoStaging(stagingDir);
+  copyBotSystemPromptTemplateIntoStaging(stagingDir);
 }
 
 // `populateStagingDir` defaults to the real `nest`/`tsc` compile steps; a

@@ -74,7 +74,6 @@ export async function listAgents(
   const { stdout } = await runHerdr(
     ["agent", "list"],
     undefined,
-    undefined,
     options.timeoutMilliseconds === undefined ? undefined : options,
   );
   return parseAgentList(stdout);
@@ -118,7 +117,6 @@ export async function readAgent(
   }
   const { stdout } = await runHerdr(
     args,
-    undefined,
     undefined,
     opts?.timeoutMilliseconds === undefined
       ? undefined

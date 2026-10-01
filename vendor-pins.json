@@ -8,11 +8,16 @@
     "tools.ntfy pins the ntfy server image. ntfy runs as a container on every",
     "throne host (docker or podman, whichever is present); install.sh pulls",
     "this tag and systemd/ntfy-serve runs it.",
+    "tools.conduwuit pins the conduwuit (continuwuity) Matrix homeserver",
+    "image, run the same way by systemd/conduwuit-serve.",
     "To move a pin: edit the version here, run ./install.sh, verify, commit."
   ],
   "tools": {
     "ntfy": {
       "image": "docker.io/binwiederhier/ntfy:v2.28.0"
+    },
+    "conduwuit": {
+      "image": "ghcr.io/continuwuity/continuwuity:v26.8.1"
     }
   },
   "harnesses": {

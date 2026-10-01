@@ -30,11 +30,8 @@ import {
   IncompleteHerdrPaneProcessInfoError,
   parseReadText,
 } from "./herdr-inventory.service.ts";
-import { runHerdr, type HerdrRuntimeMode } from "./herdr-client.ts";
-import {
-  DEFAULT_HERDR_RUNTIME_MODE,
-  THRONE_HERDR_SESSION,
-} from "./herdr-client.ts";
+import { runHerdr } from "./herdr-client.ts";
+import { THRONE_HERDR_SESSION } from "./herdr-client.ts";
 import {
   currentPaneId,
   insideHerdr,

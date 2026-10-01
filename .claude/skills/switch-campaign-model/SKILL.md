@@ -31,6 +31,7 @@ Map it to a preset:
 | model | preset to name in `activePlanPresetName` |
 |---|---|
 | `sonnet` | built-in `UnifiedRouting` (Alpha, Shadow, ShadowSlice99 all `claude/sonnet`) |
+| `opus` | built-in `OpusOnly` (Alpha, Shadow, ShadowSlice99 all `claude/opus`), the committed default |
 | `terra` (= `gpt-5.6-terra`) | `customPlanPresets.TerraOnly`, all three pools `{ harness: 'codex', model: 'gpt-5.6-terra' }`. Codex, not the `claude`-harness `claudey-all` row for the same slug — that row is bypass-only for fresh spawns. |
 | any other registered model | a `customPlanPresets` entry named `<Model>Only`, whose `alpha`, `shadow`, and `shadowSlice99` pools each hold the single `{ harness, model }` pair. The harness is whatever the registry lists for that model (`claude` for Anthropic models, `codex` for `gpt-*`). |
 

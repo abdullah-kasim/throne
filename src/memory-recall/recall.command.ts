@@ -1,67 +1,112 @@
 import type { Command as CommanderCommand } from 'commander';
 import { Command, CommandRunner } from 'nest-commander';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import { text as readStreamAsText } from 'node:stream/consumers';
 import { resolveMemoryDir } from '../memory-dir/memory-dir-resolver.ts';
 import { PRODUCTION_MEMORY_RESOLVER_DEPS } from '../memory-dir/memory-dir-runtime.ts';
 import { chooseClassifierBackend } from '../relevance-classifier/choose-backend.ts';
-import type { ClassifierBackend } from '../relevance-classifier/classifier.types.ts';
+import { jevDataHomeOfThisMachine } from '../relevance-classifier/jev-data-home.ts';
 import {
   readJevSwitch,
   renderedJevStatus,
   type JevSwitch,
 } from '../relevance-classifier/jev-switch.ts';
 import {
+  readJevSpendingOnThisMachine,
+  type JevSpending,
+} from '../relevance-classifier/jev-spending.ts';
+import {
+  SERVE_ARM,
   loadRecallConfig,
-  pathWithHomeExpanded,
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
 import { renderEntranceRefusal } from '../shared-policy/entrance-refusal.ts';
-import { readMemoriesInEachDirectoryOnce } from './memory-files.ts';
+import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
 import {
-  appendDecisionsToLedger,
+  parseRecallArguments,
+  type AskLintRequest,
+  type ParsedRecallArguments,
+} from './recall-arguments.ts';
+import {
+  lintAsks,
+  projectMemoryDirectoriesToLint,
+  renderedAskLintSummary,
+  renderedAskViolation,
+  type LintedMemoryDirectory,
+} from './ask-lint.ts';
+import {
+  recallScopeOf,
+  resolvedMemoryDirectoriesOf,
+  searchedMemoryDirectoriesOf,
+  unresolvedRepositoriesOf,
+  type ProjectMemoryDirectory,
+  type RecallScope,
+  type RecallScopeDependencies,
+} from './recall-scope.ts';
+import { productionMemoryDirectoriesForRepeats } from './repeat-mistakes.ts';
+import { repositoriesOfProjectMemoryDirectories } from './repository-registry.ts';
+import { printRecallReport, type RecallReportDependencies } from './recall-report.ts';
+import { armForPrompt } from './recall-arm.ts';
+import {
+  HOOK_DISABLED,
+  HOOK_FAILED,
+  recordSkippedHookRun,
+} from './hook-outcome.ts';
+import {
+  isSkippedHookPayload,
+  recallRequestFromHookPayload,
+  type RecallRequest,
+} from './hook-payload.ts';
+import { promptKindOf, type PromptKind } from './prompt-kind.ts';
+import {
+  COMMAND_SOURCE,
+  HOOK_SOURCE,
+  appendPromptToPromptLog,
+  inputHash,
   productionRecallDataDirectory,
-  readServedFilePaths,
-  recordServedFilePaths,
 } from './recall-records.ts';
-import {
-  renderedServedMemories,
-  selectMemories,
-  type MemoryDecision,
-} from './select-memories.ts';
-import { YES } from '../relevance-classifier/classifier.types.ts';
+import type { CorrectionVerdict } from './correction-question.ts';
+import { recallForPrompt, type RecallForPromptDependencies } from './recall-for-prompt.ts';
+import { JSON_OUTPUT, TEXT_OUTPUT } from './recall-output.ts';
+import { gradedPromptsIn, printSpotCheck } from './spot-check.ts';
+import { appendSpotCheckVerdict, type SpotCheckVerdict } from './spot-check-verdicts.ts';
 
-export interface ProjectMemoryDirectory {
-  readonly path: string;
-  readonly repositoryName: string;
-  readonly repositoryScopes: readonly string[];
-}
-
-export interface RecallDependencies {
-  loadConfig(): Promise<RecallConfig>;
-  chooseBackend(config: RecallConfig): Promise<ClassifierBackend>;
+export interface RecallDependencies
+  extends RecallReportDependencies,
+    RecallScopeDependencies,
+    RecallForPromptDependencies {
   readJevSwitch(config: RecallConfig): Promise<JevSwitch>;
-  resolveProjectMemoryDirectory(
-    directory: string,
-  ): Promise<ProjectMemoryDirectory | undefined>;
+  readJevSpending(config: RecallConfig): Promise<JevSpending>;
   readStdin(): Promise<string>;
-  currentDirectory(): string;
-  dataDirectory: string;
-  now(): Date;
-  writeStdout(text: string): void;
-  writeStderr(text: string): void;
+  projectMemoryDirectoriesToLint(): Promise<readonly LintedMemoryDirectory[]>;
 }
 
 export const USAGE =
-  'Usage: ./bin/throne-cli recall [--session ID] [--directory DIR] "<task text>"\n' +
+  'Usage: ./bin/throne-cli recall [--session ID] (--directory DIR | --memory-dir MEMORY_DIR)... [--no-global] [--json] "<task text>"\n' +
   '       ./bin/throne-cli recall --hook   (reads a prompt-submit hook JSON payload on stdin)\n' +
-  '       ./bin/throne-cli recall --status (which backend would answer now, and why)\n' +
+  '       ./bin/throne-cli recall --status (which backend would answer now, and why, and the Jev tokens spent against both limits)\n' +
+  '       ./bin/throne-cli recall --report [--since DATE] (grade every memory dig and print how well Jev did)\n' +
+  '       ./bin/throne-cli recall --spot-check [--count N] (print N random graded prompts, 10 by default, with every grade)\n' +
+  '       ./bin/throne-cli recall --agree ID | --disagree ID "<reason>" (record your verdict on the judge for a spot-checked prompt)\n' +
+  '       ./bin/throne-cli recall --lint-asks [--directory DIR]... [--global] (print every memory ask that breaks an ask rule; never edits)\n' +
   'Prints the bodies of the recorded memories that apply to the task, most relevant first,\n' +
-  'capped in total size. Memories come from the project memory directory of DIR (default: the\n' +
-  'current directory) and from recall.globalMemoryDirectories in config.user.ts.\n' +
+  'capped in total size. A hand recall must name what to search: each --directory DIR (a repository or\n' +
+  'any path inside it) adds that repository\'s memory directory, each --memory-dir MEMORY_DIR adds that\n' +
+  'directory as given; both repeat. recall.globalMemoryDirectories in config.user.ts is searched too unless\n' +
+  '--no-global is passed. The output names every directory it searched.\n' +
   '--session ID remembers what was printed for that session and never prints it twice.\n' +
-  '--hook prints nothing unless recall.hookEnabled is true, and never exits non-zero.\n' +
-  'Decisions are appended to ~/.throne/data/recall/ledger.jsonl (confident no answers are only counted).\n';
+  'After the verdict line, up to three other repositories that may hold relevant memories are listed, each\n' +
+  'with its probability and the recall command that searches it; they are only listed, never searched. Every\n' +
+  'repository recall searches is remembered in ~/.throne/data/recall/repositories.json for this question.\n' +
+  '--json prints { scope, verdict, memories, withheldMemories, otherRepositories } instead of the text.\n' +
+  '--hook prints nothing unless recall.hookEnabled is true, and never exits non-zero. It searches only the\n' +
+  'repository the session sits in plus the global memories, and says so whenever it prints. Each hook prompt is\n' +
+  'appended to ~/.throne/data/recall/prompts.jsonl; recall.hookMode picks serve, shadow (judge and record,\n' +
+  'print nothing) or split (a coin per prompt). A verdict line naming who answered (Jev with its confidence, or the rules) follows the memories.\n' +
+  'Decisions are appended to ~/.throne/data/recall/ledger.jsonl (confident no answers are only counted).\n' +
+  '--agree and --disagree append to ~/.throne/data/recall/spot-checks.jsonl; --report shows how often the judge\n' +
+  'agrees with you once there are 10 verdicts.\n';
 
 export const MILLISECONDS_ALLOWED_FOR_FINDING_THE_PROJECT_MEMORY_DIRECTORY = 1500;
 
@@ -82,6 +127,7 @@ async function productionProjectMemoryDirectory(
     if (resolution === undefined) return undefined;
     return {
       path: resolution.path,
+      checkout: resolution.repoRoot,
       repositoryName: path.basename(resolution.repoRoot),
       repositoryScopes: [
         path.basename(resolution.path),
@@ -95,172 +141,46 @@ async function productionProjectMemoryDirectory(
 
 const PRODUCTION_DEPENDENCIES: RecallDependencies = {
   loadConfig: () => loadRecallConfig(),
-  chooseBackend: (config) => chooseClassifierBackend(config),
+  chooseBackend: (config, caller) => chooseClassifierBackend(config, caller),
   readJevSwitch: (config) => readJevSwitch(config),
+  readJevSpending: (config) => readJevSpendingOnThisMachine(config),
+  memoryDirectoriesForRepeats: (config) => productionMemoryDirectoriesForRepeats(config),
   resolveProjectMemoryDirectory: productionProjectMemoryDirectory,
   readStdin: () => readStreamAsText(process.stdin),
+  projectMemoryDirectoriesToLint: () => projectMemoryDirectoriesToLint(homedir()),
+  seedRepositories: () => repositoriesOfProjectMemoryDirectories(homedir()),
   currentDirectory: () => process.cwd(),
   dataDirectory: productionRecallDataDirectory(),
+  agentLedgerDirectory: RUNTIME_DATA_DIR,
+  get jevDataHome() {
+    return jevDataHomeOfThisMachine();
+  },
   now: () => new Date(),
   writeStdout: (text) => process.stdout.write(text),
   writeStderr: (text) => process.stderr.write(text),
 };
 
-interface RecallRequest {
-  readonly taskText: string;
-  readonly sessionId?: string;
-  readonly directory?: string;
-}
-
-interface ParsedArguments extends Partial<RecallRequest> {
-  readonly hook: boolean;
-  readonly status: boolean;
-}
-
-function parseArguments(commandArguments: readonly string[]): ParsedArguments {
-  let hook = false;
-  let status = false;
-  let sessionId: string | undefined;
-  let directory: string | undefined;
-  const taskWords: string[] = [];
-  for (let index = 0; index < commandArguments.length; index += 1) {
-    const argument = commandArguments[index] as string;
-    if (argument === '--hook') hook = true;
-    else if (argument === '--status') status = true;
-    else if (argument === '--session' || argument === '--directory') {
-      const value = commandArguments[index + 1];
-      if (value === undefined) throw new Error(`${argument} needs a value`);
-      if (argument === '--session') sessionId = value;
-      else directory = value;
-      index += 1;
-    } else if (argument.startsWith('--')) {
-      throw new Error(`unknown flag "${argument}"`);
-    } else taskWords.push(argument);
-  }
-  const taskText = taskWords.join(' ').trim();
-  if (status) return { hook: false, status };
-  if (!hook && taskText.length === 0) {
-    throw new Error('the task text is required: say what the work is about');
-  }
-  if (hook && taskText.length > 0) {
-    throw new Error('--hook reads the task from stdin and takes no task text');
-  }
-  return { hook, status, taskText, sessionId, directory };
-}
-
-const RELAYED_AGENT_MESSAGE = /^\s*[\w-]+ said:[\s\S]*\[message \d+\]\s*$/i;
-
-export function isRelayedAgentMessage(prompt: string): boolean {
-  return RELAYED_AGENT_MESSAGE.test(prompt);
-}
-
-export function recallRequestFromHookPayload(
-  payloadText: string,
-): RecallRequest | undefined {
-  let payload: unknown;
-  try {
-    payload = JSON.parse(payloadText);
-  } catch {
-    return undefined;
-  }
-  if (typeof payload !== 'object' || payload === null) return undefined;
-  const { prompt, session_id: sessionId, cwd } = payload as Record<string, unknown>;
-  if (typeof prompt !== 'string' || prompt.trim().length === 0) return undefined;
-  if (isRelayedAgentMessage(prompt)) return undefined;
-  return {
-    taskText: prompt,
-    ...(typeof sessionId === 'string' ? { sessionId } : {}),
-    ...(typeof cwd === 'string' ? { directory: cwd } : {}),
-  };
-}
-
-async function printRecalledMemories(
+async function writePromptToPromptLog(
   request: RecallRequest,
-  config: RecallConfig,
-  timeoutMilliseconds: number | undefined,
+  promptKind: PromptKind,
+  scope: RecallScope,
+  at: Date,
+  correction: CorrectionVerdict | undefined,
   dependencies: RecallDependencies,
 ): Promise<void> {
-  const projectMemoryDirectory = await dependencies.resolveProjectMemoryDirectory(
-    request.directory ?? dependencies.currentDirectory(),
-  );
-  const memoryDirectories = [
-    ...(projectMemoryDirectory === undefined ? [] : [projectMemoryDirectory.path]),
-    ...config.globalMemoryDirectories.map((directory) =>
-      pathWithHomeExpanded(directory),
-    ),
-  ];
-  const memories = await readMemoriesInEachDirectoryOnce(memoryDirectories);
-  const alreadyServedFilePaths =
-    request.sessionId === undefined
-      ? new Set<string>()
-      : await readServedFilePaths(dependencies.dataDirectory, request.sessionId);
-  const decisions = await selectMemories(
-    {
+  try {
+    await appendPromptToPromptLog(dependencies.dataDirectory, {
+      sessionId: request.sessionId,
       taskText: request.taskText,
-      ...(projectMemoryDirectory === undefined
-        ? {}
-        : { repositoryName: projectMemoryDirectory.repositoryName }),
-      memories,
-      repositoryScopes: projectMemoryDirectory?.repositoryScopes ?? [],
-      alreadyServedFilePaths,
-      backend: await dependencies.chooseBackend(config),
-      config,
-      timeoutMilliseconds,
-    },
-    { writeStderr: dependencies.writeStderr },
-  );
-  dependencies.writeStdout(renderedServedMemories(decisions));
-  reportRelevantMemoriesLeftOutForSize(decisions, dependencies);
-  await recordWhatWasDecided(
-    request,
-    decisions,
-    alreadyServedFilePaths,
-    dependencies,
-  );
-}
-
-function reportRelevantMemoriesLeftOutForSize(
-  decisions: readonly MemoryDecision[],
-  dependencies: RecallDependencies,
-): void {
-  const leftOut = decisions.filter(
-    (decision) => decision.answer.pick === YES && !decision.served,
-  );
-  if (leftOut.length === 0) return;
-  dependencies.writeStderr(
-    `recall: ${leftOut.length} relevant memories did not fit under recall.maximumInjectedCharacters: ${leftOut
-      .map((decision) => decision.memory.fileName)
-      .join(', ')}\n`,
-  );
-}
-
-async function recordWhatWasDecided(
-  request: RecallRequest,
-  decisions: readonly MemoryDecision[],
-  alreadyServedFilePaths: ReadonlySet<string>,
-  dependencies: RecallDependencies,
-): Promise<void> {
-  const servedFilePaths = decisions
-    .filter((decision) => decision.served)
-    .map((decision) => decision.memory.filePath);
-  try {
-    if (request.sessionId !== undefined && servedFilePaths.length > 0) {
-      await recordServedFilePaths(
-        dependencies.dataDirectory,
-        request.sessionId,
-        new Set([...alreadyServedFilePaths, ...servedFilePaths]),
-        dependencies.now(),
-      );
-    }
-    await appendDecisionsToLedger(
-      dependencies.dataDirectory,
-      request.taskText,
-      decisions,
-      dependencies.now(),
-    );
+      promptKind,
+      searchedMemoryDirectories: searchedMemoryDirectoriesOf(scope),
+      transcriptPath: request.transcriptPath,
+      correction,
+      at,
+    });
   } catch (error) {
     dependencies.writeStderr(
-      `recall: the memories were printed but the record of it could not be written: ${error instanceof Error ? error.message : String(error)}\n`,
+      `recall: the prompt could not be written to the prompt log: ${error instanceof Error ? error.message : String(error)}\n`,
     );
   }
 }
@@ -268,60 +188,182 @@ async function recordWhatWasDecided(
 async function runRecallForHook(
   dependencies: RecallDependencies,
 ): Promise<number> {
+  const startedAt = performance.now();
+  let sessionId: string | undefined;
   try {
-    const config = await dependencies.loadConfig();
-    if (!config.hookEnabled) return 0;
     const request = recallRequestFromHookPayload(await dependencies.readStdin());
-    if (request === undefined) return 0;
-    await printRecalledMemories(
-      request,
-      config,
-      config.hookTimeoutMilliseconds,
-      dependencies,
-    );
+    sessionId = request.sessionId;
+    const config = await dependencies.loadConfig();
+    if (!config.hookEnabled) {
+      await recordSkippedHookRun(sessionId, HOOK_DISABLED, startedAt, dependencies);
+      return 0;
+    }
+    if (isSkippedHookPayload(request)) {
+      await recordSkippedHookRun(sessionId, request.skipReason, startedAt, dependencies);
+      return 0;
+    }
+    const promptKind = promptKindOf(request.taskText);
+    const decidedAt = dependencies.now();
+    const scope = await recallScopeOf(request, config, dependencies);
+    let correction: CorrectionVerdict | undefined;
+    try {
+      correction = await recallForPrompt(
+        request,
+        scope,
+        config,
+        config.hookTimeoutMilliseconds,
+        {
+          source: HOOK_SOURCE,
+          arm: armForPrompt(
+            config.hookMode,
+            request.sessionId,
+            inputHash(request.taskText),
+          ),
+          hookMode: config.hookMode,
+          decidedAt,
+          hookPrompt: { promptKind, startedAt },
+        },
+        dependencies,
+      );
+    } finally {
+      await writePromptToPromptLog(request, promptKind, scope, decidedAt, correction, dependencies);
+    }
   } catch (error) {
     dependencies.writeStderr(
       `recall: the hook served nothing: ${error instanceof Error ? error.message : String(error)}\n`,
     );
+    await recordSkippedHookRun(sessionId, HOOK_FAILED, startedAt, dependencies);
   }
   return 0;
+}
+
+function refuseEntrance(reason: string, dependencies: RecallDependencies): number {
+  dependencies.writeStderr(USAGE);
+  dependencies.writeStderr(
+    `${renderEntranceRefusal({
+      reason: `recall entrance validation refused: ${reason}.`,
+      bypass: undefined,
+      supervisorRoute: 'Ask your supervisor for an allowed alternative invocation.',
+    })}\n`,
+  );
+  return 2;
+}
+
+async function recordVerdictOnTheJudge(
+  verdict: SpotCheckVerdict,
+  dependencies: RecallDependencies,
+): Promise<number> {
+  const gradedPrompts = await gradedPromptsIn(dependencies.dataDirectory);
+  if (!gradedPrompts.some((gradedPrompt) => gradedPrompt.id === verdict.id)) {
+    return refuseEntrance(
+      `no graded prompt has the id ${verdict.id}; --spot-check prints the ids you can agree or disagree with`,
+      dependencies,
+    );
+  }
+  await appendSpotCheckVerdict(dependencies.dataDirectory, verdict, dependencies.now());
+  dependencies.writeStdout(`recall: recorded that you ${verdict.verdict} with the judge on ${verdict.id}\n`);
+  return 0;
+}
+
+function lintedMemoryDirectoriesOf(scope: RecallScope): readonly LintedMemoryDirectory[] {
+  return [
+    ...resolvedMemoryDirectoriesOf(scope).map(({ path: memoryDirectory, repositoryName }) => ({
+      path: memoryDirectory,
+      repositoryName,
+    })),
+    ...scope.globalMemoryDirectories.map((memoryDirectory) => ({ path: memoryDirectory, repositoryName: undefined })),
+  ];
+}
+
+function namesNoLintScope(request: AskLintRequest): boolean {
+  return request.directories.length === 0 && !request.includesGlobalMemories;
+}
+
+async function printAskLint(request: AskLintRequest, dependencies: RecallDependencies): Promise<number> {
+  let directories: readonly LintedMemoryDirectory[];
+  if (namesNoLintScope(request)) {
+    directories = await dependencies.projectMemoryDirectoriesToLint();
+  } else {
+    const scope = await recallScopeOf(
+      { directories: request.directories, memoryDirectories: [], includeGlobal: request.includesGlobalMemories },
+      await dependencies.loadConfig(),
+      dependencies,
+    );
+    const unresolvedRepositories = unresolvedRepositoriesOf(scope);
+    if (unresolvedRepositories.length > 0) {
+      return refuseEntrance(
+        `no memory directory could be found for --directory ${unresolvedRepositories.join(', ')}`,
+        dependencies,
+      );
+    }
+    directories = lintedMemoryDirectoriesOf(scope);
+  }
+  const result = await lintAsks(directories);
+  for (const violation of result.violations) dependencies.writeStdout(renderedAskViolation(violation));
+  dependencies.writeStderr(renderedAskLintSummary(result));
+  return result.violations.length === 0 ? 0 : 1;
 }
 
 export async function runRecall(
   commandArguments: readonly string[],
   dependencies: RecallDependencies = PRODUCTION_DEPENDENCIES,
 ): Promise<number> {
-  let parsed: ParsedArguments;
+  let parsed: ParsedRecallArguments;
   try {
-    parsed = parseArguments(commandArguments);
+    parsed = parseRecallArguments(commandArguments, dependencies.currentDirectory());
   } catch (error) {
     if (commandArguments.includes('--hook')) return 0;
-    dependencies.writeStderr(USAGE);
-    dependencies.writeStderr(
-      `${renderEntranceRefusal({
-        reason: `recall entrance validation refused: ${error instanceof Error ? error.message : String(error)}.`,
-        bypass: undefined,
-        supervisorRoute: 'Ask your supervisor for an allowed alternative invocation.',
-      })}\n`,
-    );
-    return 2;
+    return refuseEntrance(error instanceof Error ? error.message : String(error), dependencies);
   }
   if (parsed.hook) return runRecallForHook(dependencies);
+  if (parsed.lintAsks !== undefined) return printAskLint(parsed.lintAsks, dependencies);
+  if (parsed.report) {
+    await printRecallReport(parsed.since, dependencies);
+    return 0;
+  }
+  if (parsed.spotCheckCount !== undefined) {
+    await printSpotCheck(parsed.spotCheckCount, dependencies);
+    return 0;
+  }
+  if (parsed.spotCheckVerdict !== undefined) {
+    return recordVerdictOnTheJudge(parsed.spotCheckVerdict, dependencies);
+  }
   const config = await dependencies.loadConfig();
   if (parsed.status) {
     dependencies.writeStdout(
-      renderedJevStatus(await dependencies.readJevSwitch(config)),
+      renderedJevStatus(
+        await dependencies.readJevSwitch(config),
+        await dependencies.readJevSpending(config),
+      ),
     );
     return 0;
   }
-  await printRecalledMemories(
-    {
-      taskText: parsed.taskText as string,
-      ...(parsed.sessionId === undefined ? {} : { sessionId: parsed.sessionId }),
-      ...(parsed.directory === undefined ? {} : { directory: parsed.directory }),
-    },
+  const request: RecallRequest = {
+    taskText: parsed.taskText as string,
+    ...(parsed.sessionId === undefined ? {} : { sessionId: parsed.sessionId }),
+    directories: parsed.directories,
+    memoryDirectories: parsed.memoryDirectories,
+    includeGlobal: parsed.includeGlobal,
+  };
+  const scope = await recallScopeOf(request, config, dependencies);
+  const unresolvedRepositories = unresolvedRepositoriesOf(scope);
+  if (unresolvedRepositories.length > 0) {
+    return refuseEntrance(
+      `no memory directory could be found for --directory ${unresolvedRepositories.join(', ')}`,
+      dependencies,
+    );
+  }
+  await recallForPrompt(
+    request,
+    scope,
     config,
     undefined,
+    {
+      source: COMMAND_SOURCE,
+      arm: SERVE_ARM,
+      decidedAt: dependencies.now(),
+      outputFormat: parsed.json === true ? JSON_OUTPUT : TEXT_OUTPUT,
+    },
     dependencies,
   );
   return 0;

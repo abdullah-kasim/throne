@@ -1,0 +1,82 @@
+#!/bin/sh
+remote_name=$1
+remote_url=$2
+
+say() {
+    printf 'push checks: %s\n' "$*" >&2
+}
+
+skip_was_requested() {
+    [ "${PUSH_CHECK_SKIP:-}" = 1 ]
+}
+
+checks_are_switched_off() {
+    [ "$(git config --bool push-check.enabled)" = false ]
+}
+
+remote_is_a_local_path() {
+    case "$remote_url" in
+        /*|./*|../*|file://*) return 0 ;;
+    esac
+    return 1
+}
+
+object_is_all_zeros() {
+    case "$1" in
+        ''|*[!0]*) return 1 ;;
+    esac
+    return 0
+}
+
+push_updates_a_branch() {
+    while read -r local_ref local_object remote_ref remote_object; do
+        case "$remote_ref" in
+            refs/tags/*) continue ;;
+        esac
+        object_is_all_zeros "$local_object" && continue
+        return 0
+    done <"$ref_lines"
+    return 1
+}
+
+run_check() {
+    sh -c "$1 \"\$@\"" "$1" "$remote_name" "$remote_url" <"$ref_lines" >&2
+}
+
+if skip_was_requested; then
+    say "skipped because PUSH_CHECK_SKIP=1"
+    exit 0
+fi
+
+if checks_are_switched_off; then
+    say "off (push-check.enabled is false); turn them back on with: git config --global --unset push-check.enabled"
+    exit 0
+fi
+
+configured_checks=$(git config --get-all push-check.command)
+[ -n "$configured_checks" ] || exit 0
+
+remote_is_a_local_path && exit 0
+
+ref_lines=$(mktemp "${TMPDIR:-/tmp}/push-check-refs.XXXXXX") || exit 1
+trap 'rm -f "$ref_lines"' EXIT
+cat >"$ref_lines"
+
+if ! push_updates_a_branch; then
+    say "skipped because this push only deletes branches or pushes tags"
+    exit 0
+fi
+
+while IFS= read -r check_command; do
+    [ -n "$check_command" ] || continue
+    say "running $check_command"
+    run_check "$check_command"
+    check_status=$?
+    if [ "$check_status" -ne 0 ]; then
+        say "FAILED (exit $check_status): $check_command"
+        say "the push is stopped. Fix what the check reported and push again; skip once with git push --no-verify"
+        exit "$check_status"
+    fi
+done <<CONFIGURED_CHECKS
+$configured_checks
+CONFIGURED_CHECKS

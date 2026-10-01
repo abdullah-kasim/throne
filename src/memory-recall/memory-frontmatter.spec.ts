@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import {
   parseMemoryFrontmatter,
   splitFrontmatterFromBody,
+  withAskLine,
 } from './memory-frontmatter.ts';
 
 test('a memory without a frontmatter block is all body', () => {
@@ -80,4 +81,42 @@ test('a nested key other than type is not mistaken for a top-level key', () => {
   assert.deepEqual(parseMemoryFrontmatter(['metadata:', '  status: superseded', '  type: project']), {
     type: 'project',
   });
+});
+
+function askOf(fileText: string): string | undefined {
+  return parseMemoryFrontmatter(splitFrontmatterFromBody(fileText).frontmatterLines).ask;
+}
+
+test('a rewritten ask reads back exactly and nothing else in the memory changes, quotes, backslashes and carriage returns included', () => {
+  const ask = 'Does the task touch the "C:\\invented\\path" share in any way?';
+  const original = '---\r\nask: Does the task open it?\r\nkind: trap\r\n---\r\n# A lesson\r\n';
+  const rewritten = withAskLine(original, ask);
+  assert.equal(askOf(rewritten), ask);
+  assert.equal(
+    rewritten,
+    original.replace('ask: Does the task open it?', 'ask: "Does the task touch the \\"C:\\\\invented\\\\path\\" share in any way?"'),
+  );
+});
+
+test('a memory with frontmatter but no ask gains one ask line after the opening fence and nothing else changes', () => {
+  const original = '---\nkind: trap\n---\n# A lesson\n';
+  const rewritten = withAskLine(original, 'Does the task touch the invented bakery till in any way?');
+  assert.equal(rewritten, '---\nask: "Does the task touch the invented bakery till in any way?"\nkind: trap\n---\n# A lesson\n');
+  assert.equal(askOf(rewritten), 'Does the task touch the invented bakery till in any way?');
+});
+
+test('a memory without frontmatter gains a frontmatter block holding only the ask, above the untouched text', () => {
+  const original = '# A lesson\n\n- do the thing\n';
+  const rewritten = withAskLine(original, 'Does the task touch the invented bakery till in any way?');
+  assert.equal(rewritten, `---\nask: "Does the task touch the invented bakery till in any way?"\n---\n${original}`);
+  assert.equal(askOf(rewritten), 'Does the task touch the invented bakery till in any way?');
+});
+
+test('an ask key nested under another key is left alone and the top-level ask is added beside it', () => {
+  const original = '---\nmetadata:\n  ask: an invented nested value\n---\n# A lesson\n';
+  const rewritten = withAskLine(original, 'Does the task touch the invented bakery till in any way?');
+  assert.equal(
+    rewritten,
+    '---\nask: "Does the task touch the invented bakery till in any way?"\nmetadata:\n  ask: an invented nested value\n---\n# A lesson\n',
+  );
 });

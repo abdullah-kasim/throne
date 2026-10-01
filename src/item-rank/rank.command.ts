@@ -2,17 +2,16 @@ import type { Command as CommanderCommand } from 'commander';
 import { Command, CommandRunner } from 'nest-commander';
 import { text as readStreamAsText } from 'node:stream/consumers';
 import { chooseClassifierBackend } from '../relevance-classifier/choose-backend.ts';
-import type {
-  ClassifierAnswer,
-  ClassifierBackend,
-  ClassifierBackendName,
-} from '../relevance-classifier/classifier.types.ts';
-import { askFailingOpen } from '../relevance-classifier/fail-open-classifier.ts';
+import type { ClassifierBackend } from '../relevance-classifier/classifier.types.ts';
 import {
   readJevSwitch,
   renderedJevStatus,
   type JevSwitch,
 } from '../relevance-classifier/jev-switch.ts';
+import {
+  readJevSpendingOnThisMachine,
+  type JevSpending,
+} from '../relevance-classifier/jev-spending.ts';
 import {
   loadRecallConfig,
   pathWithHomeExpanded,
@@ -31,14 +30,17 @@ import {
   type GatheredItems,
   type RankItem,
 } from './rank-items.ts';
-import { requestsPackedUnderTheStateLimit } from './rank-requests.ts';
-
-const REQUESTS_ASKED_AT_ONCE = 8;
+import {
+  mostLikelyFirst,
+  rankItemsByQuestion,
+  type RankedItem,
+} from './rank-by-question.ts';
 
 export interface RankDependencies {
   loadConfig(): Promise<RecallConfig>;
   chooseBackend(config: RecallConfig): Promise<ClassifierBackend>;
   readJevSwitch(config: RecallConfig): Promise<JevSwitch>;
+  readJevSpending(config: RecallConfig): Promise<JevSpending>;
   gatherFileItems(
     pathsOrGlobs: readonly string[],
     allowedRoots: readonly string[],
@@ -65,8 +67,9 @@ export const USAGE =
 
 const PRODUCTION_DEPENDENCIES: RankDependencies = {
   loadConfig: () => loadRecallConfig(),
-  chooseBackend: (config) => chooseClassifierBackend(config),
+  chooseBackend: (config) => chooseClassifierBackend(config, 'rank'),
   readJevSwitch: (config) => readJevSwitch(config),
+  readJevSpending: (config) => readJevSpendingOnThisMachine(config),
   gatherFileItems,
   readStdin: () => readStreamAsText(process.stdin),
   dataDirectory: productionRecallDataDirectory(),
@@ -141,61 +144,6 @@ function parseArguments(commandArguments: readonly string[]): ParsedArguments {
     question,
     pathsOrGlobs,
   };
-}
-
-export interface RankedItem {
-  readonly id: string;
-  readonly probability: number;
-  readonly backend: ClassifierBackendName;
-}
-
-interface RankingOutcome {
-  readonly ranked: readonly RankedItem[];
-  readonly failed: boolean;
-}
-
-async function probabilitiesFrom(
-  backend: ClassifierBackend,
-  question: string,
-  items: readonly RankItem[],
-): Promise<RankingOutcome> {
-  const requests = requestsPackedUnderTheStateLimit(question, items);
-  const bestProbabilityById = new Map<string, number>();
-  for (let start = 0; start < requests.length; start += REQUESTS_ASKED_AT_ONCE) {
-    const group = requests.slice(start, start + REQUESTS_ASKED_AT_ONCE);
-    const groupAnswers = await Promise.all(
-      group.map((request) =>
-        askFailingOpen(backend, request.state, request.questions, {
-          writeStderr: () => undefined,
-        }),
-      ),
-    );
-    if (groupAnswers.flat().some((answer: ClassifierAnswer) => answer.failedOpen)) {
-      return { ranked: [], failed: true };
-    }
-    group.forEach((request, requestIndex) => {
-      for (const answer of groupAnswers[requestIndex] ?? []) {
-        const piece = request.piecesByQuestionId.get(answer.questionId);
-        if (piece === undefined) continue;
-        bestProbabilityById.set(
-          piece.item.id,
-          Math.max(bestProbabilityById.get(piece.item.id) ?? 0, answer.probability),
-        );
-      }
-    });
-  }
-  return {
-    failed: false,
-    ranked: items.map((item) => ({
-      id: item.id,
-      probability: bestProbabilityById.get(item.id) ?? 0,
-      backend: backend.name,
-    })),
-  };
-}
-
-function mostLikelyFirst(left: RankedItem, right: RankedItem): number {
-  return right.probability - left.probability || left.id.localeCompare(right.id);
 }
 
 function renderedRanking(
@@ -275,8 +223,8 @@ async function rankAndPrint(
     );
   }
   const outcomes = await Promise.all([
-    probabilitiesFrom(backend, parsed.question, sentItems),
-    probabilitiesFrom(RULES_BACKEND, parsed.question, keptLocalItems),
+    rankItemsByQuestion(backend, parsed.question, sentItems),
+    rankItemsByQuestion(RULES_BACKEND, parsed.question, keptLocalItems),
   ]);
   if (outcomes.some((outcome) => outcome.failed)) {
     dependencies.writeStderr(
@@ -318,7 +266,10 @@ export async function runRank(
     const config = await dependencies.loadConfig();
     if (parsed.status) {
       dependencies.writeStdout(
-        renderedJevStatus(await dependencies.readJevSwitch(config)),
+        renderedJevStatus(
+          await dependencies.readJevSwitch(config),
+          await dependencies.readJevSpending(config),
+        ),
       );
       return 0;
     }

@@ -34,6 +34,14 @@ export {
   RESURRECT_LOCK_STALE_MS,
 } from "./regent-resurrect-lock.ts";
 import { PERSONA_CONFIG } from "../application-config.service.ts";
+import { resolveTargetEffort } from "../config.ts";
+import { parseHarness } from "../harness-routing/model-registry.ts";
+import { modelEffortRange } from "../harness-routing/policy/capabilities.ts";
+import {
+  activeRegentRoute,
+  targetEffortForRole,
+  type CustomPlanPresetPair,
+} from "../steering-user-config.ts";
 import {} from "../herdr/herdr-create.service.ts";
 import { startAgent } from "../herdr/herdr-creation-orchestration.ts";
 import { deliverOpeningPrompt } from "../herdr/herdr-opening-prompt.ts";
@@ -105,6 +113,53 @@ export type RegentHarness = Harness;
 export interface RegentRoute {
   readonly harness: RegentHarness;
   readonly model: string;
+}
+
+export interface RegentLaunch extends RegentRoute {
+  readonly effort: number;
+}
+
+export function resolveConfiguredRegentLaunch(
+  route: CustomPlanPresetPair | undefined,
+  targetEffort: number,
+): RegentLaunch | undefined {
+  if (route === undefined) return undefined;
+  const harness = parseHarness(route.harness);
+  const model = resolveModel(harness, route.model);
+  const range = modelEffortRange(harness, model);
+  if (range === undefined) {
+    throw new Error(
+      `steering.regentRoute ${harness}/${model} has no registered effort range`,
+    );
+  }
+  return { harness, model, effort: resolveTargetEffort(targetEffort, range) };
+}
+
+export function configuredRegentLaunch(): RegentLaunch | undefined {
+  return resolveConfiguredRegentLaunch(
+    activeRegentRoute(),
+    targetEffortForRole("regent"),
+  );
+}
+
+export function regentLaunchArgv(
+  configured: RegentLaunch | undefined,
+  recordedRoute: RegentRoute | undefined,
+  recordedHarness: RegentHarness,
+): string[] {
+  if (configured !== undefined) return buildLaunchArgv(configured);
+  if (recordedRoute !== undefined) {
+    return buildLaunchArgv({
+      harness: recordedRoute.harness,
+      model: recordedRoute.model,
+      effort: 1,
+    });
+  }
+  return [
+    throneLauncherPath(
+      recordedHarness === HARNESS_NAMES.CODEX ? "codexy" : "claudey",
+    ),
+  ];
 }
 
 /** Absent/garbage marker ⇒ keep the court alive (fail-safe). */
@@ -235,6 +290,7 @@ export interface ResurrectDeps {
   deliverOpeningPrompt: typeof deliverOpeningPrompt;
   readRegentHarness: (dir?: string) => Promise<RegentHarness>;
   readRegentRoute: (dir?: string) => Promise<RegentRoute | undefined>;
+  configuredRegentLaunch?: () => RegentLaunch | undefined;
   findLiveRegent: typeof findLiveRegent;
   installHerdrOperatorSkill: typeof installHerdrOperatorSkill;
   writeStderr: (text: string) => void;
@@ -251,6 +307,7 @@ const REAL_RESURRECT_DEPS: ResurrectDeps = {
   deliverOpeningPrompt,
   readRegentHarness,
   readRegentRoute,
+  configuredRegentLaunch,
   findLiveRegent,
   installHerdrOperatorSkill,
   writeStderr: (text) => process.stderr.write(text),
@@ -352,11 +409,16 @@ export async function resurrectRegent(
     // that lands its own check after this call releases the lock (below)
     // sees the marker rather than a bare herdr Absent.
     await writeSpawnMarker(deps.regentDir);
-    const route = await deps.readRegentRoute(deps.regentDir);
-    const harness = route?.harness ?? await deps.readRegentHarness(deps.regentDir);
-    const argv = route === undefined
-      ? [throneLauncherPath(harness === HARNESS_NAMES.CODEX ? "codexy" : "claudey")]
-      : buildLaunchArgv({ harness: route.harness, model: route.model, effort: 1 });
+    const configured = deps.configuredRegentLaunch?.();
+    const route =
+      configured === undefined
+        ? await deps.readRegentRoute(deps.regentDir)
+        : undefined;
+    const harness =
+      configured?.harness ??
+      route?.harness ??
+      await deps.readRegentHarness(deps.regentDir);
+    const argv = regentLaunchArgv(configured, route, harness);
     const opts: StartOptions = {
       cwd: deps.throneRoot,
       argv,

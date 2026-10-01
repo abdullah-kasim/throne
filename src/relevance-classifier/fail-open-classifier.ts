@@ -1,10 +1,18 @@
-import type {
-  BackendAnswer,
-  ClassifierAnswer,
-  ClassifierBackend,
-  ClassifierState,
-  FailOpenQuestion,
+import {
+  CLASSIFIER_BACKEND_ERROR,
+  CLASSIFIER_BUDGET_LOCK_BUSY,
+  CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER,
+  CLASSIFIER_RATE_LIMITED,
+  CLASSIFIER_TIMED_OUT,
+  type BackendAnswer,
+  type ClassifierAnswer,
+  type ClassifierBackend,
+  type ClassifierFailure,
+  type ClassifierState,
+  type FailOpenQuestion,
 } from './classifier.types.ts';
+import { JevBudgetLockBusyError, JevBudgetUsedUpError, JevBuildWithoutLimiterError } from './jev-backend.ts';
+import { RULES_BACKEND } from './rules-backend.ts';
 
 export interface FailOpenDependencies {
   writeStderr(text: string): void;
@@ -17,6 +25,7 @@ const PRODUCTION_DEPENDENCIES: FailOpenDependencies = {
 function safeAnswer(
   question: FailOpenQuestion,
   backend: ClassifierBackend,
+  failure?: ClassifierFailure,
 ): ClassifierAnswer {
   return {
     questionId: question.id,
@@ -24,6 +33,7 @@ function safeAnswer(
     probability: 0,
     backend: backend.name,
     failedOpen: true,
+    ...(failure === undefined ? {} : { failure }),
   };
 }
 
@@ -58,10 +68,30 @@ function describeFailure(error: unknown): string {
   return `${name}${status}`;
 }
 
+export function isLeftWithoutAnAnswer(answer: ClassifierAnswer, askedBackend: ClassifierBackend): boolean {
+  return answer.failedOpen && answer.backend === askedBackend.name;
+}
+
 export const DEFAULT_CLASSIFIER_TIMEOUT_MILLISECONDS = 20_000;
 
 class ClassifierTimedOutError extends Error {
   override readonly name = 'ClassifierTimedOutError';
+}
+
+function failureOf(error: unknown): ClassifierFailure {
+  if (error instanceof ClassifierTimedOutError) return CLASSIFIER_TIMED_OUT;
+  if (error instanceof JevBudgetUsedUpError) return CLASSIFIER_RATE_LIMITED;
+  if (error instanceof JevBudgetLockBusyError) return CLASSIFIER_BUDGET_LOCK_BUSY;
+  if (error instanceof JevBuildWithoutLimiterError) return CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER;
+  return CLASSIFIER_BACKEND_ERROR;
+}
+
+function isJevBudgetFailure(failure: ClassifierFailure): boolean {
+  return (
+    failure === CLASSIFIER_RATE_LIMITED ||
+    failure === CLASSIFIER_BUDGET_LOCK_BUSY ||
+    failure === CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER
+  );
 }
 
 async function answerWithinTimeout(
@@ -110,7 +140,8 @@ export async function askFailingOpen(
       options.timeoutMilliseconds ?? DEFAULT_CLASSIFIER_TIMEOUT_MILLISECONDS,
     );
   } catch (error) {
-    const nextBackend = options.backendWhenTheFirstFails;
+    const failure = failureOf(error);
+    const nextBackend = isJevBudgetFailure(failure) ? RULES_BACKEND : options.backendWhenTheFirstFails;
     dependencies.writeStderr(
       `relevance-classifier: the ${backend.name} backend failed with ${describeFailure(error)}; ${
         nextBackend === undefined
@@ -119,7 +150,7 @@ export async function askFailingOpen(
       }.\n`,
     );
     if (nextBackend === undefined) {
-      return questions.map((question) => safeAnswer(question, backend));
+      return questions.map((question) => safeAnswer(question, backend, failure));
     }
     const answers = await askFailingOpen(
       nextBackend,
@@ -128,7 +159,7 @@ export async function askFailingOpen(
       dependencies,
       { timeoutMilliseconds: options.timeoutMilliseconds },
     );
-    return answers.map((answer) => ({ ...answer, failedOpen: true }));
+    return answers.map((answer) => ({ ...answer, failedOpen: true, failure }));
   }
   const answersByQuestionId = new Map(
     backendAnswers.map((answer) => [answer.questionId, answer]),

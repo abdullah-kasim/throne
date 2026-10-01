@@ -114,22 +114,58 @@ export function buildNoIdlingMessage(params: NoIdlingMessageParams): string {
 }
 
 export interface DependencyClearedMessageParams {
-  readonly resolvedChildren: readonly string[];
+  readonly goneChildren: readonly string[];
+  readonly reapableChildren: readonly string[];
 }
 
-/**
- * The direct wake message for an agent whose every named `blockedBy` child
- * no longer has a live ledger registration. Names the exact children so the
- * message can never be sent unchanged to two different blocked agents.
- */
+function childList(children: readonly string[]): string {
+  return children.join(', ');
+}
+
 export function buildDependencyClearedMessage(params: DependencyClearedMessageParams): string {
-  const children = params.resolvedChildren.join(', ');
-  const plural = params.resolvedChildren.length > 1;
+  const sentences: string[] = [];
+  if (params.goneChildren.length > 0) {
+    const plural = params.goneChildren.length > 1;
+    sentences.push(
+      `The child${plural ? 'ren' : ''} you were blocked on -- ${childList(params.goneChildren)} -- ` +
+        `no longer ${plural ? 'have' : 'has'} a live ledger registration; reaped, swept, or otherwise torn down.`,
+    );
+  }
+  if (params.reapableChildren.length > 0) {
+    const plural = params.reapableChildren.length > 1;
+    sentences.push(
+      `${childList(params.reapableChildren)} already published ${plural ? 'their' : 'its'} {"reapable":...} claim, ` +
+        `so ${plural ? 'they are' : 'it is'} finished and idle, not something to wait on. ` +
+        `Read ${plural ? 'their' : 'its'} report, reap ${plural ? 'them' : 'it'} with reap-agent, and continue.`,
+    );
+  }
+  sentences.push('Your block is cleared. Resume and act on that.');
+  return sentences.join(' ');
+}
+
+export interface StillBlockedOnClearedChildrenMessageParams {
+  readonly agents: readonly {
+    readonly agentName: string;
+    readonly gone: readonly string[];
+    readonly reapable: readonly string[];
+  }[];
+}
+
+export function buildStillBlockedOnClearedChildrenMessage(
+  params: StillBlockedOnClearedChildrenMessageParams,
+): string {
+  const details = params.agents
+    .map(({ agentName, gone, reapable }) => {
+      const parts: string[] = [];
+      if (reapable.length > 0) parts.push(`${childList(reapable)} already published a reapable claim`);
+      if (gone.length > 0) parts.push(`${childList(gone)} is already torn down`);
+      return `${agentName} (${parts.join('; ')})`;
+    })
+    .join('; ');
   return (
-    `The child${plural ? 'ren' : ''} you were blocked on -- ${children} -- ` +
-    `no longer ${plural ? 'have' : 'has'} a live ledger registration; ` +
-    `reaped, swept, or otherwise torn down. Your block is cleared. Resume ` +
-    `and act on that.`
+    `Still blocked on children that are already finished, after a direct wake: ${details}. ` +
+    `Each of these agents was told its block is cleared and did not move on. ` +
+    `Use send-agent to tell each one to reap its finished children and continue, or reap them yourself after confirming each report.`
   );
 }
 

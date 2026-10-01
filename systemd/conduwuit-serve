@@ -1,0 +1,132 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: conduwuit-serve <conduwuit-config-template>" >&2
+    exit 64
+fi
+
+config_template=$1
+if [ ! -r "$config_template" ]; then
+    echo "conduwuit-serve: config template is not readable: $config_template" >&2
+    exit 1
+fi
+
+for required_command in date grep sleep sed head; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "conduwuit-serve: required command is unavailable: $required_command" >&2
+        exit 1
+    fi
+done
+
+runtime=""
+for candidate in ${THRONE_CONTAINER_RUNTIME:-} docker podman; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        runtime=$candidate
+        break
+    fi
+done
+if [ -z "$runtime" ]; then
+    echo "conduwuit-serve: no container runtime found (looked for docker, podman); run ./install.sh" >&2
+    exit 1
+fi
+
+pins_file="$(cd "$(dirname "$0")/.." && pwd -P)/vendor-pins.json"
+conduwuit_image=$(sed -n '/"conduwuit"/,/}/{s/^[[:space:]]*"image":[[:space:]]*"\([^"]*\)".*/\1/p}' "$pins_file" | head -1)
+if [ -z "$conduwuit_image" ]; then
+    echo "conduwuit-serve: no tools.conduwuit.image pin in $pins_file" >&2
+    exit 1
+fi
+
+mount_label=""
+if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled 2>/dev/null; then
+    mount_label="Z"
+fi
+
+if command -v tailscale >/dev/null 2>&1; then
+    tailscale_cli=tailscale
+elif [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
+    tailscale_cli=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+else
+    echo "conduwuit-serve: tailscale is not installed (not on PATH, no /Applications/Tailscale.app); conduwuit is tailnet-only and cannot start without it" >&2
+    exit 1
+fi
+
+if command -v timeout >/dev/null 2>&1; then
+    probe_tailnet_ip() { timeout 2s "$tailscale_cli" ip -4 2>/dev/null || true; }
+    probe_tailnet_status() { timeout 2s "$tailscale_cli" status --json 2>/dev/null || true; }
+else
+    probe_tailnet_ip() { "$tailscale_cli" ip -4 2>/dev/null || true; }
+    probe_tailnet_status() { "$tailscale_cli" status --json 2>/dev/null || true; }
+fi
+
+case "$(uname -s)" in
+    Darwin)
+        interface_holds() { ifconfig 2>/dev/null | grep -Fq "inet $1 "; }
+        ;;
+    *)
+        interface_holds() {
+            ip -4 -o addr show dev tailscale0 2>/dev/null | grep -Fq " inet $1/"
+        }
+        ;;
+esac
+
+magicdns_name() {
+    probe_tailnet_status | tr -d '\n' | sed -n 's/.*"Self":[[:space:]]*{[[:space:]]*"[^}]*"DNSName":[[:space:]]*"\([^"]*\)\.".*/\1/p' | head -1
+}
+
+wait_seconds=60
+deadline=$(( $(date +%s) + wait_seconds ))
+
+while :; do
+    tailnet_ip=$(probe_tailnet_ip)
+    case "$tailnet_ip" in
+        ''|*[!0-9.]*)
+            ;;
+        *)
+            if interface_holds "$tailnet_ip"; then
+                server_name=$(magicdns_name)
+                if [ -z "$server_name" ]; then
+                    echo "conduwuit-serve: could not resolve the tailnet MagicDNS name from tailscale status" >&2
+                    exit 1
+                fi
+
+                state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/conduwuit"
+                media_dir="$state_dir/media"
+                mkdir -p "$media_dir"
+                chmod 0700 "$state_dir" "$media_dir"
+
+                registration_token_file="$state_dir/registration-token"
+                if [ ! -s "$registration_token_file" ]; then
+                    (umask 077 && head -c 32 /dev/urandom | base64 | tr -d '\n=/' > "$registration_token_file")
+                fi
+                registration_token=$(cat "$registration_token_file")
+
+                rendered_config="$state_dir/conduwuit.toml"
+                sed \
+                    -e "s/{{CONDUWUIT_SERVER_NAME}}/${server_name}/g" \
+                    -e "s/{{CONDUWUIT_REGISTRATION_TOKEN}}/${registration_token}/g" \
+                    "$config_template" > "$rendered_config"
+                chmod 0600 "$rendered_config"
+
+                if ! "$runtime" info >/dev/null 2>&1; then
+                    echo "conduwuit-serve: $runtime is not reachable yet" >&2
+                    exit 1
+                fi
+                "$runtime" rm -f throne-conduwuit >/dev/null 2>&1 || true
+                exec "$runtime" run --rm --name throne-conduwuit \
+                    -p "${tailnet_ip}:8448:6167" \
+                    -v "${rendered_config}:/etc/conduwuit.toml:ro${mount_label:+,$mount_label}" \
+                    -v "${media_dir}:/var/lib/conduwuit/media${mount_label:+:$mount_label}" \
+                    -e CONDUWUIT_CONFIG=/etc/conduwuit.toml \
+                    "$conduwuit_image"
+            fi
+            ;;
+    esac
+
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+        echo "conduwuit-serve: no Tailscale IPv4 address after ${wait_seconds} seconds" >&2
+        exit 1
+    fi
+    sleep 1
+done

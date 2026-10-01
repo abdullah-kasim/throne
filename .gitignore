@@ -11,9 +11,13 @@
 # The throne registers its OWN SessionStart hook rather than leaning on the
 # operator's user-level settings, so this one file is a tracked deliverable.
 !.claude/settings.json
+!.claude/skill-dependencies.tsv
 
 # Per-agent persistent data (todos, scratch, identity) — never committed.
 /data/
+
+# Live, credential-bearing throne-bot folders (bots.example/ stays tracked).
+/bots/
 
 # Worktrees for coding work live under worktrees/ — transient, not committed.
 /worktrees/
@@ -36,6 +40,8 @@
 /vendor/
 
 /report/
+
+/shell/throne-session.bash
 
 # Local machine override — persona/display, ntfy, steering, and git identity,
 # merged into one file so a partial override of one section never risks

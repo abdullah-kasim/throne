@@ -12,22 +12,22 @@ export const REAPABLE_MARKERS = [
 ] as const;
 
 export const REAPABLE_MARKER_PATTERN =
-  /__REAPABLE(?:__|_)[A-Z0-9]+(?:_[A-Z0-9]+)*__/;
+  /^(?:__)?(REAPABLE(?:__|_)[A-Z0-9]+(?:_[A-Z0-9]+)*)(?:__)?$/;
 
 export function parseReapableMarkers(text: string): readonly string[] {
   const matches: string[] = [];
   const field = /"reapable_status"\s*:\s*"([^"]+)"/g;
   for (const match of text.matchAll(field)) {
-    const raw = match[1]!;
-    if (REAPABLE_MARKER_PATTERN.test(raw)) {
-      matches.push(raw);
+    const markerName = REAPABLE_MARKER_PATTERN.exec(match[1]!)?.[1];
+    if (markerName !== undefined) {
+      matches.push(`__${markerName}__`);
     }
   }
   return matches;
 }
 
 export const BLOCKED_BY_MARKER_PATTERN =
-  /__BLOCKED_BY_([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)__/;
+  /(?<![A-Za-z0-9])(?:__)?BLOCKED_BY_([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)(?:__)?(?![A-Za-z0-9_])/;
 
 export function parseBlockedByMarkers(text: string): readonly string[] {
   const names: string[] = [];

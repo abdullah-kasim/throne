@@ -1,9 +1,12 @@
 import { installClaudeGuardHook } from '../install-services/claude-guard-hook.ts';
+import type { SettingsHookOutcome } from '../install-services/claude-settings-hook.ts';
 import { installCodexHookRegistration } from '../install-services/hook-and-command.ts';
+import { installJevFenceHook } from '../install-services/jev-fence-hook.ts';
 import type {
   InstallServicesDeps,
   InstallServicesOptions,
 } from '../install-services/install-services.types.ts';
+import { installMemoryReadLogHook } from '../install-services/memory-read-log-hook.ts';
 import { withInstallServicesOutput } from '../install-services/output.ts';
 import { REAL_DEPS } from '../install-services/platform.ts';
 import { installSkillWriteGuardHook } from '../install-services/skill-write-guard-hook.ts';
@@ -61,6 +64,16 @@ const HOOK_INSTALLERS: readonly HookInstaller[] = [
       settingsHookState(await installSkillWriteGuardHook(deps, options)),
   },
   {
+    hook: 'claude memory read log',
+    install: async (deps, options) =>
+      settingsHookState(await installMemoryReadLogHook(deps, options)),
+  },
+  {
+    hook: 'claude jev fence',
+    install: async (deps, options) =>
+      settingsHookState(await installJevFenceHook(deps, options)),
+  },
+  {
     hook: 'codex session start',
     install: async (deps, options) => {
       const outcome = await installCodexHookRegistration(deps, options);
@@ -74,7 +87,7 @@ const HOOK_INSTALLERS: readonly HookInstaller[] = [
 ];
 
 function settingsHookState(
-  outcome: 'unchanged' | 'registered' | 'replaced' | 'error',
+  outcome: SettingsHookOutcome,
 ): { state: HookSetupState } {
   if (outcome === 'unchanged') return { state: 'unchanged' };
   if (outcome === 'error') return { state: 'failed' };

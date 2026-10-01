@@ -13,8 +13,7 @@ are implemented directly under the Nest owner.
 | Identity data access | `IdentityDataService` | `agentdata/identity-data.service` |
 | Tree-base data access | `TreeBaseDataService` | `agentdata/tree-base` |
 
-`install-services/platform.ts` consumes `FeatureFlagsService`; the
-`notify-lord` command consumes `NotificationService` and
+The `notify-lord` command consumes `NotificationService` and
 `ApplicationConfigService`. The three agent-data owners expose the existing
 responsibility boundaries. Registry behavior is closed inside
 `LedgerDataService`; no root is moved, copied, shimmed, or re-exported.

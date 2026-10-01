@@ -38,8 +38,24 @@ import {
   readBlockedMarker,
 } from "../agentdata/blocked-marker.service.ts";
 import { flagLiveCwdOrphans } from "./throne-startup-cwd-guard.ts";
+import {
+  relaunchLiveAgentsOffThePinnedHarness,
+  type PinnedHarnessGuardAction,
+  type PinnedHarnessGuardContract,
+} from "./throne-startup-pinned-harness-guard.ts";
+import { harnessProvenance } from "../herdr/harness-provenance.ts";
+import {
+  REAL_DEPS as RESTART_HARNESSES_REAL_DEPS,
+  ensurePaneCarriesName,
+  stopHarnessInPane,
+} from "../restart-harnesses/restart-harnesses-runtime.ts";
 
-export type StartupOrphanAction = "resume" | "reap" | "skip" | "flag-missing-cwd";
+export type StartupOrphanAction =
+  | "resume"
+  | "reap"
+  | "skip"
+  | "flag-missing-cwd"
+  | PinnedHarnessGuardAction;
 
 export interface StartupOrphanOutcome {
   name: string;
@@ -49,7 +65,7 @@ export interface StartupOrphanOutcome {
   error?: string;
 }
 
-export interface StartupReconciliationContract {
+export interface StartupReconciliationContract extends PinnedHarnessGuardContract {
   listRegisteredAgents: () => Promise<string[]>;
   listCompletedAgents: () => Promise<string[]>;
   hasResumableWork: (name: string) => Promise<boolean>;
@@ -336,6 +352,12 @@ const REAL_CONTRACT: StartupReconciliationContract = {
   readBlockedMarker: (name) => readBlockedMarker(name),
   clearBlockedMarker: (name) => clearBlockedMarker(name),
   pathExists,
+  harnessProvenance: (paneId) => harnessProvenance(paneId),
+  currentPaneId: () => RESTART_HARNESSES_REAL_DEPS.currentPaneId(),
+  stopHarnessInPane: (paneId) =>
+    stopHarnessInPane(paneId, RESTART_HARNESSES_REAL_DEPS),
+  ensurePaneCarriesName: (agent, name) =>
+    ensurePaneCarriesName(agent, name, RESTART_HARNESSES_REAL_DEPS),
   log: (message) => process.stdout.write(message),
   warn: (message) => process.stderr.write(message),
 };
@@ -384,6 +406,14 @@ export class ThroneStartupReconciliationService {
       this.contract.listRegisteredAgents(),
       this.contract.listCompletedAgents(),
     ]);
+    const startupFlags = [
+      ...cwdFlags,
+      ...(await relaunchLiveAgentsOffThePinnedHarness(
+        liveAgents,
+        registered,
+        this.contract,
+      )),
+    ];
     const completed = new Set(completedList);
     const live = extractLiveNames(liveAgents);
     const orphans = registered.filter(
@@ -395,7 +425,7 @@ export class ThroneStartupReconciliationService {
       this.contract.log(
         "throne-startup: reconciliation — no orphaned agents; the court is clean\n",
       );
-      return cwdFlags;
+      return startupFlags;
     }
 
     this.contract.log(
@@ -451,6 +481,6 @@ export class ThroneStartupReconciliationService {
         });
       }
     }
-    return [...cwdFlags, ...outcomes];
+    return [...startupFlags, ...outcomes];
   }
 }
