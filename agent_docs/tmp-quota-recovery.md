@@ -74,13 +74,10 @@ give him the literal `bash ~/tmp/<task>.sh` line and nothing to copy by hand.
   releases them. Observed offenders: `cromite`, `ghostty`, `rustdesk`
   — all soar-packaged `dwarfs` mounts (`mount | grep fuse.dwarfs`), each one
   shared and reference-counted across every concurrent invocation of that
-  binary, not a per-run mount owned by the invoking script.
-  `chrome-devtools-axi-cromite` and the project-issue-report renderer only
-  `exec`/spawn the already-resolved binary path; neither creates or privately
-  owns the mount, so neither can safely `fusermount -uz` it on its own exit
-  without risking an unrelated concurrent user. Reclaiming a genuinely dead
-  one is the reaper's job (liveness-checked via `/proc`, not a script-local
-  exit trap).
+  binary, not a per-run mount owned by the invoking script, so no script can
+  safely `fusermount -uz` it on its own exit without risking an unrelated
+  concurrent user. Reclaiming a genuinely dead one is the reaper's job
+  (liveness-checked via `/proc`, not a script-local exit trap).
 
 A working recovery script is kept at `~/tmp/claude-tmp-cleanup.sh` when this
 last fired; regenerate it from the rules above rather than trusting a stale copy.
@@ -90,12 +87,10 @@ last fired; regenerate it from the rules above rather than trusting a stale copy
 Campaign scratch, renders, logs, and `node_modules` belong on `/var/home`
 (`~/tmp`, effectively unlimited: 548G free), **never** the `/tmp` tmpfs. The
 global `CLAUDE.md` already mandates `~/tmp` over `/tmp` for scratch files; this
-document is why that rule has teeth. `chrome-devtools-axi-cromite`,
-`chrome-devtools-axi-flatpak`, and the `project-issue-report` renderer were
-audited (2026-08-08) and all already stage their own scratch under
-`$HOME/tmp` — see `agent-launchers/bin/chrome-devtools-axi-cromite:115-125`,
-`agent-launchers/bin/chrome-devtools-axi-flatpak:37-40`, and
-`render_project_issue_report.py`'s `render_report()`. Its underlying CLI goes
-through a flatpak install, not a soar/dwarfs AppImage, so it never mounts one. None
-of these scripts create the shared `dwarfs` mounts covered above, so none of
-them is the right place to unmount those.
+document is why that rule has teeth. The `project-issue-report` renderer,
+`render_project_issue_report.py`'s `render_report()`, prints through
+`agent-browser`'s Chrome and stages its own scratch under `$HOME/tmp`. That
+Chrome is a plain directory `agent-browser install` downloads onto `/var/home`,
+not a soar/dwarfs AppImage, so it never mounts one. The renderer does not create
+the shared `dwarfs` mounts covered above, so it is not the right place to
+unmount those.

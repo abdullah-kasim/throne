@@ -40,7 +40,7 @@ async function refreshFolderWithStubGh(liveBody: string, { withDraft }: { withDr
 }
 
 function publishOptions(folder: string, overrides: Record<string, unknown> = {}) {
-  return { ...publish.parseArguments([pullRequestUrl, '--folder', folder, '--dry-run']), ...overrides };
+  return { ...publish.parseArguments([pullRequestUrl, '--folder', folder, '--dry-run', '--stills-only', 'cake list styling only']), ...overrides };
 }
 
 const bodyWithOldCaptures = [

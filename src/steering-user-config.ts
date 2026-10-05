@@ -157,6 +157,7 @@ export interface SteeringConfig {
    *  quietly stand the court down. Flip it with the `/autoscaler` skill. */
   readonly autoscaleEnabled: boolean;
   readonly regentHeartbeatNudgeEnabled: boolean;
+  readonly macLoadPerCoreAtCapacity: number;
   readonly roleEfforts: RoleEfforts;
   readonly regentRoute?: CustomPlanPresetPair;
 }
@@ -177,6 +178,7 @@ export interface SteeringConfigOverride {
   /** See `SteeringConfig.autoscaleEnabled`. */
   readonly autoscaleEnabled?: boolean;
   readonly regentHeartbeatNudgeEnabled?: boolean;
+  readonly macLoadPerCoreAtCapacity?: number;
   readonly roleEfforts?: RoleEfforts;
   readonly regentRoute?: CustomPlanPresetPair;
 }
@@ -190,6 +192,7 @@ export const DEFAULT_STEERING_CONFIG: SteeringConfig = {
   tokenBalanceEnabled: false,
   autoscaleEnabled: true,
   regentHeartbeatNudgeEnabled: false,
+  macLoadPerCoreAtCapacity: 5,
   roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3 },
 };
 
@@ -508,6 +511,21 @@ export function validateSteeringOverride(
     }
     override.regentHeartbeatNudgeEnabled = regentHeartbeatNudgeEnabled;
   }
+  if ('macLoadPerCoreAtCapacity' in value) {
+    const macLoadPerCoreAtCapacity = value.macLoadPerCoreAtCapacity;
+    if (
+      typeof macLoadPerCoreAtCapacity !== 'number' ||
+      !Number.isFinite(macLoadPerCoreAtCapacity) ||
+      macLoadPerCoreAtCapacity <= 0
+    ) {
+      throw invalidSteeringConfig(
+        sourcePath,
+        'macLoadPerCoreAtCapacity',
+        `must be a number above 0 (got ${describeValue(macLoadPerCoreAtCapacity)})`,
+      );
+    }
+    override.macLoadPerCoreAtCapacity = macLoadPerCoreAtCapacity;
+  }
   return override;
 }
 
@@ -544,6 +562,8 @@ function mergeSteeringConfig(
     autoscaleEnabled: override.autoscaleEnabled ?? base.autoscaleEnabled,
     regentHeartbeatNudgeEnabled:
       override.regentHeartbeatNudgeEnabled ?? base.regentHeartbeatNudgeEnabled,
+    macLoadPerCoreAtCapacity:
+      override.macLoadPerCoreAtCapacity ?? base.macLoadPerCoreAtCapacity,
     roleEfforts: override.roleEfforts ?? base.roleEfforts,
     ...(override.regentRoute ?? base.regentRoute) === undefined
       ? {}
@@ -656,4 +676,8 @@ export function isTokenBalanceEnabled(): boolean {
  *  `readAutoscaleEnabledInUserConfig` (`alpha-autoscale/kill-switch.ts`). */
 export function isAutoscaleEnabledInSteering(): boolean {
   return RESOLVED_STEERING_CONFIG.autoscaleEnabled;
+}
+
+export function macLoadPerCoreAtCapacity(): number {
+  return RESOLVED_STEERING_CONFIG.macLoadPerCoreAtCapacity;
 }

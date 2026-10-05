@@ -5,6 +5,7 @@ import {
   type RegentQueueLaunchBriefStore,
   type RegentQueueItemRow,
 } from "../regent-queue/regent-queue.store.ts";
+import type { StageQueueLaunchBrief } from "../regent-queue/regent-queue-launch-brief.ts";
 import type {
   LaunchQueueCandidate,
   ReadyQueueResult,
@@ -93,7 +94,17 @@ export type AutoBriefResult =
   | { readonly state: "ineligible"; readonly reasons: string[] }
   | { readonly state: "unknown"; readonly reason: string };
 
-function effectiveIneligibilityReason(item: RegentQueueItemRow): string {
+export type AutoscaleQueueSource = Pick<
+  RegentQueueLaunchBriefStore,
+  "readAll" | "readLaunchBriefs"
+>;
+
+export interface LaunchBriefSelection {
+  readonly rowsToBrief: readonly RegentQueueItemRow[];
+  readonly ineligibleReasons: readonly string[];
+}
+
+export function effectiveIneligibilityReason(item: RegentQueueItemRow): string {
   const decision = classifyEffectiveQueueDecision(item);
   return decision.state === "eligible"
     ? (item.launchEligibility?.reason ?? "launch eligibility unknown")
@@ -129,23 +140,13 @@ function matchingAutoscaleBrief(
   );
 }
 
-export function stageEligibleLaunchBriefs(
-  store: RegentQueueLaunchBriefStore,
-): AutoBriefResult {
-  const queue = store.readAll();
-  if (queue.state === "unknown") return queue;
-  if (queue.state === "positively-empty") return { state: "staged", count: 0 };
+export function selectRowsToBrief(
+  items: readonly RegentQueueItemRow[],
+): LaunchBriefSelection {
   const openItems = orderQueueItemsForDispatch(
-    queue.items.filter((item) => item.status === "open"),
+    items.filter((item) => item.status === "open"),
   );
-  // A queue whose every row is non-open (complete, dismissed, archived) has
-  // nothing to brief and nothing to call ineligible. Before 2026-09-02 this
-  // fell through to `ineligible` with an EMPTY reason list, and the worker
-  // logged "auto-brief found ineligible items: " with nothing after the
-  // colon -- a claim with no subject. Observed on the live Mac the tick
-  // after the first `hiregent` row went complete.
-  if (openItems.length === 0) return { state: "staged", count: 0 };
-  const eligibleItems = openItems.filter(
+  const rowsToBrief = openItems.filter(
     (item) =>
       classifyEffectiveQueueDecision(item).state === "eligible" &&
       item.launchEligibility?.eligible === true,
@@ -153,21 +154,46 @@ export function stageEligibleLaunchBriefs(
   const ineligibleReasons = [
     ...new Set(
       openItems
-        .filter((item) => !eligibleItems.includes(item))
+        .filter((item) => !rowsToBrief.includes(item))
         .map(effectiveIneligibilityReason),
     ),
   ];
+  return { rowsToBrief, ineligibleReasons };
+}
+
+export function autoscaleLaunchBriefFor(
+  item: RegentQueueItemRow,
+): StageQueueLaunchBrief {
+  const eligibility = item.launchEligibility!;
+  return {
+    objectiveCode: item.objectiveCode!,
+    canonicalName: eligibility.alphaName!,
+    targetRepo: eligibility.targetRepo!,
+    targetBranch: eligibility.targetBranch!,
+    baseCommit: eligibility.baseCommit!,
+    authorizer: ALPHA_AUTOSCALE_AUTHORITY,
+  };
+}
+
+export function stageEligibleLaunchBriefs(
+  store: RegentQueueLaunchBriefStore,
+): AutoBriefResult {
+  const queue = store.readAll();
+  if (queue.state === "unknown") return queue;
+  if (queue.state === "positively-empty") return { state: "staged", count: 0 };
+  const { rowsToBrief, ineligibleReasons } = selectRowsToBrief(queue.items);
+  // A queue whose every row is non-open (complete, dismissed, archived) has
+  // nothing to brief and nothing to call ineligible. Before 2026-09-02 this
+  // fell through to `ineligible` with an EMPTY reason list, and the worker
+  // logged "auto-brief found ineligible items: " with nothing after the
+  // colon -- a claim with no subject. Observed on the live Mac the tick
+  // after the first `hiregent` row went complete.
+  if (rowsToBrief.length === 0 && ineligibleReasons.length === 0) {
+    return { state: "staged", count: 0 };
+  }
   try {
-    for (const item of eligibleItems) {
-      const eligibility = item.launchEligibility!;
-      store.stageLaunchBrief({
-        objectiveCode: item.objectiveCode!,
-        canonicalName: eligibility.alphaName!,
-        targetRepo: eligibility.targetRepo!,
-        targetBranch: eligibility.targetBranch!,
-        baseCommit: eligibility.baseCommit!,
-        authorizer: ALPHA_AUTOSCALE_AUTHORITY,
-      });
+    for (const item of rowsToBrief) {
+      store.stageLaunchBrief(autoscaleLaunchBriefFor(item));
     }
   } catch (error) {
     return {
@@ -175,9 +201,9 @@ export function stageEligibleLaunchBriefs(
       reason: `eligible launch briefing failed: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
-  return eligibleItems.length > 0
-    ? { state: "staged", count: eligibleItems.length }
-    : { state: "ineligible", reasons: ineligibleReasons };
+  return rowsToBrief.length > 0
+    ? { state: "staged", count: rowsToBrief.length }
+    : { state: "ineligible", reasons: [...ineligibleReasons] };
 }
 
 export function stageEligibleLaunchBriefsFromStore(): AutoBriefResult {
@@ -190,7 +216,7 @@ export function stageEligibleLaunchBriefsFromStore(): AutoBriefResult {
 }
 
 export function readAutoscaleQueue(
-  store: RegentQueueLaunchBriefStore,
+  store: AutoscaleQueueSource,
   autoscaleAlphaRouteDeps: AutoscaleAlphaRouteDeps = REAL_AUTOSCALE_ALPHA_ROUTE_DEPS,
 ): ReadyQueueResult {
   const queue = store.readAll();

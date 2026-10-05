@@ -236,7 +236,7 @@ export function verifyPublishedBody(body, files, { replaceAll = false } = {}) {
 }
 
 export function parseArguments(argv) {
-  const options = { target: undefined, folder: undefined, dryRun: false, assets: new Map(), wizard: false, collect: false, replaceAll: false };
+  const options = { target: undefined, folder: undefined, dryRun: false, assets: new Map(), wizard: false, collect: false, replaceAll: false, stillsOnly: undefined };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--folder') {
@@ -250,6 +250,11 @@ export function parseArguments(argv) {
       options.collect = true;
     } else if (argument === '--replace-all') {
       options.replaceAll = true;
+    } else if (argument === '--stills-only') {
+      const reason = (argv[index + 1] ?? '').trim();
+      if (!reason || reason.startsWith('--')) throw new Error('--stills-only needs a reason saying why the PR changes no interaction, e.g. --stills-only "copy change only"');
+      options.stillsOnly = reason;
+      index += 1;
     } else if (argument === '--asset') {
       const [name, ...urlParts] = (argv[index + 1] ?? '').split('=');
       const url = urlParts.join('=');
@@ -264,7 +269,7 @@ export function parseArguments(argv) {
       throw new Error(`unexpected argument ${argument}`);
     }
   }
-  if (!options.target) throw new Error('usage: publish.mjs <pr url | number> [--folder <dir>] [--dry-run] [--replace-all] [--wizard | --collect] [--asset <name>=<url>]...');
+  if (!options.target) throw new Error('usage: publish.mjs <pr url | number> [--folder <dir>] [--dry-run] [--replace-all] [--wizard | --collect] [--asset <name>=<url>]... [--stills-only "<reason>"]');
   if (options.wizard && options.collect) throw new Error('--wizard and --collect are the two halves of one upload; run one at a time');
   return options;
 }
@@ -343,6 +348,11 @@ function refuseOversizedFiles(files) {
   if (refusals.length > 0) throw new Error(refusals.join('\n'));
 }
 
+function refuseFolderWithoutVideo(files, stillsOnlyReason) {
+  if (stillsOnlyReason || files.some((file) => file.kind === 'video')) return;
+  throw new Error('the media folder holds no video, but every interaction the PR changes is recorded as a video (pr-media SKILL.md). If the PR changes no interaction at all (static styling, copy or colour only), publish again with --stills-only "<reason>"');
+}
+
 function attachArguments(files) {
   return files.flatMap((file) => ['--attach', file.kind === 'image' ? `./${file.name}#${altTextFor(file.name)}` : `./${file.name}`]);
 }
@@ -395,6 +405,7 @@ function describeRewrite(rewrite) {
   if (rewrite.removed?.length) lines.push(`removed, not in the folder: ${rewrite.removed.join(', ')}`);
   if (rewrite.extra?.length) lines.push(`loose uploads removed without a matching file: ${rewrite.extra.join(', ')}`);
   if (rewrite.draftApplied) lines.push(`${SCREENSHOTS_HEADING} section replaced from ${SCREENSHOTS_DRAFT_FILE}`);
+  if (rewrite.stillsOnly) lines.push(`stills only: ${rewrite.stillsOnly}`);
   if (rewrite.browserUpload) lines.push(`${rewrite.browserUpload} file(s) would be uploaded through the signed-in browser before the edit`);
   return lines.join('\n');
 }
@@ -404,7 +415,9 @@ export function publish(options, gh = { path: resolveGhOnPath(), bypassArguments
   const pullRequest = parsePullRequestTarget(options.target, () => repositoryFromCwd(gh));
   gh.environment = environmentForHost(pullRequest.host);
   const folder = path.resolve(options.folder ?? path.join(process.env.HOME ?? '', 'tmp', `pr-media-${pullRequest.number}`));
-  const groups = groupIntoPairsAndSingles(listMediaFiles(folder));
+  const listedFiles = listMediaFiles(folder);
+  refuseFolderWithoutVideo(listedFiles, options.stillsOnly);
+  const groups = groupIntoPairsAndSingles(listedFiles);
   const files = filesInBodyOrder(groups);
   const unnumbered = namesWithoutOrderPrefix(files);
   if (unnumbered.length) {
@@ -434,6 +447,7 @@ export function publish(options, gh = { path: resolveGhOnPath(), bypassArguments
   if (draft !== null) rewrite.draftApplied = true;
   if (plan.extra?.length) rewrite.extra = plan.extra;
   if (plan.browserUpload) rewrite.browserUpload = files.length;
+  if (options.stillsOnly) rewrite.stillsOnly = options.stillsOnly;
   const editArguments = ['pr', 'edit', pullRequest.number, '-R', repositoryFlag(pullRequest), '--body-file', LIVE_BODY_FILE, ...plan.attach];
   const commandLine = ['gh', ...gh.bypassArguments, ...editArguments].map((argument) => (/[\s#]/.test(argument) ? `'${argument}'` : argument)).join(' ');
   if (options.dryRun) {

@@ -13,6 +13,7 @@ import { test } from 'node:test';
 import {
   AT_CAPACITY_THRESHOLD,
   classifyPressure,
+  loadGradedAgainstItsOwnLimit,
   type LoadReading,
 } from './classify-pressure.ts';
 import {
@@ -94,6 +95,7 @@ test('the kernel declaring memory WARN pins the reading to the at-capacity thres
     reading,
     CALM_LOAD,
     readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
   );
   assert.equal(verdict.verdict, 'at-capacity');
 });
@@ -139,6 +141,7 @@ test('the darwin readers together yield a positive take-more-work verdict on a c
     parseDarwinMemoryPressure('85\n1\n'),
     { state: 'ok', load1: 3.49, cpuCount: 16 }, // load measured the same moment
     readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
   );
   assert.equal(classification.verdict, 'take-more-work');
   assert.ok(classification.pressure !== null);
@@ -151,6 +154,7 @@ test('a saturated Mac is refused on cpu utilisation alone', () => {
     parseDarwinMemoryPressure('85\n1\n'),
     CALM_LOAD,
     readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
   );
   assert.equal(classification.verdict, 'at-capacity');
 });
@@ -162,4 +166,78 @@ test('the darwin memory line converts hw.memsize and the free percentage to KiB'
   assert.equal(kib.memAvailableKib, Math.round(50331648 * 0.85));
   assert.deepEqual(parseDarwinMemoryKib('garbage\n85\n'), { memTotalKib: null, memAvailableKib: null });
   assert.deepEqual(parseDarwinMemoryKib('51539607552\nnope\n'), { memTotalKib: 50331648, memAvailableKib: null });
+});
+
+const MEASURED_MAC_CPU = { state: 'ok', avg10: 41.85, avg60: 41.85 } as const;
+const MEASURED_MAC_MEMORY = { state: 'ok', avg10: 40, avg60: 40 } as const;
+
+test('a Mac at 4.2x load per core takes more work under a 5x per core limit', () => {
+  const classification = classifyPressure(
+    MEASURED_MAC_CPU,
+    MEASURED_MAC_MEMORY,
+    { state: 'ok', load1: 67.15, cpuCount: 16 },
+    readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
+  );
+  assert.equal(classification.verdict, 'take-more-work');
+  assert.equal(classification.pressure, 41.85);
+  assert.ok(classification.reasons.includes('load 4.20x per core < 5.00x per core, graded separately'));
+});
+
+test('a Mac at exactly its per-core load limit is refused', () => {
+  const atLimit = classifyPressure(
+    MEASURED_MAC_CPU,
+    MEASURED_MAC_MEMORY,
+    { state: 'ok', load1: 80, cpuCount: 16 },
+    readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
+  );
+  const justUnder = classifyPressure(
+    MEASURED_MAC_CPU,
+    MEASURED_MAC_MEMORY,
+    { state: 'ok', load1: 79.9, cpuCount: 16 },
+    readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
+  );
+  assert.equal(atLimit.verdict, 'at-capacity');
+  assert.ok(atLimit.reasons.includes('load 5.00x per core >= 5.00x per core, graded separately'));
+  assert.equal(justUnder.verdict, 'take-more-work');
+});
+
+test('the per-core limit scales with the number of cores on a smaller Mac', () => {
+  const eightCoresAtLimit = classifyPressure(
+    MEASURED_MAC_CPU,
+    MEASURED_MAC_MEMORY,
+    { state: 'ok', load1: 40, cpuCount: 8 },
+    readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
+  );
+  const eightCoresBelowLimit = classifyPressure(
+    MEASURED_MAC_CPU,
+    MEASURED_MAC_MEMORY,
+    { state: 'ok', load1: 39, cpuCount: 8 },
+    readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
+  );
+  assert.equal(eightCoresAtLimit.verdict, 'at-capacity');
+  assert.equal(eightCoresBelowLimit.verdict, 'take-more-work');
+});
+
+test('a Mac under its load limit is still refused when memory or cpu reaches the at-capacity threshold', () => {
+  const memoryWarn = classifyPressure(
+    MEASURED_MAC_CPU,
+    parseDarwinMemoryPressure('60\n2\n'),
+    { state: 'ok', load1: 16, cpuCount: 16 },
+    readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
+  );
+  const cpuSaturated = classifyPressure(
+    { state: 'ok', avg10: 95, avg60: 95 },
+    MEASURED_MAC_MEMORY,
+    { state: 'ok', load1: 16, cpuCount: 16 },
+    readDarwinIoPressure(),
+    loadGradedAgainstItsOwnLimit(5),
+  );
+  assert.equal(memoryWarn.verdict, 'at-capacity');
+  assert.equal(cpuSaturated.verdict, 'at-capacity');
 });

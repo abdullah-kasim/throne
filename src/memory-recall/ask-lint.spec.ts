@@ -238,3 +238,14 @@ test('the default scope is every directory under the home memory root, each name
     ].sort((left, right) => ((left[0] as string) < (right[0] as string) ? -1 : 1)),
   );
 });
+
+test('ask lint names the repository of a home-relative memory directory', async () => {
+  const home = path.join(await temporaryRoot(), 'home');
+  await mkdir(path.join(home, 'repos', 'orchard-shop'), { recursive: true });
+  await mkdir(path.join(home, '.memories', 'repos-orchard-shop'), { recursive: true });
+  const directories = await projectMemoryDirectoriesToLint(home);
+  assert.deepEqual(
+    directories.map((directory) => [path.basename(directory.path), directory.repositoryName]),
+    [['repos-orchard-shop', 'orchard-shop']],
+  );
+});

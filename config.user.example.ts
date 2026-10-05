@@ -103,7 +103,7 @@ const userConfig: UserConfigFileOverride = {
   // the per-model clamp applies.
   steering: {
     activePlanPresetName: 'OpusOnly',
-    activeTargetEffort: 1,
+    activeTargetEffort: 3,
 
     // Choose the message-delivery queue explicitly. Omit this field to retain
     // the existing `send-agent-bullmq-queue-transport` feature-flag behavior.
@@ -123,13 +123,13 @@ const userConfig: UserConfigFileOverride = {
     // 5 max). A role left out uses activeTargetEffort. A queue row's own
     // --effort still wins for its campaign.
     //
-    roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3 },
+    roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3, stager: 3, regent: 3 },
 
     // WHICH PAIR THE REGENT RUNS ON. Absent = the old launch (the recorded
     // data/regent route at effort 1, or bare bin/claudey). When set, the
     // Regent launches on this pair at roleEfforts.regent.
     //
-    // regentRoute: { harness: 'claude', model: 'opus' },
+    regentRoute: { harness: 'claude', model: 'opus' },
 
     // Durable operator disable for the token-balance load balancer
     // (src/token-balance/), independent of that feature's own ship-dark

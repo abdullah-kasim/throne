@@ -6,6 +6,7 @@
 import { TransportClient, TransportConnectionError } from "../transport/transport-client.ts";
 import {
   createCapturedSinks,
+  runCapturedWork,
   type ManualTriggerRouteResult,
 } from "../transport/manual-trigger-route.ts";
 import {
@@ -60,19 +61,13 @@ export const ALPHA_AUTOSCALE_ROUTE_PATH = "alpha-autoscale";
 export async function handleAlphaAutoscaleRoute(envelope: {
   readonly args: readonly string[];
 }): Promise<ManualTriggerRouteResult> {
-  const { sinks, read } = createCapturedSinks();
+  const captured = createCapturedSinks();
   const worker = new AlphaAutoscaleHostedWorker(
     resolveAlphaAutoscaleDependencies({
-      log: (message) => sinks.stdout(`${message}\n`),
+      log: (message) => captured.sinks.stdout(`${message}\n`),
     }),
   );
-  try {
-    await worker.runOnce();
-    return { exitCode: 0, ...read() };
-  } catch (error) {
-    sinks.stderr(`${error instanceof Error ? error.message : String(error)}\n`);
-    return { exitCode: 1, ...read() };
-  }
+  return runCapturedWork(captured, () => worker.runOnce());
 }
 
 const TRANSPORT_FLAG = "--transport";

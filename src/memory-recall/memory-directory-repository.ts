@@ -1,5 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { physicalPath } from './memory-files.ts';
 
 const SLUG_SEPARATOR = '-';
 const HIDDEN_NAME_PREFIX = '.';
@@ -30,13 +31,28 @@ export function repositoryNameOfCheckout(checkout: string): string {
   return name.startsWith(HIDDEN_NAME_PREFIX) ? path.basename(path.dirname(checkout)) : name;
 }
 
-export async function checkoutOfMemoryDirectory(memoryDirectory: string): Promise<string | undefined> {
-  const slug = path.basename(memoryDirectory);
-  if (!slug.startsWith(SLUG_SEPARATOR)) return undefined;
-  return directorySpelledBySlug(path.sep, slug.slice(SLUG_SEPARATOR.length));
+async function walkStartOfSlug(
+  slug: string,
+  homeDirectory: string,
+): Promise<{ directory: string; remainingSlug: string }> {
+  if (slug.startsWith(SLUG_SEPARATOR)) {
+    return { directory: path.sep, remainingSlug: slug.slice(SLUG_SEPARATOR.length) };
+  }
+  return { directory: await physicalPath(homeDirectory), remainingSlug: slug };
 }
 
-export async function repositoryNameOfMemoryDirectory(memoryDirectory: string): Promise<string | undefined> {
-  const checkout = await checkoutOfMemoryDirectory(memoryDirectory);
+export async function checkoutOfMemoryDirectory(
+  memoryDirectory: string,
+  homeDirectory: string,
+): Promise<string | undefined> {
+  const { directory, remainingSlug } = await walkStartOfSlug(path.basename(memoryDirectory), homeDirectory);
+  return directorySpelledBySlug(directory, remainingSlug);
+}
+
+export async function repositoryNameOfMemoryDirectory(
+  memoryDirectory: string,
+  homeDirectory: string,
+): Promise<string | undefined> {
+  const checkout = await checkoutOfMemoryDirectory(memoryDirectory, homeDirectory);
   return checkout === undefined ? undefined : repositoryNameOfCheckout(checkout);
 }

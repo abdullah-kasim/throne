@@ -76,14 +76,23 @@ export const EXTERNAL_MEMORY_EXECUTABLE = 'memory-dir';
  *  personal `~/.memories/`. */
 export const THRONE_MEMORIES_DIRNAME = path.join('.throne', 'memories');
 
-/** Every `/` becomes `-`, the leading one included, so
- *  `/home/x/repos/app` -> `-home-x-repos-app`. */
-export function memorySlug(repoRoot: string): string {
-  return repoRoot.replaceAll('/', '-');
+function isInsideDirectory(directory: string, candidate: string): boolean {
+  return candidate.startsWith(`${directory}${path.sep}`);
 }
 
-export function throneNativeMemoryDir(homeDir: string, repoRoot: string): string {
-  return path.join(homeDir, THRONE_MEMORIES_DIRNAME, memorySlug(repoRoot));
+export function memorySlug(physicalHomeDir: string, repoRoot: string): string {
+  const slugSource = isInsideDirectory(physicalHomeDir, repoRoot)
+    ? path.relative(physicalHomeDir, repoRoot)
+    : repoRoot;
+  return slugSource.replaceAll(path.sep, '-');
+}
+
+export function throneNativeMemoryDir(
+  homeDir: string,
+  physicalHomeDir: string,
+  repoRoot: string,
+): string {
+  return path.join(homeDir, THRONE_MEMORIES_DIRNAME, memorySlug(physicalHomeDir, repoRoot));
 }
 
 async function resolveRepoRoot(
@@ -162,7 +171,8 @@ export async function resolveMemoryDir(
 
   const directive = await findProjectDirective(root, deps);
   const external = await deps.findExecutable(EXTERNAL_MEMORY_EXECUTABLE);
-  const nativeDir = throneNativeMemoryDir(deps.homeDir(), root);
+  const homeDir = deps.homeDir();
+  const nativeDir = throneNativeMemoryDir(homeDir, await deps.realpath(homeDir), root);
 
   if (directive !== undefined) {
     const evidence = `${directive.file}:${directive.line}`;

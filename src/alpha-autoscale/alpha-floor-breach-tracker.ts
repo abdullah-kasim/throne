@@ -25,6 +25,12 @@ export class AlphaFloorBreachTracker {
     return this.now() - this.breachStartedAtMs;
   }
 
+  currentBreachDurationMs(): number {
+    return this.breachStartedAtMs === undefined
+      ? 0
+      : this.now() - this.breachStartedAtMs;
+  }
+
   /** Test-only escape hatch for clearing process-lifetime state. */
   resetForTest(): void {
     this.breachStartedAtMs = undefined;

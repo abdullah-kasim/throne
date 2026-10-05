@@ -68,7 +68,9 @@ import {
 } from './recall-records.ts';
 import type { CorrectionVerdict } from './correction-question.ts';
 import { recallForPrompt, type RecallForPromptDependencies } from './recall-for-prompt.ts';
+import { percentOf } from './other-repositories-output.ts';
 import { JSON_OUTPUT, TEXT_OUTPUT } from './recall-output.ts';
+import { LOWEST_PROBABILITY_WORTH_SERVING } from './select-memories.ts';
 import { gradedPromptsIn, printSpotCheck } from './spot-check.ts';
 import { appendSpotCheckVerdict, type SpotCheckVerdict } from './spot-check-verdicts.ts';
 
@@ -96,9 +98,11 @@ export const USAGE =
   'directory as given; both repeat. recall.globalMemoryDirectories in config.user.ts is searched too unless\n' +
   '--no-global is passed. The output names every directory it searched.\n' +
   '--session ID remembers what was printed for that session and never prints it twice.\n' +
-  'After the verdict line, up to three other repositories that may hold relevant memories are listed, each\n' +
-  'with its probability and the recall command that searches it; they are only listed, never searched. Every\n' +
-  'repository recall searches is remembered in ~/.throne/data/recall/repositories.json for this question.\n' +
+  `After the verdict line, each other repository Jev rates at least ${percentOf(LOWEST_PROBABILITY_WORTH_SERVING)} likely to hold a relevant memory\n` +
+  '(the serving floor; at most three, most likely first) is named with its probability and a recall command\n' +
+  'carrying the task, to run before looking it up yourself; it is never searched here. Less likely\n' +
+  'repositories are not printed. Every repository recall searches is remembered in\n' +
+  '~/.throne/data/recall/repositories.json for this question.\n' +
   '--json prints { scope, verdict, memories, withheldMemories, otherRepositories } instead of the text.\n' +
   '--hook prints nothing unless recall.hookEnabled is true, and never exits non-zero. It searches only the\n' +
   'repository the session sits in plus the global memories, and says so whenever it prints. Each hook prompt is\n' +

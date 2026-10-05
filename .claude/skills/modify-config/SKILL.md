@@ -44,6 +44,7 @@ Top-level sections: persona fields at the top level, `ntfy`, `steering`,
 | `tokenBalanceEnabled` | boolean | `false` | the token-balance load balancer |
 | `autoscaleEnabled` | boolean | `true` | the autoscaler, on every tick |
 | `regentHeartbeatNudgeEnabled` | boolean | `false` | the Regent heartbeat timer |
+| `macLoadPerCoreAtCapacity` | number above 0 | `5` | on macOS, the 1-minute load per core at which the autoscaler and `resource-pressure` say at-capacity (load ≥ this × cores); Linux keeps load inside the 70-graded figure. The long-lived backend reads it at start, so restart it after a change |
 
 The other sections, each field listed in `docs/CONFIG.md`:
 

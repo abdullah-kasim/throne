@@ -102,7 +102,7 @@ export async function repositoriesOfProjectMemoryDirectories(
 ): Promise<readonly RegisteredRepository[]> {
   const repositories = await Promise.all(
     (await projectMemoryDirectoriesUnder(homeDirectory)).map(async (memoryDirectory) => {
-      const checkout = await checkoutOfMemoryDirectory(memoryDirectory);
+      const checkout = await checkoutOfMemoryDirectory(memoryDirectory, homeDirectory);
       if (checkout === undefined) return undefined;
       return {
         checkout,

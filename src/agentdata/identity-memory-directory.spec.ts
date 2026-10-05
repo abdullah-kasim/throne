@@ -22,7 +22,7 @@ after(async () => {
 
 const MEMORY: MemoryResolution = {
   mode: 'external',
-  path: '/home/op/.memories/-home-op-repos-app',
+  path: '/home/op/.memories/repos-app',
   repoRoot: '/home/op/repos/app',
   evidence: '/home/op/.local/bin/memory-dir',
 };
@@ -35,7 +35,7 @@ for (const role of ['Alpha', 'Shadow', 'Stager'] as const) {
       role,
       memory: MEMORY,
     });
-    assert.match(prompt, /`\/home\/op\/\.memories\/-home-op-repos-app`/);
+    assert.match(prompt, /`\/home\/op\/\.memories\/repos-app`/);
     assert.match(prompt, /mode external/);
     assert.match(prompt, /\/home\/op\/\.local\/bin\/memory-dir/);
     assert.doesNotMatch(prompt, /agent_docs\/MEMORY/);

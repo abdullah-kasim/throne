@@ -1,35 +1,22 @@
-import { Command as CommanderCommand } from "commander";
 import { Optional } from "@nestjs/common";
-import { Command, CommandRunner } from "nest-commander";
+import { Command } from "nest-commander";
 import { AlphaAutoscaleHostedWorker } from "./alpha-autoscale.hosted-worker.ts";
 import { TransportClient } from "../transport/transport-client.ts";
 import { resolveTransportMode } from "../transport/resolve-transport-mode.ts";
-import {
-  createAlphaAutoscaleTransportClient,
-  parseAlphaAutoscaleArgs,
-  runAlphaAutoscaleOverTransport,
-} from "./alpha-autoscale-route.ts";
+import { parseAlphaAutoscaleArgs, runAlphaAutoscaleOverTransport } from "./alpha-autoscale-route.ts";
+import { AutoscaleTransportCommand } from "./autoscale-transport.command.ts";
 
 @Command({
   name: "alpha-autoscale-tick",
   allowUnknownOptions: true,
   allowExcessArgs: true,
 })
-export class AlphaAutoscaleTickCommand extends CommandRunner {
-  private readonly transportClient: TransportClient;
-
+export class AlphaAutoscaleTickCommand extends AutoscaleTransportCommand {
   constructor(
     private readonly worker: AlphaAutoscaleHostedWorker,
     @Optional() transportClient?: TransportClient,
   ) {
-    super();
-    this.transportClient = transportClient ?? createAlphaAutoscaleTransportClient();
-  }
-
-  override setCommand(command: CommanderCommand): this {
-    super.setCommand(command);
-    command.helpOption(false);
-    return this;
+    super(transportClient);
   }
 
   async run(passedParams: string[]): Promise<void> {

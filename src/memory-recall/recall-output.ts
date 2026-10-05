@@ -2,6 +2,7 @@ import { answeringBackendOf } from '../relevance-classifier/answering-backend.ts
 import type { RecallConfig } from '../relevance-classifier/recall-user-config.ts';
 import type { OtherRepositories } from './other-repositories.ts';
 import {
+  isAnyRepositoryShown,
   isOtherRepositoriesBlockWorthShowing,
   otherRepositoriesJsonOf,
   renderedOtherRepositoriesBlock,
@@ -44,6 +45,7 @@ export function renderedRecallText(
   scope: RecallScope,
   config: Pick<RecallConfig, 'verdictLineThreshold'>,
   source: PromptJudgement['source'],
+  taskText: string,
 ): string {
   const servedMemories = renderedServedMemories(answer.decisions);
   const verdictLine = isVerdictLineWorthShowing(
@@ -59,10 +61,12 @@ export function renderedRecallText(
     source === COMMAND_SOURCE,
     memoriesAndVerdict.length > 0,
   )
-    ? renderedOtherRepositoriesBlock(answer.otherRepositories)
+    ? renderedOtherRepositoriesBlock(answer.otherRepositories, taskText)
     : '';
   const printed = memoriesAndVerdict + otherRepositoriesBlock;
-  const scopeLine = isScopeLineWorthShowing(source, printed.length > 0) ? renderedScopeLine(scope) : '';
+  const scopeLine = isScopeLineWorthShowing(source, printed.length > 0)
+    ? renderedScopeLine(scope, isAnyRepositoryShown(answer.otherRepositories))
+    : '';
   return printed + scopeLine;
 }
 
@@ -74,7 +78,7 @@ export function renderedWithheldMemoriesLine(decisions: readonly MemoryDecision[
     .join(', ')}\n`;
 }
 
-export function renderedRecallJson(answer: RecallAnswer, scope: RecallScope): string {
+export function renderedRecallJson(answer: RecallAnswer, scope: RecallScope, taskText: string): string {
   const json = {
     scope: {
       repositories: scope.repositories.map((repository) => repository.directory),
@@ -98,7 +102,7 @@ export function renderedRecallJson(answer: RecallAnswer, scope: RecallScope): st
       probability: probabilityOfYes(decision),
       reason,
     })),
-    otherRepositories: otherRepositoriesJsonOf(answer.otherRepositories),
+    otherRepositories: otherRepositoriesJsonOf(answer.otherRepositories, taskText),
   };
   return `${JSON.stringify(json, null, 2)}\n`;
 }

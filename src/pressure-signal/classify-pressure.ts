@@ -62,6 +62,16 @@ export type LoadReading =
   | { readonly state: "ok"; readonly load1: number; readonly cpuCount: number }
   | { readonly state: "unknown" };
 
+export type LoadLimit =
+  | { readonly gradedIn: "pressure-figure" }
+  | { readonly gradedIn: "its-own-limit"; readonly loadPerCoreAtCapacity: number };
+
+export const LOAD_GRADED_IN_PRESSURE_FIGURE: LoadLimit = { gradedIn: "pressure-figure" };
+
+export function loadGradedAgainstItsOwnLimit(loadPerCoreAtCapacity: number): LoadLimit {
+  return { gradedIn: "its-own-limit", loadPerCoreAtCapacity };
+}
+
 export type PressureVerdict = "take-more-work" | "at-capacity" | "unknown";
 
 export interface PressureClassification {
@@ -110,6 +120,7 @@ export function classifyPressure(
   memory: PsiReading,
   load: LoadReading,
   io: PsiReading,
+  loadLimit: LoadLimit,
 ): PressureClassification {
   if (
     cpu.state === "unknown" ||
@@ -145,13 +156,15 @@ export function classifyPressure(
   const loadPerCore = load.load1 / load.cpuCount;
   const loadPressure = loadPerCore * LOAD_PRESSURE_PER_CORE_RATIO;
   const psiMax = Math.max(cpu.avg10, cpu.avg60, memory.avg10, memory.avg60);
-  const pressure = Math.max(psiMax, loadPressure);
+  const pressure = loadLimit.gradedIn === "pressure-figure" ? Math.max(psiMax, loadPressure) : psiMax;
   const ioFull = Math.max(io.avg10, io.avg60);
 
   const pressureAtCapacity = pressure >= AT_CAPACITY_THRESHOLD;
   const ioAtCapacity = ioFull >= IO_AT_CAPACITY_THRESHOLD;
+  const loadAtItsOwnLimit =
+    loadLimit.gradedIn === "its-own-limit" && loadPerCore >= loadLimit.loadPerCoreAtCapacity;
   const verdict: PressureVerdict =
-    pressureAtCapacity || ioAtCapacity ? "at-capacity" : "take-more-work";
+    pressureAtCapacity || ioAtCapacity || loadAtItsOwnLimit ? "at-capacity" : "take-more-work";
 
   return {
     verdict,
@@ -159,8 +172,16 @@ export function classifyPressure(
     reasons: [
       `pressure ${pressure.toFixed(2)} ${pressureAtCapacity ? ">=" : "<"} ${AT_CAPACITY_THRESHOLD}`,
       `psi max ${psiMax.toFixed(2)} (cpu ${Math.max(cpu.avg10, cpu.avg60).toFixed(2)}, memory ${Math.max(memory.avg10, memory.avg60).toFixed(2)})`,
-      `load ${loadPerCore.toFixed(2)}x per core = ${loadPressure.toFixed(2)} pressure`,
+      loadReasonOf(loadPerCore, loadPressure, loadLimit),
       `io-full ${ioFull.toFixed(2)} ${ioAtCapacity ? ">=" : "<"} ${IO_AT_CAPACITY_THRESHOLD}`,
     ],
   };
+}
+
+function loadReasonOf(loadPerCore: number, loadPressure: number, loadLimit: LoadLimit): string {
+  if (loadLimit.gradedIn === "pressure-figure") {
+    return `load ${loadPerCore.toFixed(2)}x per core = ${loadPressure.toFixed(2)} pressure`;
+  }
+  const comparison = loadPerCore >= loadLimit.loadPerCoreAtCapacity ? ">=" : "<";
+  return `load ${loadPerCore.toFixed(2)}x per core ${comparison} ${loadLimit.loadPerCoreAtCapacity.toFixed(2)}x per core, graded separately`;
 }

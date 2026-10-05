@@ -7,7 +7,6 @@ import { test } from 'node:test';
 
 import {
   formatMemoryStandingInstruction,
-  memorySlug,
   resolveMemoryDir,
   type MemoryResolverDeps,
 } from './memory-dir-resolver.ts';
@@ -31,7 +30,7 @@ function fakeDeps(world: FakeWorld): MemoryResolverDeps & { toolCalls: string[][
     findExecutable: async (name) => world.executables?.[name],
     runExecutable: async (executable, args) => {
       toolCalls.push([executable, ...args]);
-      return `${world.toolOutput ?? '/home/op/.memories/-home-op-repos-app'}\n`;
+      return `${world.toolOutput ?? '/home/op/.memories/repos-app'}\n`;
     },
     realpath: async (candidate) => world.realpaths?.[candidate] ?? candidate,
     homeDir: () => '/home/op',
@@ -46,7 +45,7 @@ test('a linked worktree resolves to the main checkout and the throne-native slug
   const resolution = await resolveMemoryDir(WORKTREE, fakeDeps({ commonDirs: WORKTREE_COMMON }));
   assert.equal(resolution.mode, 'throne-native');
   assert.equal(resolution.repoRoot, MAIN);
-  assert.equal(resolution.path, '/home/op/.throne/memories/-home-op-repos-app');
+  assert.equal(resolution.path, '/home/op/.throne/memories/repos-app');
 });
 
 test('a subdirectory of the main checkout collapses to the same root via a relative common dir', async () => {
@@ -71,7 +70,7 @@ test('outside any git repository the directory itself is the identity (non-git p
   const resolution = await resolveMemoryDir('/home/op/notes', fakeDeps({}));
   assert.equal(resolution.mode, 'throne-native');
   assert.equal(resolution.repoRoot, '/home/op/notes');
-  assert.equal(resolution.path, '/home/op/.throne/memories/-home-op-notes');
+  assert.equal(resolution.path, '/home/op/.throne/memories/notes');
 });
 
 test('a symlinked path is resolved to its physical form before slugging', async () => {
@@ -100,7 +99,7 @@ test('a project directive plus the operator tool runs the tool from the physical
   });
   const resolution = await resolveMemoryDir(WORKTREE, deps);
   assert.equal(resolution.mode, 'project-declared');
-  assert.equal(resolution.path, '/home/op/.memories/-home-op-repos-app');
+  assert.equal(resolution.path, '/home/op/.memories/repos-app');
   assert.equal(resolution.evidence, `${MAIN}/AGENTS.md:3 (via /usr/local/bin/memory-dir)`);
   assert.deepEqual(deps.toolCalls, [['/usr/local/bin/memory-dir', WORKTREE]]);
   assert.equal(resolution.warning, undefined);
@@ -112,7 +111,7 @@ test('a project directive without the tool falls back to throne-native WITH a wa
     files: { [`${MAIN}/CLAUDE.md`]: 'Memory lives under ~/.memories per team convention.' },
   }));
   assert.equal(resolution.mode, 'project-declared');
-  assert.equal(resolution.path, '/home/op/.throne/memories/-home-op-repos-app');
+  assert.equal(resolution.path, '/home/op/.throne/memories/repos-app');
   assert.match(resolution.warning ?? '', new RegExp(`${MAIN}/CLAUDE.md:1`));
   assert.match(resolution.warning ?? '', /~\/\.memories/);
 });
@@ -129,11 +128,11 @@ test('the operator tool alone gives external mode with its output verbatim', asy
   const deps = fakeDeps({
     commonDirs: WORKTREE_COMMON,
     executables: { 'memory-dir': '/home/op/.local/bin/memory-dir' },
-    toolOutput: '/home/op/.memories/-home-op-repos-app',
+    toolOutput: '/home/op/.memories/repos-app',
   });
   const resolution = await resolveMemoryDir(WORKTREE, deps);
   assert.equal(resolution.mode, 'external');
-  assert.equal(resolution.path, '/home/op/.memories/-home-op-repos-app');
+  assert.equal(resolution.path, '/home/op/.memories/repos-app');
   assert.equal(resolution.evidence, '/home/op/.local/bin/memory-dir');
 });
 
@@ -148,19 +147,15 @@ test('a tool that prints garbage is an error, never a relative memory path', asy
   );
 });
 
-test('memorySlug keeps the leading dash', () => {
-  assert.equal(memorySlug('/a/b'), '-a-b');
-});
-
 test('the standing instruction names the path, mode and evidence, and carries the warning', () => {
   const text = formatMemoryStandingInstruction({
     mode: 'project-declared',
-    path: '/home/op/.throne/memories/-home-op-repos-app',
+    path: '/home/op/.throne/memories/repos-app',
     repoRoot: MAIN,
     evidence: `${MAIN}/CLAUDE.md:1`,
     warning: 'read CLAUDE.md',
   });
-  assert.match(text, /`\/home\/op\/\.throne\/memories\/-home-op-repos-app`/);
+  assert.match(text, /`\/home\/op\/\.throne\/memories\/repos-app`/);
   assert.match(text, /mode project-declared/);
   assert.match(text, /WARNING: read CLAUDE.md/);
   assert.match(text, /throne memory-dir --json/);

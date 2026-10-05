@@ -11,7 +11,7 @@ import type { MemoryResolution } from '../src/memory-dir/memory-dir-resolver.ts'
 
 const RESOLVED: MemoryResolution = {
   mode: 'throne-native',
-  path: '/home/op/.throne/memories/-home-op-repos-app',
+  path: '/home/op/.throne/memories/repos-app',
   repoRoot: '/home/op/repos/app',
   evidence: 'nothing else declared',
 };

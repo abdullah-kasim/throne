@@ -10,6 +10,7 @@ execute-todos	shipped
 finished	not-a-skill
 frontend-critic	shipped
 gap-analysis-model	shipped
+gauntlet	shipped
 herdr	generated
 ledger	not-a-skill
 loop	harness
@@ -17,6 +18,7 @@ make-todos	shipped
 markdown	not-a-skill
 modify-config	shipped
 no-alpha	shipped
+oneshot	shipped
 plan-and-run-todos	shipped
 plan-task-split	shipped
 plan-todos	shipped

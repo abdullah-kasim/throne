@@ -1,11 +1,12 @@
 import { CronExpression } from "@nestjs/schedule";
 import { Injectable, Optional } from "@nestjs/common";
-import path from "node:path";
 import type { CronHostedWorker } from "../throne-backend/hosted-worker.types.ts";
-import { readPsiPressure } from "../pressure-signal/psi-pressure-reader.ts";
-import { classifyPressure } from "../pressure-signal/classify-pressure.ts";
 import { readCapacityPressure } from "../keep-going/keep-going-pressure-report.ts";
-import { queueRowEffortFlags } from "./queue-row-effort-flags.ts";
+import {
+  createAlphaArguments,
+  publishedCliEntrypoint,
+  spawnGitTreeArguments,
+} from "./alpha-spawn-arguments.ts";
 import { readLaunchLedger } from "../alpha-launch-queue/launch-ledger-reader.ts";
 import { DEFAULT_LAUNCH_LEDGER_PATH } from "../alpha-launch-queue/paths.ts";
 import {
@@ -54,6 +55,13 @@ import { decideAutoscaleActionWithFloor } from "./decide-autoscale-action.ts";
 import { alphaAutoscaleExecutionGate } from "./alpha-autoscale-execution-gate.ts";
 import { readBypassFlagsAuthorizedForAlpha } from "./authorized-bypass-flags.ts";
 import {
+  autoBriefUnknownReason,
+  launchLedgerUnknownReason,
+  launchStopReason,
+  skipReasonForDecision,
+  unresolvedLaunchHistoryMessage,
+} from "./autoscale-skip-wording.ts";
+import {
   ALPHA_AUTOSCALE_SWEEP_LOCK_PATH,
   acquireSweepLock,
   describeHeldSweepLock,
@@ -64,13 +72,6 @@ import {
 } from "./alpha-autoscale-sweep-lock.ts";
 
 export const ALPHA_AUTOSCALE_HOSTED_WORKER_NAME = "alpha-autoscale";
-
-/** Hard ceiling of concurrent executable-active Alphas, independent of and
- *  in addition to the pressure signal -- the Lord's own number. */
-export const ALPHA_AUTOSCALE_CEILING = ALPHA_AUTOSCALE_BOUNDS.ceiling;
-
-const CPU_PRESSURE_PATH = "/proc/pressure/cpu";
-const MEMORY_PRESSURE_PATH = "/proc/pressure/memory";
 
 export interface AlphaAutoscaleDependencies {
   log: (message: string) => void;
@@ -234,7 +235,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     }
     const autoBrief = this.dependencies.autoBriefEligibleItems();
     if (autoBrief.state === "unknown") {
-      this.dependencies.log(`skip: auto-brief unknown: ${autoBrief.reason}`);
+      this.dependencies.log(`skip: ${autoBriefUnknownReason(autoBrief.reason)}`);
       return;
     } else if (autoBrief.state === "ineligible") {
       this.dependencies.log(
@@ -292,7 +293,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       const objectiveCode = readyQueue.candidates[0]!.objectiveCode;
       const ledger = await this.dependencies.readLaunchLedger(objectiveCode);
       if (ledger.state === "unknown") {
-        this.dependencies.log(`skip: launch ledger unknown: ${ledger.reason}`);
+        this.dependencies.log(`skip: ${launchLedgerUnknownReason(ledger.reason)}`);
         return false;
       }
       selectedCandidateLedgerEntry = ledger.entries.find(
@@ -339,29 +340,17 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     };
 
     if (decision.action === "skip") {
-      const reason =
-        decision.reason === "cooldown not yet elapsed since last spawn" &&
-        !cooldown.elapsed
-          ? cooldown.reason
-          : decision.reason;
-      this.dependencies.log(`skip: ${reason}`);
+      this.dependencies.log(`skip: ${skipReasonForDecision(decision, cooldown)}`);
       await reportBreach();
       return false;
     }
     if (decision.action === "unresolved") {
-      this.dependencies.log(
-        `launch history unresolved for "${decision.name}" -- refusing to spawn (distinct from an empty queue)`,
-      );
+      this.dependencies.log(unresolvedLaunchHistoryMessage(decision.name));
       await reportBreach();
       return false;
     }
 
-    const stopReason =
-      launchedThisTick.size >= launchBudget
-        ? `launch budget of ${launchBudget} for tick pressure ${pressure.pressure ?? "unknown"} is spent`
-        : launchedThisTick.has(decision.candidate.name)
-          ? `"${decision.candidate.name}" was already launched this tick and is still offered by the ready queue`
-          : undefined;
+    const stopReason = launchStopReason(launchedThisTick, launchBudget, pressure, decision.candidate.name);
     if (stopReason !== undefined) {
       this.dependencies.log(`skip: ${stopReason}`);
       if (launchedThisTick.size === 0) {
@@ -382,29 +371,9 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       });
       return false;
     }
-    const cliEntrypoint = path.join(
-      resolved.repoRoot,
-      "dist",
-      "src",
-      "tools.js",
-    );
+    const cliEntrypoint = publishedCliEntrypoint(resolved.repoRoot);
     const candidate = decision.candidate;
-    const treeArguments = [
-      cliEntrypoint,
-      "spawn-git-tree",
-      candidate.name,
-      "--repo",
-      candidate.targetRepo,
-      "--base",
-      candidate.baseCommit,
-      "--target-branch",
-      candidate.targetBranch,
-      // PR-mode: permit creating the (PR) target branch at the authorized
-      // base when it does not exist locally yet, forked from the mainline.
-      ...(candidate.createTargetFromBranch === undefined
-        ? []
-        : ["--create-target-from", candidate.createTargetFromBranch]),
-    ];
+    const treeArguments = spawnGitTreeArguments(cliEntrypoint, candidate);
 
     const dispatchPressure = this.dependencies.readPressure();
     const dispatchDecision = decideAutoscaleActionWithFloor({
@@ -439,10 +408,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       return false;
     }
 
-    const treeOutcome = await this.dependencies.invokeCli(
-      process.execPath,
-      treeArguments,
-    );
+    const treeOutcome = await this.dependencies.invokeCli(process.execPath, treeArguments);
     if (treeOutcome.outcome !== "success") {
       const result =
         treeOutcome.outcome === "retryable-failure-exhausted"
@@ -476,34 +442,10 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         candidate.objectiveCode,
         candidate.name,
       )) ?? [];
-    const outcome = await this.dependencies.invokeCli(process.execPath, [
-      cliEntrypoint,
-      "create-agent",
-      "--model",
-      candidate.model,
-      ...authorizedBypassFlags,
-      ...queueRowEffortFlags(candidate.effort),
-      ...(candidate.modelHint === null || candidate.modelHint === undefined
-        ? []
-        : ["--model-hint", `${candidate.modelHint.harness}/${candidate.modelHint.model}`]),
-      ...(candidate.deliverableShape === null || candidate.deliverableShape === undefined
-        ? []
-        : ["--deliverable-shape", candidate.deliverableShape]),
-      ...(candidate.sliceless === true ? ["--sliceless"] : []),
-      ...(candidate.shadowless === true || candidate.sliceless === true ? ["--shadowless"] : []),
-      "--role",
-      "Alpha",
-      "--supervisor",
-      "Regent",
-      "--cwd",
-      candidateCwd,
-      "--name",
-      candidate.name,
-      "--objective-code",
-      candidate.objectiveCode,
-      "--prompt",
-      candidate.objective,
-    ]);
+    const outcome = await this.dependencies.invokeCli(
+      process.execPath,
+      createAlphaArguments(cliEntrypoint, candidate, authorizedBypassFlags, candidateCwd),
+    );
 
     if (outcome.outcome === "retryable-failure-exhausted") {
       this.dependencies.log(

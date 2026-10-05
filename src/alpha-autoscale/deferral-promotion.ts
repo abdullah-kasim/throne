@@ -7,6 +7,7 @@ import type { RegentQueueItemRow } from "../regent-queue/regent-queue-row.ts";
 import {
   idleRecoveryCandidates,
   releasableDeferrals,
+  type DeferralRelease,
 } from "./deferral-release.ts";
 
 /**
@@ -30,6 +31,41 @@ export interface DeferralPromotionOutcome {
   /** Set when the recovered row had been held awaiting a named person, so the
    *  notice can say whose hold was overridden rather than losing that fact. */
   readonly overriddenAuthority: string | null;
+}
+
+export interface DeferralPromotionPlan {
+  readonly released: readonly DeferralRelease[];
+  readonly recovered: RegentQueueItemRow | undefined;
+}
+
+export function reopenRows(
+  items: readonly RegentQueueItemRow[],
+  objectiveCodes: ReadonlySet<string>,
+): RegentQueueItemRow[] {
+  return items.map((item) =>
+    item.objectiveCode !== null && objectiveCodes.has(item.objectiveCode)
+      ? { ...item, status: RegentQueueItemStatus.Open }
+      : item,
+  );
+}
+
+export function planDeferralPromotion(
+  items: readonly RegentQueueItemRow[],
+): DeferralPromotionPlan {
+  const released = releasableDeferrals(items);
+  const afterRelease = reopenRows(
+    items,
+    new Set(released.map((release) => release.objectiveCode)),
+  );
+  const somethingLaunchable = afterRelease.some(
+    (item) => item.status === RegentQueueItemStatus.Open,
+  );
+  return {
+    released,
+    recovered: somethingLaunchable
+      ? undefined
+      : idleRecoveryCandidates(afterRelease).launchable[0],
+  };
 }
 
 export interface DeferralPromotionDeps {
@@ -56,39 +92,23 @@ export function promoteDeferredWork(
     // A queue we cannot read is never a queue we may act on: an `unknown`
     // read must not look like "no held work" and must not look like "nothing
     // launchable" either, since the second would fire recovery blind.
-    const readItems = (): RegentQueueItemRow[] | undefined => {
-      const result = store.readAll();
-      return result.state === "items" ? result.items : undefined;
-    };
-    const items = readItems();
-    if (items === undefined) {
+    const read = store.readAll();
+    if (read.state !== "items") {
       return { released: [], recovered: null, overriddenAuthority: null };
     }
-    const released = releasableDeferrals(items);
-    for (const release of released) {
-      const item = items.find(
+    const plan = planDeferralPromotion(read.items);
+    for (const release of plan.released) {
+      const item = read.items.find(
         (candidate) => candidate.objectiveCode === release.objectiveCode,
-      );
-      if (item === undefined) continue;
-      // transitionStatus, not a raw field write: it enforces the allowed
-      // forward transitions, so a release that should not be legal fails here
-      // rather than silently producing an impossible row.
+      )!;
       store.transitionStatus(item.id, RegentQueueItemStatus.Open);
       deps.log?.(
         `deferral released: "${release.objectiveCode}" — ${release.reason}`,
       );
     }
-    const afterRelease = readItems() ?? items;
-    const somethingLaunchable = afterRelease.some(
-      (item) => item.status === RegentQueueItemStatus.Open,
-    );
-    if (somethingLaunchable) {
-      return { released, recovered: null, overriddenAuthority: null };
-    }
-    const recovery = idleRecoveryCandidates(afterRelease);
-    const target = recovery.launchable[0];
+    const target = plan.recovered;
     if (target === undefined) {
-      return { released, recovered: null, overriddenAuthority: null };
+      return { released: plan.released, recovered: null, overriddenAuthority: null };
     }
     store.transitionStatus(target.id, RegentQueueItemStatus.Open);
     deps.log?.(
@@ -96,7 +116,7 @@ export function promoteDeferredWork(
         `the ready queue was exhausted and this row had no agent flying it`,
     );
     return {
-      released,
+      released: plan.released,
       recovered: target.objectiveCode,
       overriddenAuthority: target.deferral?.releaseAuthority ?? null,
     };

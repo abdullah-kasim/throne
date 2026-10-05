@@ -43,6 +43,19 @@ export function createCapturedSinks(): {
   };
 }
 
+export async function runCapturedWork(
+  captured: ReturnType<typeof createCapturedSinks>,
+  work: () => Promise<void>,
+): Promise<ManualTriggerRouteResult> {
+  try {
+    await work();
+    return { exitCode: 0, ...captured.read() };
+  } catch (error) {
+    captured.sinks.stderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    return { exitCode: 1, ...captured.read() };
+  }
+}
+
 /**
  * Runs async work items one at a time in submission order, regardless of
  * which caller (a scheduled cron tick or a REST-triggered manual run)

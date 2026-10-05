@@ -1,7 +1,7 @@
 ---
 name: pr-media
 description: Capture before and after screenshots and click videos of a UI change with agent-browser, one on the PR's base and one on its head, write an index.html contact sheet that shows each pair side by side, and publish the folder to a GitHub pull request, replacing the media the PR body already carries. Use when a PR needs screenshots, a screen recording, a GIF, or "before and after" images, when the user says "take screenshots of your changes", "record a video of pressing it", "add media to the PR", or "publish the screenshots to the PR", when the user asks to refresh, regenerate or redo the PR media or screenshots, or as `/pr-media publish <pr>`. Covers github.com and GitHub Enterprise.
-version: 2.2.0
+version: 2.3.0
 user-invocable: true
 ---
 
@@ -28,6 +28,16 @@ the PR's base (**before**) and once on its head (**after**), and the two
 are shown side by side: a two-column table in the contact sheet and in
 the PR body. A capture that shows only the after leaves the reviewer to
 remember what the page looked like.
+
+**Every interaction the PR changes or adds is recorded as a video**: a
+click, a drag, a resize, an expand or collapse, a navigation or
+transition, a keyboard path. The after is always recorded; the before
+is recorded when the base has an equivalent interaction. Stills support
+videos, never replace them. A folder with no video is wrong unless the
+PR changes no interaction at all: static styling, copy or colour only,
+and then publish needs `--stills-only "<reason>"` (section 4). Phone
+captures follow the same rule at 393x852. Lord, 2026-10-02: "Videos are
+missing - /pr-media must include videos".
 
 **Never commit media to a git branch as a workaround.** Not a `media/`
 branch, not `docs/`, not a release asset. Binary blobs are permanent
@@ -442,11 +452,26 @@ camo on that host.
 ## 4. Publish
 
 ```
-/pr-media publish <pr-url|number> [--folder <dir>] [--dry-run] [--replace-all] [--wizard | --collect]
+/pr-media publish <pr-url|number> [--folder <dir>] [--dry-run] [--replace-all] [--wizard | --collect] [--stills-only "<reason>"]
 ```
 
 ```bash
-node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url|number> [--folder <dir>] [--dry-run] [--replace-all]
+node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url|number> [--folder <dir>] [--dry-run] [--replace-all] [--stills-only "<reason>"]
+```
+
+**A folder with no video is refused.** Right after listing the folder,
+before it reads the body or uploads anything, publish refuses a folder
+that holds no video, with a message naming the video rule (top of this
+file) and `--stills-only`. The refusal is the same in every mode: a
+plain publish, `--wizard`, `--collect`, and `--dry-run`, which reports
+it as the refusal the real run would be. The way out is
+`--stills-only "<reason>"`, for a PR that changes no interaction: the
+reason is required and must not be empty (a missing reason, or an
+option where the reason should be, is refused too), it says why there
+is nothing to record, and publish prints it in its summary.
+
+```bash
+node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" 99 --folder ~/tmp/pr-media-99 --stills-only "copy change only, no interaction"
 ```
 
 ### Refreshing the media
@@ -503,7 +528,8 @@ defaults to `~/tmp/pr-media-<number>`. What the script does, in order:
 1. Lists the folder's media files in body order (pairs by stem, each
    before just ahead of its after) and refuses before any
    upload when the folder is empty or missing, a file is empty, an
-   image is over 10 MB or a video over 100 MB.
+   image is over 10 MB or a video over 100 MB, or no file is a video
+   and `--stills-only` was not given.
 2. Reads the LIVE body: `gh pr view <n> -R <host>/<owner>/<repo> --json
    body -q .body`. Never a local copy. When the folder holds
    `screenshots.md` (section 3), the live `## Screenshots` section is

@@ -901,12 +901,25 @@ critique gate scores *quality* against a rubric and a threshold, and taste
 scores never dilute the conformance standard. Ordinary band (`01`–`98`),
 scheduled by `deps:`, always before `99a`.
 
+The rubric grades visual (perceptual) quality only. Functionality is never an
+axis on that curve: in a bundle whose `00_overview.md` stamps
+`frontend: true`, every critique gate carries the **functional parity check**
+section below, a pass/fail check that fails the gate on any FAIL line whatever
+the score. A gate in any other bundle omits that section and keeps the generic
+rule: PASS at `≥ threshold` with zero errors in every JSON log.
+
+Critique gates may run concurrently; `/execute-todos` owns the size of their
+pool. Each concurrent critic uses its own worktree, its own dev-server and e2e
+port (never one another live critic holds), and its own agent-browser session
+from `agent-browser session id --scope worktree --prefix <critic name>`, which
+it closes when it is done.
+
 ```markdown
 ---
 deps: [NN, 01]                     # the builder it grades, plus the evidence tool
 gate: critique                     # role word; the executor spawns this verdict-only
 module: src/<module>/              # the folder under judgment — the critic never edits it
-threshold: 8.5                     # PASS iff score ≥ threshold AND zero errors in the evidence log
+threshold: 8.5                     # visual score to reach; PASS also needs zero evidence-log errors, and in a frontend bundle zero functional FAIL lines and a green e2e suite
 max_rounds: 4                      # builder-fix rounds before the gate records a residual
 evidence_cmd: <exact 01 invocation with the presets this gate uses>
 reference_set: <path or URL list of reference material; `none` ⇒ rubric-only>
@@ -928,16 +941,28 @@ reference_set: <path or URL list of reference material; `none` ⇒ rubric-only>
 
 ## Axes graded
 
+Visual (perceptual) axes only; functionality is the functional parity check, not an axis.
+
 - <Axis 1 — e.g. materials, lighting, silhouette, motion, timing>
 - <Axis 2>
 - <Every preset the critic must capture: at least three, spanning the domain's hard cases — night, dusk, close zoom, empty state, overload>
 
+## Functional parity check
+
+Mandatory when `00_overview.md` stamps `frontend: true`; omit this section in any other bundle.
+
+- Through the real UI in agent-browser, at the viewport the presets pin, in the critic's own session: list every interactive element the reference has (buttons, links, tabs, menus, sheets, forms and their fields, toggles, pickers, cards that open things, gestures) and every state change the reference shows.
+- Perform each and check the result against what the reference does: the screen or sheet that opens, the text that appears, the value that changes, the data created, edited or deleted and whether it is still there after navigating away and reloading, validation and empty or error states, back and dismiss behaviour.
+- Record one line per check: `action | expected (from the reference) | observed | PASS or FAIL | capture path`.
+- A FAIL line is: a reference element with no working counterpart, a control that does nothing, a wrong destination, a missing or wrong state change, data that does not persist after navigating away and reloading, a crash, a dead end, or any console or page error.
+
 ## Deliverable
 
 - The critic runs `evidence_cmd` ITSELF for every listed preset — never grades a builder's own captures.
-- A score per axis and one overall score, with the evidence paths that justify each.
-- A ranked issue list: most damaging first, each naming the axis, the preset, and the file the fix most likely lives in.
-- `**Critique outcome:** PASS` or `FAIL` — PASS only at `≥ threshold` with zero errors in every JSON log.
+- A score per axis and one overall visual score, with the evidence paths that justify each.
+- In a frontend bundle, every functional parity line, each with its capture.
+- A ranked issue list: functional FAIL lines first, worst first; then the rubric issues, most damaging first, each naming the axis, the preset, and the file the fix most likely lives in.
+- `**Critique outcome:** PASS` or `FAIL`. In a frontend bundle, PASS only at zero functional FAIL lines AND zero console or page errors AND the project's e2e suite green AND score `≥ threshold`; with any FAIL line the critic reports "visual N, capped at <cap> by functional failures", the cap one step of the gate's scale below `threshold` (79 at a threshold of 80). In any other bundle, PASS only at `≥ threshold` with zero errors in every JSON log.
 - Writes no product code; commits nothing to the campaign branch.
 ```
 
@@ -948,11 +973,13 @@ to compare against; then the anchors carry the whole standard and must be
 concrete enough that two critics would score within a point of each other.
 
 **Scoring honesty is a hard rule.** The critic reports the number the
-evidence supports, never the number that closes the round. A round that
-fails is a failed round in `STATUS.json` and in the final report, with what
-is still missing named. `/execute-todos` owns what happens next — the
-corrective round, the fresh critic, the round cap, and the weakest-first
-resume — under "Rubric critique gates" there; plan nothing about that here.
+evidence supports, never the number that closes the round; the capped report
+is that honesty applied, so a score at or above threshold always means
+functional parity held. A round that fails is a failed round in `STATUS.json`
+and in the final report, with what is still missing named. `/execute-todos`
+owns what happens next — the corrective round, the fresh critic, the round
+cap, and the weakest-first resume — under "Rubric critique gates" there; plan
+nothing about that here.
 
 ## Where new capability may be planned — the legacy-feature freeze
 
@@ -1399,7 +1426,8 @@ bundle's tests and lint/static analysis against the assembled candidate, fix
 whatever fails, and re-run until green. For a front-end bundle that job
 includes the `frontend-critic` review, and every defect it reports is a
 failure to fix; when the deliverable is a PR it also captures the change with
-`/pr-media` (screenshots and a click recording through `/agent-browser`) into
+`/pr-media` (screenshots, and every interaction the change touches recorded as
+a video, as `/pr-media`'s video rule requires) into
 `~/tmp/pr-media-<pr>/` for `99c`'s `## Screenshots` section. It is a fixing gate, not a verdict
 gate — it commits its own repairs on the campaign branch. In `no-git` mode it
 runs whatever checks are naturally applicable and records the rest as N/A with

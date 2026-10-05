@@ -2,6 +2,7 @@ import { Injectable, Optional } from "@nestjs/common";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import type { Server } from "node:http";
+import { SchedulerRegistry } from "@nestjs/schedule";
 import type { LongLivedHostedWorker } from "./hosted-worker.types.ts";
 import {
   createTransportServer,
@@ -26,6 +27,10 @@ import {
   ALPHA_AUTOSCALE_ROUTE_PATH,
   handleAlphaAutoscaleRoute,
 } from "../alpha-autoscale/alpha-autoscale-route.ts";
+import {
+  AUTOSCALE_STATUS_ROUTE_PATH,
+  createAutoscaleStatusRouteHandler,
+} from "../alpha-autoscale/autoscale-status-route.ts";
 
 export const TRANSPORT_ROUTE_DISPATCHER_WORKER_NAME = "transport-route-dispatcher";
 
@@ -51,13 +56,16 @@ export function buildSelfTestRouteHandlers(): Record<string, TransportRouteHandl
  * later slice's own route lands here the same way, never a second
  * dispatcher.
  */
-export function buildProductionRouteHandlers(): Record<string, TransportRouteHandler> {
+export function buildProductionRouteHandlers(
+  scheduler?: SchedulerRegistry,
+): Record<string, TransportRouteHandler> {
   return {
     ...buildSelfTestRouteHandlers(),
     [MESSAGE_STATUS_ROUTE_PATH]: handleMessageStatusRoute,
     [KEEP_GOING_ROUTE_PATH]: handleKeepGoingRoute,
     [NO_IDLING_ROUTE_PATH]: handleNoIdlingRoute,
     [ALPHA_AUTOSCALE_ROUTE_PATH]: handleAlphaAutoscaleRoute,
+    [AUTOSCALE_STATUS_ROUTE_PATH]: createAutoscaleStatusRouteHandler(scheduler),
   };
 }
 
@@ -122,6 +130,7 @@ export class TransportRouteDispatcherHostedWorker implements LongLivedHostedWork
     @Optional() private readonly routeHandlers?: Record<string, TransportRouteHandler>,
     @Optional() private readonly socketPath?: string,
     @Optional() private readonly markerDir?: string,
+    @Optional() private readonly scheduler?: SchedulerRegistry,
   ) {
     this.ready = new Promise((resolve, reject) => {
       this.resolveReady = resolve;
@@ -150,7 +159,7 @@ export class TransportRouteDispatcherHostedWorker implements LongLivedHostedWork
       await rm(socketPath, { force: true });
 
       server = createTransportServer({
-        routeHandlers: this.routeHandlers ?? buildProductionRouteHandlers(),
+        routeHandlers: this.routeHandlers ?? buildProductionRouteHandlers(this.scheduler),
         resolveServerGeneration: () =>
           readServiceGenerationMarker(THRONE_BACKEND_SERVICE_UNIT_NAME, this.markerDir)?.generation,
       });

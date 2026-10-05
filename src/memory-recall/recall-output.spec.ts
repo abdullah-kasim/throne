@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -23,8 +24,11 @@ import {
   harness,
 } from './recall.command.test-support.ts';
 import type { RegisteredRepository } from './repository-registry.ts';
+import { recallCommandFor } from './other-repositories-output.ts';
 
 const SEARCHED_LINE = /^Searched: /m;
+const NOT_SEARCHED_HERE = 'Memories for any other repository are not searched here';
+const QUOTED_TASK = `'${PULL_REQUEST_TASK}'`;
 
 function outputWithRepositories(
   probabilityOfYesByRepository: Readonly<Record<string, number>>,
@@ -33,6 +37,7 @@ function outputWithRepositories(
     readonly hookMode?: typeof SHADOW_ARM;
     readonly backend?: ClassifierBackend;
     readonly hookPayload?: string;
+    readonly task?: string;
   } = {},
 ) {
   const root = scratchRoot();
@@ -50,44 +55,109 @@ function outputWithRepositories(
     fixture,
     checkoutOf: (name: string) => path.join(root, 'checkouts', name),
     run: () =>
-      runRecall(options.hook === true ? ['--hook'] : [...IN_PROJECT, PULL_REQUEST_TASK], {
+      runRecall(options.hook === true ? ['--hook'] : [...IN_PROJECT, options.task ?? PULL_REQUEST_TASK], {
         ...fixture.dependencies,
         chooseBackend: () => Promise.resolve(backend),
       }),
   };
 }
 
-test('a hand recall lists the three most likely other repositories after the verdict line, most likely first, with the command to search each', async () => {
-  const scenario = outputWithRepositories({ bakery: 0.2, florist: 0.91, tailor: 0.55, cobbler: 0.4 });
+function blockBeforeTheScopeLine(stdout: string): string {
+  return stdout.slice(0, stdout.search(SEARCHED_LINE));
+}
+
+test('a repository Jev rates at or above the serving floor is printed as a directive whose command carries the task', async () => {
+  const scenario = outputWithRepositories({ bakery: 0.46 });
   await scenario.run();
-  const stdout = scenario.fixture.stdout.join('');
-  const block = stdout.slice(0, stdout.search(SEARCHED_LINE));
   assert.equal(
-    block,
+    blockBeforeTheScopeLine(scenario.fixture.stdout.join('')),
     [
-      'Other repositories that may hold relevant memories:',
-      `- florist (91%): throne recall --directory ${scenario.checkoutOf('florist')} "<task>"`,
-      `- tailor (55%): throne recall --directory ${scenario.checkoutOf('tailor')} "<task>"`,
-      `- cobbler (40%): throne recall --directory ${scenario.checkoutOf('cobbler')} "<task>"`,
+      'bakery probably holds memories for this task (46%). Search it before looking it up yourself:',
+      `throne recall --directory ${scenario.checkoutOf('bakery')} ${QUOTED_TASK}`,
       '',
     ].join('\n'),
   );
 });
 
-test('repositories with the same probability are listed in name order, and a low probability is still listed', async () => {
-  const scenario = outputWithRepositories({ tailor: 0.05, bakery: 0.05, florist: 0.05, cobbler: 0.05 });
+test('two repositories over the serving floor each get their own command, most likely first', async () => {
+  const scenario = outputWithRepositories({ bakery: 0.2, florist: 0.44, tailor: 0.58 });
   await scenario.run();
-  const listedNames = [...scenario.fixture.stdout.join('').matchAll(/^- (\w+) \(5%\)/gm)].map((match) => match[1]);
-  assert.deepEqual(listedNames, ['bakery', 'cobbler', 'florist']);
+  assert.equal(
+    blockBeforeTheScopeLine(scenario.fixture.stdout.join('')),
+    [
+      'tailor (58%) and florist (44%) probably hold memories for this task. Search them before looking them up yourself:',
+      `throne recall --directory ${scenario.checkoutOf('tailor')} ${QUOTED_TASK}`,
+      `throne recall --directory ${scenario.checkoutOf('florist')} ${QUOTED_TASK}`,
+      '',
+    ].join('\n'),
+  );
 });
 
-test('the prompt hook prints the block too, even when it serves no memory', async () => {
+test('no more than three repositories are ever shown, even when more clear the serving floor', async () => {
+  const scenario = outputWithRepositories({ bakery: 0.5, florist: 0.91, tailor: 0.55, cobbler: 0.4 });
+  await scenario.run();
+  assert.equal(
+    blockBeforeTheScopeLine(scenario.fixture.stdout.join('')),
+    [
+      'florist (91%), tailor (55%) and bakery (50%) probably hold memories for this task. Search them before looking them up yourself:',
+      `throne recall --directory ${scenario.checkoutOf('florist')} ${QUOTED_TASK}`,
+      `throne recall --directory ${scenario.checkoutOf('tailor')} ${QUOTED_TASK}`,
+      `throne recall --directory ${scenario.checkoutOf('bakery')} ${QUOTED_TASK}`,
+      '',
+    ].join('\n'),
+  );
+});
+
+test('repositories below the serving floor are never printed, and the not-searched-here sentence stays', async () => {
+  const scenario = outputWithRepositories({ bakery: 0.2, florist: 0.05 });
+  await scenario.run();
+  const stdout = scenario.fixture.stdout.join('');
+  assert.ok(!stdout.includes('Other repositories'), stdout);
+  assert.ok(!stdout.includes('probably hold'), stdout);
+  assert.ok(!stdout.includes(scenario.checkoutOf('bakery')) && !stdout.includes(scenario.checkoutOf('florist')), stdout);
+  assert.ok(stdout.includes(NOT_SEARCHED_HERE), stdout);
+});
+
+test('the not-searched-here sentence is left out when a directive was printed', async () => {
+  const scenario = outputWithRepositories({ bakery: 0.8 });
+  await scenario.run();
+  const stdout = scenario.fixture.stdout.join('');
+  assert.match(stdout, SEARCHED_LINE);
+  assert.ok(!stdout.includes(NOT_SEARCHED_HERE), stdout);
+});
+
+test('a repository at 0.39 is hidden and one at 0.40 is shown', async () => {
+  const scenario = outputWithRepositories({ bakery: 0.39, florist: 0.4 });
+  await scenario.run();
+  const stdout = scenario.fixture.stdout.join('');
+  assert.ok(stdout.startsWith('florist probably holds memories for this task (40%).'), stdout);
+  assert.ok(!stdout.includes(scenario.checkoutOf('bakery')), stdout);
+});
+
+test('a task with quotes, newlines and more than 120 characters is cut to its first line and quoted safely', async () => {
+  const firstLine = `fix the "oven" timer that says it's done; rm -rf $HOME \`echo nope\` ${'and keep going '.repeat(8)}`;
+  const scenario = outputWithRepositories({ bakery: 0.7 }, { task: `${firstLine}\nsecond line that must not appear` });
+  await scenario.run();
+  const commandLine = scenario.fixture.stdout.join('').split('\n')[1] ?? '';
+  const taskWord = commandLine.slice(`throne recall --directory ${scenario.checkoutOf('bakery')} `.length);
+  const taskAsTheShellReadsIt = execFileSync('sh', ['-c', `printf %s ${taskWord}`], { encoding: 'utf8' });
+  assert.equal(taskAsTheShellReadsIt, firstLine.trim().slice(0, 120));
+  assert.ok(!commandLine.includes('second line'), commandLine);
+});
+
+test('the literal <task> placeholder is used only when the task has no text', () => {
+  assert.equal(recallCommandFor('/code/bakery', ''), 'throne recall --directory /code/bakery "<task>"');
+  assert.equal(recallCommandFor('/code/bakery', ' \n\t\n '), 'throne recall --directory /code/bakery "<task>"');
+  assert.equal(recallCommandFor('/code/bakery', '\n  bake bread  \n'), "throne recall --directory /code/bakery 'bake bread'");
+});
+
+test('the prompt hook prints the directive too, even when it serves no memory', async () => {
   const scenario = outputWithRepositories({ bakery: 0.8 }, { hook: true });
   await scenario.run();
   const stdout = scenario.fixture.stdout.join('');
   assert.ok(
     stdout.startsWith(
-      `Other repositories that may hold relevant memories:\n- bakery (80%): throne recall --directory ${scenario.checkoutOf('bakery')} "<task>"\nSearched: `,
+      `bakery probably holds memories for this task (80%). Search it before looking it up yourself:\nthrone recall --directory ${scenario.checkoutOf('bakery')} ${QUOTED_TASK}\nSearched: `,
     ),
     stdout,
   );
@@ -180,7 +250,7 @@ function withheldScenario() {
   return { fixture, bakery: bakery as RegisteredRepository, dependencies: { ...fixture.dependencies, chooseBackend: () => Promise.resolve(backend) } };
 }
 
-test('--json prints the scope, the verdict, the served memories, the withheld ones with their reason, and the listed repositories', async () => {
+test('--json prints the scope, the verdict, the served memories, the withheld ones with their reason, and only the shown repositories with commands carrying the task', async () => {
   const { fixture, bakery, dependencies } = withheldScenario();
   await runRecall([...IN_PROJECT, '--json', PULL_REQUEST_TASK], dependencies);
   const projectMemories = realpathSync(fixture.projectMemories);
@@ -208,14 +278,7 @@ test('--json prints the scope, the verdict, the served memories, the withheld on
         checkout: bakery.checkout,
         memoryDirectory: bakery.memoryDirectory,
         probability: 0.7,
-        recall: `throne recall --directory ${bakery.checkout} "<task>"`,
-      },
-      {
-        repository: 'florist',
-        checkout: bakery.checkout.replace(/bakery$/, 'florist'),
-        memoryDirectory: bakery.memoryDirectory.replace(/bakery$/, 'florist'),
-        probability: 0.1,
-        recall: `throne recall --directory ${bakery.checkout.replace(/bakery$/, 'florist')} "<task>"`,
+        recall: `throne recall --directory ${bakery.checkout} ${QUOTED_TASK}`,
       },
     ],
   });

@@ -74,6 +74,25 @@ test('pr-media documents the publish mode, the contact sheet, both anchor marker
   assert.doesNotMatch(source, /sentinel/i);
 });
 
+test('pr-media requires a video of every changed interaction and documents the --stills-only way out', () => {
+  const source = skillSource('pr-media');
+  assert.match(source, /Every interaction the PR changes or adds is recorded as a video/);
+  assert.match(source, /Stills support\s+videos, never replace them/);
+  assert.match(source, /A folder with no video is wrong unless the\s+PR changes no interaction at all/);
+  assert.match(source, /Phone\s+captures follow the same rule at 393x852/);
+  assert.match(source, /"Videos are\s+missing - \/pr-media must include videos"/);
+  assert.match(source, /A folder with no video is refused/);
+  assert.match(source, /\[--stills-only "<reason>"\]/);
+  assert.match(source, /reason is required and must not be empty/);
+});
+
+test('pr-description and write-todos point at the pr-media video rule', () => {
+  const prDescription = skillSource('pr-description');
+  const writeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'write-todos', 'SKILL.md'), 'utf8');
+  assert.match(prDescription, /every interaction the\s+change touches recorded as a video, as the `pr-media` skill's video rule/);
+  assert.match(writeTodos, /every interaction the change touches recorded as\s+a video, as `\/pr-media`'s video rule requires/);
+});
+
 test('wizardInstructions states that a drop outside the Screenshots spoiler is fine', async () => {
   const { wizardInstructions } = await import(path.join(SKILLS_DIRECTORY, 'pr-media', 'publish.mjs'));
   const instructions = wizardInstructions({ host: 'github.example.test', owner: 'o', repo: 'r', number: '9' }, [

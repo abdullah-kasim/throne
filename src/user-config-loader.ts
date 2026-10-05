@@ -57,6 +57,7 @@ export const STEERING_SECTION_FIELDS = [
   'tokenBalanceEnabled',
   'autoscaleEnabled',
   'regentHeartbeatNudgeEnabled',
+  'macLoadPerCoreAtCapacity',
   'roleEfforts',
   'regentRoute',
 ] as const;

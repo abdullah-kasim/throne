@@ -16,7 +16,7 @@ import type { RecallDependencies } from './recall.command.ts';
 import { RECALL_LEDGER_FILE_NAME } from './recall-records.ts';
 import type { RegisteredRepository } from './repository-registry.ts';
 
-export const PROJECT_SCOPE = '-home-someone-project';
+export const PROJECT_SCOPE = 'repos-project';
 
 export const PULL_REQUEST_MEMORY = [
   '---',
@@ -42,13 +42,13 @@ export const SUPERSEDED_MEMORY = [
 export const OTHER_REPOSITORY_MEMORY = [
   '---',
   'ask: Does the task edit a GitHub pull request description?',
-  'scope: -home-someone-elsewhere',
+  'scope: repos-elsewhere',
   '---',
   'a pull request description lesson for another repository',
 ].join('\n');
 
 export const OTHER_REPOSITORY_NAME = 'other-repository';
-export const OTHER_REPOSITORY_SCOPE = '-home-someone-other-repository';
+export const OTHER_REPOSITORY_SCOPE = 'repos-other-repository';
 
 export const OTHER_REPOSITORY_PULL_REQUEST_MEMORY = [
   '---',

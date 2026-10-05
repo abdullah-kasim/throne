@@ -72,9 +72,9 @@ from memory.
 
 ### `## Screenshots` (UI changes only)
 
-One capture per place the change is visible, and a short video when the
-change is an interaction. Capture and hand over with the `pr-media`
-skill: the user uploads the files by hand, the body carries `<!-- drop
+One capture per place the change is visible, and every interaction the
+change touches recorded as a video, as the `pr-media` skill's video rule
+requires. Capture and hand over with the `pr-media` skill: the user uploads the files by hand, the body carries `<!-- drop
 <file> here -->` placeholders, and media is never committed to git.
 
 By default the section's content is wrapped in a collapsible spoiler:

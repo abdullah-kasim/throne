@@ -44,7 +44,7 @@ This applies everywhere: production code, scripts, tests, CLIs, migrations, infr
 
 For every user-visible feature or regression fix, exercise the affected journey through the real application stack before declaring the work complete. Use the global `$e2e-testing` skill for browser workflows.
 
-- Prefer the project’s existing E2E suite. When none exists, perform the journey with `chrome-devtools-axi`.
+- Prefer the project’s existing E2E suite. When none exists, perform the journey with `agent-browser` in a named session (`--session <name>`).
 - Verify observable behavior, not implementation details or values manufactured by test setup.
 - Inspect browser console and network failures as part of the journey.
 - Cover the primary success path plus a meaningful failure or boundary path when one exists.

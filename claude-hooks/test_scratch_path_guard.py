@@ -108,6 +108,72 @@ class ScratchPathTest(unittest.TestCase):
             self.assertIsNone(guard.scratch_path_refusal(command), command)
 
 
+class UnguardedRemovalVariableTest(unittest.TestCase):
+    refused = [
+        "rm $D/$addr/body.md",
+        'rm "$D/x"',
+        'rm -rf "${D}/x"',
+        'rm "${D:-/tmp}/x"',
+        'cd /x && rm "$f"',
+        'sudo rm "$D"',
+        'rm "${D:?}/$addr"',
+        'rmdir "$1"',
+    ]
+
+    def test_removals_through_an_unguarded_variable_are_refused(self):
+        for command in self.refused:
+            self.assertTrue(guard.unguarded_variables_in(command), command)
+            self.assertTrue(guard.refusal_reason(command).startswith("This command removes a path built from"), command)
+
+    def test_guarded_variables_literal_paths_prose_and_non_removals_pass(self):
+        for command in [
+            'rm "${D:?}/${addr:?}/body.md"',
+            'rm "${D:?missing}/x"',
+            "rm -rf /home/someone/tmp/build",
+            'echo "rm $D"',
+            "cat > notes.md <<EOF\nrm $D\nEOF",
+            "grep '$D' file",
+            'ls "$D"',
+            "mv $D/x y",
+            'git rm "$f"',
+            'rm "$(pwd)/x"',
+        ]:
+            self.assertIsNone(guard.refusal_reason(command), command)
+
+    def test_only_the_guard_on_the_same_path_decides(self):
+        for unguarded, guarded in [('rm "$D/x"', 'rm "${D:?}/x"'), ('rm "${D:-/tmp}/x"', 'rm "${D:?missing}/x"')]:
+            self.assertEqual(guard.unguarded_variables_in(unguarded), ["D"])
+            self.assertEqual(guard.unguarded_variables_in(guarded), [])
+
+    def test_a_later_unguarded_variable_is_named_alone(self):
+        self.assertEqual(guard.unguarded_variables_in('rm "${D:?}/$addr"'), ["addr"])
+
+    def test_the_refusal_names_every_unguarded_variable_and_gives_the_guarded_rewrite(self):
+        reason = guard.refusal_reason("rm $D/$addr/body.md")
+        self.assertIn(": D, addr.", reason)
+        self.assertTrue(reason.endswith("run it again: rm ${D:?}/${addr:?}/body.md"), reason)
+
+    def test_the_rewrite_keeps_quoting_and_every_other_byte(self):
+        for command, rewrite in {
+            "rm $D/$addr/body.md": "rm ${D:?}/${addr:?}/body.md",
+            'rm "$D/x"': 'rm "${D:?}/x"',
+            'rm "${D:-/tmp}/x"': 'rm "${D:?}/x"',
+            "ls $D; rm -f $J/* && echo $J": "ls $D; rm -f ${J:?}/* && echo $J",
+            "cat <<EOF\nrm $D\nEOF\nrm $D": "cat <<EOF\nrm $D\nEOF\nrm ${D:?}",
+        }.items():
+            self.assertEqual(guard.guarded_rewrite_of(command), rewrite, command)
+
+    def test_the_suggested_rewrite_is_accepted_by_the_guard(self):
+        for command in self.refused:
+            self.assertIsNone(guard.refusal_reason(guard.guarded_rewrite_of(command)), command)
+
+    def test_a_removal_that_expands_home_keeps_the_home_guidance(self):
+        for command in ['rm "$HOME/x/$D"', 'rm "${HOME:-/x}/y"', 'rm "${HOME:?}/x"']:
+            reason = guard.refusal_reason(command)
+            self.assertTrue(reason.startswith("This command removes files and spells the home directory as $HOME"), command)
+            self.assertNotIn("${HOME:?}", reason, command)
+
+
 class HookProcessTest(unittest.TestCase):
     def run_hook(self, command):
         payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
@@ -144,6 +210,13 @@ class HookProcessTest(unittest.TestCase):
         for payload in ["not json", "[]", '{"tool_input": {"command": 7}}']:
             result = subprocess.run([sys.executable, HOOK], input=payload, capture_output=True, text=True)
             self.assertEqual((result.returncode, result.stdout), (0, ""), payload)
+
+    def test_a_removal_through_unguarded_variables_is_denied_with_the_guarded_rewrite(self):
+        decision = self.decision_for("rm $D/$addr/body.md")
+        self.assertEqual(decision["permissionDecision"], "deny")
+        self.assertIn("rm ${D:?}/${addr:?}/body.md", decision["permissionDecisionReason"])
+        result = self.run_hook("rm ${D:?}/${addr:?}/body.md")
+        self.assertEqual((result.returncode, result.stdout), (0, ""))
 
 
 if __name__ == "__main__":

@@ -94,7 +94,7 @@ export function repositoryNameOf(scope: RecallScope): string | undefined {
   return names.length === 0 ? undefined : names.join(', ');
 }
 
-function inPlainEnglishList(parts: readonly string[]): string {
+export function inPlainEnglishList(parts: readonly string[]): string {
   if (parts.length <= 1) return parts[0] ?? '';
   return `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
 }
@@ -123,13 +123,13 @@ function renderedGlobalMemories(scope: RecallScope): string {
 export const OTHER_REPOSITORY_SENTENCE =
   'Memories for any other repository are not searched here: run `throne recall --directory <path> "<task>"` to get them.\n';
 
-export function renderedScopeLine(scope: RecallScope): string {
+export function renderedScopeLine(scope: RecallScope, otherRepositoryDirectivePrinted: boolean): string {
   const searched = [
     ...scope.repositories.map(renderedRepository),
     ...scope.namedMemoryDirectories.map((directory) => `memory directory ${directory}`),
     renderedGlobalMemories(scope),
   ];
-  return `Searched: ${searched.join('; ')}.\n${OTHER_REPOSITORY_SENTENCE}`;
+  return `Searched: ${searched.join('; ')}.\n${otherRepositoryDirectivePrinted ? '' : OTHER_REPOSITORY_SENTENCE}`;
 }
 
 export function isScopeLineWorthShowing(

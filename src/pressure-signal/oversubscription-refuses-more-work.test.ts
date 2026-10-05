@@ -21,6 +21,7 @@ import { test } from "node:test";
 import {
   AT_CAPACITY_THRESHOLD,
   IO_AT_CAPACITY_THRESHOLD,
+  LOAD_GRADED_IN_PRESSURE_FIGURE,
   classifyPressure,
   type LoadReading,
 } from "./classify-pressure.ts";
@@ -42,6 +43,7 @@ test("0.8x per core reads as 80 pressure", () => {
     cpuCount: 12,
   },
     CALM_IO,
+    LOAD_GRADED_IN_PRESSURE_FIGURE,
   );
   assert.ok(at08.pressure !== null);
   assert.equal(Math.round(at08.pressure), 80);
@@ -56,6 +58,7 @@ test("the box refuses more work when the run queue is oversubscribed", () => {
     cpuCount: 12,
   },
     CALM_IO,
+    LOAD_GRADED_IN_PRESSURE_FIGURE,
   );
   assert.ok(measured.pressure !== null);
   assert.equal(Math.round(measured.pressure), 181);
@@ -76,6 +79,7 @@ test("the effective load ceiling is the threshold, at 0.70x per core", () => {
       cpuCount: 12,
     },
     CALM_IO,
+    LOAD_GRADED_IN_PRESSURE_FIGURE,
   ).verdict,
     "take-more-work",
     "0.69x per core must still admit work",
@@ -87,6 +91,7 @@ test("the effective load ceiling is the threshold, at 0.70x per core", () => {
       cpuCount: 12,
     },
     CALM_IO,
+    LOAD_GRADED_IN_PRESSURE_FIGURE,
   ).verdict,
     "at-capacity",
     "0.70x per core scores 70 and must be refused",
@@ -100,6 +105,7 @@ test("low stall does not admit work while the box is oversubscribed", () => {
     { state: "ok", avg10: 1.1, avg60: 2.0 },
     { state: "ok", load1: 21.77, cpuCount: 12 },
     CALM_IO,
+    LOAD_GRADED_IN_PRESSURE_FIGURE,
   );
   assert.equal(calmButLoaded.verdict, "at-capacity");
   assert.ok(calmButLoaded.pressure !== null);
@@ -115,13 +121,14 @@ test("an idle box with high stall still refuses on stall alone", () => {
     CALM_PSI,
     { state: "ok", load1: 0.1, cpuCount: 12 },
     CALM_IO,
+    LOAD_GRADED_IN_PRESSURE_FIGURE,
   );
   assert.equal(stalling.verdict, "at-capacity");
   assert.equal(stalling.pressure, 85);
 });
 
 test("a calm, unloaded box takes more work", () => {
-  const calm = classifyPressure(CALM_PSI, CALM_PSI, CALM_LOAD, CALM_IO);
+  const calm = classifyPressure(CALM_PSI, CALM_PSI, CALM_LOAD, CALM_IO, LOAD_GRADED_IN_PRESSURE_FIGURE);
   assert.equal(calm.verdict, "take-more-work");
   assert.equal(calm.pressure, 10);
   assert.ok(
@@ -137,7 +144,7 @@ test("a calm, unloaded box takes more work", () => {
 test("an unreadable load reading is never treated as an idle box", () => {
   // Fails closed: `unknown` is not an admission, because decideAutoscaleAction
   // skips on any verdict that is not positively take-more-work.
-  const unreadable = classifyPressure(CALM_PSI, CALM_PSI, { state: "unknown" }, CALM_IO);
+  const unreadable = classifyPressure(CALM_PSI, CALM_PSI, { state: "unknown" }, CALM_IO, LOAD_GRADED_IN_PRESSURE_FIGURE);
   assert.equal(unreadable.verdict, "unknown");
   assert.equal(unreadable.pressure, null);
 
@@ -147,6 +154,7 @@ test("an unreadable load reading is never treated as an idle box", () => {
     cpuCount: 0,
   },
     CALM_IO,
+    LOAD_GRADED_IN_PRESSURE_FIGURE,
   );
   assert.equal(noCores.verdict, "unknown");
   assert.equal(
@@ -169,7 +177,7 @@ test("a box that cannot make progress on disk refuses more work", () => {
     state: "ok",
     avg10: 91,
     avg60: 40,
-  });
+  }, LOAD_GRADED_IN_PRESSURE_FIGURE);
   assert.equal(ioStalled.verdict, "at-capacity");
   assert.ok(
     ioStalled.reasons.some((reason) => reason.includes("io-full 91.00 >= 90")),
@@ -186,7 +194,7 @@ test("io is graded at 90, not at the 70 the other signals share", () => {
     state: "ok",
     avg10: 75.05,
     avg60: 60,
-  });
+  }, LOAD_GRADED_IN_PRESSURE_FIGURE);
   assert.equal(artifact.verdict, "take-more-work");
   // And the figure must NOT carry io, or it would read "75.05 -- take-more-work".
   assert.equal(artifact.pressure, 10);
@@ -200,7 +208,7 @@ test("ordinary disk contention does not refuse work", () => {
     state: "ok",
     avg10: 27.1,
     avg60: 49.43,
-  });
+  }, LOAD_GRADED_IN_PRESSURE_FIGURE);
   assert.equal(busyDisk.verdict, "take-more-work");
   assert.equal(busyDisk.pressure, 10, "io must not appear in the 70-graded figure");
 });
@@ -210,7 +218,7 @@ test("an unreadable io reading is never treated as an idle disk", () => {
     state: "unknown",
     avg10: null,
     avg60: null,
-  });
+  }, LOAD_GRADED_IN_PRESSURE_FIGURE);
   assert.equal(unreadable.verdict, "unknown");
   assert.equal(unreadable.pressure, null);
   assert.ok(unreadable.reasons.some((reason) => reason.includes("io")));

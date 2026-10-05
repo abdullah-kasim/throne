@@ -168,7 +168,7 @@ export async function recallForPrompt(
   );
   const answer: RecallAnswer = { decisions, verdict: verdictOf(decisions), otherRepositories };
   if (occasion.arm === SERVE_ARM) {
-    printRecallAnswer(answer, scope, config, occasion, dependencies);
+    printRecallAnswer(answer, request.taskText, scope, config, occasion, dependencies);
   }
   await recordWhatWasDecided(
     { request, scope, answer, whenServedInSession, occasion },
@@ -179,16 +179,17 @@ export async function recallForPrompt(
 
 function printRecallAnswer(
   answer: RecallAnswer,
+  taskText: string,
   scope: RecallScope,
   config: RecallConfig,
   occasion: PromptOccasion,
   dependencies: RecallForPromptDependencies,
 ): void {
   if ((occasion.outputFormat ?? TEXT_OUTPUT) === JSON_OUTPUT) {
-    dependencies.writeStdout(renderedRecallJson(answer, scope));
+    dependencies.writeStdout(renderedRecallJson(answer, scope, taskText));
     return;
   }
-  dependencies.writeStdout(renderedRecallText(answer, scope, config, occasion.source));
+  dependencies.writeStdout(renderedRecallText(answer, scope, config, occasion.source, taskText));
   const withheldMemoriesLine = renderedWithheldMemoriesLine(answer.decisions);
   if (withheldMemoriesLine.length > 0) dependencies.writeStderr(withheldMemoriesLine);
 }

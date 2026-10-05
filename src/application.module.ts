@@ -19,6 +19,7 @@ import {
   AlphaAutoscaleTickCommand,
   AutoscaleNowCommand,
 } from "./alpha-autoscale/alpha-autoscale-tick.command.ts";
+import { AutoscaleStatusCommand } from "./alpha-autoscale/autoscale-status.command.ts";
 import { AlphaAutoscaleHostedWorker } from "./alpha-autoscale/alpha-autoscale.hosted-worker.ts";
 import { CreateAgentCommand } from "./create-agent/create-agent.command.ts";
 import { KeepGoingCommand } from "./keep-going/keep-going.command.ts";
@@ -253,6 +254,10 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
       inject: [AlphaAutoscaleHostedWorker],
       useFactory: (worker: AlphaAutoscaleHostedWorker) =>
         new AutoscaleNowCommand(worker),
+    },
+    {
+      provide: AutoscaleStatusCommand,
+      useFactory: () => new AutoscaleStatusCommand(),
     },
     AlphaAutoscaleHostedWorker,
     {

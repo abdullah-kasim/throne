@@ -22,10 +22,13 @@ import {
   readDarwinMemoryPressure,
 } from '../pressure-signal/darwin-pressure-reader.ts';
 import {
+  LOAD_GRADED_IN_PRESSURE_FIGURE,
   classifyPressure,
+  loadGradedAgainstItsOwnLimit,
   type LoadReading,
   type PressureClassification,
 } from '../pressure-signal/classify-pressure.ts';
+import { macLoadPerCoreAtCapacity } from '../steering-user-config.ts';
 
 const CPU_PRESSURE_PATH = '/proc/pressure/cpu';
 const MEMORY_PRESSURE_PATH = '/proc/pressure/memory';
@@ -62,6 +65,7 @@ export function readCapacityPressure(
   load: LoadReading = readLoadReading(),
   ioPath: string = IO_PRESSURE_PATH,
   platform: NodeJS.Platform = process.platform,
+  macLoadLimitPerCore: number = macLoadPerCoreAtCapacity(),
 ): PressureClassification {
   if (platform === 'darwin') {
     return classifyPressure(
@@ -69,6 +73,7 @@ export function readCapacityPressure(
       readDarwinMemoryPressure(),
       load,
       readDarwinIoPressure(),
+      loadGradedAgainstItsOwnLimit(macLoadLimitPerCore),
     );
   }
   return classifyPressure(
@@ -78,6 +83,7 @@ export function readCapacityPressure(
     // The `full` line: io `some` is ~95 on any busy box and carries no
     // capacity information. See readPsiFullPressure.
     readPsiFullPressure(ioPath),
+    LOAD_GRADED_IN_PRESSURE_FIGURE,
   );
 }
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
 import { estimatedRequestTokens } from '../relevance-classifier/jev-backend.ts';
@@ -84,6 +85,19 @@ test('the registry is seeded once from the project memory directories whose slug
   writeFileSync(path.join(dataDirectory, REPOSITORY_REGISTRY_FILE_NAME), '[]\n');
   assert.equal((await readRepositoryRegistry(dependencies)).size, 0);
   assert.equal(seedCalls, 1);
+});
+
+test('recall registers the repositories of home-relative memory directories when it seeds its registry', async () => {
+  const home = path.join(await realpath(scratchRoot()), 'home');
+  const checkout = path.join(home, 'repos', 'bakery');
+  await mkdir(checkout, { recursive: true });
+  await mkdir(path.join(home, '.memories', 'repos-bakery'), { recursive: true });
+  await mkdir(path.join(home, '.memories', 'repos-no-such-checkout'), { recursive: true });
+  const seeded = await repositoriesOfProjectMemoryDirectories(home);
+  assert.deepEqual(
+    seeded.map(({ checkout: seededCheckout, repositoryName, memoryDirectory }) => ({ seededCheckout, repositoryName, memoryDirectory })),
+    [{ seededCheckout: checkout, repositoryName: 'bakery', memoryDirectory: path.join(home, '.memories', 'repos-bakery') }],
+  );
 });
 
 test('a hand recall seeds the registry and keeps the seeded repositories beside the one it searched', async () => {
@@ -194,7 +208,7 @@ test('--lint-asks checks the ask in a repository file too', async () => {
   );
 });
 
-test('every repository answer is written to the ledger with its backend, pick, probability, rank and whether it was listed', async () => {
+test('the ledger still records every scored repository, marking only the shown ones as listed', async () => {
   const root = scratchRoot();
   const seededRepositories = fakeRepositoriesUnder(root, [
     { name: 'bakery' },
@@ -203,7 +217,7 @@ test('every repository answer is written to the ledger with its backend, pick, p
     { name: 'cobbler' },
   ]);
   const fixture = harness({}, { seededRepositories });
-  const backend = jevBackendAnswering({ bakery: 0.2, florist: 0.9, tailor: 0.6, cobbler: 0.4 });
+  const backend = jevBackendAnswering({ bakery: 0.2, florist: 0.9, tailor: 0.6, cobbler: 0.39 });
   await runRecall([...IN_PROJECT, PULL_REQUEST_TASK], { ...fixture.dependencies, chooseBackend: () => Promise.resolve(backend) });
   const repositoryLines = ledgerLines(fixture.dataDirectory).filter((line) => 'otherRepository' in line);
   assert.deepEqual(
@@ -218,7 +232,7 @@ test('every repository answer is written to the ledger with its backend, pick, p
     [
       { repositoryName: 'florist', pick: 'yes', probability: 0.9, answeredBy: 'jev', rank: 1, listed: true },
       { repositoryName: 'tailor', pick: 'yes', probability: 0.6, answeredBy: 'jev', rank: 2, listed: true },
-      { repositoryName: 'cobbler', pick: 'yes', probability: 0.4, answeredBy: 'jev', rank: 3, listed: true },
+      { repositoryName: 'cobbler', pick: 'yes', probability: 0.39, answeredBy: 'jev', rank: 3, listed: false },
       { repositoryName: 'bakery', pick: 'yes', probability: 0.2, answeredBy: 'jev', rank: 4, listed: false },
     ],
   );

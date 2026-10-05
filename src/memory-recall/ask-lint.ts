@@ -78,7 +78,7 @@ export async function projectMemoryDirectoriesToLint(
   return Promise.all(
     (await projectMemoryDirectoriesUnder(homeDirectory)).map(async (directory) => ({
       path: directory,
-      repositoryName: await repositoryNameOfMemoryDirectory(directory),
+      repositoryName: await repositoryNameOfMemoryDirectory(directory, homeDirectory),
     })),
   );
 }

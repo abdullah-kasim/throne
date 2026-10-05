@@ -78,6 +78,17 @@ function formatGib(kib: number): string {
   return `${(kib / (1024 * 1024)).toFixed(1)} GiB`;
 }
 
+function gradingSummaryOf(source: ResourcePressureSnapshot['source']): string {
+  const loadGrading =
+    source === 'darwin'
+      ? 'load graded separately against its own per-core limit'
+      : 'load-per-core x100 inside that figure';
+  return (
+    `threshold ${AT_CAPACITY_THRESHOLD} on cpu/memory avg10+avg60, ${loadGrading}; ` +
+    `io-full graded separately at ${IO_AT_CAPACITY_THRESHOLD}`
+  );
+}
+
 /**
  * Renders the snapshot as the command's human report. The first line is the
  * verdict line and always states the domain figure, verdict, and threshold;
@@ -101,8 +112,7 @@ export function formatResourcePressureReport(
     // inputs are printed beneath because max() hides which signal won.
     lines.push(
       `resource-pressure: ${classification.pressure?.toFixed(2)} -- ${classification.verdict} ` +
-        `(threshold ${AT_CAPACITY_THRESHOLD} on cpu/memory avg10+avg60 and load-per-core x100; ` +
-        `io-full graded separately at ${IO_AT_CAPACITY_THRESHOLD})`,
+        `(${gradingSummaryOf(snapshot.source)})`,
     );
     for (const reason of classification.reasons) {
       lines.push(`  verdict input: ${reason}`);

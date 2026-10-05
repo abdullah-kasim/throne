@@ -1732,9 +1732,11 @@ Every mode keys on the **repository**, resolved through
 `git rev-parse --git-common-dir`: a linked worktree and any subdirectory
 collapse onto the main checkout, a bare repository is its own identity, and a
 directory outside git keys on its own physical path (non-git projects are
-real). The slug is that root with every `/` turned into `-`, leading one
-included. Because every campaign worktree of one target shares the directory,
-a Shadow's learning is visible to its siblings the instant it is written —
+real). The slug is that root relative to the physical `$HOME`, with every `/`
+turned into `-` (`~/repos/app` is `repos-app`); a root outside `$HOME` keeps
+its absolute form, leading `-` included (`/srv/app` is `-srv-app`). Because
+every campaign worktree of one target shares the directory, a Shadow's
+learning is visible to its siblings the instant it is written —
 nothing merges, nothing is lost on reap. The throne itself resolves like any
 other repo; it keeps no in-tree memory.
 
@@ -1848,7 +1850,8 @@ prompt only when it prints anything) carries the scope on its own line: each
 searched repository's path and its memory directory, or the memory directory
 named by hand, and the global directories or that they were left out, followed
 by a sentence saying that another repository's memories need
-`throne recall --directory <path> "<task>"`. When the hook cannot resolve its
+`throne recall --directory <path> "<task>"` (left out when an other-repositories
+directive was printed). When the hook cannot resolve its
 repository's memory directory, the line says so. In the serve arm a verdict
 line saying that a relevant memory likely exists, or that there is no relevant
 memory, in the scope it names (never an unqualified "no relevant memory")
@@ -1866,9 +1869,10 @@ not named there.
 
 ### Other repositories
 
-Every recall, the hook and a hand call alike, also names up to three other
-repositories most likely to hold a relevant memory, so an agent whose lookup
-came back thin knows where to look next. They are only listed, never searched.
+Every recall, the hook and a hand call alike, also tells the agent to search
+each other repository Jev rates likely to hold a relevant memory (at most
+three), with a runnable command carrying the task, so an agent whose lookup
+came back thin knows where to look next. They are never searched here.
 
 - **The registry.** Every repository a recall searches (each `--directory`,
   and the hook's session repository) is saved in
@@ -1888,24 +1892,33 @@ came back thin knows where to look next. They are only listed, never searched.
   memory), and the titles of its memory files, most recently modified first,
   at most `recall.repositoryMemoryNamesPerRepository` (default 40). Names only,
   never bodies.
-- **The listing.** The three candidates with the highest probability of yes,
-  whatever it is, ties in name order, printed after the verdict line:
+- **The directive.** The candidates whose probability of yes is at least the
+  serving floor (0.4, the bar a memory needs to be served; a failed-open answer
+  never counts), at most three, most likely first, ties in name order, printed
+  after the verdict line. The command carries the task: its first non-blank
+  line, trimmed, cut to 120 characters and shell-quoted (the literal `"<task>"`
+  only when the task has no text). Candidates below the floor are not printed,
+  and with none above it there is no block at all:
 
   ```
-  Other repositories that may hold relevant memories:
-  - bakery-site (88%): throne recall --directory /home/me/repos/bakery-site "<task>"
+  bakery-site probably holds memories for this task (88%). Search it before looking it up yourself:
+  throne recall --directory /home/me/repos/bakery-site 'fix the oven timer'
   ```
+
+  Two or three shown read `florist (58%) and bakery-site (44%) probably hold
+  memories for this task. Search them before looking them up yourself:`, then
+  one command line each in the same order.
 
   When the rules answer instead of Jev (Jev off, budget used up, lock busy,
   any failure), nothing is listed and the block says so in one line, naming
   the reason as the verdict line does. The hook prints the block too, in the
-  serve arm; a listing alone is enough for the hook to print (with the scope
+  serve arm; a directive alone is enough for the hook to print (with the scope
   line after it).
 - **The records.** Every repository answer gets a ledger line beside the
   memory answers: `at`, `inputHash`, `otherRepository` (the checkout),
   `repositoryName`, `memoryDirectory`, `memoryNamesAsked`, `pick`,
   `probability`, `backend`, `failedOpen`, `reason` when Jev did not answer,
-  `rank` (1 is most likely), `listed` (among the three this lookup named, in
+  `rank` (1 is most likely), `listed` (shown as a directive by this lookup, in
   either arm), `arm` and `sessionId`.
 
 `--json` (hand recall only; refused with exit 2 next to `--hook`, `--status`
@@ -1919,14 +1932,15 @@ or `--report`) prints one object instead of the text:
   "withheldMemories": [{ "file": "...", "probability": 0.39, "reason": "below the serving floor" }],
   "otherRepositories": [
     { "repository": "...", "checkout": "...", "memoryDirectory": "...", "probability": 0.88,
-      "recall": "throne recall --directory ... \"<task>\"" }
+      "recall": "throne recall --directory ... 'fix the oven timer'" }
   ]
 }
 ```
 
 `memories` holds what was served; `withheldMemories` holds every yes that was
-not, with the same two reasons as the stderr line; `otherRepositories` is
-empty when the rules answered. `scope.repositories` lists the `--directory`
+not, with the same two reasons as the stderr line; `otherRepositories` holds
+only the repositories shown as a directive, each `recall` carrying the task, and
+is empty when the rules answered. `scope.repositories` lists the `--directory`
 paths only.
 
 ### The Jev budget
@@ -2315,7 +2329,14 @@ the literal home `tmp` directory, resolved at run time, as the place for
 scratch files. The reason: Claude Code prompts for any removal at the
 filesystem root, of a critical path, or of an unresolvable home path even with
 permissions bypassed, and an unattended pane stalls on that prompt; the home
-`tmp` directory also survives a reboot and has no per-user tmpfs quota. Reads
+`tmp` directory also survives a reboot and has no per-user tmpfs quota. It
+also refuses an `rm` or `rmdir` whose path uses a shell variable not written as
+`${NAME:?}` (`$D`, `${D}`, `${D:-x}`, `$1`, ...), naming the variables and
+handing back the whole command with each of them rewritten as `${NAME:?}`:
+Claude Code stops a removal whose path could collapse when a variable is empty,
+even with permissions bypassed, and `${NAME:?}` stops the command instead. A
+home-directory variable keeps the literal-home guidance, and command
+substitution such as `$(pwd)` is not checked. Reads
 of `/tmp` pass, and heredoc bodies and single-quoted text are ignored. The
 registration is idempotent (reported as `registered`, `replaced` or
 `unchanged`); an entry for the older dotfiles `rm-literal-home-guard.py`, or
@@ -2507,6 +2528,52 @@ floor-breach page, and exits 0. The lock expires 60 seconds after its last
 renewal; the holder renews every 20 seconds and stops renewing 10 minutes after
 acquiring it, so it is free at most 60 seconds after its holder dies or hangs
 and never later than 11 minutes after it was taken.
+
+## autoscale-status
+
+```bash
+./bin/throne-cli autoscale-status          # human-readable
+./bin/throne-cli autoscale-status --json   # the same report for machines
+```
+
+Shows the autoscaler's current state and what its next run would do, and
+changes nothing: it spawns, promotes, briefs and writes nothing, never takes the
+sweep lock or waits behind a running sweep, and never advances the in-memory
+floor-breach timer. Any role may run it. `autoscale-now` is the command that
+acts; this one only reads.
+
+It runs inside `throne-backend` over REST by default (the `autoscale-status`
+route), because the kill switch is the backend's environment variable and the
+breach duration lives in the backend's memory. If the backend cannot be
+reached it reads in the calling shell instead, exits 0, and prints this first
+line: `backend unreachable — kill switch and breach duration are this shell's
+view and may differ from the backend's`. `--local` reads in the calling shell
+too and prints the same line.
+
+The report has seven sections, in this order:
+
+1. Autoscaler: running or paused, naming the pause (`steering.autoscaleEnabled`
+   in `config.user.ts` with its reason, or the kill switch
+   `THRONE_ALPHA_AUTOSCALE_ENABLED=0`), and whether a sweep holds the lock now.
+2. Next scheduled run: the time until the backend's five-minute cron job fires,
+   read from its schedule; from a shell, `every 5 minutes, next time unknown`.
+3. Slots: free slots (capacity minus live Alphas), the capacity, the live-Alpha
+   floor and whether it is breached and for how long, and each live Alpha with
+   its queue objective.
+4. Machine pressure: the verdict, the value, the launch budget, and whether it
+   holds spawns.
+5. Spawn cooldown: elapsed, or the limiter's own reason it is not.
+6. Queue: launchable rows in the order the next run would take them (objective,
+   priority, Alpha name, target repository and branch, model hint, sliceless or
+   shadowless); open rows that are not launchable and why; deferred rows with
+   what they wait on and whether the next run releases them; in-flight rows with
+   their Alpha; which rows the next run would brief or recover; and the
+   repositories being changed now.
+7. Next run: `would spawn <code> as <alpha>` or `would skip: <reason>`, where the
+   reason is the line the sweep itself would log. It is a prediction computed by
+   the sweep's own decision over the queue as the next run will see it after its
+   briefing and release steps, and pressure or the queue can change it before
+   the tick.
 
 ## throne-startup
 

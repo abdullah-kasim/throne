@@ -133,8 +133,45 @@ GitHub keeps it PENDING), passes the throne gh guard's `--bypass` only when
 that guard is the `gh` on PATH, then reads the review back and fails unless
 it is PENDING with every comment attached. GitHub allows one pending review
 per person per pull request: if one exists already, the create call fails;
-add to it with the pull request's review comments endpoint instead of
-deleting it, and never delete the Lord's own pending comments.
+add to it instead of deleting it (below), and never delete the Lord's own
+pending comments.
+
+### Changing a pending review: GraphQL, not REST
+
+GitHub's REST review-comment routes cannot see a pending comment:
+`PATCH /repos/<owner>/<repo>/pulls/comments/<id>` returns 404 for one (seen
+2026-10-05). Add, edit or delete pending comments through
+GraphQL instead, on both github.com and the enterprise host.
+
+1. Get the node ids. The review's comes from
+   `<gh> api repos/<owner>/<repo>/pulls/<n>/reviews/<review id> --jq .node_id`,
+   and each comment's from
+   `<gh> api repos/<owner>/<repo>/pulls/<n>/reviews/<review id>/comments --jq '.[] | [.node_id, .path, .line] | @tsv'`.
+2. Run the one mutation you need with `<gh> api graphql`, passing `--bypass`
+   only when the throne gh guard is the `gh` on PATH (the same check
+   `pending-review.mjs` makes):
+
+   ```bash
+   # add a comment to the pending review
+   <gh> api graphql -f review=<review node id> -f path=<path> -F line=<line> -f body=<text> -f query='
+     mutation($review: ID!, $path: String!, $line: Int!, $body: String!) {
+       addPullRequestReviewThread(input: {pullRequestReviewId: $review, path: $path, line: $line, side: RIGHT, body: $body}) { thread { id } }
+     }'
+   # edit one of your own pending comments
+   <gh> api graphql -f id=<comment node id> -f body=<text> -f query='
+     mutation($id: ID!, $body: String!) {
+       updatePullRequestReviewComment(input: {pullRequestReviewCommentId: $id, body: $body}) { pullRequestReviewComment { id } }
+     }'
+   # delete one of your own pending comments
+   <gh> api graphql -f id=<comment node id> -f query='
+     mutation($id: ID!) { deletePullRequestReviewComment(input: {id: $id}) { pullRequestReview { id } } }'
+   ```
+
+3. Read the review back afterwards, as the script does, and confirm it is
+   still PENDING with the comments you expect.
+
+Only comments this run created may be edited or deleted. The Lord's own
+pending comments are never touched.
 
 The Lord's order to review authorizes creating the pending review and
 nothing else: never submit it, never approve, never request changes, never
