@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { ghEnvironmentFor, ghProgramFor, ghWorkingDirectoryFor, parsePullRequestUrl } from '../pr-merge/stack.mjs';
+import { FORGE, ghEnvironmentFor, ghWorkingDirectoryFor, parsePullRequestUrl, pullRequestStatusOf } from '../pr-merge/stack.mjs';
 
 const usage = 'usage: node threads.mjs <pull request url> [--all] [--json]';
 const automatedAuthorSuffix = '[bot]';
+const stagesWithFeedbackInForgejo = ['forgejo-only', 'promoted'];
 
 function runGh(program, args) {
   const result = spawnSync(program, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: ghEnvironmentFor(program), cwd: ghWorkingDirectoryFor(program) });
@@ -11,7 +12,7 @@ function runGh(program, args) {
   return result.stdout;
 }
 
-const threadsQuery = (owner, repo, number) => `{ repository(owner:"${owner}",name:"${repo}"){ pullRequest(number:${number}){ number title state headRefName baseRefName reviewThreads(first:100){ nodes{ id isResolved isOutdated path line comments(first:20){ nodes{ databaseId author{login} createdAt body } } } } } } }`;
+const threadsQuery = (owner, repo, number) => `{ repository(owner:"${owner}",name:"${repo}"){ pullRequest(number:${number}){ number title state headRefName baseRefName reviewThreads(first:100){ nodes{ id isResolved isOutdated path line originalLine comments(first:20){ nodes{ databaseId author{login} createdAt body } } } } } } }`;
 
 export function readThreads(program, owner, repo, number, includeResolved) {
   const data = JSON.parse(runGh(program, ['api', 'graphql', '-f', `query=${threadsQuery(owner, repo, number)}`]));
@@ -24,6 +25,7 @@ export function readThreads(program, owner, repo, number, includeResolved) {
       outdated: thread.isOutdated,
       path: thread.path,
       line: thread.line,
+      originalLine: thread.originalLine,
       comments: thread.comments.nodes.map((comment) => ({ id: comment.databaseId, author: comment.author?.login ?? 'unknown', at: comment.createdAt, body: comment.body })),
     }));
   return { number: pullRequest.number, title: pullRequest.title, state: pullRequest.state, head: pullRequest.headRefName, base: pullRequest.baseRefName, threads, conversation: readConversation(program, owner, repo, number) };
@@ -89,26 +91,38 @@ export function renderThreads(pullRequests) {
   return lines.join('\n');
 }
 
-function main() {
-  const [url, ...flags] = process.argv.slice(2);
-  const { host, owner, repo, number } = parsePullRequestUrl(url ?? '');
-  const program = ghProgramFor(host);
-  const includeResolved = flags.includes('--all');
+export function dumpFeedback(program, { host, owner, repo, number }, includeResolved) {
   const root = readThreads(program, owner, repo, number, includeResolved);
   const rolled = rolledPullRequestsOf(program, owner, repo, root.head).map((rolledNumber) => readThreads(program, owner, repo, rolledNumber, includeResolved));
-  const pullRequests = [root, ...rolled];
+  return { host, owner, repo, pullRequests: [root, ...rolled] };
+}
+
+export function feedbackLivesInForgejo(status) {
+  return stagesWithFeedbackInForgejo.includes(status.stage) || status.mergeTarget === null;
+}
+
+export function feedbackInForgejoMessage(url, status) {
+  return status.publishTo === FORGE.github
+    ? `${url} is staged in Forgejo as ${status.forgejo.url}; copy its GitHub feedback there with \`throne forge mirror-feedback ${url}\`, then read it with \`throne forge pr feedback ${url}\``
+    : `${url} is a Forgejo pull request; read its feedback with \`throne forge pr feedback ${url}\``;
+}
+
+async function main() {
+  const [url, ...flags] = process.argv.slice(2);
+  const pullRequest = parsePullRequestUrl(url ?? '');
+  const status = await pullRequestStatusOf(url);
+  if (feedbackLivesInForgejo(status)) throw new Error(feedbackInForgejoMessage(url, status));
+  const dump = dumpFeedback(status.mergeTarget.program, pullRequest, flags.includes('--all'));
   if (flags.includes('--json')) {
-    process.stdout.write(`${JSON.stringify({ host, owner, repo, pullRequests }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify(dump, null, 2)}\n`);
     return;
   }
-  process.stdout.write(`${renderThreads(pullRequests)}\n`);
+  process.stdout.write(`${renderThreads(dump.pullRequests)}\n`);
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
-  try {
-    main();
-  } catch (error) {
+  main().catch((error) => {
     process.stderr.write(`${usage}\n${error.message}\n`);
     process.exit(1);
-  }
+  });
 }

@@ -67,4 +67,12 @@ export class ConfirmedObservationTracker {
     }
     return confirmed;
   }
+
+  endStreaksNotObserved(subjectKeyPrefix: string, observedSubjectKeys: ReadonlySet<string>): void {
+    for (const subjectKey of this.pendingMatches.keys()) {
+      if (subjectKey.startsWith(subjectKeyPrefix) && !observedSubjectKeys.has(subjectKey)) {
+        this.pendingMatches.delete(subjectKey);
+      }
+    }
+  }
 }

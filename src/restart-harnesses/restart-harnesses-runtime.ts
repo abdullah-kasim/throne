@@ -13,6 +13,7 @@ import {
   type HerdrAgent,
 } from "../herdr/herdr-identity-contracts.ts";
 import type { HerdrPaneProcessInfo } from "../herdr/herdr-inventory.service.ts";
+import { hasAgentName } from "../herdr/herdr-agent-name.ts";
 import {
   isLiveHarnessProcess,
   paneHasLiveHarnessProcess,
@@ -233,7 +234,7 @@ export function planRestarts(
   const targets: HerdrAgent[] = [];
   const skipped: RestartOutcome[] = [];
   for (const agent of agents) {
-    if (agent.name === undefined) {
+    if (!hasAgentName(agent)) {
       skipped.push({ name: `(${agent.agent}) ${agent.paneId}`, verdict: "skipped", detail: "unnamed pane" });
       continue;
     }

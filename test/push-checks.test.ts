@@ -1,15 +1,27 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { access, constants, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { access, constants, mkdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { after, test } from 'node:test';
+import {
+  addCheck,
+  addMirrorRemote,
+  checkLogLines,
+  DISPATCHER_DIRECTORY,
+  gitOrThrow,
+  guardedGit,
+  plainGit,
+  REFUSED_SKIP_EXIT_CODE,
+  remoteHas,
+  removeSandboxes,
+  REPO_ROOT,
+  run,
+  sandbox,
+  SYSTEM_PATH,
+  writeExecutable,
+  writeGuardCopy,
+  type Sandbox,
+} from './push-check-sandbox.fixture.ts';
 
-const REPO_ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const DISPATCHER_DIRECTORY = path.join(REPO_ROOT, 'git-hooks');
-const SYSTEM_PATH = '/usr/bin:/bin';
-const REFUSED_SKIP_EXIT_CODE = 68;
 const HOOKS_WITH_A_FORWARDER = [
   'applypatch-msg', 'pre-applypatch', 'post-applypatch', 'pre-commit', 'pre-merge-commit', 'prepare-commit-msg',
   'commit-msg', 'post-commit', 'pre-rebase', 'post-checkout', 'post-merge', 'pre-receive', 'update', 'post-receive',
@@ -18,117 +30,7 @@ const HOOKS_WITH_A_FORWARDER = [
 ];
 const HOOKS_WHOSE_PRESENCE_CHANGES_GIT = ['push-to-checkout', 'proc-receive'];
 
-const scratch: string[] = [];
-after(async () => {
-  for (const directory of scratch) await rm(directory, { recursive: true, force: true });
-});
-
-interface Sandbox {
-  root: string;
-  work: string;
-  remote: string;
-  remoteUrl: string;
-  checkLog: string;
-  guardDirectory: string;
-  environment: NodeJS.ProcessEnv;
-}
-
-interface Outcome {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
-function run(command: string, args: string[], cwd: string, environment: NodeJS.ProcessEnv): Promise<Outcome> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, env: environment, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30_000 });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk) => (stdout += chunk));
-    child.stderr.on('data', (chunk) => (stderr += chunk));
-    child.on('error', reject);
-    child.on('close', (code, signal) => resolve({ code: code ?? (signal ? -1 : 0), stdout, stderr }));
-  });
-}
-
-async function writeExecutable(file: string, body: string): Promise<void> {
-  await writeFile(file, body, { mode: 0o755 });
-}
-
-async function sandbox(): Promise<Sandbox> {
-  const root = await mkdtemp(path.join(tmpdir(), 'push-checks-'));
-  scratch.push(root);
-  const guardDirectory = path.join(root, 'guard-bin');
-  await mkdir(guardDirectory);
-  await writeExecutable(path.join(guardDirectory, 'git'), await readFile(path.join(REPO_ROOT, 'bin', 'git'), 'utf8'));
-  const fakeSsh = path.join(root, 'fake-ssh');
-  await writeExecutable(fakeSsh, '#!/bin/sh\nwhile [ $# -gt 1 ]; do shift; done\nexec sh -c "$1"\n');
-  const globalConfig = path.join(root, 'gitconfig');
-  await writeFile(
-    globalConfig,
-    `[core]\n\thooksPath = ${DISPATCHER_DIRECTORY}\n[user]\n\tname = Push Test\n\temail = push-test@example.com\n[commit]\n\tgpgsign = false\n[tag]\n\tgpgsign = false\n[init]\n\tdefaultBranch = main\n`,
-  );
-  const environment: NodeJS.ProcessEnv = {
-    PATH: SYSTEM_PATH,
-    HOME: root,
-    TMPDIR: tmpdir(),
-    GIT_CONFIG_GLOBAL: globalConfig,
-    GIT_CONFIG_NOSYSTEM: '1',
-    GIT_SSH_COMMAND: fakeSsh,
-    GIT_SSH_VARIANT: 'simple',
-  };
-  const remote = path.join(root, 'remote.git');
-  const work = path.join(root, 'work');
-  await mkdir(work);
-  await gitOrThrow(root, environment, ['init', '--quiet', '--bare', remote]);
-  await gitOrThrow(work, environment, ['init', '--quiet']);
-  await writeFile(path.join(work, 'file.txt'), 'one\n');
-  await gitOrThrow(work, environment, ['add', 'file.txt']);
-  await gitOrThrow(work, environment, ['commit', '--quiet', '-m', 'one']);
-  const remoteUrl = `push-test-host:${remote}`;
-  await gitOrThrow(work, environment, ['remote', 'add', 'origin', remoteUrl]);
-  return { root, work, remote, remoteUrl, checkLog: path.join(root, 'checks.log'), guardDirectory, environment };
-}
-
-async function gitOrThrow(cwd: string, environment: NodeJS.ProcessEnv, args: string[]): Promise<string> {
-  const outcome = await run('git', args, cwd, environment);
-  if (outcome.code !== 0) throw new Error(`git ${args.join(' ')} failed (${outcome.code}): ${outcome.stderr}`);
-  return outcome.stdout.trim();
-}
-
-function plainGit(box: Sandbox, args: string[], cwd = box.work, extra: NodeJS.ProcessEnv = {}): Promise<Outcome> {
-  return run('git', args, cwd, { ...box.environment, ...extra });
-}
-
-function guardedGit(box: Sandbox, args: string[], cwd = box.work, extra: NodeJS.ProcessEnv = {}): Promise<Outcome> {
-  return run(path.join(box.guardDirectory, 'git'), args, cwd, {
-    ...box.environment,
-    PATH: `${box.guardDirectory}:${SYSTEM_PATH}`,
-    ...extra,
-  });
-}
-
-async function addCheck(box: Sandbox, name: string, exitCode: number, scope: string[] = []): Promise<void> {
-  const script = path.join(box.root, `check-${name}`);
-  await writeExecutable(
-    script,
-    `#!/bin/sh\nprintf '%s %s %s\\n' ${name} "$1" "$2" >> "${box.checkLog}"\nsed 's/^/${name} ref /' >> "${box.checkLog}"\necho "check ${name} output"\nexit ${exitCode}\n`,
-  );
-  await gitOrThrow(box.work, box.environment, ['config', ...scope, '--add', 'push-check.command', `env CHECK_NAME=${name} ${script}`]);
-}
-
-async function checkLogLines(box: Sandbox): Promise<string[]> {
-  try {
-    return (await readFile(box.checkLog, 'utf8')).trim().split('\n').filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-async function remoteHas(box: Sandbox, ref: string): Promise<boolean> {
-  const outcome = await run('git', ['--git-dir', box.remote, 'rev-parse', '--verify', '--quiet', ref], box.root, box.environment);
-  return outcome.code === 0;
-}
+after(removeSandboxes);
 
 async function addRepositoryHook(box: Sandbox, name: string, log: string): Promise<void> {
   const hooksDirectory = path.join(box.work, '.git', 'hooks');
@@ -210,6 +112,7 @@ test('the git guard refuses a court session that skips the push checks without -
       const outcome = await guardedGit(box, skip.args, box.work, { ...session, ...skip.extra });
       assert.equal(outcome.code, REFUSED_SKIP_EXIT_CODE, `${skip.args.join(' ')}: ${outcome.stderr}`);
       assert.match(outcome.stderr, /a court session may not skip the push checks/);
+      assert.match(outcome.stderr, /throne push-waiver/);
       assert.match(outcome.stderr, /git --bypass push/);
     }
   }
@@ -233,6 +136,37 @@ test('the git guard lets a court session skip the push checks when --bypass come
   const skipVariable = await guardedGit(box, ['--bypass', 'push', 'origin', 'main'], box.work, { THRONE_AGENT_PANE: '1', PUSH_CHECK_SKIP: '1' });
   assert.equal(skipVariable.code, 0, skipVariable.stderr);
   assert.deepEqual(await checkLogLines(box), []);
+});
+
+test('git -C <dir> --bypass push skips the guard like a leading --bypass', async () => {
+  const box = await sandbox();
+  await addCheck(box, 'refuses', 3);
+
+  const outcome = await guardedGit(box, ['-C', box.work, '--bypass', 'push', '--no-verify', 'origin', 'main'], box.root, { THRONE_AGENT_PANE: '1' });
+
+  assert.equal(outcome.code, 0, outcome.stderr);
+  assert.match(outcome.stderr, /BYPASSED by explicit --bypass/);
+  assert.equal(await remoteHas(box, 'refs/heads/main'), true);
+  assert.deepEqual(await checkLogLines(box), []);
+});
+
+test('git -c x=y --bypass status runs status', async () => {
+  const box = await sandbox();
+
+  const outcome = await guardedGit(box, ['-c', 'x.y=z', '--bypass', 'status', '--short', '--branch'], box.work, { THRONE_AGENT_PANE: '1' });
+
+  assert.equal(outcome.code, 0, outcome.stderr);
+  assert.match(outcome.stdout, /^## main/);
+});
+
+test('--bypass after the subcommand is not a guard flag', async () => {
+  const box = await sandbox();
+  await addCheck(box, 'refuses', 3);
+
+  const outcome = await guardedGit(box, ['push', '--bypass', '--no-verify', 'origin', 'main'], box.work, { THRONE_AGENT_PANE: '1' });
+
+  assert.equal(outcome.code, REFUSED_SKIP_EXIT_CODE, outcome.stderr);
+  assert.equal(await remoteHas(box, 'refs/heads/main'), false);
 });
 
 test('a court session may skip the push checks for a local-path remote, which the checks skip anyway', async () => {
@@ -349,6 +283,47 @@ test('push-check.enabled false switches the checks off globally or per repositor
   assert.equal((await readFile(hookLog, 'utf8')).split('\n').filter((line) => line.startsWith('pre-push origin')).length, 2);
 });
 
+test('a push to another remote that carries only commits origin already has runs no push checks', async () => {
+  const box = await sandbox();
+  await gitOrThrow(box.work, box.environment, ['push', '--quiet', 'origin', 'main']);
+  await addMirrorRemote(box, 'mirror');
+  await addCheck(box, 'refuses', 3);
+  const head = await gitOrThrow(box.work, box.environment, ['rev-parse', 'HEAD']);
+
+  const outcome = await plainGit(box, ['push', 'mirror', 'main', `${head}:refs/heads/copy`]);
+
+  assert.equal(outcome.code, 0, outcome.stderr);
+  assert.match(outcome.stderr, /push checks: skipped because this push to mirror carries only commits origin already has/);
+  assert.deepEqual(await checkLogLines(box), []);
+});
+
+test('a push to another remote that carries a commit origin does not have runs every push check', async () => {
+  const box = await sandbox();
+  await gitOrThrow(box.work, box.environment, ['push', '--quiet', 'origin', 'main']);
+  await addMirrorRemote(box, 'mirror');
+  await addCheck(box, 'passes', 0);
+  await addCheck(box, 'refuses', 3);
+  await gitOrThrow(box.work, box.environment, ['commit', '--quiet', '--allow-empty', '-m', 'not on origin']);
+
+  const outcome = await plainGit(box, ['push', 'mirror', 'main', 'origin/main:refs/heads/copy']);
+
+  assert.notEqual(outcome.code, 0);
+  assert.match(outcome.stderr, /push checks: FAILED \(exit 3\)/);
+  assert.deepEqual((await checkLogLines(box)).filter((line) => / mirror /.test(line)).map((line) => line.split(' ')[0]), ['passes', 'refuses']);
+});
+
+test('a push to origin runs every push check even when origin already has the commits', async () => {
+  const box = await sandbox();
+  await gitOrThrow(box.work, box.environment, ['push', '--quiet', 'origin', 'main']);
+  await addCheck(box, 'refuses', 3);
+
+  const outcome = await plainGit(box, ['push', 'origin', 'main:refs/heads/copy']);
+
+  assert.notEqual(outcome.code, 0);
+  assert.match(outcome.stderr, /check refuses output/);
+  assert.equal(await remoteHas(box, 'refs/heads/copy'), false);
+});
+
 test("every other hook git runs forwards to the repository's own hook, from a linked worktree too", async () => {
   for (const name of HOOKS_WITH_A_FORWARDER) {
     await access(path.join(DISPATCHER_DIRECTORY, name), constants.X_OK);
@@ -374,8 +349,7 @@ test("every other hook git runs forwards to the repository's own hook, from a li
 test('copies of the git guard anywhere on PATH reach the real git without looping, and the checks run once', async () => {
   const box = await sandbox();
   const secondGuardDirectory = path.join(box.root, 'second-guard-bin');
-  await mkdir(secondGuardDirectory);
-  await writeExecutable(path.join(secondGuardDirectory, 'git'), await readFile(path.join(REPO_ROOT, 'bin', 'git'), 'utf8'));
+  await writeGuardCopy(secondGuardDirectory);
   const stacked = { PATH: `${box.guardDirectory}:${secondGuardDirectory}:${SYSTEM_PATH}` };
   const repeated = { PATH: `${box.guardDirectory}:${secondGuardDirectory}:${box.guardDirectory}:${SYSTEM_PATH}` };
   const realGitFirst = { PATH: `${SYSTEM_PATH}:${secondGuardDirectory}:${box.guardDirectory}` };

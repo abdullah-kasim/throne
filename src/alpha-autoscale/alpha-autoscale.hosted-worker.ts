@@ -28,9 +28,9 @@ import { invokeThroneCliWithRetry } from "./retryable-cli-invoke.ts";
 import { resolveRepoRootAndGenerationFromModuleUrl } from "../status/dist-generation.ts";
 import {
   buildIdleRecoveryNotice,
-  promoteDeferredWork,
-  type DeferralPromotionOutcome,
-} from "./deferral-promotion.ts";
+  recoverIdleWork,
+  type IdleRecoveryOutcome,
+} from "./idle-recovery.ts";
 import {
   notifyRegentOfIdleRecovery,
   notifyRegentOfFloorBreach,
@@ -78,9 +78,7 @@ export interface AlphaAutoscaleDependencies {
   acquireSweepLock: () => Promise<SweepLockAcquisition>;
   notifyOfFloorBreach: AlphaFloorBreachNotifyDeps;
   readPressure: () => PressureClassification;
-  /** Releases deferred work whose dependencies finished, and — only when that
-   *  leaves nothing launchable — promotes one held row as idle recovery. */
-  promoteDeferredWork: () => DeferralPromotionOutcome;
+  recoverIdleWork: () => IdleRecoveryOutcome;
   /** Announces a recovery to the Regent. Recovery is a correct action taken in
    *  an ambiguous situation, so it is never silent. */
   notifyOfIdleRecovery: (message: string) => Promise<void>;
@@ -159,7 +157,7 @@ export const ALPHA_AUTOSCALE_DEFAULT_DEPENDENCIES: AlphaAutoscaleDependencies = 
   // this file and keep-going's report drifting apart on which signals the gate
   // reads is exactly how a report ends up disagreeing with the decision.
   readPressure: () => readCapacityPressure(),
-  promoteDeferredWork: () => promoteDeferredWork(),
+  recoverIdleWork: () => recoverIdleWork(),
   notifyOfIdleRecovery: notifyRegentOfIdleRecovery,
   readReadyQueue: readAutoscaleQueueFromStore,
   autoBriefEligibleItems: stageEligibleLaunchBriefsFromStore,
@@ -220,14 +218,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
   private async runOnceInternal(lease: SweepLockLease): Promise<void> {
     // Stager actuation deliberately absent: autoscale/autodispatch touch
     // Alphas and Shadows ONLY (Lord ruling 2026-08-19). The Stager-floor
-    // effect lives solely in throne-startup's Regent boot reconciliation.
-    //
-    // THE OPERATOR PAUSE comes first, before auto-brief or deferral
-    // promotion mutate a single queue row: a paused court is inert, not
-    // "inert except for the bookkeeping". No floor-breach page either --
-    // the breach is the operator's deliberate state, and paging the Regent
-    // about it every five minutes would be noise about a decision already
-    // made. The log line is the record.
+    // effect lives solely in the backend's court liveness worker.
     const pause = await this.dependencies.readAutoscaleEnabledInConfig?.();
     if (pause !== undefined && !pause.enabled) {
       this.dependencies.log(`skip: ${pause.reason}`);
@@ -242,13 +233,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         `auto-brief found ineligible items: ${autoBrief.reasons.join(", ")}`,
       );
     }
-    // Promote held work BEFORE reading the ready queue, so a hold whose
-    // condition cleared is launchable on the same tick it cleared rather than
-    // the next one. Nothing downstream knows this ran: it only changes which
-    // rows the `status === "open"` filter can see, so there is still exactly
-    // one way an Alpha is born. See `deferral-promotion.ts`.
-    const promotion = this.dependencies.promoteDeferredWork();
-    const recoveryNotice = buildIdleRecoveryNotice(promotion);
+    const recoveryNotice = buildIdleRecoveryNotice(this.dependencies.recoverIdleWork());
     if (recoveryNotice !== undefined) {
       await this.dependencies.notifyOfIdleRecovery(recoveryNotice);
     }

@@ -33,9 +33,20 @@ head into a throwaway worktree (`git -C <repo> worktree add --detach
 ~/tmp/review-<n> <head sha>`), never into the live checkout, and read the
 changed files there so line numbers are exact.
 
+Read `publishTo` from `throne forge status <url> --json` first. `github` (a
+github.com or enterprise url, staged in Forgejo or not) goes on exactly as
+above. `forgejo` (a url of this host's Forgejo) is read through the forge
+seam instead: `throne forge pr view <url>` and
+`throne forge pr diff <url>`, with the head fetched from the checkout's
+`forgejo` remote. The seam reads no review threads, so `threads.mjs` is not
+run, and the Lord is told the review was written without the existing
+conversation. A Forgejo review ends at step 5 (below).
+
 Read the existing threads and conversation first: a point someone already
 raised is not raised again; reply there instead only if you have something
-new, and say so to the Lord rather than posting it.
+new, and say so to the Lord rather than posting it. The "Existing
+reviewers' findings" list in step 6 tells him where this review stands on
+each of those points, so a skipped one reads as a choice, not a miss.
 
 Then follow the change the way a request would: entry point, what
 authenticates it, what it changes, what reads it back. Run the tests that
@@ -136,6 +147,12 @@ per person per pull request: if one exists already, the create call fails;
 add to it instead of deleting it (below), and never delete the Lord's own
 pending comments.
 
+On a Forgejo pull request the script stops before writing anything, with
+"A Forgejo pull request cannot get a pending review: the forge seam has no
+review operation, so nothing was written." That is where a Forgejo review
+stops. Nothing is posted to Forgejo; step 6's table goes to the Lord with
+that sentence, and the GraphQL changes below are GitHub-only.
+
 ### Changing a pending review: GraphQL, not REST
 
 GitHub's REST review-comment routes cannot see a pending comment:
@@ -185,6 +202,27 @@ request's Files tab, where the pending review waits; the "suspected" items
 that did not make the review, each with what would settle it; and anything
 worth his attention that had no line to attach to. Remove the throwaway
 worktree.
+
+**Existing reviewers' findings** (required). One line per finding already
+on the pull request, built from the `threads.mjs` output read in step 1,
+with no second fetch: line threads, review bodies and conversation
+comments, from people and bots alike. A review body or bot report holding
+three findings gives three lines. Each line gives who raised it;
+`file:line`, or "review body" for a finding with no line (a conversation
+comment included); the finding in one sentence; and one verdict:
+
+- `same finding`: this review reached it on its own.
+- `agree`: checked and it holds; not in the review because step 1 does
+  not repeat a point already raised.
+- `disagree: <one-clause reason>`: checked and it does not hold.
+- `not assessed`: not checked.
+
+An "agree" or "disagree" carries the same burden as a comment: it must
+survive step 3's refute pass, and an opinion that did not go through it is
+"not assessed". The list is for the Lord only; none of it is posted to the
+pull request. The report message to the supervisor (or the Lord) carries
+the counts, for example "Existing findings: 5 (same 1, agree 2, disagree
+1, not assessed 1)".
 
 When he edits or deletes a comment before submitting, that is a ruling
 about what he wants from a review: ask him whether it should become a line

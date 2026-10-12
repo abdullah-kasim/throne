@@ -13,9 +13,8 @@ import {
   writeSpawnSpec,
   readSpawnSpec,
 } from "../src/agentdata/spawn-data-contracts.ts";
-import { IdentityLineReadStatus } from "../src/agentdata/identity-data.service.ts";
-import type { DeliveryVerdict } from "../src/verify-delivery/verify-delivery-runtime.ts";
 import { formatReapabilityClaim } from "../src/reap-agent/reapability-claim.ts";
+import { reapDepsWithNothingToTearDown } from "../src/reap-agent/reap-agent-test-fixtures.ts";
 
 // The hiregent lie (2026-09-02): the queue write-back ran BEFORE teardown, so
 // a `--reason completed` reap marked the row `complete`, teardown then
@@ -67,7 +66,7 @@ function request(name: string): ReapRequest {
     name,
     force: false,
     bypassMarker: false,
-    archiveCancelledUnmerged: false,
+    archiveAbandonedUnmerged: false,
     reason: "completed",
   };
 }
@@ -82,43 +81,23 @@ function buildDeps(
   recorded: Recorded,
   overrides: Partial<ReapDeps> = {},
 ): ReapDeps {
-  return {
+  return reapDepsWithNothingToTearDown({
     listAgents: async () => [liveShadow(name)],
-    sleep: async () => {},
     readAgent: async () =>
       `Reporting DONE.\n${formatReapabilityClaim("completed")}`,
     readSpawnSpec: (agent) => readSpawnSpec(agent, ledgerBaseDir),
-    closeAgentTab: async () => {},
-    removeTree: async () => false,
-    archiveAgentData: async () => "archived",
-    listCompletedAgents: async () => [],
-    listRegisteredAgents: async () => [],
-    readAgentSupervisor: async () => ({
-      status: IdentityLineReadStatus.FieldAbsent,
-    }),
-    readTreeBase: async () => null,
-    readTreeRepo: async () => undefined,
-    checkDeliveryVerdict: async (): Promise<DeliveryVerdict> => ({
-      status: "missing-provenance",
-      missingFields: "test fixture",
-    }),
-    readSpawnCwd: async () => undefined,
-    recordTiming: async () => {},
-    notify: async () => undefined,
-    resolveQueueReapDeliveryCommit: async () => "abc123",
+    resolveQueueReapEvidence: async () => ({ deliveryCommit: "abc123" }),
     writeQueueReapOutcome: async (_agent, reason, deps) => {
       recorded.queueWrites.push({
         reason,
-        deliveryCommit: deps?.deliveryCommit,
+        deliveryCommit: deps?.evidenceResolvedBeforeTeardown?.deliveryCommit,
       });
     },
     appendLaunchLedgerStatus: async () => {
       recorded.ledgerAppends += 1;
     },
-    cleanupAgentScratch: async () => [],
-    terminateWorktreeProcesses: async () => ({ killed: [], failed: [] }),
     ...overrides,
-  };
+  });
 }
 
 test("a completed reap whose teardown succeeds writes the queue outcome once, with the pre-resolved delivery commit", async () => {

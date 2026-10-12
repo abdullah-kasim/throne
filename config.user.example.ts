@@ -47,6 +47,7 @@ interface UserConfigFileOverride extends PersonaConfigOverride {
     readonly remotes?: Record<string, string>;
   };
   readonly recall?: Partial<RecallConfig>;
+  readonly editor?: string;
 }
 
 const userConfig: UserConfigFileOverride = {

@@ -94,7 +94,7 @@ function occupantLines(occupants: HerdrAgent[]): string[] {
   return occupants.map((agent) => {
     const occupantName = liveAgentName(agent) ?? '(unnamed live agent)';
     return `  - ${occupantName} (${agent.agentStatus}) cwd=${agent.cwd} — ` +
-      `./bin/throne-cli reap-agent ${occupantName} --reason cancelled --force`;
+      `./bin/throne-cli reap-agent ${occupantName} --reason abandoned --force`;
   });
 }
 
@@ -155,7 +155,7 @@ export async function refuseForOccupiedTree(
         `${lines.join('\n')}\n` +
         `${'--force'} is proceeding anyway; those agents will hold a working directory ` +
         `that no longer exists and will need manual recovery ` +
-        `(reap-agent <name> --reason cancelled --force).\n`,
+        `(reap-agent <name> --reason abandoned --force).\n`,
     );
     return false;
   }

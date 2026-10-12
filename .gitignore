@@ -69,3 +69,5 @@
 
 __pycache__/
 *.pyc
+
+!mise.toml

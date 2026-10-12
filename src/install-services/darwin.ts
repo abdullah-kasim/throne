@@ -53,6 +53,14 @@ export const DARWIN_AGENTS: readonly DarwinAgentSpec[] = [
   LAUNCHD_AGENT_NAMES.THRONE_HERDR,
 ];
 
+export function darwinAgentsForHost(
+  forgejoInstalled: boolean,
+): readonly DarwinAgentSpec[] {
+  return forgejoInstalled
+    ? [...DARWIN_AGENTS, LAUNCHD_AGENT_NAMES.FORGEJO]
+    : DARWIN_AGENTS;
+}
+
 /**
  * The mac counterpart of `RETIRED_LINUX_UNITS`: agents this install no
  * longer manages, torn down (bootout + plist removal) before the ordinary
@@ -170,7 +178,7 @@ export async function installDarwinServices(
       tokens: {
         throneRoot: options.throneRoot,
         herdrBin,
-        nodeBin: deps.resolveNodeBin(),
+        nodeBin: deps.resolveNodeBin(options.throneRoot),
       },
       dryRun: options.dryRun,
     })),

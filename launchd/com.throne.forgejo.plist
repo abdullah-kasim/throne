@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.throne.forgejo</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>-lc</string>
+		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{THRONE_ROOT}}/systemd/forgejo-serve &gt;&gt; "$HOME/Library/Logs/throne/forgejo.log" 2&gt;&amp;1</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>FORGEJO_NODE_BIN</key>
+		<string>{{NODE_BIN}}</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>Umask</key>
+	<integer>63</integer>
+</dict>
+</plist>

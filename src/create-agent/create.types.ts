@@ -39,7 +39,6 @@ import type { TreeBase } from "../agentdata/tree-base-data.service.ts";
 import type { RegentQueueStore } from "../regent-queue/regent-queue.store.ts";
 import type { CapabilityEvidence } from "../harness-routing/policy/capabilities.ts";
 import type { awaitSpawnTaskingConfirmation } from "../session/runtime-model-acceptance.ts";
-import type { awaitOpeningPromptReceipt } from "./opening-prompt-receipt.ts";
 import type { writeModelAllowlist } from "./model-allowlist.ts";
 import type {
   ReadForkBrief,
@@ -165,7 +164,6 @@ export interface CreateAgentDeps {
   // inject a fast fake; production wiring defaults to the real bounded-wait
   // primitive.
   confirmSpawnTasking?: typeof awaitSpawnTaskingConfirmation;
-  awaitOpeningPromptReceipt?: typeof awaitOpeningPromptReceipt;
   resumeRegisteredAgentInRestoredTab: typeof resumeRegisteredAgentInRestoredTab;
   reconcileIndeterminateAgentStart?: typeof reconcileIndeterminateAgentStart;
   closeAgentTab: typeof closeAgentTab;

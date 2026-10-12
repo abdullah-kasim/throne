@@ -31,19 +31,15 @@ next_git_is_another_guard=false
 is_a_git_guard_copy "$real_git" && next_git_is_another_guard=true
 
 bypass_requested=false
-if [ "${1:-}" = "--bypass" ]; then
-    bypass_requested=true
-    shift
-fi
-real_git_prefix=()
-if [ "$bypass_requested" = true ] && [ "$next_git_is_another_guard" = true ]; then
-    real_git_prefix=(--bypass)
-fi
-
 subcommand=""
 for ((i = 1; i <= $#; i++)); do
     arg="${!i}"
     case "$arg" in
+        --bypass)
+            bypass_requested=true
+            set -- "${@:1:i-1}" "${@:i+1}"
+            i=$((i - 1))
+            ;;
         -C|--git-dir|--work-tree|--namespace|-c|--config-env|--exec-path)
             ((i++))
             ;;
@@ -57,6 +53,13 @@ for ((i = 1; i <= $#; i++)); do
             ;;
     esac
 done
+
+real_git_prefix=()
+forward_bypass_to_the_next_guard() {
+    [ "$next_git_is_another_guard" = true ] && real_git_prefix=(--bypass)
+    return 0
+}
+[ "$bypass_requested" = true ] && forward_bypass_to_the_next_guard
 
 subcommand_index=$i
 case "$subcommand" in
@@ -242,7 +245,7 @@ if [ "$subcommand" = push ]; then
         [ -n "$("$real_git" ${git_options[@]+"${git_options[@]}"} config --get-all push-check.command 2>/dev/null)" ]
     }
 
-    push_remote=""
+    push_positionals=()
     push_skips_hooks=false
     next_argument_is_a_value=false
     options_ended=false
@@ -252,7 +255,7 @@ if [ "$subcommand" = push ]; then
             continue
         fi
         if [ "$options_ended" = true ]; then
-            [ -n "$push_remote" ] || push_remote="$push_arg"
+            push_positionals+=("$push_arg")
             continue
         fi
         case "$push_arg" in
@@ -261,38 +264,71 @@ if [ "$subcommand" = push ]; then
             --veri|--verif|--verify) push_skips_hooks=false ;;
             --repo|--receive-pack|--exec|--push-option|-o) next_argument_is_a_value=true ;;
             -*) ;;
-            *) [ -n "$push_remote" ] || push_remote="$push_arg" ;;
+            *) push_positionals+=("$push_arg") ;;
         esac
     done
-    [ -n "$push_remote" ] || push_remote=origin
+    push_remote="${push_positionals[0]:-origin}"
     case "$push_remote" in
         /*|file://*|./*|../*) push_remote_is_local=true ;;
         *) push_remote_is_local=false ;;
     esac
+
+    push_repo_dir=$("$real_git" "${@:1:$((i-1))}" rev-parse --show-toplevel 2>/dev/null || pwd -P)
+    push_agent_name=$(basename "$push_repo_dir")
+    throne_data_home="${THRONE_DATA_HOME:-$HOME/.throne}"
+    push_ledger="$throne_data_home/data/$push_agent_name"
+    case "$push_repo_dir" in
+        "$throne_data_home"/worktrees/*) push_from_throne_worktree=true ;;
+        *) push_from_throne_worktree=false ;;
+    esac
+
+    push_comes_from_a_court_checkout() {
+        [ "$push_from_throne_worktree" = true ] && [ -f "$push_ledger/identity.md" ]
+    }
+
+    waiver_path_for_this_push() {
+        local branch commit
+        [ "${#push_positionals[@]}" -eq 2 ] || return 1
+        branch="${push_positionals[1]}"
+        commit=$("$real_git" ${git_options[@]+"${git_options[@]}"} rev-parse --verify --quiet "refs/heads/$branch^{commit}" 2>/dev/null) || return 1
+        printf '%s\n' "$push_ledger/push-waivers/$push_remote/$branch/$commit.json"
+    }
+
+    waiver_was_written_by_the_pushing_agent() {
+        grep -qsF "\"agent\": \"$push_agent_name\"," "$1"
+    }
+
+    spend_waiver() {
+        mv "$1" "$2" 2>/dev/null
+    }
+
+    admit_push_under_its_waiver() {
+        local waiver spent_waiver
+        push_comes_from_a_court_checkout || return 1
+        waiver=$(waiver_path_for_this_push) || return 1
+        waiver_was_written_by_the_pushing_agent "$waiver" || return 1
+        spent_waiver="${waiver%.json}.used.json"
+        spend_waiver "$waiver" "$spent_waiver" || return 1
+        echo "throne git guard: push checks skipped under waiver $spent_waiver" >&2
+        forward_bypass_to_the_next_guard
+    }
 
     push_check_skip_requested=false
     [ "${PUSH_CHECK_SKIP:-}" = 1 ] && push_check_skip_requested=true
     if [ "$push_remote_is_local" = false ] && running_in_a_court_session && { [ "$push_skips_hooks" = true ] || [ "$push_check_skip_requested" = true ]; }; then
         if [ "$bypass_requested" = true ]; then
             echo "throne git guard: BYPASSED by explicit --bypass: git $*" >&2
-        else
+        elif ! admit_push_under_its_waiver; then
             echo "throne git guard: STOP RIGHT THERE — a court session may not skip the push checks (git push --no-verify, or PUSH_CHECK_SKIP=1) when pushing to '$push_remote'." >&2
-            echo "The rule: every push runs the checks configured in push-check.command; only the Lord skips them. Push without the skip, fix what the checks report, and push again." >&2
-            echo "Only under an order that names this exact push, put --bypass first: git --bypass push ... . If the checks themselves are broken, tell your supervisor; do not route around them." >&2
+            echo "The rule: every push runs the checks configured in push-check.command; only the Lord skips them, or your own unspent waiver for exactly this commit, branch and remote. Push without the skip, fix what the checks report, and push again." >&2
+            echo "When every finding is not a defect in this branch (another open PR adds it, it is already on the base, or the finding is wrong), record that proof with throne push-waiver and run the one push it prints." >&2
+            echo "Only under an order that names this exact push, put --bypass before the subcommand: git --bypass push ... . If the checks themselves are broken, tell your supervisor; do not route around them." >&2
             exit 68
         fi
     fi
 
     if [ "$push_remote_is_local" = false ]; then
-        push_repo_dir=$("$real_git" "${@:1:$((i-1))}" rev-parse --show-toplevel 2>/dev/null || pwd -P)
-        push_agent_name=$(basename "$push_repo_dir")
-        throne_data_home="${THRONE_DATA_HOME:-$HOME/.throne}"
-        push_ledger="$throne_data_home/data/$push_agent_name"
-        case "$push_repo_dir" in
-            "$throne_data_home"/worktrees/*) push_from_throne_worktree=true ;;
-            *) push_from_throne_worktree=false ;;
-        esac
-        if [ "$push_from_throne_worktree" = true ] && [ -f "$push_ledger/identity.md" ] && grep -q '^- \*\*Role:\*\* Alpha$' "$push_ledger/identity.md"; then
+        if push_comes_from_a_court_checkout && grep -q '^- \*\*Role:\*\* Alpha$' "$push_ledger/identity.md"; then
             conformance_passed=false
             verify_passed=false
             if grep -q '^- \*\*Execution mode:\*\* sliceless (Lord-authorized; implies shadowless)$' "$push_ledger/identity.md"; then

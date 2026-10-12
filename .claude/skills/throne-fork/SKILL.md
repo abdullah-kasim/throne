@@ -10,8 +10,10 @@ user-invocable: true
 0. Before acting on anything below, make sure the copy of this skill you are
    reading is current: the harness loads skill text from the invoking
    worktree, not from main, so an out-of-date worktree reads as a complete
-   skill with no sign anything is missing. Fast-forward first —
-   `git merge --ff-only main` — or read the current text straight from main:
+   skill with no sign anything is missing. The prompt hook fast-forwards a
+   clean Stager tree to main before each prompt; when it printed a
+   `WARNING:` line instead (the tree is dirty or has diverged), read the
+   current text straight from main:
    `git show main:.claude/skills/throne-fork/SKILL.md`.
 
 ## A throne fork is not a harness subagent

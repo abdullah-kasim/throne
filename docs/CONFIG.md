@@ -47,6 +47,7 @@ export default userConfig;
 | `ntfy` (top level) | `serverUrl`, `topic` | `notify-lord` phone pushes (`agent_docs/ntfy-phone-notifications.md`) |
 | `steering` | `activePlanPresetName`, `activeTargetEffort`, `activeHarness`, `messageQueueTransport`, `customPlanPresets`, `stagerPool`, `roleEfforts`, `regentRoute`, `tokenBalanceEnabled`, `autoscaleEnabled`, `regentHeartbeatNudgeEnabled`, `macLoadPerCoreAtCapacity` | every fresh spawn's harness/model/effort, the Stager pool, the Regent's model and effort, the autoscaler, the token balancer (`agent_docs/MODEL_POLICY.md`) |
 | `identity` | `name`, `email`, `signingKey`, `signingFormat`, `identities`, `remotes` | every git commit the court makes (`throne git-identity`, the `bin/git` shim, tab creation; `agent_docs/commands.md`) |
+| `editor` (top level) | `editor` | `throne forge open` |
 | `recall` | `jevEnabled`, `jevKeyFile`, `hookEnabled`, `hookMode`, `verdictLineThreshold`, `hookTimeoutMilliseconds`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `repositoryMemoryNamesPerRepository`, `globalMemoryDirectories`, `rankAllowedRoots`, `jevTokensPerDay`, `jevTokensPerHour` | `throne recall`, `throne sift` and `throne rank` (`agent_docs/commands.md`) |
 
 ## Persona — how the court speaks
@@ -67,6 +68,14 @@ preset per field.
 
 Validation: a non-string, an empty or whitespace-only string, an unknown
 `tierTitles` key or an unrecognised `roleplayPreset` refuses the whole file.
+
+## `editor` — what `forge open` launches
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `editor` | string | unset | The editor command `throne forge open` launches, arguments allowed (`'code -n'`). The pull request's checkout path is appended as the last argument. `--editor` wins over it; unset, `$VISUAL` is used, then `code`. |
+
+Validation: a non-string refuses the whole file.
 
 ## `ntfy` — phone pushes
 
@@ -198,7 +207,7 @@ read.
 | `jevTokensPerDay` | integer >= 0 | `15_000_000` | Most Jev tokens every process on this machine together may spend in one local calendar day. The budget is machine-wide, shared by every worktree and session, and kept under `~/.throne/data/recall/jev-budget/`. When a request would go over it, Jev is not called and the keyword rules answer. `0` switches Jev off. |
 | `jevTokensPerHour` | integer >= 0 | `1_250_000` | Most Jev tokens every process on this machine together may spend in a rolling hour (the last 60 minutes), from the same machine-wide budget. When a request would go over it, Jev is not called and the keyword rules answer. `0` switches Jev off. |
 | `rankAllowedRoots` | string[] | `[]` | With Jev on, `throne rank` sends FILE CONTENTS to TypeSafe only for files under one of these directories; every other file is ranked by word matching locally and named on stderr as not sent. Stdin items are sent only with `--allow-stdin-to-jev`. Empty means nothing is ever sent by `rank`. |
-| `hookEnabled` | boolean | `false` | While false, `throne recall --hook` judges and prints nothing, and records only a skipped run (`hook disabled`) in the ledger. The prompt-submit hook is shared by every session on the machine, so this is the one switch. |
+| `hookEnabled` | boolean | `false` | While false, `throne recall --hook` judges and prints no memories, and records only a skipped run (`hook disabled`) in the ledger; a Stager's checkout refresh line does not depend on it. The prompt-submit hook is shared by every session on the machine, so this is the one switch. |
 | `hookMode` | `'serve'`, `'shadow'` or `'split'` | `'serve'` | What `throne recall --hook` does with each prompt while `hookEnabled` is true. `'serve'` prints the chosen memories. `'shadow'` judges every prompt and records in the ledger what would have been served, but prints nothing. `'split'` flips a coin seeded from the session and the prompt, so each prompt lands in serve or shadow half the time and the same prompt always lands in the same one. The summary line of every judged prompt and every full decision line record the arm. `'shadow'` and `'split'` also log every answer, a confident no as a compact line (see `agent_docs/commands.md` under `recall`). Each hook prompt's first 2,000 characters are kept in `~/.throne/data/recall/prompts.jsonl`, which never leaves the machine. |
 | `verdictLineThreshold` | number 0..1 | `0.9` | Every recall ends with Jev's verdict, that a relevant memory likely exists or that there is no relevant memory in the scope it searched, and its confidence. In the serve arm the line is printed with any served memories; when nothing is served it is printed alone only when Jev is surer than this that no relevant memory exists. |
 | `hookTimeoutMilliseconds` | integer >= 1 | `2500` | How long hook mode waits for the classifier before the rules answer instead. Such a run is recorded as `timed out`, and `recall --report` never counts a dig after it as a miss. |

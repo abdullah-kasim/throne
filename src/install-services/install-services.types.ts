@@ -37,8 +37,8 @@ export interface InstallServicesDeps extends ServiceUnitDeps {
   platform: NodeJS.Platform;
   ownedHerdrPath(): string;
   herdrCacheDirectory(): string;
-  /** The resolved mise `lts` node interpreter path, or null if it can't be located. */
-  resolveNodeBin(): string | null;
+  /** The mise install path of the node version pinned in the throne root's mise.toml, or null if it can't be located. */
+  resolveNodeBin(throneRoot: string): string | null;
   installHerdr(options: InstallHerdrOptions): Promise<HerdrInstallResult>;
   arch: string;
   launchctl(args: string[]): Promise<ServiceCommandResult>;
@@ -69,4 +69,5 @@ export interface InstallServicesDeps extends ServiceUnitDeps {
   writeClaudeSettings(settingsPath: string, content: string): Promise<void>;
   herdrConfigPath(): string;
   bashrcPath(): string;
+  isForgejoInstalled(): Promise<boolean>;
 }

@@ -33,7 +33,7 @@ body section: what changes, what it replaces, and the Lord's quoted words.
 
 | Row state | Result |
 | --- | --- |
-| open or deferred, not launched | Recorded. The Alpha receives every recorded amendment in its launch situation brief. Nobody is messaged. |
+| open or deferred, not launched | Recorded. The Alpha receives every recorded amendment in its launch situation brief. Nobody is messaged. A deferred row launches only after the Regent releases it, so its amendments wait until then. |
 | in flight, work not finished | Recorded, then a short pointer goes to the row's Alpha and to the Regent (the Regent is skipped when it is the caller). |
 | delivered, complete, abandoned, or its Alpha already wrote `REPORT.md` | REFUSED, nothing recorded. File a new objective against the delivered branch with `/queue-objective`. |
 | no such row | REFUSED. File a new objective instead. |

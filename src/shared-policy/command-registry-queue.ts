@@ -1,6 +1,7 @@
 import { AddToQueueCommand } from "../add-to-queue/add-to-queue.command.ts";
 import { UpdateQueueCommand } from "../update-queue/update-queue.command.ts";
 import { AmendmentCommand } from "../amendment/amendment.command.ts";
+import { ReleaseDeferredCommand } from "../release-deferred/release-deferred.command.ts";
 import { CheckQueueAmendmentsReconciledCommand } from "../amendment/check-reconciled.command.ts";
 import { SituationBriefCommand } from "../situation-brief/situation-brief.command.ts";
 import { LintQueuePlanCommand } from "../lint-queue-plan/lint-queue-plan.command.ts";
@@ -11,6 +12,7 @@ import { RegentQueueMigrateCommand } from "../regent-queue/regent-queue-migrate.
 import { InstallServicesCommand } from "../install-services/install-services.command.ts";
 import { EnsureHarnessSetupCommand } from "../ensure-harness-setup/ensure-harness-setup.command.ts";
 import { AttachThroneHerdrCommand } from "../attach-throne-herdr/attach-throne-herdr.command.ts";
+import { WorkLogCommand } from "../work-log/work-log.command.ts";
 import type { CommandRegistryEntry } from "./command-registry-entry.ts";
 
 export const QUEUE_COMMANDS: readonly CommandRegistryEntry[] = [
@@ -27,7 +29,15 @@ export const QUEUE_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: true,
     description:
-      "Correct mutable fields on a Regent queue item. Body edits: --prepend-body / --append-body amend, --replace-body (alias --body) discards the stored body.",
+      "Correct mutable fields on a Regent queue item. Body edits: --prepend-body / --append-body amend, --replace-body (alias --body) discards the stored body. --status deferred requires --depends-on and --defer-reason; a deferred row is moved to open only by release-deferred.",
+  },
+  {
+    name: "release-deferred",
+    provider: ReleaseDeferredCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Release a deferred queue row to open, record who asked, who released it and why, and send the requester one reply. Regent, or the Stager that filed the row.",
   },
   {
     name: "amendment",
@@ -76,6 +86,14 @@ export const QUEUE_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: true,
     description:
       "Refresh queue delivery evidence, or explicitly close work absorbed by another campaign.",
+  },
+  {
+    name: "work-log",
+    provider: WorkLogCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "List the queue rows completed or updated since a date, with each row's recorded outcome and intent, and the GitHub actions logged since that date.",
   },
   {
     name: "stage-launch-brief",

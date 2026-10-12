@@ -4,7 +4,6 @@ import { resolveAgent } from "./herdr-runtime.service.ts";
 import { submitToAgent } from "./herdr-send.service.ts";
 import { sleep } from "./herdr-screen.service.ts";
 import { OpeningPromptDeliveryError } from "./herdr-errors.ts";
-import { requiresFileBackedDelivery } from "../send-agent/payload-transport.ts";
 import { waitForAgentRegistration } from "./herdr-agent-registration-wait.ts";
 
 export interface DeliverOpeningPromptDeps {
@@ -48,12 +47,6 @@ export async function deliverOpeningPrompt(
   try {
     await deps.submitToAgent(agent, name, prompt, {
       omitSenderAttribution: true,
-      // Opening prompts are the agent's first turn, so paste their contents
-      // directly instead of replacing them with a file pointer — but only
-      // while they fit under the same threshold `send-agent` itself uses;
-      // an oversized prompt still needs file-backing so it doesn't leave
-      // the pane scrolled away from its composer.
-      disableFileBackedDelivery: !requiresFileBackedDelivery(prompt),
       // Fresh Codex panes can still be painting startup chrome; require the
       // shared settled-composer/pressEnterUntilEmptyTextbox transaction before
       // writing the opening prompt.

@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+
+const SKILLS_DIRECTORY = resolve(import.meta.dirname, '..', '.claude/skills');
 
 // A line only counts as a heading when it is real prose structure. Inside a
 // fenced code block `# ...` is a shell comment, and the skills are full of
@@ -37,6 +40,22 @@ export function readMarkdownSection(source: string, heading: string): string {
   });
   const end = endOffset === -1 ? lines.length : start + 1 + endOffset;
   return lines.slice(start + 1, end).join('\n');
+}
+
+export async function readSkill(name: string): Promise<string> {
+  const skill = await readFile(join(SKILLS_DIRECTORY, name, 'SKILL.md'), 'utf8');
+  return skill.replace(/\s*\n\s*/g, ' ');
+}
+
+export function readBullet(unwrappedSkill: string, opening: string): string {
+  const start = unwrappedSkill.indexOf(`- **${opening}`);
+  assert.notEqual(start, -1, `no bullet opens with "${opening}"`);
+  const end = unwrappedSkill.indexOf(' - **', start + 1);
+  return unwrappedSkill.slice(start, end === -1 ? undefined : end);
+}
+
+export function missingPhrases(text: string, phrases: string[]): string[] {
+  return phrases.filter((phrase) => !text.includes(phrase));
 }
 
 export function replaceUniqueText(

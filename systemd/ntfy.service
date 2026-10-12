@@ -1,7 +1,7 @@
 # ntfy.service — user unit for the throne's phone-notification server. The
 # server is the pinned binwiederhier/ntfy image run by ntfy-serve under docker
 # or podman (rootless podman needs no daemon; docker's must be up, and the
-# wrapper retries until it is).
+# wrapper waits until it is).
 #
 # THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{THRONE_ROOT}}`
 # (absolute path of the throne directory) is substituted at install time; only

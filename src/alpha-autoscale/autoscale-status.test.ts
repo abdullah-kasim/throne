@@ -56,8 +56,8 @@ test("checking the autoscaler's status changes nothing on disk and does not adva
 
   assert.deepEqual(report.queue.wouldBrief, ["beta", "alpha"]);
   assert.deepEqual(
-    report.queue.deferred.map((row: { objectiveCode: string; wouldRelease: boolean }) => [row.objectiveCode, row.wouldRelease]),
-    [["gamma", true], ["held", false]],
+    report.queue.deferred.map((row: { objectiveCode: string }) => row.objectiveCode),
+    ["gamma", "held"],
   );
   assert.equal(report.slots.floorBreached, true);
   assert.deepEqual(fingerprintCourtFiles(), before);
@@ -82,6 +82,13 @@ test("high machine pressure reports it would skip on pressure", async () => {
   const report = await statusJson({ pressure: { verdict: "at-capacity", pressure: 91, reasons: ["cpu"] } });
   assert.equal(report.prediction, 'would skip: pressure verdict is "at-capacity"');
   assert.equal(report.pressure.holdingSpawns, true);
+});
+
+test("at take-more-work pressure 65 the status reports a launch budget of one and would spawn rather than call the budget spent", async () => {
+  const report = await statusJson({ pressure: takeMoreWorkAt(65) });
+  assert.equal(report.pressure.launchBudget, 1);
+  assert.equal(report.pressure.holdingSpawns, false);
+  assert.equal(report.prediction, "would spawn beta as alpha-beta-01");
 });
 
 test("an unreadable spawn limiter reports it would skip on cooldown", async () => {
@@ -140,9 +147,31 @@ test("the status in json carries every section as structured fields", async () =
     sliceless: true,
     shadowless: false,
   });
-  assert.deepEqual(report.queue.notLaunchable.map((row: { objectiveCode: string }) => row.objectiveCode), ["gamma", "unready"]);
+  assert.deepEqual(report.queue.notLaunchable.map((row: { objectiveCode: string }) => row.objectiveCode), ["unready"]);
   assert.deepEqual(report.queue.inFlight, [{ objectiveCode: "flying", alphaName: "alpha-flying-01" }]);
   assert.deepEqual(report.queue.mutatingTargets, ["/srv/worktrees/alpha-flying-01"]);
   assert.deepEqual(report.cooldown, { elapsed: true });
   assert.equal(report.nextRun, null);
+});
+
+test("autoscale status shows a deferred row as held with what it waits on and since when", async () => {
+  const report = await statusJson();
+  const gamma = report.queue.deferred.find((row: { objectiveCode: string }) => row.objectiveCode === "gamma");
+  assert.deepEqual(Object.keys(gamma), ["objectiveCode", "priority", "waitsOn", "reason", "deferredSince", "heldForHours"]);
+  assert.deepEqual(gamma.waitsOn, ["done"]);
+  assert.equal(gamma.reason, "waits for done");
+  assert.match(gamma.deferredSince, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(gamma.heldForHours, 0);
+  assert.equal(report.queue.wouldRecover, null);
+  assert.equal(
+    report.queue.launchable.some((row: { objectiveCode: string }) => row.objectiveCode === "gamma"),
+    false,
+  );
+
+  const text = await statusText();
+  assert.match(
+    text,
+    /^ {3}deferred, held until the Regent runs release-deferred:\n {5}gamma \(priority 2\) held, waits on done \(waits for done\); deferred since \d{4}-\d{2}-\d{2}T\S+ \(0 h\)$/m,
+  );
+  assert.doesNotMatch(text, /would release/);
 });

@@ -40,9 +40,11 @@ import {
   notifyRegentOfStrandedSpawns,
   recoverStrandedSpawns,
 } from './notify-stale-tabs.ts';
+import { notifyRegentOfUnnamedAgents } from './notify-unnamed-agents.ts';
 import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
 import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
 import { noteExcludedFamilies } from './excluded-family-observations.ts';
+import { notifyRegentOfDeferredRows } from './deferred-row-belt.ts';
 import {
   writeOut,
   writeErr,
@@ -226,8 +228,10 @@ export async function runNoIdling(
 
   await notifyRegentOfUntaskedAgents(deps, roster, dataDir);
   await notifyRegentOfStaleTabs(deps, dataDir);
+  await notifyRegentOfUnnamedAgents(deps, dataDir);
   await notifyRegentOfStrandedSpawns(deps, dataDir);
   await recoverStrandedSpawns(deps, dataDir);
+  await notifyRegentOfDeferredRows(deps, notify);
 
   const supervisors = await readSupervisors(roster, dataDir, deps.readAgentSupervisor);
   const agentAgeMs = await readAgentAges(

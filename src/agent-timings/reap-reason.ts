@@ -6,7 +6,7 @@ export const REAP_REASON = {
   ORPHAN: "orphan",
   SUPERSEDED: "superseded",
   ERROR: "error",
-  CANCELLED: "cancelled",
+  ABANDONED: "abandoned",
   SCRATCH: "scratch",
   OTHER: "other",
 } as const;

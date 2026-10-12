@@ -86,6 +86,18 @@ test('pr-media requires a video of every changed interaction and documents the -
   assert.match(source, /reason is required and must not be empty/);
 });
 
+test('pr-media captures desktop media in a 1080p browser at no zoom and checks the viewport in the page before every desktop capture', () => {
+  const source = skillSource('pr-media');
+  assert.match(source, /agent-browser set viewport 1920 1080 1$/m);
+  assert.doesNotMatch(source, /set viewport 1400 900/);
+  assert.match(source, /most people view in\s+1080p/);
+  assert.ok(source.includes(`agent-browser eval "innerWidth + 'x' + innerHeight + ' @' + devicePixelRatio"`));
+  assert.match(source, /1920x1080 @1/);
+  assert.match(source, /verify\.md/);
+  assert.doesNotMatch(source, /sips -g pixelWidth/);
+  assert.doesNotMatch(source, /names that element/);
+});
+
 test('pr-description and write-todos point at the pr-media video rule', () => {
   const prDescription = skillSource('pr-description');
   const writeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'write-todos', 'SKILL.md'), 'utf8');
@@ -337,4 +349,69 @@ test('99c composes the PR with pr-description and a UI change carries pr-media c
   assert.match(executeTodos, /`\/pr-description`/);
   assert.match(executeTodos, /`\/pr-media`/);
   assert.match(writeTodos, /`\/pr-media`/);
+});
+
+function textBetween(source: string, start: string, end: string): string {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `missing ${start}`);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  assert.notEqual(endIndex, -1, `missing ${end} after ${start}`);
+  return source.slice(startIndex, endIndex).replace(/\s+/g, ' ');
+}
+
+test("a pull request's agent setup never moves the reviewer's own checkout", () => {
+  const source = skillSource('pr-description');
+  const executeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'execute-todos', 'SKILL.md'), 'utf8');
+  const guidance = textBetween(source, '### `## Agents`', '\n## Rules');
+  const example = textBetween(source, '## Agents\n\n<details>', '</details>\n````');
+  const creatingThePullRequest = textBetween(source, '## Creating the PR', 'Push first');
+  const prohibition = 'never `git checkout <default branch>` and never `git branch -D`';
+
+  assert.ok(guidance.includes("start from the reviewer's existing clone (a fresh clone works the same) and never change it"));
+  assert.ok(!guidance.includes('start from a fresh clone of the repository'));
+  assert.ok(guidance.includes('`export REVIEW_DIR="$(git rev-parse --show-toplevel)-pr-<n>"`'));
+  assert.ok(example.includes('export REVIEW_DIR="$(git rev-parse --show-toplevel)-pr-87"'));
+  for (const text of [guidance, example]) {
+    assert.ok(text.includes('git worktree add --detach "$REVIEW_DIR" FETCH_HEAD'));
+    assert.ok(text.includes('git worktree remove --force "$REVIEW_DIR"'));
+  }
+  assert.ok(guidance.includes('no local branch is created'));
+  assert.ok(guidance.includes(prohibition));
+  assert.match(guidance, /own project name and free ports/);
+  assert.match(guidance, /> \[!TIP\]/);
+  assert.match(guidance, /cp -a "\$\{REVIEW_DIR%-pr-<n>\}\/node_modules" \./);
+  for (const text of [guidance.replace(prohibition, ''), example]) {
+    assert.doesNotMatch(text, /gh pr checkout|git checkout|git switch|git branch -D/);
+  }
+  assert.match(creatingThePullRequest, /review worktree/);
+  assert.match(executeTodos, /run from a fresh worktree\s+before the PR is opened/);
+});
+
+const STOP_LINE = /\*\*STOP here\.[^*]*Leave everything running\. Do not run Spin down\.\*\*/;
+const SPIN_DOWN_OPENING = 'Run this only when the reviewer says they are done testing.';
+
+function agentsGuidanceAndExample(): string[] {
+  const source = skillSource('pr-description');
+  return [textBetween(source, '### `## Agents`', '\n## Rules'), textBetween(source, '## Agents\n\n<details>', '</details>\n````')];
+}
+
+test("a pull request's reviewer setup leaves the preview running until the reviewer is done testing", () => {
+  for (const text of agentsGuidanceAndExample()) {
+    const stopIndex = text.search(STOP_LINE);
+    const spinDownIndex = text.indexOf('### Spin down', stopIndex);
+    assert.ok(text.indexOf('### Spin up') !== -1 && text.indexOf('### Spin up') < stopIndex, 'Spin up comes before the STOP line');
+    assert.ok(stopIndex < spinDownIndex, 'the STOP line comes before Spin down');
+    assert.ok(spinDownIndex < text.indexOf(SPIN_DOWN_OPENING, spinDownIndex), 'Spin down opens by waiting for the reviewer');
+    assert.doesNotMatch(text, /step 9|Teardown of everything/);
+  }
+});
+
+test('spinning the preview down works from a new terminal because it finds the worktree again first', () => {
+  const [guidance, example] = agentsGuidanceAndExample();
+  for (const [text, folderSuffix] of [[guidance, '<n>'], [example, '87']]) {
+    const spinDown = text.slice(text.indexOf(SPIN_DOWN_OPENING));
+    const findsWorktree = spinDown.indexOf(`export REVIEW_DIR="$(git rev-parse --show-toplevel)-pr-${folderSuffix}"`);
+    assert.notEqual(findsWorktree, -1);
+    assert.ok(findsWorktree < spinDown.indexOf('git worktree remove --force "$REVIEW_DIR"'));
+  }
 });

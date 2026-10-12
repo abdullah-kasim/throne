@@ -5,6 +5,9 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import { LedgerDataService } from '../agentdata/ledger-data.service.ts';
+import { listForkedAgentNames } from '../agentdata/fork-evidence.ts';
+import { findStagerTheCourtWouldReuse } from '../alpha-autoscale/reusable-stager.ts';
+import { isRegisteredStager } from '../stager-tree-refresh/stager-tree-refresh.ts';
 import { readSpawnSpec } from '../agentdata/spawn-data-contracts.ts';
 import { harnessProvenance } from '../herdr/harness-provenance.ts';
 import type { HerdrAgent, HerdrForegroundProcess } from '../herdr/herdr-inventory.service.ts';
@@ -71,17 +74,22 @@ async function fakeCourt(): Promise<FakeCourt> {
   };
 }
 
-async function registerAgent(court: FakeCourt, name: string): Promise<void> {
+async function registerAgent(
+  court: FakeCourt,
+  name: string,
+  record: { role?: string; spawnedAt?: string } = {},
+): Promise<void> {
   const directory = path.join(court.ledgerDir, name);
   await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, 'identity.md'), `# Identity — ${name}\n`);
+  const roleLine = record.role === undefined ? '' : `\n- **Role:** ${record.role}\n`;
+  await writeFile(path.join(directory, 'identity.md'), `# Identity — ${name}\n${roleLine}`);
   await writeFile(path.join(directory, 'spawn.json'), JSON.stringify({
     harness: 'claude',
     model: 'opus',
     effort: 3,
     cwd: court.root,
     session_id: SESSION_ID,
-    spawned_at: '2026-10-01T00:00:00.000Z',
+    spawned_at: record.spawnedAt ?? '2026-10-01T00:00:00.000Z',
   }));
 }
 
@@ -162,6 +170,14 @@ function reconciliationContract(court: FakeCourt): StartupReconciliationContract
     readBlockedMarker: async () => null,
     clearBlockedMarker: async () => {},
     pathExists: async () => true,
+    findStagerTheCourtWouldReuse: (liveAgentNames) => findStagerTheCourtWouldReuse(liveAgentNames, {
+      listRegisteredAgentNames: () => ledger.listRegisteredAgents(court.ledgerDir),
+      isRegisteredStager: (name) => isRegisteredStager(name, court.ledgerDir),
+      readSpawnSpec: (name) => readSpawnSpec(name, court.ledgerDir),
+      readForkedAgentNames: () => listForkedAgentNames(court.ledgerDir),
+      pathExists: async () => true,
+      hasUncommittedChanges: async () => false,
+    }),
     harnessProvenance: (paneId) => harnessProvenance(paneId, {
       getPaneProcessInfo,
       vendoredHarnessBinaryDirectory: court.vendoredDir,
@@ -269,4 +285,28 @@ test('reconciliation never stops the pane it is running in', async () => {
   const outcomes = await reconcile(court);
 
   assertReportedAndLeftRunning(outcomes, court);
+});
+
+test('startup reconciliation neither resumes nor reaps the Stager the court would reuse', async () => {
+  const court = await fakeCourt();
+  await registerAgent(court, 'stager-older', { role: 'Stager', spawnedAt: '2026-10-01T00:00:00.000Z' });
+  await registerAgent(court, 'stager-newest', { role: 'Stager', spawnedAt: '2026-10-08T00:00:00.000Z' });
+  const resumed: string[] = [];
+  const reaped: string[] = [];
+
+  const outcomes = await new ThroneStartupReconciliationService({
+    ...reconciliationContract(court),
+    resume: async (name) => {
+      resumed.push(name);
+    },
+    reap: async (name) => {
+      reaped.push(name);
+    },
+  }).reconcile([]);
+
+  assert.deepEqual(outcomes.map(({ name, action }) => ({ name, action })), [
+    { name: 'stager-older', action: 'resume' },
+  ]);
+  assert.deepEqual(resumed, ['stager-older']);
+  assert.deepEqual(reaped, []);
 });

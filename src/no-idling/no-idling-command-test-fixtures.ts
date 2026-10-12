@@ -97,6 +97,7 @@ export function deps(overrides: Partial<NoIdlingDependencies> = {}): {
       isIdleByDesign: async () => false,
       detectStaleTabs: async () => [],
       detectStrandedSpawns: async () => [],
+      detectUnnamedAgents: async () => [],
       // Default no-op success: existing tests never exercise recovery
       // outcomes unless they explicitly override this and pass stranded
       // spawns through `detectStrandedSpawns`.
@@ -121,6 +122,12 @@ export function deps(overrides: Partial<NoIdlingDependencies> = {}): {
       // (delivery-evidence.json + landed commit) unless a test explicitly
       // exercises the genuine-completion path.
       hasProvenDelivery: async () => false,
+      openRegentQueue: () => ({
+        readAll: () => ({ state: 'positively-empty' }),
+        readDeferredRowPings: () => new Map(),
+        recordDeferredRowPing: () => {},
+        close: () => {},
+      }),
       ...overrides,
     },
   };

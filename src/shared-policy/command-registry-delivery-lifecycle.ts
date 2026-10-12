@@ -8,6 +8,7 @@ import { VerifyDeliveryCommand } from "../verify-delivery/verify-delivery.comman
 import { ValidateDeliveryCommand } from "../validate-delivery/validate-delivery.command.ts";
 import { CheckMainIntegrityCommand } from "../check-main-integrity/check-main-integrity.command.ts";
 import { TrimQueueCommand } from "../trim-queue/trim-queue.command.ts";
+import { PushWaiverCommand } from "../push-waiver/push-waiver.command.ts";
 import type { CommandRegistryEntry } from "./command-registry-entry.ts";
 
 export const DELIVERY_LIFECYCLE_COMMANDS: readonly CommandRegistryEntry[] = [
@@ -87,5 +88,13 @@ export const DELIVERY_LIFECYCLE_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: true,
     description:
       "Archive terminal (complete/abandoned) items in the Regent queue store; dry-run by default.",
+  },
+  {
+    name: "push-waiver",
+    provider: PushWaiverCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Record why every finding the push checks reported is not a defect in the pushed branch, so that one commit may be pushed to one branch once without the checks.",
   },
 ] as const;

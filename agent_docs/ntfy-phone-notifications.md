@@ -51,8 +51,8 @@ by design, so it will not load off-tailnet.
 
 ntfy runs as a **container** on every throne host: the pinned
 `binwiederhier/ntfy` image (`vendor-pins.json` → `tools.ntfy.image`) under
-whichever OCI runtime the box has, `docker` or `podman`, detected in that
-order (`THRONE_CONTAINER_RUNTIME=<name>` forces one). `./install.sh` pulls the
+an OCI runtime whose `info` answers, `docker` before `podman`
+(`THRONE_CONTAINER_RUNTIME=<name>` forces one). `./install.sh` pulls the
 image; `systemd/ntfy-serve` runs it. No brew package, no binary: upstream
 ships no macOS server binary and brew's mac formula is client-only, so a
 container is the one shape that is identical everywhere, and it is
@@ -152,16 +152,21 @@ Then update the handoff block above so the Lord re-subscribes to the right URL.
 - `systemd/ntfy.service` starts after `network-online.target` and gives startup
   `TimeoutStartSec=70`.
 - `systemd/ntfy-serve` waits up to 60 seconds for an interface to hold the
-  IPv4 returned by `tailscale ip -4`. If it times out, or the container
-  runtime is not reachable yet (Docker Desktop still starting, a podman
-  machine not up), the wrapper exits non-zero and the service manager
-  restarts it.
+  IPv4 returned by `tailscale ip -4`. If it times out, the wrapper exits
+  non-zero and the service manager restarts it.
+- `systemd/ntfy-serve` gets its runtime from
+  `systemd/container-runtime-ensure`. When no runtime answers `info`, that
+  script starts the installed one on a mac (a podman machine, colima,
+  OrbStack, Docker Desktop), once, under a `flock` lock shared with Forgejo;
+  on linux it starts nothing. It then waits up to 180 seconds
+  (`THRONE_CONTAINER_RUNTIME_WAIT_SECONDS`), and only after that does the
+  wrapper exit non-zero.
 - `launchd/com.throne.ntfy.plist` does the same on a mac with `KeepAlive`
   and the default 10-second `ThrottleInterval`.
 
 That combination is the boot-race guard: Tailscale and the container runtime
-may come up after the user manager, so the wrapper waits and the service
-manager keeps retrying.
+may come up after the user manager, so the wrapper waits for both and the
+service manager keeps retrying.
 
 ## Push sources
 

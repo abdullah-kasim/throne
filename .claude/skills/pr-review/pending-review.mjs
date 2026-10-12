@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { ghEnvironmentFor, ghProgramFor, ghWorkingDirectoryFor, parsePullRequestUrl } from '../pr-merge/stack.mjs';
+import { FORGE, ghEnvironmentFor, ghWorkingDirectoryFor, parsePullRequestUrl, pullRequestStatusOf, runForgeSeam } from '../pr-merge/stack.mjs';
 
 const usage = 'usage: node pending-review.mjs <pull request url> <comments.json> [--dry-run]';
 const guardMarker = 'throne-gh-guard-shim';
+export const forgejoHasNoPendingReview = 'A Forgejo pull request cannot get a pending review: the forge seam has no review operation, so nothing was written.';
 
 function whichProgram(program) {
   const result = spawnSync('/usr/bin/which', [program], { encoding: 'utf8' });
@@ -48,30 +49,30 @@ export function pendingReviewPayload(headSha, comments) {
   return { commit_id: headSha, comments };
 }
 
-function main() {
-  const [url, commentsPath, ...flags] = process.argv.slice(2);
+export async function leavePendingReview(url, commentsPath, flags, { runSeam = runForgeSeam, runGithub = runGh, writeOutput = (text) => process.stdout.write(text) } = {}) {
   if (!url || !commentsPath) throw new Error(usage);
-  const { host, owner, repo, number } = parsePullRequestUrl(url);
-  const program = ghProgramFor(host);
+  const { owner, repo, number } = parsePullRequestUrl(url);
+  const status = await pullRequestStatusOf(url, runSeam);
+  if (status.publishTo === FORGE.forgejo) throw new Error(forgejoHasNoPendingReview);
+  const { program } = status.mergeTarget;
   const comments = validateComments(JSON.parse(readFileSync(commentsPath, 'utf8')));
-  const headSha = runGh(program, ['pr', 'view', String(number), '--repo', `${owner}/${repo}`, '--json', 'headRefOid', '--jq', '.headRefOid']).trim();
+  const headSha = runGithub(program, ['pr', 'view', String(number), '--repo', `${owner}/${repo}`, '--json', 'headRefOid', '--jq', '.headRefOid']).trim();
   const payload = pendingReviewPayload(headSha, comments);
   if (flags.includes('--dry-run')) {
-    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    writeOutput(`${JSON.stringify(payload, null, 2)}\n`);
     return;
   }
-  const review = JSON.parse(runGh(program, ['api', `repos/${owner}/${repo}/pulls/${number}/reviews`, '--method', 'POST', '--input', '-'], JSON.stringify(payload)));
-  const readBack = JSON.parse(runGh(program, ['api', `repos/${owner}/${repo}/pulls/${number}/reviews/${review.id}`]));
-  const attached = JSON.parse(runGh(program, ['api', `repos/${owner}/${repo}/pulls/${number}/reviews/${review.id}/comments`, '--paginate']));
-  process.stdout.write(`pending review ${review.id} on #${number}: state ${readBack.state}, ${attached.length} of ${comments.length} comments attached, at ${headSha.slice(0, 10)}\n${readBack.html_url ?? ''}\n`);
+  const review = JSON.parse(runGithub(program, ['api', `repos/${owner}/${repo}/pulls/${number}/reviews`, '--method', 'POST', '--input', '-'], JSON.stringify(payload)));
+  const readBack = JSON.parse(runGithub(program, ['api', `repos/${owner}/${repo}/pulls/${number}/reviews/${review.id}`]));
+  const attached = JSON.parse(runGithub(program, ['api', `repos/${owner}/${repo}/pulls/${number}/reviews/${review.id}/comments`, '--paginate']));
+  writeOutput(`pending review ${review.id} on #${number}: state ${readBack.state}, ${attached.length} of ${comments.length} comments attached, at ${headSha.slice(0, 10)}\n${readBack.html_url ?? ''}\n`);
   if (readBack.state !== 'PENDING') throw new Error(`review ${review.id} is ${readBack.state}, not PENDING`);
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
-  try {
-    main();
-  } catch (error) {
+  const [url, commentsPath, ...flags] = process.argv.slice(2);
+  leavePendingReview(url, commentsPath, flags).catch((error) => {
     process.stderr.write(`${error.message}\n`);
     process.exit(1);
-  }
+  });
 }

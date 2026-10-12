@@ -9,7 +9,7 @@ import {
   type InstallServicesStatus,
 } from './install-services.types.ts';
 import {
-  DARWIN_AGENTS,
+  darwinAgentsForHost,
   installDarwinServices,
   RETIRED_DARWIN_AGENTS,
 } from './darwin.ts';
@@ -30,7 +30,7 @@ import { writeInstallServicesLine } from './output.ts';
 import { REAL_DEPS } from './platform.ts';
 import {
   installLinuxServices,
-  LINUX_UNITS,
+  linuxUnitsForHost,
   RETIRED_LINUX_UNITS,
 } from './linux.ts';
 
@@ -183,6 +183,7 @@ export async function installServices(
   }
   const pinnedHarnessOnRestoreOutcome = await installPinnedHarnessOnRestore(deps, options);
 
+  const forgejoInstalled = await deps.isForgejoInstalled();
   let result: InstallServicesResult;
   try {
     result =
@@ -191,14 +192,14 @@ export async function installServices(
             deps,
             options,
             herdrBin,
-            LINUX_UNITS,
+            linuxUnitsForHost(forgejoInstalled),
             RETIRED_LINUX_UNITS,
           )
         : await installDarwinServices(
             deps,
             options,
             herdrBin,
-            DARWIN_AGENTS,
+            darwinAgentsForHost(forgejoInstalled),
             RETIRED_DARWIN_AGENTS,
           );
   } catch (error) {

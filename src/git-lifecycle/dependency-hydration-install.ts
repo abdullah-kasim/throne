@@ -1,6 +1,17 @@
 import { access } from "node:fs/promises";
 import path from "node:path";
+import {
+  runForgeProcess,
+  type ProcessResult,
+  type ProcessRunner,
+} from "../forge/forge-dependencies.ts";
+import { readPinnedNodeVersion } from "../install-services/pinned-node-version.ts";
 import type { DependencyHydrationPlan } from "./dependency-hydration-fingerprint.ts";
+import { THRONE_PROJECT_DIR } from "./git-worktree.service.ts";
+import { MiseNodeReleases } from "./mise-node-releases.ts";
+import { nodeForProject, type NodeChoice } from "./node-for-project.ts";
+
+export type { NodeChoice } from "./node-for-project.ts";
 
 // What `hydrateDependencies` actually did, so a caller (e.g.
 // `GitTreeCreationService.create()`) can record how a tree came to have its
@@ -12,19 +23,79 @@ export type DependencyHydrationMode = "reflink" | "install" | "skipped";
 
 export interface DependencyHydrationResult extends DependencyHydrationPlan {
   readonly mode: DependencyHydrationMode;
+  readonly node?: NodeChoice;
 }
 
 export interface DependencyInstallPlatform {
-  install(destinationProjectDir: string): Promise<void>;
+  chooseNode(destinationProjectDir: string): Promise<NodeChoice>;
+  install(destinationProjectDir: string, node: NodeChoice): Promise<void>;
+}
+
+const ENGINE_REFUSAL = /EBADENGINE|Unsupported engine/;
+const NPM_ENGINE_REQUIREMENT = /Required:\s*(.+)/;
+
+function isEngineRefusal(result: ProcessResult): boolean {
+  return ENGINE_REFUSAL.test(result.stderr);
+}
+
+function engineRefusalError(
+  destinationProjectDir: string,
+  node: NodeChoice,
+  npmOutput: string,
+): Error {
+  const requirement =
+    NPM_ENGINE_REQUIREMENT.exec(npmOutput)?.[1]?.trim() ?? "not stated by npm";
+  return new Error(
+    `npm install in "${destinationProjectDir}" refused the Node engine: the ` +
+      `project declares ${node.declared ?? "none"}, the install used Node ` +
+      `${node.version} from "${node.binDirectory}", and npm requires ` +
+      `${requirement}. It was not retried on another Node.\n${npmOutput.trim()}`,
+  );
+}
+
+function pathStartingWith(binDirectory: string): string {
+  return [binDirectory, process.env.PATH ?? ""].join(path.delimiter);
 }
 
 export class NpmInstallPlatform implements DependencyInstallPlatform {
-  async install(destinationProjectDir: string): Promise<void> {
-    const { execFile } = await import("node:child_process");
-    const { promisify } = await import("node:util");
-    await promisify(execFile)("npm", ["install"], {
+  private readonly runProcess: ProcessRunner;
+  private readonly throneRoot: string;
+
+  constructor(
+    runProcess: ProcessRunner = runForgeProcess,
+    throneRoot: string = THRONE_PROJECT_DIR,
+  ) {
+    this.runProcess = runProcess;
+    this.throneRoot = throneRoot;
+  }
+
+  chooseNode(destinationProjectDir: string): Promise<NodeChoice> {
+    return nodeForProject(
+      destinationProjectDir,
+      new MiseNodeReleases(destinationProjectDir, this.runProcess),
+      readPinnedNodeVersion(this.throneRoot),
+    );
+  }
+
+  async install(
+    destinationProjectDir: string,
+    node: NodeChoice,
+  ): Promise<void> {
+    const result = await this.runProcess("npm", ["install"], {
       cwd: destinationProjectDir,
+      environment: {
+        ...process.env,
+        PATH: pathStartingWith(node.binDirectory),
+      },
     });
+    if (result.exitCode === 0) return;
+    if (isEngineRefusal(result)) {
+      throw engineRefusalError(destinationProjectDir, node, result.stderr);
+    }
+    throw new Error(
+      `npm install failed in "${destinationProjectDir}" with Node ` +
+        `${node.version}: ${result.stderr.trim()}`,
+    );
   }
 }
 
@@ -104,7 +175,7 @@ export async function installFallbackPath(
   destinationProjectDir: string,
   relativePath: string,
   installer: DependencyInstallPlatform,
-): Promise<void> {
+): Promise<NodeChoice> {
   const { rm } = await import("node:fs/promises");
   const destination = path.join(destinationProjectDir, relativePath);
   process.stderr.write(
@@ -112,10 +183,16 @@ export async function installFallbackPath(
       `— falling back to a real install in "${destinationProjectDir}" (slower ` +
       "than a reflink).\n",
   );
+  const node = await installer.chooseNode(destinationProjectDir);
+  process.stderr.write(
+    `dependency hydration: installing with Node ${node.version} from ` +
+      `"${node.binDirectory}" — ${node.reason}.\n`,
+  );
   try {
-    await installer.install(destinationProjectDir);
+    await installer.install(destinationProjectDir, node);
   } catch (error) {
     await rm(destination, { recursive: true, force: true }).catch(() => {});
     throw error;
   }
+  return node;
 }

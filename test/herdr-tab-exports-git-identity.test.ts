@@ -54,3 +54,12 @@ test('gitIdentityEnvironment carries author, committer, signing config and the o
   assert.deepEqual(gitIdentityEnvironment({ name: 'A', email: 'a@example.com', signingKey: 'K', signingFormat: 'openpgp', origin: 'o' }).slice(-2), ['--env', 'THRONE_GIT_IDENTITY_ORIGIN=o']);
   assert.deepEqual(gitIdentityEnvironment(undefined), []);
 });
+
+test('court tabs carry the agent name for the GitHub log', async () => {
+  const { calls, deps } = capture(undefined);
+  await createHerdrTab('stager-example', undefined, deps).catch(() => undefined);
+  const args = calls[0] ?? [];
+  const env = args.filter((_, i) => args[i - 1] === '--env');
+  assert.ok(env.includes('THRONE_AGENT_NAME=stager-example'), env.join(' '));
+  assert.equal(args[args.indexOf('--label') + 1], 'stager-example');
+});

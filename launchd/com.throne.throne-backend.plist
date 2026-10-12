@@ -7,9 +7,10 @@ status writer and every other hosted worker); the mac counterpart of
 throne/systemd/throne-backend.service.
 
 Not loadable as it stands: `{{THRONE_ROOT}}` (absolute path of the throne
-directory) and `{{NODE_BIN}}` (absolute path of the node interpreter, resolved
-through mise's `lts` symlink) are substituted at install time, and only the
-rendered copy in the user's LaunchAgents dir is a working agent. Install with:
+directory) and `{{NODE_BIN}}` (absolute path of the mise install of the exact
+node version pinned in the throne root's mise.toml) are substituted at install
+time, and only the rendered copy in the user's LaunchAgents dir is a working
+agent. Install with:
   cd <throne root> && ./install.sh        (or ./bin/throne-cli install-services)
 
 Enabled and bootstrapped by install-services, exactly like its systemd twin.
@@ -28,11 +29,12 @@ KEYS SHIPPED BELOW
                     rather than from the filename.
   ProgramArguments  /bin/bash as a login shell wrapping the exact argv the
                     linux ExecStart uses. The login shell is not optional
-                    here: `nest start --watch` spawns its child as the bare
-                    word `node` through a shell, and the hosted workers spawn
-                    git, gh, herdr and the harness launchers by name — all of
-                    which live on the PATH the .profile chain builds, not on
-                    launchd's bare system PATH. --path is RELATIVE on purpose
+                    here: the hosted workers spawn git, gh, herdr and the
+                    harness launchers by name — all of which live on the PATH
+                    the .profile chain builds, not on launchd's bare system
+                    PATH. `nest start` would spawn the app as the bare word
+                    `node` from that PATH, so --exec hands it the same pinned
+                    {{NODE_BIN}} the watcher runs on. --path is RELATIVE on purpose
                     (nest-cli rejects an absolute tsconfig path; see the
                     linux unit), which WorkingDirectory below makes safe.
                     Output goes to ~/Library/Logs/throne/ for want of a
@@ -75,7 +77,7 @@ mac is restarted by an operator, not by launchd.
 	<array>
 		<string>/bin/bash</string>
 		<string>-lc</string>
-		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{NODE_BIN}} {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --path tsconfig.build.json &gt;&gt; "$HOME/Library/Logs/throne/throne-backend.log" 2&gt;&amp;1</string>
+		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{NODE_BIN}} {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --exec {{NODE_BIN}} --path tsconfig.build.json &gt;&gt; "$HOME/Library/Logs/throne/throne-backend.log" 2&gt;&amp;1</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>{{THRONE_ROOT}}</string>

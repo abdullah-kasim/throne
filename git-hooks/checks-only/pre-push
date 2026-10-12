@@ -39,6 +39,22 @@ push_updates_a_branch() {
     return 1
 }
 
+origin_already_has() {
+    [ -n "$(git for-each-ref --count=1 --contains "$1" refs/remotes/origin/ 2>/dev/null)" ]
+}
+
+push_carries_only_commits_origin_has() {
+    [ "$remote_name" != origin ] || return 1
+    while read -r local_ref local_object remote_ref remote_object; do
+        case "$remote_ref" in
+            refs/tags/*) continue ;;
+        esac
+        object_is_all_zeros "$local_object" && continue
+        origin_already_has "$local_object" || return 1
+    done <"$ref_lines"
+    return 0
+}
+
 run_check() {
     sh -c "$1 \"\$@\"" "$1" "$remote_name" "$remote_url" <"$ref_lines" >&2
 }
@@ -64,6 +80,11 @@ cat >"$ref_lines"
 
 if ! push_updates_a_branch; then
     say "skipped because this push only deletes branches or pushes tags"
+    exit 0
+fi
+
+if push_carries_only_commits_origin_has; then
+    say "skipped because this push to $remote_name carries only commits origin already has"
     exit 0
 fi
 

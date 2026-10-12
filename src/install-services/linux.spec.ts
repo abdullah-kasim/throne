@@ -13,7 +13,7 @@ import {
 const TOKENS = {
   throneRoot: '/srv/throne',
   herdrBin: '/srv/herdr/v9/herdr',
-  nodeBin: '/srv/mise/node/lts/bin/node',
+  nodeBin: '/srv/mise/node/24.19.0/bin/node',
 };
 
 test('every committed conduwuit systemd source renders with the linux token set and no leftover token', async () => {
@@ -70,5 +70,25 @@ test('every committed throne-bot systemd source is registered, renders with the 
     const source = await readFile(path.join(SYSTEMD_SOURCE_DIR, basename), 'utf8');
     const rendered = renderUnitSource(source, TOKENS);
     assert.doesNotMatch(rendered, /\{\{/);
+  }
+});
+
+test("the rendered forgejo.service runs this checkout's forgejo-serve with the absolute node path and restarts on failure", async () => {
+  const source = await readFile(
+    path.join(SYSTEMD_SOURCE_DIR, SYSTEMD_UNIT_NAMES.FORGEJO),
+    'utf8',
+  );
+  const ntfySource = await readFile(
+    path.join(SYSTEMD_SOURCE_DIR, SYSTEMD_UNIT_NAMES.NTFY),
+    'utf8',
+  );
+  const rendered = renderUnitSource(source, TOKENS);
+  assert.doesNotMatch(rendered, /\{\{/);
+  assert.match(rendered, /^ExecStart=\/srv\/throne\/systemd\/forgejo-serve$/m);
+  assert.match(rendered, /^Environment=FORGEJO_NODE_BIN=\/srv\/mise\/node\/24\.19\.0\/bin\/node$/m);
+  assert.match(rendered, /^Restart=on-failure$/m);
+  assert.match(rendered, /^StateDirectory=forgejo$/m);
+  for (const bootRaceRetry of [/^StartLimitIntervalSec=.*$/m, /^StartLimitBurst=.*$/m, /^RestartSec=.*$/m, /^TimeoutStartSec=.*$/m]) {
+    assert.equal(rendered.match(bootRaceRetry)?.[0], ntfySource.match(bootRaceRetry)?.[0]);
   }
 });

@@ -32,7 +32,7 @@ import {
 } from "./reapability-claim.ts";
 import {
   readQueueLinkage,
-  resolveQueueReapDeliveryCommit,
+  resolveQueueReapEvidence,
 } from "./queue-reap-writeback.ts";
 
 /** Applies the same stated-evidence gate `complete-agent` applies, scoped to
@@ -192,7 +192,7 @@ async function cascadeLiveChildren(
         force: true,
         bypassMarker: request.bypassMarker,
         reason: "force",
-        archiveCancelledUnmerged: false,
+        archiveAbandonedUnmerged: false,
       },
       deps,
       visited,
@@ -212,7 +212,7 @@ function writeSuccessfulOutcome(
   request: ReapRequest,
   actions: string[],
   rosterKnown: boolean,
-  cancelledDisposition:
+  abandonedDisposition:
     | {
         ref: string;
         tip: string;
@@ -226,27 +226,27 @@ function writeSuccessfulOutcome(
     );
     return 0;
   }
-  if (cancelledDisposition !== undefined) {
+  if (abandonedDisposition !== undefined) {
     // The teardown mechanism is identical whether the branch was genuinely
-    // cancelled-unmerged (--reason cancelled --archive-cancelled-unmerged) or
+    // abandoned-unmerged (--reason abandoned --archive-abandoned-unmerged) or
     // whether it failed the ancestry guard on a --force reap carrying some
     // other reason (e.g. a transplant campaign whose content already landed
     // via history rewrite). Only the label may differ — the timing row
     // already records the caller's actual `request.reason` untouched.
     const label =
-      request.reason === "cancelled"
-        ? "CANCELLED-UNMERGED"
+      request.reason === REAP_REASON.ABANDONED
+        ? "ABANDONED-UNMERGED"
         : "UNMERGED-RETAINED";
     const explanation =
-      request.reason === "cancelled"
+      request.reason === REAP_REASON.ABANDONED
         ? "The branch was not merged or deleted, and its retained ref blocks exact-name reuse.\n"
         : "The branch's commits are not reachable from the target (commonly a " +
           "history-rewrite transplant whose content already landed) so it was " +
           "retained rather than merged or deleted; its retained ref blocks " +
           "exact-name reuse.\n";
     process.stdout.write(
-      `${label} "${request.name}": retained ${cancelledDisposition.ref} at ` +
-        `${cancelledDisposition.tip}; ${actions.join("; ")}. ${explanation}`,
+      `${label} "${request.name}": retained ${abandonedDisposition.ref} at ` +
+        `${abandonedDisposition.tip}; ${actions.join("; ")}. ${explanation}`,
     );
     return 0;
   }
@@ -335,7 +335,7 @@ export async function reapAgent(
   }
   visited.add(request.name);
 
-  // A queue-linked agent's row moves only on `completed`, `cancelled`, or
+  // A queue-linked agent's row moves only on `completed`, `abandoned`, or
   // `force`; `scratch` is a deliberate no-op for the row. That silent no-op is
   // how a queued Alpha got reaped as scratch and its row stayed in flight
   // forever (hiregent2, 2026-09-02). Scratch stays legal for what it is for —
@@ -350,8 +350,8 @@ export async function reapAgent(
           `recorded launcher of in-flight queue item "${linkage.itemId}"` +
           `${linkage.objectiveCode === null ? "" : ` (objective ${linkage.objectiveCode})`}. ` +
           `A scratch reap leaves that row in flight forever. Use --reason completed ` +
-          `(closes the row), --reason cancelled (reopens it), or ${FORCE_FLAG} ` +
-          `(abandons it). Nothing was torn down.\n`,
+          `(completes the row) or --reason abandoned (abandons it; ${FORCE_FLAG} ` +
+          `abandons it too). Nothing was torn down.\n`,
       );
       return 1;
     }
@@ -473,8 +473,8 @@ export async function reapAgent(
   // refuse, leaving a queue that said "done" about an agent still alive
   // (hiregent, 2026-09-02). A refused teardown now writes nothing, which is
   // the truth: the row stays in flight because the agent is.
-  const queueDeliveryCommit = await (
-    deps.resolveQueueReapDeliveryCommit ?? resolveQueueReapDeliveryCommit
+  const queueReapEvidence = await (
+    deps.resolveQueueReapEvidence ?? resolveQueueReapEvidence
   )(request.name, request.reason);
   const launchLedgerStatus = await resolveLaunchLedgerStatus(request, deps);
 
@@ -493,7 +493,7 @@ export async function reapAgent(
       return 1;
     }
     await deps.writeQueueReapOutcome?.(request.name, request.reason, {
-      deliveryCommit: queueDeliveryCommit,
+      evidenceResolvedBeforeTeardown: queueReapEvidence,
     });
     await recordLaunchLedgerStatus(request, launchLedgerStatus, deps);
     if (!(await verifyNoStrandedTree(request.name, outcome.spawnCwd, deps))) {
@@ -504,7 +504,7 @@ export async function reapAgent(
       request,
       outcome.actions,
       rosterKnown,
-      outcome.cancelledDisposition,
+      outcome.abandonedDisposition,
     );
   } catch (error) {
     process.stderr.write(

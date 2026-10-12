@@ -25,6 +25,11 @@ export {
   WorkItemNotFoundError,
 };
 import { createMessageQueueSchema } from "./message-queue-schema.ts";
+import {
+  insertUnlessDedupeKeyIsStored,
+  runInImmediateTransaction,
+} from "./work-item-dedupe-key.store.ts";
+import { recordWorkItemOutcome } from "./work-item-outcome.store.ts";
 
 /**
  * The queue's on-disk home: one SQLite file under the durable throne ledger
@@ -253,6 +258,9 @@ export class MessageQueueStore {
     acknowledgeDeliveryFailureNotice(this.db, id, this.now());
   countAllUnacknowledgedDeliveryFailureNotices = (): number =>
     countAllUnacknowledgedDeliveryFailureNotices(this.db);
+  insertUnlessDedupeKeyIsStored = <Row>(kind: string, dedupeKey: string, insert: () => Row): Row | undefined =>
+    insertUnlessDedupeKeyIsStored(this.db, kind, dedupeKey, insert);
+  recordWorkItemOutcome = (id: number, outcome: string): void => recordWorkItemOutcome(this.db, id, outcome);
 
   /**
    * A terminal transition that tolerates losing a race to another owner of
@@ -392,8 +400,7 @@ export class MessageQueueStore {
     const kindPredicate = kinds.length === 0
       ? ""
       : ` AND kind IN (${kinds.map(() => "?").join(", ")})`;
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
+    return runInImmediateTransaction(this.db, () => {
       const candidate = this.db.prepare(
         `SELECT id FROM work_items
          WHERE state = ? AND (due_at IS NULL OR due_at <= ?)${kindPredicate}
@@ -404,10 +411,7 @@ export class MessageQueueStore {
         timestamp,
         ...kinds,
       ) as unknown as { id: number } | undefined;
-      if (candidate === undefined) {
-        this.db.exec("COMMIT");
-        return undefined;
-      }
+      if (candidate === undefined) return undefined;
 
       const row = this.db.prepare(
         `UPDATE work_items SET state = ?, updated_at = ?, attempt_count = attempt_count + 1
@@ -420,16 +424,8 @@ export class MessageQueueStore {
         MessageQueueWorkItemState.Queued,
         timestamp,
       ) as unknown as WorkItemSqlRow | undefined;
-      this.db.exec("COMMIT");
       return row === undefined ? undefined : toWorkItemRow(row);
-    } catch (error) {
-      try {
-        this.db.exec("ROLLBACK");
-      } catch {
-        // If BEGIN IMMEDIATE itself failed, no transaction exists to roll back.
-      }
-      throw error;
-    }
+    });
   }
 
   rescheduleClaimedWorkItem(

@@ -80,6 +80,7 @@ UNITS=(
     herdr-server.service
     throne-herdr.service
     ntfy.service
+    forgejo.service
     # throne-build.service is retired (BCL campaign, 2026-08-14): its
     # watch-rebuild role collapsed into throne-backend.service's own
     # SelfRebuildHostedWorker. Kept in this list ONLY so a box that installed
@@ -104,6 +105,7 @@ LAUNCHD_LABELS=(
     com.throne.herdr-server
     com.throne.throne-herdr
     com.throne.ntfy
+    com.throne.forgejo
     com.throne.keep-going
     com.throne.no-idling
     com.throne.throne-backend
@@ -357,14 +359,21 @@ if [ -d "$herdr_cache" ]; then
     did "removed herdr download cache"
 fi
 
-# The ntfy server is a container (docker or podman); its image is left alone.
-for runtime in ${THRONE_CONTAINER_RUNTIME:-} docker podman; do
-    if command -v "$runtime" >/dev/null 2>&1 &&
-       "$runtime" container inspect throne-ntfy >/dev/null 2>&1; then
-        "$runtime" rm -f throne-ntfy >/dev/null 2>&1 || true
-        did "removed the throne-ntfy container ($runtime)"
-        break
-    fi
+tea_cache="${XDG_CACHE_HOME:-$HOME/.cache}/throne/tea"
+if [ -d "$tea_cache" ]; then
+    rm -rf "$tea_cache"
+    did "removed tea download cache"
+fi
+
+for container in throne-ntfy throne-forgejo; do
+    for runtime in ${THRONE_CONTAINER_RUNTIME:-} docker podman; do
+        if command -v "$runtime" >/dev/null 2>&1 &&
+           "$runtime" container inspect "$container" >/dev/null 2>&1; then
+            "$runtime" rm -f "$container" >/dev/null 2>&1 || true
+            did "removed the $container container ($runtime)"
+            break
+        fi
+    done
 done
 
 if [ -d "$THRONE_ROOT/vendor" ]; then
@@ -409,6 +418,13 @@ cat <<'EOF'
 
     Left deliberately untouched:
       the ntfy image                        docker/podman rmi binwiederhier/ntfy
+      the Forgejo image                     docker/podman rmi codeberg.org/forgejo/forgejo:<tag in vendor-pins.json>
+      Forgejo's data directory              rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/forgejo"
+        (repositories, app.ini, admin password, API token and the install marker; while the
+        marker stays, ./install.sh brings Forgejo back with its data)
+      Forgejo's HTTPS front, if configured  tailscale serve --https=8443 off
+      tea and its forgejo login             ~/.local/bin/tea logins delete forgejo && rm ~/.local/bin/tea
+        (the login holds the API token kept in Forgejo's data directory)
       config.user.ts / src/config.user.ts   your persona, steering and secrets
       ~/.throne/                            agent ledgers and campaign worktrees
       this git checkout                     including uncommitted work

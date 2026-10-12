@@ -67,7 +67,7 @@ function baseRequest(name: string): ReapRequest {
     name,
     force: false,
     bypassMarker: false,
-    archiveCancelledUnmerged: false,
+    archiveAbandonedUnmerged: false,
     reason: "completed",
   };
 }

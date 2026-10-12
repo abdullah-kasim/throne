@@ -1,4 +1,7 @@
-import type { BriefCommandRunner, BriefSection } from "./brief-command-runner.ts";
+import type { ForgeDependencies } from "../forge/forge-dependencies.ts";
+import { messageOf } from "../forge/forge-refusal.ts";
+import { listOpenPullRequests } from "../forge/pull-request-operations.ts";
+import type { BriefSection } from "./brief-command-runner.ts";
 
 const PULL_REQUEST_TIMEOUT = 15_000;
 const PULL_REQUEST_LIMIT = 30;
@@ -17,26 +20,30 @@ function filesTheBodyNames(pullRequest: OpenPullRequest, body: string): string[]
     .filter((filePath) => body.includes(filePath));
 }
 
+async function listOpenPullRequestsThroughTheForge(
+  forge: ForgeDependencies,
+  repository: string,
+): Promise<{ readonly ok: true; readonly stdout: string } | { readonly ok: false; readonly detail: string }> {
+  try {
+    const listing = await listOpenPullRequests(
+      { repo: repository, bypass: false, dependencies: forge },
+      PULL_REQUEST_LIMIT,
+      PULL_REQUEST_TIMEOUT,
+    );
+    return listing.exitCode === 0
+      ? { ok: true, stdout: listing.stdout.trim() }
+      : { ok: false, detail: listing.stderr.trim().split("\n")[0] ?? "" };
+  } catch (error) {
+    return { ok: false, detail: messageOf(error) };
+  }
+}
+
 export async function readOpenPullRequests(
-  run: BriefCommandRunner,
+  forge: ForgeDependencies,
   input: { readonly repository: string; readonly branch: string; readonly body: string },
 ): Promise<BriefSection> {
   const title = "Open pull requests touching the same branch or files";
-  const listing = await run(
-    "gh",
-    [
-      "pr",
-      "list",
-      "--state",
-      "open",
-      "--limit",
-      String(PULL_REQUEST_LIMIT),
-      "--json",
-      "number,title,headRefName,url,files",
-    ],
-    input.repository,
-    PULL_REQUEST_TIMEOUT,
-  );
+  const listing = await listOpenPullRequestsThroughTheForge(forge, input.repository);
   if (!listing.ok) {
     return { title, trimmable: true, lines: [`Unavailable (${listing.detail}).`] };
   }

@@ -90,6 +90,8 @@ export async function createHerdrTab(
     `PATH=${throneBinDir}:${inheritedPath}`,
     '--env',
     'THRONE_AGENT_PANE=1',
+    '--env',
+    `THRONE_AGENT_NAME=${label}`,
     ...gitIdentityEnvironment(await (deps.readGitIdentity ?? readConfiguredGitIdentity)(cwd)),
   ];
   if (cwd) {

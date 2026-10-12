@@ -1,4 +1,7 @@
-import type { PressureClassification } from "../pressure-signal/classify-pressure.ts";
+import {
+  AT_CAPACITY_THRESHOLD,
+  type PressureClassification,
+} from "../pressure-signal/classify-pressure.ts";
 
 /**
  * QUOTA IS NOT PSI: pressure cannot grant launch permission.
@@ -40,9 +43,12 @@ export function effectiveAlphaCapacity(
 
 export function alphaLaunchBudgetForPressure(pressure: number | null): number {
   if (pressure === null) return 0;
-  const budget = Math.floor(
-    (LAUNCH_BUDGET_PRESSURE_CEILING - pressure) /
-      ASSUMED_PRESSURE_PER_ALPHA_LAUNCH,
+  const budget = Math.max(
+    Math.floor(
+      (LAUNCH_BUDGET_PRESSURE_CEILING - pressure) /
+        ASSUMED_PRESSURE_PER_ALPHA_LAUNCH,
+    ),
+    pressure < AT_CAPACITY_THRESHOLD ? 1 : 0,
   );
   return Math.min(Math.max(budget, 0), ALPHA_AUTOSCALE_HARD_MAXIMUM);
 }

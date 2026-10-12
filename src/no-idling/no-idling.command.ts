@@ -24,7 +24,9 @@ import {
   openMessageQueueStore,
 } from '../message-queue/message-queue.store.ts';
 import { detectStaleThroneTabs, detectStrandedSpawns } from './stale-tab-report.ts';
+import { openRegentQueueStore } from '../regent-queue/regent-queue.store.ts';
 import { recoverStrandedSpawn } from './stranded-spawn-recovery.ts';
+import { detectUnnamedAgents } from './unnamed-agent-report.ts';
 import { ConfirmedObservationTracker } from './confirmed-observation.ts';
 import { renderEntranceRefusal } from '../shared-policy/entrance-refusal.ts';
 import {
@@ -85,18 +87,21 @@ export const REAL_NO_IDLING_DEPENDENCIES: NoIdlingDependencies = {
     fileExists(path.join(dataDir, name, IDLE_BY_DESIGN_MARKER_BASENAME)),
   detectStaleTabs: (dataDir) => detectStaleThroneTabs(undefined, dataDir),
   detectStrandedSpawns: (dataDir) => detectStrandedSpawns(undefined, dataDir),
+  detectUnnamedAgents: (dataDir) => detectUnnamedAgents(undefined, dataDir),
   recoverStrandedSpawn: (agentName, classification, dataDir) =>
     recoverStrandedSpawn(agentName, classification, dataDir),
   checkCwdExists: (cwd) => fileExists(cwd),
   isDurablyAccountedFor: (name, dataDir) => isDurablyAccountedFor(name, dataDir),
   isRegisteredAgent: (name, dataDir) => agentRegistrationExists(name, dataDir),
   hasProvenDelivery: (name, dataDir) => hasProvenDelivery(name, dataDir),
+  openRegentQueue: () => openRegentQueueStore(),
   now: () => Date.now(),
   // Process-lifetime: the hosted worker and this route handler share this
   // exact dependency object across every scheduled/manual sweep, so one
   // tracker instance here carries each Alpha's fully-idle confirmation
   // streak across real, minute-apart samples (FP2's fix).
   fullyIdleFamilyLiveChildrenTracker: new ConfirmedObservationTracker(),
+  unnamedAgentTracker: new ConfirmedObservationTracker(),
   excludedFamilyObservations: new Set<string>(),
   stillBlockedObservations: new Map<string, number>(),
 };

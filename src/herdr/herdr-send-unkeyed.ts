@@ -185,17 +185,16 @@ export async function submitToAgentUnkeyed(
   options: SubmitToAgentOptions,
   deps: SubmitToAgentDeps,
   keyedWindow?: { name: string; key: string; store: KeyedSubmissionWindowStore },
-): Promise<void> {
+): Promise<string | undefined> {
   const name = recipientName(agent);
   if (options.forceImmediate === true) {
-    await deps.sendText(
-      agent.paneId,
-      submittedPayload(senderName, prompt, options),
-    );
+    const immediatePayload = submittedPayload(senderName, prompt, options);
+    await deps.sendText(agent.paneId, immediatePayload);
     await deps.pressEnter(agent.paneId);
-    return;
+    return immediatePayload;
   }
   const harness = supportedComposerHarness(agent.agent);
+  let typedText: string | undefined;
   try {
     // A resident draft outranks every sender: wait for it to clear BEFORE
     // competing for the recipient lock, bounded by the existing composer
@@ -257,7 +256,7 @@ export async function submitToAgentUnkeyed(
           await deps.stagePayload(name, live.prompt),
         );
       }
-      await submitToAgentWhileLocked(
+      typedText = await submitToAgentWhileLocked(
         refreshed,
         live.senderName,
         effectivePrompt,
@@ -275,4 +274,5 @@ export async function submitToAgentUnkeyed(
     }
     throw new SubmitNotSentError(name, error);
   }
+  return typedText;
 }

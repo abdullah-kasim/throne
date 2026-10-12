@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { RUNTIME_THRONE_ROOT } from '../shared-policy/runtime-throne-root.ts';
 import { consumePayload, REAL_PAYLOAD_CONSUMPTION_DEPS } from '../read-payload/payload-consumption.ts';
 export const FILE_BACKED_PAYLOAD_DIR = join(homedir(), '.throne', 'payloads');
-export const FILE_BACKED_DELIVERY_THRESHOLD_BYTES = 4096;
+export const FILE_BACKED_DELIVERY_THRESHOLD_BYTES = 768;
 export const FILE_BACKED_PAYLOAD_DIR_MODE = 0o700;
 export const FILE_BACKED_PAYLOAD_FILE_MODE = 0o600;
 export const FILE_BACKED_PAYLOAD_TTL_MS = 24 * 60 * 60 * 1_000;

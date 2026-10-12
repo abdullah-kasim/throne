@@ -38,11 +38,7 @@ async function argvHandedToCreateAgent(
       resolveAgent: async () => ({ paneId: "test-pane" }) as never,
       submitToAgent: async () => {},
     },
-    promoteDeferredWork: () => ({
-      released: [],
-      recovered: null,
-      overriddenAuthority: null,
-    }),
+    recoverIdleWork: () => ({ recovered: null }),
     notifyOfIdleRecovery: async () => {},
     readPressure: () => ({ verdict: "take-more-work", pressure: 0, reasons: [] }),
     readReadyQueue: () => ({ state: "candidates", candidates: [queued] }),

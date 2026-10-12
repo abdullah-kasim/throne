@@ -20,21 +20,29 @@ import {
   runLaunchctl,
 } from '../install-services/service-unit-renderer.service.ts';
 import { herdrConfigPath } from './herdr-session-config.ts';
+import { isForgejoInstalledOnThisHost } from './forgejo-installation.ts';
 import type { InstallServicesDeps } from './install-services.types.ts';
+import { readPinnedNodeVersion } from './pinned-node-version.ts';
 
 function realUserId(): number {
   return process.getuid?.() ?? -1;
 }
 
 /**
- * The mise `lts` node symlink path under the user's home directory — the
- * same `os.homedir()`-relative form ownedHerdrPath()/herdrCacheDirectory()
+ * The mise install path of the exact node version pinned in the throne
+ * checkout's mise.toml, under the user's home directory — the same
+ * `os.homedir()`-relative form ownedHerdrPath()/herdrCacheDirectory()
  * already use for other machine-local paths, never an environment-variable
- * lookup. Returns null (never a bare "node" fallback) when the symlink
- * doesn't resolve, so a missing mise install fails loudly at render time
- * instead of silently reintroducing the PATH bug this exists to fix.
+ * lookup. Returns null (never a bare "node" fallback and never mise's `lts`
+ * link) when mise.toml pins no node or that version is not installed, so a
+ * missing install fails loudly at render time instead of silently running
+ * an unpinned node.
  */
-function realResolveNodeBin(): string | null {
+function realResolveNodeBin(throneRoot: string): string | null {
+  const pinnedVersion = readPinnedNodeVersion(throneRoot);
+  if (pinnedVersion === null) {
+    return null;
+  }
   const nodeBin = path.join(
     os.homedir(),
     '.local',
@@ -42,7 +50,7 @@ function realResolveNodeBin(): string | null {
     'mise',
     'installs',
     'node',
-    'lts',
+    pinnedVersion,
     'bin',
     'node',
   );
@@ -121,4 +129,5 @@ export const REAL_DEPS: InstallServicesDeps = {
   },
   herdrConfigPath: () => herdrConfigPath(),
   bashrcPath: () => path.join(os.homedir(), '.bashrc'),
+  isForgejoInstalled: isForgejoInstalledOnThisHost,
 };

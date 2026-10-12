@@ -51,6 +51,23 @@ interface QueueArchiveSourceRow {
   updated_at: number;
 }
 
+export interface QueueMutationAuditEntry {
+  readonly operationId: string;
+  readonly actor: string;
+  readonly predicate: string;
+  readonly operatedAt: number;
+  readonly rowCount: number;
+}
+
+export function recordQueueMutationAudit(
+  db: DatabaseSync,
+  entry: QueueMutationAuditEntry,
+): void {
+  db.prepare(
+    `INSERT INTO queue_mutation_audit (operation_id, actor, predicate, operated_at, row_count) VALUES (?, ?, ?, ?, ?)`,
+  ).run(entry.operationId, entry.actor, entry.predicate, entry.operatedAt, entry.rowCount);
+}
+
 export function archiveQueueItems(
   db: DatabaseSync,
   now: () => number,
@@ -80,9 +97,13 @@ export function archiveQueueItems(
             ) as unknown as QueueArchiveSourceRow | undefined,
       )
       .filter((row): row is QueueArchiveSourceRow => row !== undefined);
-    db.prepare(
-      `INSERT INTO queue_mutation_audit (operation_id, actor, predicate, operated_at, row_count) VALUES (?, ?, ?, ?, ?)`,
-    ).run(operationId, input.actor, input.predicate, operatedAt, rows.length);
+    recordQueueMutationAudit(db, {
+      operationId,
+      actor: input.actor,
+      predicate: input.predicate,
+      operatedAt,
+      rowCount: rows.length,
+    });
     const insert = db.prepare(
       `INSERT INTO queue_item_archive (archive_id, operation_id, item_id, objective_code, status, body, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, priority, created_at, updated_at, archived_at, actor, predicate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );

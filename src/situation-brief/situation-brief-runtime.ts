@@ -8,6 +8,10 @@ import {
   type RegentQueueItemRow,
   type RegentQueueStore,
 } from "../regent-queue/regent-queue.store.ts";
+import {
+  PRODUCTION_FORGE_DEPENDENCIES,
+  type ForgeDependencies,
+} from "../forge/forge-dependencies.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { queueAddressingObjectiveCode } from "../shared-policy/objective-contract.ts";
 import {
@@ -16,6 +20,7 @@ import {
   type BriefSection,
 } from "./brief-command-runner.ts";
 import { readCitedCommits } from "./cited-commits.ts";
+import { readDeferredRowsWaitingOn } from "./deferred-rows-waiting.ts";
 import { readOpenPullRequests } from "./open-pull-requests.ts";
 import { readRepositorySituation } from "./repository-situation.ts";
 import {
@@ -35,6 +40,7 @@ export interface SituationBriefDependencies {
   readonly openStore: () => RegentQueueStore;
   readonly openAmendments: () => RegentQueueAmendments;
   readonly runCommand: BriefCommandRunner;
+  readonly forge: ForgeDependencies;
   readonly now: () => number;
 }
 
@@ -42,6 +48,7 @@ export const REAL_SITUATION_BRIEF_DEPENDENCIES: SituationBriefDependencies = {
   openStore: openRegentQueueStore,
   openAmendments: openRegentQueueAmendments,
   runCommand: runBriefCommand,
+  forge: PRODUCTION_FORGE_DEPENDENCIES,
   now: Date.now,
 };
 
@@ -67,7 +74,7 @@ async function readRepositorySections(
       branch,
       filedBase: row.launchEligibility?.baseCommit ?? row.baseCommit,
     }),
-    await readOpenPullRequests(dependencies.runCommand, facts),
+    await readOpenPullRequests(dependencies.forge, facts),
     await readCitedCommits(dependencies.runCommand, facts),
   ];
 }
@@ -94,6 +101,7 @@ export async function composeSituationBriefForObjective(
       amendments: amendments.readForObjective(objectiveCode),
       sizeLimitBytes,
       sections: [
+        ...readDeferredRowsWaitingOn(rows, objectiveCode),
         repositorySections[0]!,
         readSiblingObjectives(rows, row, dependencies.now()),
         ...repositorySections.slice(1),

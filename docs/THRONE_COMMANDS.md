@@ -20,6 +20,7 @@ and each table keeps its family's own order.
 | `send-agent-legacy` | Fallback: deliver a message synchronously through the older path that predates the message queue, independent of `send-agent` and the queue's dispatch loop. |
 | `message-status` | Poll a durable message queue row for its delivery state. |
 | `cancel-message` | Cancel one scheduled message before delivery begins. |
+| `read-message` | Print the stored text of one message by its id, to its recipient or its sender; it changes nothing. |
 | `delivery-failures` | List, or acknowledge, the delivery-failure notices a sender has not yet acknowledged. |
 | `throne-backend` | Run the long-lived server that hosts keep-going, no-idling and the message queue's dispatch loop as in-process workers. |
 | `queue-health` | Prove the message queue is reachable end to end, with one verdict. |
@@ -27,6 +28,7 @@ and each table keeps its family's own order.
 | `verify-alpha-floor-delivery` | Prove that the notifier for a breached Alpha floor delivers end to end under its scheduled sender identity. |
 | `alpha-autoscale-tick` | Run one Alpha autoscale sweep inside the backend under the cross-process sweep lock, or in this process with `--local`. |
 | `autoscale-now` | Check the queue and spawn now instead of waiting for the five-minute autoscale schedule; an alias of `alpha-autoscale-tick`. |
+| `autoscale-status` | Show the autoscaler's state and what its next run would do, changing nothing; deferred rows are listed as held, with what they wait on and since when. |
 
 ## Agent orchestration
 
@@ -60,13 +62,15 @@ and each table keeps its family's own order.
 | `validate-delivery` | Check whether a commit is present on a repository's checked-out branch, without consulting the ledger. |
 | `check-main-integrity` | Detect a commit that did not come through delivery already landed on a protected branch, cross-checked against the ledger and never trusting the author. Runs on demand only and repairs nothing. |
 | `trim-queue` | Archive complete and abandoned items in the Regent queue store; a dry run by default. |
+| `push-waiver` | Record why every finding the push checks reported is not a defect in the pushed branch (another open pull request adds it, it is already on the base, or the finding is wrong), so that one commit may be pushed to one branch once without the checks. Prints the one push command to run. |
 
 ## Queue
 
 | command | what it does |
 | --- | --- |
 | `add-to-queue` | Add a new open item to the Regent queue store; Stager only. |
-| `update-queue` | Correct the editable fields of a Regent queue item, including amending its body or replacing it outright. |
+| `update-queue` | Correct the editable fields of a Regent queue item, including amending its body or replacing it outright. Deferring a row needs `--depends-on` and `--defer-reason`; a deferred row is reopened only by `release-deferred`. |
+| `release-deferred` | Move a deferred queue row to open, record who asked, who released it and why, and send the requester one reply. Regent, or the Stager that filed the row. |
 | `amendment` | Record the Lord's amendment on a queue row as a numbered amendment and tell that row's in-flight Alpha and the Regent. Refuses rows already delivered; Stager or Regent only. |
 | `check-queue-amendments-reconciled` | Exit 0 when an Alpha's plan records every amendment on its queue row as reconciled, and 66 when one is not; used to refuse pushing and merging past an unread amendment. |
 | `situation-brief` | Print the launch situation for a queue row: its recorded amendments, local and remote branch state, other queue work on the same repository, open pull requests and cited commits. Appended to every new Alpha's opening prompt. |
@@ -95,6 +99,7 @@ and each table keeps its family's own order.
 | `campaign-evidence` | Generate campaign evidence. |
 | `sweep-tmp-scratch` | Sweep aged scratch directories nothing holds; a dry run by default. |
 | `git-identity` | Print the git author identity from `config.user.ts` (`identity.name` and `identity.email`); exits 3 when it is unset. |
+| `forge` | Work with pull requests on this host's forge: which forge, the lazy Forgejo copy of a repository and keeping its branches in step with GitHub, pushing a branch, and creating, viewing, editing, listing, diffing and commenting on pull requests, merging them only on GitHub (never in Forgejo), attaching files and rendering markdown; opening a pull request in an editor from a reused or detached review worktree; staging an existing GitHub pull request in Forgejo; promoting a Forgejo pull request to GitHub, mirroring, listing and answering its review feedback in Forgejo, and closing it once its GitHub twin is merged. Forgejo when it is installed and answering, otherwise GitHub through `gh`. |
 | `memory-dir` | Print the durable cross-session memory directory for the project containing a directory, deferring to any memory convention already in force. |
 | `recall` | Print the recorded memories that apply to a task, most relevant first and capped in size, from the named repositories or memory directories plus the global memories; also serves the prompt-submit hook. |
 | `rank` | Rank files or input items by how likely each answers yes to a question, most likely first, so only the top few get opened; never prints item contents. |
@@ -105,6 +110,7 @@ and each table keeps its family's own order.
 | `disable-throne` | Stop the throne's systemd units; messages no agent. |
 | `enable-throne` | Start the throne's systemd units; messages no agent. |
 | `render-queue` | Render the current state of the SQLite Regent queue store as readable markdown. |
+| `work-log` | List the queue rows completed or updated since a date, with each row's recorded outcome and the first sentence of its intent, and the GitHub actions the gh guard logged since that date; `--json` for one machine-readable object. |
 | `consume-fence-handoff-on-start` | Read and clear the current fence handoff record, so a freshly summoned Regent learns why its predecessor was fenced before it handles any pane message. |
 | `record-suite-hold` | Record that a campaign now holds full-suite access, so a fenced Regent's successor can learn who was mid-sequence. |
 | `record-suite-release` | Record that a campaign has released full-suite access. |

@@ -7,16 +7,18 @@ import { makeScratchDirectory } from '../scratch-directory.test-support.ts';
 
 import {
   DARWIN_AGENTS,
+  darwinAgentsForHost,
   installDarwinServices,
   RETIRED_DARWIN_AGENTS,
 } from './darwin.ts';
-import { LINUX_UNITS, RETIRED_LINUX_UNITS } from './linux.ts';
+import { linuxUnitsForHost, RETIRED_LINUX_UNITS } from './linux.ts';
 import {
   LAUNCH_AGENTS_DIR,
   LAUNCHD_AGENT_NAMES,
   LAUNCHD_SOURCE_DIR,
   renderUnitSource,
   SYSTEMD_SOURCE_DIR,
+  SYSTEMD_UNIT_NAMES,
   type InstalledUnit,
   type ServiceCommandResult,
 } from './service-unit-renderer.service.ts';
@@ -28,7 +30,7 @@ import { throneSessionFilePath, throneSessionFileText, throneShellBlock } from '
 const TOKENS = {
   throneRoot: '/srv/throne',
   herdrBin: '/srv/herdr/v9/herdr',
-  nodeBin: '/srv/mise/node/lts/bin/node',
+  nodeBin: '/srv/mise/node/24.19.0/bin/node',
 };
 
 async function exists(filePath: string): Promise<boolean> {
@@ -106,6 +108,7 @@ function makeDeps(world: FakeWorld, home = '/srv/home'): InstallServicesDeps {
     writeClaudeSettings: async () => {},
     herdrConfigPath: () => path.join(home, '.config', 'herdr', 'config.toml'),
     bashrcPath: () => path.join(home, '.bashrc'),
+    isForgejoInstalled: async () => false,
   };
 }
 
@@ -119,10 +122,10 @@ function emptyWorld(): FakeWorld {
 }
 
 test('every unit install-services renders has a committed source, and every retired one does not', async () => {
-  for (const unit of LINUX_UNITS) {
+  for (const unit of linuxUnitsForHost(true)) {
     assert.ok(await exists(path.join(SYSTEMD_SOURCE_DIR, unit.basename)), `systemd/${unit.basename} missing`);
   }
-  for (const agent of DARWIN_AGENTS) {
+  for (const agent of darwinAgentsForHost(true)) {
     assert.ok(await exists(path.join(LAUNCHD_SOURCE_DIR, agent.basename)), `launchd/${agent.basename} missing`);
   }
   for (const basename of RETIRED_LINUX_UNITS) {
@@ -135,11 +138,26 @@ test('every unit install-services renders has a committed source, and every reti
 });
 
 test('every committed launchd source renders with the darwin token set and no leftover token', async () => {
-  for (const agent of DARWIN_AGENTS) {
+  for (const agent of darwinAgentsForHost(true)) {
     const source = await readFile(path.join(LAUNCHD_SOURCE_DIR, agent.basename), 'utf8');
     const rendered = renderUnitSource(source, TOKENS);
     assert.match(rendered, new RegExp(`<string>${agent.label}</string>`));
     assert.doesNotMatch(rendered, /\{\{/);
+  }
+});
+
+function binaryNestStartsTheAppWith(renderedUnit: string): string | undefined {
+  return /nest\.js start .*--exec (\S+)/.exec(renderedUnit)?.[1];
+}
+
+test('the throne backend app runs the node version pinned in mise.toml, not the node on PATH', async () => {
+  for (const unitSource of [
+    path.join(LAUNCHD_SOURCE_DIR, LAUNCHD_AGENT_NAMES.THRONE_BACKEND.basename),
+    path.join(SYSTEMD_SOURCE_DIR, SYSTEMD_UNIT_NAMES.THRONE_BACKEND),
+  ]) {
+    const rendered = renderUnitSource(await readFile(unitSource, 'utf8'), TOKENS);
+
+    assert.equal(binaryNestStartsTheAppWith(rendered), TOKENS.nodeBin, unitSource);
   }
 });
 

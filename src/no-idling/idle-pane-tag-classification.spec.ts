@@ -4,7 +4,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { classifyLastMessageTags } from './idle-pane-tag-classification.ts';
+import {
+  classifyLastMessageTags,
+  lastMessageBlock,
+  readReapabilityClaimStatus,
+} from './idle-pane-tag-classification.ts';
 
 test('a blocked agent naming its dependency is classified with the exact named children', () => {
   const state = classifyLastMessageTags(
@@ -20,4 +24,24 @@ test('a blocked agent naming its dependency is classified with the exact named c
 test('a bare {"blocked":true} with no named children classifies with an empty blockedBy list', () => {
   const state = classifyLastMessageTags('{"blocked":true}');
   assert.deepEqual(state, { kind: 'blocked', blockedBy: [] });
+});
+
+function paneEndingWith(message: string): string {
+  return ['› alpha-claimant said: thanks, merged.', '', `● ${message}`, '', '✻ Brewed for 5s'].join('\n');
+}
+
+test('an agent that prints {"reapable":"abandoned"} is reapable as abandoned', () => {
+  const message = lastMessageBlock(paneEndingWith('{"reapable":"abandoned"}'));
+
+  assert.equal(readReapabilityClaimStatus(message), 'abandoned');
+  assert.deepEqual(classifyLastMessageTags(message), { kind: 'reapable' });
+});
+
+test('an agent still printing {"reapable":"cancelled"} is read as abandoned', () => {
+  const standalone = lastMessageBlock(paneEndingWith('{"reapable":"cancelled"}'));
+  const insideProse = lastMessageBlock(paneEndingWith('Stopping without a merge. {"reapable":"CANCELLED"}'));
+
+  assert.equal(readReapabilityClaimStatus(standalone), 'abandoned');
+  assert.equal(readReapabilityClaimStatus(insideProse), 'abandoned');
+  assert.deepEqual(classifyLastMessageTags(standalone), { kind: 'reapable' });
 });

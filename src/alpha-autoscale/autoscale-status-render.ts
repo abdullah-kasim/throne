@@ -1,6 +1,6 @@
 import { AUTOSCALE_KILL_SWITCH_ENV_VAR } from "./kill-switch.ts";
 import type { AutoscaleStatusReport } from "./autoscale-status-report.ts";
-import type { AutoscaleStatusQueue } from "./autoscale-status-queue.ts";
+import type { AutoscaleStatusQueue, DeferredQueueRow } from "./autoscale-status-queue.ts";
 
 export const LOCAL_READING_BANNER =
   "backend unreachable — kill switch and breach duration are this shell's view and may differ from the backend's";
@@ -70,6 +70,18 @@ function describeCooldown(report: AutoscaleStatusReport): string[] {
   ];
 }
 
+function describeHeldSince(row: DeferredQueueRow): string {
+  return row.deferredSince === null
+    ? "deferred since an unknown time"
+    : `deferred since ${row.deferredSince} (${row.heldForHours} h)`;
+}
+
+function describeDeferredRow(row: DeferredQueueRow): string {
+  const waitsOn = row.waitsOn.join(", ") || "nothing named";
+  const reason = row.reason === null ? "" : ` (${row.reason})`;
+  return `     ${row.objectiveCode} (priority ${row.priority}) held, waits on ${waitsOn}${reason}; ${describeHeldSince(row)}`;
+}
+
 function describeQueue(queue: AutoscaleStatusQueue): string[] {
   const listOrNone = (lines: string[]): string[] => (lines.length === 0 ? ["     none"] : lines);
   return [
@@ -83,13 +95,8 @@ function describeQueue(queue: AutoscaleStatusQueue): string[] {
     ),
     "   open but not launchable:",
     ...listOrNone(queue.notLaunchable.map((row) => `     ${row.objectiveCode}: ${row.reason}`)),
-    "   deferred:",
-    ...listOrNone(
-      queue.deferred.map(
-        (row) =>
-          `     ${row.objectiveCode} (priority ${row.priority}) waits on ${row.releaseAuthority === null ? (row.waitsOn.join(", ") || "nothing named") : `${row.releaseAuthority}'s ruling`}${row.reason === null ? "" : ` (${row.reason})`}; ${row.wouldRelease ? "would release on the next run" : "stays held on the next run"}`,
-      ),
-    ),
+    "   deferred, held until the Regent runs release-deferred:",
+    ...listOrNone(queue.deferred.map(describeDeferredRow)),
     "   in flight:",
     ...listOrNone(queue.inFlight.map((row) => `     ${row.objectiveCode}: ${row.alphaName ?? "no agent"}`)),
     `   would brief on the next run: ${queue.wouldBrief.join(", ") || "none"}`,

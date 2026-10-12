@@ -84,8 +84,11 @@ export const RECALL_SECTION_FIELDS = [
   'jevTokensPerHour',
 ] as const;
 
+export const EDITOR_FIELD = 'editor';
+
 const TOP_LEVEL_FIELDS = [
   ...PERSONA_SECTION_FIELDS,
+  EDITOR_FIELD,
   'steering',
   'identity',
   'recall',
@@ -101,6 +104,7 @@ export interface UserConfigFile {
   readonly steering: Readonly<Record<string, unknown>>;
   readonly identity: Readonly<Record<string, unknown>>;
   readonly recall: Readonly<Record<string, unknown>>;
+  readonly editor: string | undefined;
 }
 
 /** Where the merged override lives: `<live-throne-root>/config.user.ts`. */
@@ -262,10 +266,18 @@ export async function loadUserConfigFile(
     RECALL_SECTION_FIELDS,
     resolvedPath,
   );
+  const editor = value[EDITOR_FIELD];
+  if (editor !== undefined && typeof editor !== 'string') {
+    throw invalidUserConfig(
+      resolvedPath,
+      EDITOR_FIELD,
+      `must be a string (got ${describeValue(editor)})`,
+    );
+  }
   const persona: Record<string, unknown> = {};
   for (const field of PERSONA_SECTION_FIELDS) {
     if (field in value) persona[field] = value[field];
   }
 
-  return { persona, steering, identity, recall };
+  return { persona, steering, identity, recall, editor };
 }

@@ -21,10 +21,10 @@ export interface TreeBase {
 }
 
 const TREE_BASE_BASENAME = "tree-base.json";
-export const CANCELLED_UNMERGED_TREE_BASE_BASENAME =
-  "tree-base.cancelled-unmerged.json";
+export const ABANDONED_UNMERGED_TREE_BASE_BASENAME =
+  "tree-base.abandoned-unmerged.json";
 
-export interface CancelledUnmergedTreeBaseAuthority {
+export interface AbandonedUnmergedTreeBaseAuthority {
   record: TreeBase;
   bytes: Buffer;
   source: "live" | "preserved";
@@ -70,8 +70,6 @@ function parseTreeBaseAuthority(
 
 @Injectable()
 export class TreeBaseDataService {
-  readonly cancelledUnmergedBasename = CANCELLED_UNMERGED_TREE_BASE_BASENAME;
-
   async read(
     name: string,
     baseDir: string = DEFAULT_DATA_DIR,
@@ -92,24 +90,24 @@ export class TreeBaseDataService {
     }
   }
 
-  async readForCancelledUnmerged(
+  async readForAbandonedUnmerged(
     name: string,
     baseDir: string = DEFAULT_DATA_DIR,
-  ): Promise<CancelledUnmergedTreeBaseAuthority> {
+  ): Promise<AbandonedUnmergedTreeBaseAuthority> {
     const dir = path.join(baseDir, name);
     const [live, preserved] = await Promise.all([
       readOptionalFileBytes(path.join(dir, TREE_BASE_BASENAME)),
       readOptionalFileBytes(
-        path.join(dir, CANCELLED_UNMERGED_TREE_BASE_BASENAME),
+        path.join(dir, ABANDONED_UNMERGED_TREE_BASE_BASENAME),
       ),
     ]);
     if (live.status === "present" && preserved.status === "present")
       throw new Error(
-        `data/${name} contains both ${TREE_BASE_BASENAME} and ${CANCELLED_UNMERGED_TREE_BASE_BASENAME}; refusing ambiguous teardown`,
+        `data/${name} contains both ${TREE_BASE_BASENAME} and ${ABANDONED_UNMERGED_TREE_BASE_BASENAME}; refusing ambiguous teardown`,
       );
     if (live.status === "absent" && preserved.status === "absent")
       throw new Error(
-        `data/${name} has no ${TREE_BASE_BASENAME} or ${CANCELLED_UNMERGED_TREE_BASE_BASENAME}; cancelled-unmerged archival requires exact provenance`,
+        `data/${name} has no ${TREE_BASE_BASENAME} or ${ABANDONED_UNMERGED_TREE_BASE_BASENAME}; abandoned-unmerged archival requires exact provenance`,
       );
     if (live.status === "present")
       return {
@@ -121,23 +119,23 @@ export class TreeBaseDataService {
       return {
         record: parseTreeBaseAuthority(
           name,
-          CANCELLED_UNMERGED_TREE_BASE_BASENAME,
+          ABANDONED_UNMERGED_TREE_BASE_BASENAME,
           preserved.bytes,
         ),
         bytes: preserved.bytes,
         source: "preserved",
       };
-    throw new Error(`data/${name} cancelled-unmerged provenance vanished`);
+    throw new Error(`data/${name} abandoned-unmerged provenance vanished`);
   }
 
-  async preserveForCancelledUnmerged(
+  async preserveForAbandonedUnmerged(
     name: string,
-    authority: CancelledUnmergedTreeBaseAuthority,
+    authority: AbandonedUnmergedTreeBaseAuthority,
     baseDir: string = DEFAULT_DATA_DIR,
   ): Promise<"preserved" | "already-preserved"> {
     const dir = path.join(baseDir, name);
     const livePath = path.join(dir, TREE_BASE_BASENAME);
-    const preservedPath = path.join(dir, CANCELLED_UNMERGED_TREE_BASE_BASENAME);
+    const preservedPath = path.join(dir, ABANDONED_UNMERGED_TREE_BASE_BASENAME);
     const [live, preserved] = await Promise.all([
       readOptionalFileBytes(livePath),
       readOptionalFileBytes(preservedPath),
@@ -149,7 +147,7 @@ export class TreeBaseDataService {
         !preserved.bytes.equals(authority.bytes)
       )
         throw new Error(
-          `data/${name} cancelled-unmerged provenance changed after preflight`,
+          `data/${name} abandoned-unmerged provenance changed after preflight`,
         );
       return "already-preserved";
     }
@@ -159,13 +157,13 @@ export class TreeBaseDataService {
       !live.bytes.equals(authority.bytes)
     )
       throw new Error(
-        `data/${name} cancelled-unmerged provenance changed after preflight`,
+        `data/${name} abandoned-unmerged provenance changed after preflight`,
       );
     await rename(livePath, preservedPath);
     const moved = await readOptionalFileBytes(preservedPath);
     if (moved.status === "absent" || !moved.bytes.equals(authority.bytes))
       throw new Error(
-        `data/${name}/${CANCELLED_UNMERGED_TREE_BASE_BASENAME} was not preserved byte-for-byte`,
+        `data/${name}/${ABANDONED_UNMERGED_TREE_BASE_BASENAME} was not preserved byte-for-byte`,
       );
     return "preserved";
   }
@@ -196,7 +194,7 @@ export class TreeBaseDataService {
     baseDir: string = DEFAULT_DATA_DIR,
   ): Promise<TreeBase | null> {
     const preserved = await readOptionalFileBytes(
-      path.join(baseDir, name, CANCELLED_UNMERGED_TREE_BASE_BASENAME),
+      path.join(baseDir, name, ABANDONED_UNMERGED_TREE_BASE_BASENAME),
     );
     let raw: string;
     try {
@@ -207,13 +205,13 @@ export class TreeBaseDataService {
     } catch {
       if (preserved.status === "present")
         throw new Error(
-          `data/${name}/${CANCELLED_UNMERGED_TREE_BASE_BASENAME} marks an in-progress cancelled-unmerged lifecycle; retry reap-agent with --reason cancelled --archive-cancelled-unmerged`,
+          `data/${name}/${ABANDONED_UNMERGED_TREE_BASE_BASENAME} marks an in-progress abandoned-unmerged lifecycle; retry reap-agent with --reason abandoned --archive-abandoned-unmerged`,
         );
       return null;
     }
     if (preserved.status === "present")
       throw new Error(
-        `data/${name} contains both ${TREE_BASE_BASENAME} and ${CANCELLED_UNMERGED_TREE_BASE_BASENAME}; refusing ambiguous branch cleanup`,
+        `data/${name} contains both ${TREE_BASE_BASENAME} and ${ABANDONED_UNMERGED_TREE_BASE_BASENAME}; refusing ambiguous branch cleanup`,
       );
     let parsed: unknown;
     try {

@@ -12,8 +12,9 @@ rows filed in one sitting:
 
 - a **builder** row that rebuilds the product as a STAR of slices, each one
   scored by a separate critic against the reference before it may merge;
-- a **checker** row, deferred on the builder, that scores the whole product
-  and keeps fixing it until it passes or runs out of rounds.
+- a **checker** row, deferred until the Regent releases it after the builder
+  delivers, that scores the whole product and keeps fixing it until it passes
+  or runs out of rounds.
 
 The Lord's defaults below are already ruled on. Ask him only what step 12
 lists. Every mechanic that another skill already owns is named here and not
@@ -222,11 +223,20 @@ the pre-merge gate.
 
 ## 10. The checker campaign
 
-File a second row in the same sitting, then defer it on the builder at once:
+File a second row in the same sitting and defer it straight after filing,
+before an autoscaler tick can launch it as an open row:
 
 ```bash
-throne update-queue --objective-code <checker> --status deferred --depends-on <builder>
+throne update-queue --objective-code <checker> --status deferred \
+  --depends-on <builder> --defer-reason "<checker> scores the product <builder> delivers"
 ```
+
+A deferred row starts only when the Regent releases it. The builder's Alpha
+finds the checker listed in its launch brief, with the step to send the
+Regent a release request once its delivery lands and to wait for the reply;
+the Regent then runs `throne release-deferred` for the checker. If the
+request never comes, the no-idling sweep keeps pinging the Regent about the
+held checker until it is released or abandoned.
 
 The checker body says:
 
@@ -307,7 +317,8 @@ throne lint-queue-plan --body-file ~/tmp/<builder>-body.md
 
 Never pipe it (`| tail`, `| head`): a pipeline's exit status is the last
 command's, so a piped lint always exits 0 and a failed lint files anyway.
-File the builder, then the checker, then defer the checker (step 10).
+File the builder, then the checker, then defer the checker with its
+`--depends-on` and `--defer-reason` (step 10).
 
 ## Bug-fix mode
 

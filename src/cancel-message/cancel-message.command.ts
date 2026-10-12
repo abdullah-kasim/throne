@@ -76,9 +76,16 @@ export class CancelMessageCommand extends CommandRunner {
   }
 }
 
+export function soleMessageId(args: readonly string[]): string | undefined {
+  return args.length === 1 && args[0] !== undefined && /^[1-9]\d*$/.test(args[0])
+    ? args[0]
+    : undefined;
+}
+
 function parseMessageId(args: readonly string[]): string {
-  if (args.length !== 1 || args[0] === undefined || !/^[1-9]\d*$/.test(args[0])) {
+  const messageId = soleMessageId(args);
+  if (messageId === undefined) {
     throw new Error("Usage: ./bin/throne-cli cancel-message <message-id>");
   }
-  return args[0];
+  return messageId;
 }

@@ -48,6 +48,7 @@ export interface MessageDeliveryWorkItemPayload {
   readonly omitSenderAttribution?: boolean;
   readonly waitForStartupQuiescence?: boolean;
   readonly disableFileBackedDelivery?: boolean;
+  readonly deliveryNotice?: boolean;
   /** Present only for durable one-shot schedules; immediate delivery leaves it absent. */
   readonly dueAtMs?: number;
 }

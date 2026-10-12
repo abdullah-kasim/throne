@@ -11,6 +11,7 @@ export interface CronHostedWorker {
   readonly kind: "cron";
   readonly workerName: string;
   readonly cronExpression: string;
+  readonly runsAtStart?: boolean;
   runOnce(): Promise<void>;
 }
 

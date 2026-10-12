@@ -1,6 +1,6 @@
 ---
 name: pr-address-feedback
-description: 'This throne-only, STAGER-ONLY skill answers every review comment on a pull request by default, bots included: it dumps every unresolved thread and conversation finding on the pull request and on the pull requests that were rolled into it, reads each against the code, shows the Lord which are sound and which are not, and files one queue row straight away that fixes the sound ones, replies on every thread and finding (the fixing commit, the line that disproves the claim, or a closing line), and resolves what is concluded. Invoked by /pr-address-feedback <pull request url> (aliases: /pr-review-feedback, /pr-feedback-address), or when the Lord says "see if the review comments make sense", "address the feedback on N", "fix and respond to the reviews", "we forgot to respond to the comments on N", or "answer the reviewers". Invoking it is the order to fix and reply; the Lord''s word is needed only to skip an item or overrule a verdict.'
+description: 'This throne-only, STAGER-ONLY skill answers every review comment on a pull request by default, bots included, on GitHub or in Forgejo: it dumps every unresolved thread and conversation finding on the pull request and on the pull requests that were rolled into it, reads each against the code, shows the Lord which are sound and which are not, and files one queue row straight away that fixes the sound ones, replies on every thread and finding (the fixing commit, the line that disproves the claim, or a closing line), and resolves what is concluded. Invoked by /pr-address-feedback <pull request url> (aliases: /pr-review-feedback, /pr-feedback-address), or when the Lord says "see if the review comments make sense", "address the feedback on N", "fix and respond to the reviews", "we forgot to respond to the comments on N", or "answer the reviewers". Invoking it is the order to fix and reply; the Lord''s word is needed only to skip an item or overrule a verdict.'
 version: 1.1.0
 user-invocable: true
 ---
@@ -11,6 +11,19 @@ A review comment is a claim about the code. The job is to check the claim
 against the code before anyone acts on it, fix what is right, answer what is
 wrong with the line that shows why, and leave nothing unanswered. Reviewers
 stop reviewing when their comments vanish into silence.
+
+## 0. Find where the pull request lives
+
+```bash
+throne forge status <pull request url> --json
+```
+
+Read `stage`. `"github-only"`, `"merged-on-github"` or `"closed"` is a
+GitHub pull request that is not worked on in Forgejo: steps 1 to 3 below
+apply exactly as written. `"forgejo-only"` is a Forgejo pull request and
+`"promoted"` is a GitHub one promoted from Forgejo (then `forgejo.url` names
+its Forgejo twin): follow "On Forgejo" at the end instead of the `gh`
+commands, and keep step 2 as written.
 
 ## 1. Dump every unresolved thread, including the rolled-in ones
 
@@ -164,3 +177,73 @@ neither reports a failure. The thread with the Lord's last word gets a
 closing line and is resolved; the gift-card thread gets a reply and stays
 open; the Lord's own note is left alone. After the push the automated
 reviewer reports again with nothing new, and the loop stops.
+
+## On Forgejo
+
+Feedback on a staged pull request is fixed and answered in Forgejo first,
+where the Lord reads it (Lord, 2026-10-07: "if we have review comments on
+github, those get lazily mirrored to forgejo and resolved in forgejo first
+before being repromoted"). Nothing in this skill or its queue row writes to
+GitHub; carrying the answers back is `/pr-promote`, on the Lord's word only.
+Every command below takes the GitHub or the Forgejo URL and runs from the
+local checkout of the repository.
+
+**A GitHub pull request that is not staged yet.** When step 0 answers
+`"forge": "github"` on a host that has Forgejo, and the Lord asked for the
+feedback to be handled in Forgejo, stage it first:
+
+```bash
+throne forge stage <github pull request url>
+```
+
+It opens the Forgejo twin with the GitHub title, body and media, writes the
+twin's metadata comment, mirrors the GitHub feedback once, and writes nothing
+to GitHub. It refuses when the head branch is not fetched and names the
+`git fetch origin <head>:<head>` to run. Then follow the steps below on the
+printed `twinUrl` or the GitHub URL. Without that request from the Lord, a
+GitHub pull request that was never staged stays on GitHub and steps 1 to 3
+apply as written.
+
+1. **Mirror.** Copy the GitHub feedback into the Forgejo twin:
+
+   ```bash
+   throne forge mirror-feedback <pull request url>
+   ```
+
+   It reads every unresolved review thread, conversation comment, review
+   body and each bot's latest report with `threads.mjs`'s own reader, and
+   posts each one into the twin once: an inline comment as a Forgejo review
+   comment on the same file and line while that line is still in the diff,
+   otherwise as a conversation comment naming the file and line. Each carries
+   its author, its GitHub link, the original text and a hidden record of its
+   GitHub id, so running it again adds nothing. A Forgejo pull request with
+   no metadata comment answers that it has none linking a GitHub pull
+   request; it has nothing to mirror, so go on to the dump.
+2. **Dump.** `throne forge pr feedback <pull request url>` prints every
+   Forgejo review comment, conversation comment and review body as JSON:
+   `id`, `kind`, `author`, `place` (`path`, `line`, `onOldSide`, or `null`),
+   `resolved`, `url`, `body`, `githubKey` (set on a mirrored item) and
+   `answers` (set on an answer to another item). An item with `answers` is
+   already a reply; the metadata comment holding the GitHub link is not
+   feedback. Read the rest exactly as step 2 says.
+3. **The queue row.** Step 3 applies with these changes for the Alpha:
+   - pushes each fix with `throne forge push-branch --branch <head>`, never
+     to `origin`;
+   - replies on each item with `throne forge pr answer <pull request url>
+     --comment <id> --body-file <file>`, adding `--resolve` when the item is
+     concluded. A review comment is then resolved in Forgejo; a conversation
+     comment records the resolution in the answer, so a later repromote
+     resolves the GitHub thread it mirrors. Re-read with `pr feedback`;
+   - runs no `gh` command, no `--bypass` and no `resolveReviewThread`.
+
+**Forgejo gaps; say them plainly and do not work around them:**
+
+- The automated-reviewer loop does not run: GitHub's bots see nothing until
+  the Lord repromotes, and Forgejo has no review bots. The row says so.
+- Rolled-in layers are not followed on Forgejo: `pr feedback` reads the
+  given pull request only. A staged pull request's GitHub layers are still
+  mirrored, because the mirror reads them with `threads.mjs`.
+- Forgejo's API cannot resolve a review conversation, so `--resolve` signs
+  in as the Forgejo admin with the password `install-forgejo.sh` stored and
+  uses Forgejo's own resolve action. When that password file is missing,
+  `--resolve` refuses; answer without it and tell the Lord.

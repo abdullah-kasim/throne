@@ -2,9 +2,9 @@
 #
 # THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{THRONE_ROOT}}`
 # (absolute path of the throne directory) and `{{NODE_BIN}}` (absolute path
-# of the node interpreter, resolved through mise's `lts` symlink) are
-# substituted at install time; only the rendered copy in the systemd user
-# unit dir is a working unit. Install with:
+# of the mise install of the exact node version pinned in the throne root's
+# mise.toml) are substituted at install time; only the rendered copy in the
+# systemd user unit dir is a working unit. Install with:
 #   cd <throne root> && ./bin/throne-cli install-services
 #
 # No `Wants=`/`After=`: this run touches only the filesystem under

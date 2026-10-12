@@ -15,6 +15,7 @@ import { readSpawnMarkerAgeMs } from "./regent-spawn-marker.ts";
  * cwd=throne root, so cwd is ambiguous).
  */
 export const REGENT_NAME = "Regent";
+export const REGENT_TAB_LABEL = "regent";
 
 /**
  * The single live Regent, or `null` when none is running. Resolves by the

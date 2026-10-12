@@ -64,10 +64,16 @@ export function submittedPayload(
         `glyph(s) with "${COMPOSER_MARKER_REPLACEMENT}" before typing\n`,
     );
   }
-  const suffix = messageIdSuffix(options.messageId);
-  if (options.omitSenderAttribution === true) return `${prompt}${suffix}`;
-  if (senderName.length === 0) return `${prompt}${suffix}`;
-  return `${senderName} said: ${prompt}${suffix}`;
+  return `${senderAttributedPrompt(senderName, prompt, options.omitSenderAttribution)}${messageIdSuffix(options.messageId)}`;
+}
+
+export function senderAttributedPrompt(
+  senderName: string,
+  prompt: string,
+  omitSenderAttribution: boolean | undefined,
+): string {
+  if (omitSenderAttribution === true || senderName.length === 0) return prompt;
+  return `${senderName} said: ${prompt}`;
 }
 
 /**

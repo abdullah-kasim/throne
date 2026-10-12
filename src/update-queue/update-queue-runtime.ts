@@ -15,13 +15,13 @@ import { parseQueueEffort } from "../harness-routing/effort-level.ts";
 import { parseQueuePriority } from "../regent-queue/regent-queue-row.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { herdrAgentNameRefusal } from "../herdr/herdr-identity.service.ts";
+import { RELEASE_DEFERRED_COMMAND } from "../release-deferred/release-deferred-arguments.ts";
 
 const ABSORBED_BY_OBJECTIVE_FLAG = "--absorbed-by-objective";
 const PRIORITY_FLAG = "--priority";
 const EFFORT_FLAG = "--effort";
 const CLEAR_EFFORT_FLAG = "--clear-effort";
 const DEPENDS_ON_FLAG = "--depends-on";
-const RELEASE_AUTHORITY_FLAG = "--release-authority";
 const DEFER_REASON_FLAG = "--defer-reason";
 
 /**
@@ -143,7 +143,6 @@ export function parseUpdateQueueArgs(args: string[]): UpdateQueueInput {
   let objectiveCode: string | undefined;
   let bodyEdit: QueueBodyEdit | undefined;
   let dependsOn: string[] | undefined;
-  let releaseAuthority: string | undefined;
   let deferReason: string | undefined;
   let usedLegacyBodyFlag = false;
   const mutation: Record<string, unknown> = {};
@@ -173,11 +172,6 @@ export function parseUpdateQueueArgs(args: string[]): UpdateQueueInput {
       mutation.priority = parseQueuePriority(args[++index]);
       continue;
     }
-    // Deferral flags. `--depends-on` is the machine-checkable hold the
-    // autoscaler releases by itself; `--release-authority` is the hold no
-    // predicate can evaluate and only a named person may lift. A row may carry
-    // both, in which case the authority wins — a person's ruling is not
-    // satisfied by its dependencies finishing.
     if (flag === DEPENDS_ON_FLAG) {
       const value = args[++index];
       if (value === undefined || value.trim() === "")
@@ -192,15 +186,6 @@ export function parseUpdateQueueArgs(args: string[]): UpdateQueueInput {
         throw new Error(
           `update-queue: ${DEPENDS_ON_FLAG} requires one or more comma-separated objective codes`,
         );
-      continue;
-    }
-    if (flag === RELEASE_AUTHORITY_FLAG) {
-      const value = args[++index];
-      if (value === undefined || value.trim() === "")
-        throw new Error(
-          `update-queue: ${RELEASE_AUTHORITY_FLAG} requires a name (e.g. Lord)`,
-        );
-      releaseAuthority = value.trim();
       continue;
     }
     if (flag === DEFER_REASON_FLAG) {
@@ -266,32 +251,18 @@ export function parseUpdateQueueArgs(args: string[]): UpdateQueueInput {
   }
   if (objectiveCode === undefined)
     throw new Error("update-queue: a valid --objective-code is required");
-  const deferring =
-    dependsOn !== undefined ||
-    releaseAuthority !== undefined ||
-    deferReason !== undefined;
-  if (deferring) {
-    // Refused rather than inferred: silently flipping the status would make
-    // `--depends-on` a second, undocumented way to defer, and a caller who
-    // meant to amend an already-deferred row would not find out they had
-    // instead re-deferred it.
-    if (mutation.status !== RegentQueueItemStatus.Deferred)
-      throw new Error(
-        `update-queue: ${DEPENDS_ON_FLAG}/${RELEASE_AUTHORITY_FLAG}/${DEFER_REASON_FLAG} require --status deferred`,
-      );
-    mutation.deferral = {
-      dependsOn: dependsOn ?? [],
-      releaseAuthority: releaseAuthority ?? null,
-      reason: deferReason ?? null,
-    };
-  } else if (mutation.status === RegentQueueItemStatus.Deferred) {
-    // A hold with no condition at all can only be lifted by hand, and nothing
-    // records why it exists. That is the exact failure this status replaced.
+  const deferring = mutation.status === RegentQueueItemStatus.Deferred;
+  if (!deferring && (dependsOn !== undefined || deferReason !== undefined))
     throw new Error(
-      `update-queue: --status deferred requires ${DEPENDS_ON_FLAG} (the objectives it waits on) ` +
-        `or ${RELEASE_AUTHORITY_FLAG} (who must lift it). A hold with neither is invisible ` +
-        `to the autoscaler's release pass and would sit until someone noticed it by hand.`,
+      `update-queue: ${DEPENDS_ON_FLAG}/${DEFER_REASON_FLAG} require --status deferred`,
     );
+  if (deferring) {
+    if (dependsOn === undefined || deferReason === undefined)
+      throw new Error(
+        `update-queue: --status deferred requires ${DEPENDS_ON_FLAG} (the objectives it waits on) ` +
+          `and ${DEFER_REASON_FLAG} (why it is held).`,
+      );
+    mutation.deferral = { dependsOn, reason: deferReason };
   }
   if (Object.keys(mutation).length === 0 && bodyEdit === undefined)
     throw new Error("update-queue: at least one mutable field is required");
@@ -387,6 +358,13 @@ export function updateQueueItem(
   const item = findQueueItemByObjectiveCode(store, input.objectiveCode);
   if (item === undefined)
     throw new Error(`queue objective "${input.objectiveCode}" does not exist`);
+  if (
+    item.status === RegentQueueItemStatus.Deferred &&
+    input.mutation.status === RegentQueueItemStatus.Open
+  )
+    throw new Error(
+      `queue objective "${input.objectiveCode}" is deferred; only ${RELEASE_DEFERRED_COMMAND} moves it to open`,
+    );
   let bodyReplacementNotice: string | undefined;
   let bodyMutation: { body?: string } = {};
   if (input.bodyEdit !== undefined) {

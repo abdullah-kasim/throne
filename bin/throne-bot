@@ -19,6 +19,9 @@ if [ ! -f "$entrypoint" ]; then
     exit 1
 fi
 
+. "$launcher_bin_dir/pinned-node-lib.sh"
+use_pinned_node "$throne_root" || exit 1
+
 if [ "$#" -eq 0 ]; then
     echo "usage: throne-bot <say|send-file|register-bot|list-bots|lint-objective> [args...]" >&2
     exit 1
@@ -26,4 +29,4 @@ fi
 
 subcommand="$1"
 shift
-exec node "$entrypoint" "throne-bot-${subcommand}" "$@"
+exec "$pinned_node" "$entrypoint" "throne-bot-${subcommand}" "$@"

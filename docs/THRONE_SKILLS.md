@@ -23,9 +23,10 @@ another repository's worktree sees them too. You invoke each one as `/<name>`.
 - `/autoscaler` — pauses, resumes or reports the court's spawning by flipping the autoscaler setting in `config.user.ts`; reach for it to stop or restart the spawning of Alphas.
 - `/switch-campaign-model` — moves the whole campaign workflow (Alpha, Shadow and the final gate Shadows) onto one model; reach for it to run every campaign role on a given model.
 - `/throne-fork` — creates a real forked Stager with `create-agent --fork-of`, never a harness subagent; reach for it when you say "fork this".
-- `/pr-address-feedback` — reads every review comment on a pull request against the code, shows you which are sound, and files one queue row that fixes the sound ones and replies on every thread; reach for it to answer reviewers; aliases: /pr-feedback-address, /pr-review-feedback.
+- `/pr-address-feedback` — reads every review comment on a pull request against the code, shows you which are sound, and files one queue row that fixes the sound ones and replies on every thread; on a pull request promoted from Forgejo it first copies the GitHub feedback into Forgejo and answers it there, sending nothing to GitHub; reach for it to answer reviewers; aliases: /pr-feedback-address, /pr-review-feedback.
 - `/pr-merge` — lands a stack of pull requests by rolling every upper one into the root, proving the scenario you name on the rolled branch, and squash-merging the root as one commit; reach for it to land a stack.
 - `/pr-split` — splits one large pull request into several reviewable ones: the Stager agrees the cut with you and files one queue row per resulting pull request, and each row's Alpha carves its own; reach for it when a pull request is too big.
+- `/pr-promote` — copies a finished Forgejo pull request to GitHub with its media re-hosted there, and on a second run carries the Forgejo answers to review feedback back to GitHub and resolves the answered threads; only on your word; reach for it when you say "promote PR N" or "repromote N"; alias: /promote-pr.
 
 ## Campaign Alpha: todo planning and execution
 
@@ -39,6 +40,7 @@ another repository's worktree sees them too. You invoke each one as `/<name>`.
 
 - `/plan-task-split` — shapes a large piece of work into independently testable spokes around a small wiring core instead of a dependency chain; reach for it before planning or starting anything that touches more than a few files.
 - `/pr-description` — the house style for every pull request body; reach for it whenever a pull request is about to be opened or its description rewritten.
+- `/pr-open` — opens a pull request from Forgejo, github.com or GitHub Enterprise in your editor with `throne forge open`, reusing a worktree already at its head or creating a detached review worktree, and installing its dependencies in the background; reach for it when you say "open this PR in vscode <url>"; alias: /open-pr.
 - `/pr-media` — captures before and after screenshots and click videos of a UI change, builds a side-by-side contact sheet, and publishes it to the pull request; reach for it when a pull request needs screenshots or a recording.
 - `/frontend-critic` — renders a web UI change in real browsers, measures it, operates every new control by keyboard, and reports each visual or keyboard defect with its fix; reach for it after any visual or layout change.
 - `/agent-browser` — the browser automation command line for agents: navigating, filling forms, clicking, taking screenshots and extracting data; reach for it whenever a task needs a real browser.

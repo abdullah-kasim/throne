@@ -33,8 +33,8 @@ invoke it.
 of his coding runs through the throne, so the review lives where the work
 does). It is the measured visual review of a web UI change: render the
 served build, measure the changed element against its neighbours with
-`getBoundingClientRect()`, check every state in Chromium, Firefox and
-WebKit, and report each defect with its cause and fix. It binds every role:
+`getBoundingClientRect()`, check every state in Chromium only (section 4 of
+the skill), and report each defect with its cause and fix. It binds every role:
 `write-todos` stamps `frontend: true` on bundles whose slices touch CSS,
 markup, or component paths and puts the critique block into `99b`, so the
 verify gate runs it for campaign work; a Stager or a no-alpha session runs it
@@ -74,8 +74,10 @@ Alpha or Shadow in a target-repository worktree sees them too.
 - **`pr-description`** is the house style for every PR body: `## What`, `## Why`,
   `## How`, an optional `## Screenshots`, and a `## Testing` walkthrough of
   numbered steps written for a reviewer who is not an engineer and did not watch
-  the work, closed by a mandatory **Not tested** alert. `99c` composes every PR
-  with it.
+  the work, closed by a mandatory **Not tested** alert, then a hidden
+  `## Agents` section with the setup steps an AI agent follows to stand the
+  change up for the reviewer, and last, only when the PR differs from its
+  ticket, a hidden `## Ticket Status` section. `99c` composes every PR with it.
 - **`pr-media`** captures screenshots and a click recording of a UI change with
   `agent-browser`, stages them under `~/tmp/pr-media-<pr>/` (never committed),
   and prepares the `## Screenshots` placeholders the human drops the files into.

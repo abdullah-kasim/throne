@@ -14,6 +14,8 @@ launcher_bin_dir=$(cd -P "$(dirname "$launcher_source")" && pwd -P) || exit 1
 throne_root=$(cd -P "$launcher_bin_dir/.." && pwd -P) || exit 1
 
 entrypoint="$throne_root/dist/src/tools.js"
+. "$launcher_bin_dir/pinned-node-lib.sh"
+use_pinned_node "$throne_root" || exit 1
 if [ ! -f "$entrypoint" ]; then
     # A fresh worktree has no dist/ (it is never hydrated: each tree's own
     # source may differ, so copying another tree's compiled output would ship
@@ -55,8 +57,8 @@ if [ ! -f "$entrypoint" ]; then
 fi
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    node "$entrypoint" attach-throne-herdr --help 2>&1 || true
+    "$pinned_node" "$entrypoint" attach-throne-herdr --help 2>&1 || true
     exit 0
 fi
 
-exec node "$entrypoint" "$@"
+exec "$pinned_node" "$entrypoint" "$@"

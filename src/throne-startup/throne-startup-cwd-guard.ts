@@ -84,7 +84,7 @@ export async function flagLiveCwdOrphans(
         `fails at path resolution, so it cannot self-exit or report; its tree ` +
         `was likely removed out from under it (e.g. a reap of a DIFFERENT ` +
         `agent's worktree it was occupying). Investigate and clear with ` +
-        `reap-agent ${name} --reason cancelled --force.\n`,
+        `reap-agent ${name} --reason abandoned --force.\n`,
     );
     outcomes.push({ name, action: "flag-missing-cwd", reason, ok: true });
   }

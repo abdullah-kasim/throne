@@ -604,7 +604,8 @@ but Alpha, so a Shadow can never inherit or claim it.
   perform yourself: `99a` grades conformance against the literal objective
   text and records the grade; `99b` runs the tests and lint and fixes what
   fails, in its own commit; `99c` merges the latest target, resolves
-  conflicts, and delivers (draft PR when the row carries a PR branch). Each
+  conflicts, and delivers (draft PR through `throne forge` when the row
+  carries a PR branch). Each
   pass writes the same evidence a gate Shadow would. State plainly in the
   campaign report that the gates were self-executed under shadowless mode,
   because self-grading loses the independence the Shadow gates provide; the
@@ -674,6 +675,14 @@ line: the sliceless line replaces the shadowless line rather than joining it.
      queue body quoted verbatim, each followed by the commit or file that
      satisfies it, ending in exactly one line `**Conformance outcome:** PASS`
      (or `FAIL`, which forbids the push and sends you back to the work).
+     When the queue row carries a `TICKET:` block, this part also records a
+     `/ticket-check` run on the candidate, with the row's `RULINGS:` and
+     every amendment as its rulings, and its one line
+     `**Ticket alignment outcome:** PASS` or
+     `**Ticket alignment outcome:** FAIL`. `**Conformance outcome:** PASS`
+     is not allowed unless that line reads PASS. Any warning block the check
+     prints for a DIFFERENT BY RULING line goes into the PR body the way
+     "Pull-request delivery" says.
   2. **Verification record** — the literal commands you ran (the
      repository's tests, lint and build; and, when the change touches CSS,
      markup or rendering, the front-end critique through `/agent-browser` as
@@ -693,10 +702,18 @@ line: the sliceless line replaces the shadowless line rather than joining it.
   is below the row's highest amendment. It is the one piece of recorded
   verification a sliceless campaign leaves behind; do not push around it.
 - Delivery follows "Pull-request delivery" below unchanged: fast-forward
-  onto the PR branch or open a DRAFT PR from it, patch a live PR body rather
+  onto the PR branch or open a DRAFT PR from it through `throne forge`
+  (so on a Forgejo host it lands in Forgejo), patch a live PR body rather
   than republish one, and never force-push except under "Rewriting a
   published PR branch" below. A row without a PR branch merges
-  into its recorded target exactly as `99c` would.
+  into its recorded target exactly as `99c` would. A push the checks block
+  is fixed or waived with `throne push-waiver` as `99c` describes, never
+  skipped another way, and the waiver's path and entries go into the
+  delivery note and the DONE report.
+- When your launch situation brief has a "Deferred rows waiting on this
+  objective" section, send its release requests once your delivery has
+  landed (and, for a pull request, its CI is green), and wait for each reply
+  exactly as "After the PASS" under `99c` describes, before you report DONE.
 - Reap-on-complete and the DONE report to the Regent are unchanged, except
   that the report states plainly that the work ran sliceless — self-verified,
   with no independent gate — so the Regent and the Lord weigh that when
@@ -973,6 +990,11 @@ The orchestrator (you, the Alpha) holds the queue, picks the order, evaluates re
      branch is empty by design, and the name-pattern exemption below covers
      only the `99` terminal gates (see "Rubric critique gates" under
      "Patterns that pay off").
+     A ticket-driven bundle's `98_ticket_<topic>` Shadow also carries
+     `--deliverable-shape verdict-only`. It is an ordinary-band slice from
+     `rolePools.Shadow` that runs after every other ordinary slice has
+     landed; it runs `/ticket-check` on the candidate and writes no product
+     code, so its branch is empty by design.
      No terminal gate carries `--deliverable-shape verdict-only`: `99b`
      legitimately commits the fixes it makes, and `99c` legitimately commits
      the target absorb. `99a` genuinely produces no diff — it grades and never
@@ -1160,6 +1182,7 @@ via plain`complete-agent`, and skipping the call because "there's
   The orchestrator (you, the Alpha) still owns the queue, ordering, active-plan
   resolution (Rule 6), and merge-back; a Shadow executes only its one slice.
   `99a_conform`, `99b_verify` and `99c_deliver` run in order after all ordinary slices as three distinct fresh real Shadows when applicable. If a 99 slice is not applicable to the exact request, simulate its contract, record `N/A — no-op` with the reason, and do not spawn or execute it; report the no-op explicitly. Applicable gates retain their normal dependency chain and use `rolePools.ShadowSlice99`; none may be Alpha-executed.
+  When the bundle has a `98_ticket_` todo, `99a_conform` does not start until that todo records `**Ticket alignment outcome:** PASS`; see "`99a` waits for the ticket-alignment check" below.
 
   The following campaign-topology rules are `git-repo` only. **Propagation is
   deliberate:** a slice tree no longer inherits what other campaigns land
@@ -1754,6 +1777,29 @@ rollback evidence before its explicit `**Delivery outcome:** PASS|FAIL`. Every
 N/A cites the classifier probe. The remaining Git procedure in this section
 applies only to `git-repo`.
 
+#### `99a` waits for the ticket-alignment check
+
+A bundle whose `00_overview.md` stamps `ticket:` (the planner stamps it
+whenever the queue row carries a `TICKET:` block or the tasking names a
+ticket) carries a `98_ticket_<topic>.md` todo that depends on every ordinary slice. Its fresh
+Shadow runs `/ticket-check` on the candidate, passing the queue row's
+`RULINGS:` and every recorded amendment as its rulings, and ends its execution
+log with exactly one `**Ticket alignment outcome:** PASS` or
+`**Ticket alignment outcome:** FAIL`. It also writes `ticket-warning.md` into
+the bundle folder: the DIFFERENT BY RULING lines and the warning block
+`/ticket-check` printed, verbatim, or the single line `no warning needed`.
+This skill calls `/ticket-check` and never restates its procedure.
+
+- `99a` does not start until that todo records
+  `**Ticket alignment outcome:** PASS`, and `99a` FAILs if the line is not
+  PASS.
+- A FAIL (a ticket line UNMET with no ruling behind it) is corrective work for
+  the owning Alpha, exactly like a `99a` FAIL: one consolidated corrective
+  slice, then a fresh `98_ticket_` Shadow re-runs the check.
+- `bin/git` already refuses the Alpha's push until `99a` records
+  `**Conformance outcome:** PASS`, so it enforces the ticket check with no
+  change of its own.
+
 #### `99a` — grade the candidate against what was literally asked for
 
 `99a_conform_<topic>.md` runs first, after every ordinary slice has landed and
@@ -1802,6 +1848,10 @@ on the base and on the candidate, and any clone pair present in the candidate
 report but absent from the base report is a new duplicate (jscpd 4 scans
 nothing silently; use 3.5.10). Code reuse decreases complexity; a duplicate
 that passed every test is still a defect.
+
+When the bundle has a `98_ticket_` todo, `99a` reads that todo's file and
+returns FAIL unless it carries `**Ticket alignment outcome:** PASS` on its own
+line.
 
 It ends with exactly one `**Conformance outcome:** PASS` or
 `**Conformance outcome:** FAIL`. `99b` runs only after an explicit PASS.
@@ -1928,11 +1978,31 @@ FAIL`. `99c` is delivery plumbing: it must not repeat a landed integration to
 prove it twice, demand or record SHA/history ceremony as merge proof, perform
 commit-graph archaeology, or smuggle in a second validation ceremony.
 
+**After the PASS: ask for the release of every row waiting on this
+objective.** When your launch situation brief has a "Deferred rows waiting on
+this objective" section, you — the Alpha, not the `99c` Shadow — send each
+release request it lists, with `<sha>` filled in, once `99c` reports
+`**Delivery outcome:** PASS` (and, for a pull request, its CI is green). Wait
+for every "Released <code>" reply as that section says before you write
+`REPORT.md` and report DONE. No section, no step.
+
 Never leave the live target in a conflicted merge state. An unexpected conflict
 during real integration is abandoned, the target is returned to its pre-merge
 baseline, and delivery is re-proved from a fresh private copy before any further
 attempt. A live abort is not treated as a proven-safe undo — the rehearsal
 exists to make a live conflict and abort unnecessary.
+
+**A blocked push is fixed or waived, never skipped another way.** When the
+push checks refuse a push this delivery makes, fix what they report and push
+again. Only when every finding is not a defect in the branch being pushed —
+another open PR adds the code, the behaviour is unchanged on the base, or the
+finding is wrong — record that proof with `throne push-waiver`
+(`agent_docs/commands.md`, push-waiver) and run the one push command it
+prints. Never reach for `--no-verify`, `PUSH_CHECK_SKIP=1` or `--bypass` on
+your own say-so; the guard refuses them with exit 68. The waiver covers that
+one commit only, so a later commit needs a new check run. The DONE report
+carries the waiver's path and every entry it printed (finding, reason,
+evidence), so the reader can check each certification.
 
 #### Pull-request delivery — when the deliverable is a PR, not a merge
 
@@ -1942,14 +2012,18 @@ A campaign whose deliverable is a pull request (the queue row carries `pr:
 **human-named branch** and opens the PR from it. It never merges into the
 repository's default branch, and it never pushes that default branch.
 
-**A PR branch stands on the default branch, never on another PR (Lord,
-2026-09-15).** If the work needs a function another open PR adds, copy it
-under a non-colliding name whose suffix names the feature that copied it
-(`…ForCurrentFunction`); that suffix is the grep-able trigger for the later
-dedupe (Lord, 2026-09-15) and the PR body says nothing about it (Lord,
-2026-09-17: the consolidation section is noise to a reviewer); never base the branch
-on the other PR, and never edit a line the other PR edits. Consolidating the
-copies after both merge is a separate task.
+**A PR that builds on another open PR is stacked on it (Lord, 2026-10-05:
+"please prefer stacked PRs").** A row naming a parent PR delivers onto its
+own branch, which starts from the parent's branch the way `/pr-split`'s
+execution contract says, and the PR opens with `--base <parent-branch>`.
+Parent updates come into the branch by merge, never by rebase or force push.
+When the PR already exists against another base, retarget its base to the
+parent's branch before the first push: a host that runs pull-request CI only
+on open, push and reopen starts no run for a base change, so a push made
+before the retarget leaves the PR with no checks. The PR body names the PR
+it is stacked on and says "merge after #<parent>". A row with no parent PR
+branches from the default branch and opens against it. A stack lands through
+`/pr-merge`.
 
 **Branch names are the human author's, never the court's.** The PR branch is
 named for the change in the repository's own convention — `add/podman-support`,
@@ -1964,31 +2038,62 @@ messages name throne machinery, `99c` squashes or rewords them onto the PR
 branch before pushing; the campaign branch itself is never pushed.
 
 **The normal shape (filed under this law).** The Stager created the PR branch
-from the default branch before filing and recorded it as BOTH `--target-branch`
-and `--pr-branch`, so the recorded target branch *is* the PR branch. `99c` then
-runs exactly the delivery above — rehearsal, merge into the recorded target with
-plain git, proof — and continues:
+from the default branch, or from the parent PR's branch for a stacked row,
+before filing and recorded it as BOTH `--target-branch` and `--pr-branch`, so
+the recorded target branch *is* the PR branch. `99c` then runs exactly the
+delivery above — rehearsal, merge into the recorded target with plain git,
+proof — and continues:
 
 The title and `<body.md>` are composed with the throne's own `/pr-description`
-skill (`.claude/skills/pr-description/`): four sections, and a `## Testing`
+skill (`.claude/skills/pr-description/`): five sections, with a `## Testing`
 walkthrough of numbered steps a reviewer who did not watch the work follows
-literally, plus the mandatory **Not tested** alert. A UI change also carries a
-`## Screenshots` section whose files were captured with `/pr-media`
-(`.claude/skills/pr-media/`, driven by `/agent-browser`) and left under
-`~/tmp/pr-media-<pr>/`, never committed; the reviewer reads the PR and watches
-the recording instead of opening an editor.
+literally, plus the mandatory **Not tested** alert, then a hidden
+`## Agents` section holding the steps an AI agent follows to stand the
+change up for the reviewer, run from a fresh worktree before the PR is opened:
+its Spin up leaves the preview running for the reviewer to test, and its Spin
+down removes it only when the reviewer says they are done. `## Agents` is the
+last section unless a `## Ticket Status` section closes the body. A UI change also carries a `## Screenshots` section whose files were captured
+with `/pr-media` (`.claude/skills/pr-media/`, driven by `/agent-browser`) and
+left under `~/tmp/pr-media-<pr>/`, never committed; the reviewer reads the PR
+and watches the recording instead of opening an editor.
+
+When the bundle's `ticket-warning.md` holds a warning block, `99c` publishes
+it verbatim at the very bottom, after `## Agents`, as the Ticket Status section
+`/pr-description` describes. When it holds `no warning needed`, the body has
+no `## Ticket Status` section at all.
+
+The push, the PR and the proof all go through `throne forge`, the one place
+the court decides where a pull request lives:
+
+```bash
+throne forge push-branch --repo "$repo" --branch "$target_branch" --base <default branch>
+throne forge pr create --repo "$repo" --draft --base <default branch> --head "$target_branch" \
+   --title "<what changed, as the contributor would say it>" --body-file <body.md>
+throne forge pr view "$target_branch" --repo "$repo"
+```
+
+On a host where Forgejo is installed, the push makes the repository's Forgejo
+copy when it has none and the draft PR lands in Forgejo, the Lord's staging
+area. It reaches GitHub only through `/pr-promote` on the Lord's word; `99c`
+never promotes. On any other host the seam runs the commands this delivery
+ran before, from inside `$repo` rather than with `-R`:
 
 ```bash
 git -C "$repo" push -u origin "$target_branch"
-gh -R <owner>/<repo> pr create --draft --base <default branch> --head "$target_branch" \
+gh -R <owner>/<repo> pr create --draft --base <default branch or parent-branch> --head "$target_branch" \
    --title "<what changed, as the contributor would say it>" --body-file <body.md>
 gh -R <owner>/<repo> pr view "$target_branch" --json url,isDraft,headRefName,baseRefName
 ```
 
+A push the checks block follows the `99c` rule above: fix it, or waive it with
+`throne push-waiver`, and the PR-delivery report carries the waiver's path and
+its entries.
+
 The PR is opened as a **draft** unless the objective says otherwise. The body
 carries what the objective's `INTENT:` asked for (findings, tests run, what is
-not covered) in the contributor's voice. Paste the `gh pr view` JSON into the
-report: a `**Delivery outcome:** PASS` for a PR-shaped campaign without a PR URL
+not covered) in the contributor's voice. Paste the `throne forge pr view` JSON
+into the report; on both forges it carries `url`, `isDraft`, `headRefName` and
+`baseRefName`. A `**Delivery outcome:** PASS` for a PR-shaped campaign without a PR URL
 and `"isDraft": true` (when a draft was asked) is invalid. The
 `checkTerminalDeliveryPrecondition` proof is unchanged and still passes: the
 campaign landed on its recorded target branch, which is the PR branch.
@@ -2000,8 +2105,14 @@ then move the PR branch to that tip and push only the PR branch:
 
 ```bash
 git -C "$repo" branch -f "$pr_branch" "$target_branch"
-git -C "$repo" push -u origin "$pr_branch"
+throne forge push-branch --repo "$repo" --branch "$pr_branch"
 ```
+
+On GitHub the push is `git -C "$repo" push -u origin "$pr_branch"`. On both
+forges the PR then opens through `throne forge pr create` as in the normal
+shape. On a Forgejo host it still shows the delivered changes because the seam
+takes the Forgejo base from `origin/<default>`, never from the local default
+branch that already holds the delivery merge.
 
 Never push the default branch in this shape; say in the report that the local
 default branch is ahead of `origin` by the delivery merge, so the human can
@@ -2672,5 +2783,32 @@ also carry:
 6. **Verification matrix** — begin with the latest fresh `99b` gate's explicit `**Verify outcome:**` line, then show what was actually verified (the commands it ran + their pass/fail) vs what's only structurally assumed (e.g. "compiles" vs "tested on hardware"). For an explicitly legacy bundle carrying an older gate chain, fold in its per-criterion pass/fail against the whole authoritative `00_overview.md`. Keep measured rows (a command and its outcome) visibly distinct from rows carried forward from a prior gate (that earlier verdict plus its untouched-proof); a reader must never have to guess whether a row was measured or carried forward.
 7. **Real follow-ups** — partial work, infrastructure gaps the workers flagged, things the user owns next.
 8. **Open questions digest** — the full `000_current_questions.md` (or a digest of it), leading with the blocking / irreversible ones, so the user knows what assumptions the run rode on.
+
+`REPORT.md` must also carry a `## Outcome` section in exactly this shape. The
+reap reads it and records it on the campaign's queue row, so a later look-back
+can tell what the work achieved without reading the prose:
+
+```markdown
+## Outcome
+
+- **Outcome:** merged
+- **Outcome summary:** The pull request adding saved recipes was squash-merged.
+- **PR:** https://git.example.com/shop/recipes/pull/42
+- **Result commit:** 3f9c2ab
+```
+
+`- **Outcome:**` takes exactly one of these values:
+
+- `delivered` — the work landed on the recorded target branch.
+- `merged` — a pull request or branch was merged by its host.
+- `refused` — the host or a guard refused the merge or push.
+- `blocked` — the work could not proceed and nothing landed.
+- `abandoned` — the work was stopped deliberately.
+
+`- **Outcome summary:**` is one plain sentence. Leave out the `- **PR:**` line
+when there is no pull request, and the `- **Result commit:**` line when there is
+no merge, squash or pushed-head commit; the reap then records the delivery
+commit it found, if any. Any other outcome value is not recorded, and the row
+reads `not recorded`.
 
 Be honest about what's NOT verified — runtime errors from placeholder bodies, behaviour against the real third-party service, memory use under load. Mismatched optimism here costs trust and debugging time later.

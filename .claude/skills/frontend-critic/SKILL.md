@@ -160,12 +160,13 @@ the key pressed and what did or did not move. A control or set that any
 of these keys cannot operate is a defect of the change, never
 "Pre-existing": the change put it there.
 
-## 4. Check the other browsers
+## 4. Measure in Chromium only
 
-Chromium, Firefox and WebKit round text metrics differently. A baseline
-that matches in Chromium can be off by a pixel in WebKit. Run the
-measurement in all three (Playwright projects, or agent-browser against
-each) before calling alignment correct.
+The critique measures in Chromium, the browser agent-browser drives, and
+nowhere else. Do not run it in Firefox or WebKit. A project's own
+cross-browser tests (Playwright projects, a CI browser matrix) are not
+the critic's job: leave them as the project has them, neither adding
+browsers to them nor removing any.
 
 ## 5. Report before fixing
 
@@ -180,9 +181,9 @@ is a list, one defect per line, each with:
 - **Fix:** the specific rule change.
 
 If the report is empty, say what was measured, which container the axe
-audit covered, and in which browsers.
+audit covered, and that it ran in Chromium.
 "Looks fine" without numbers is not a report. In `99b` the final empty
-report, with the browsers named, is part of the PASS evidence.
+report, naming Chromium, is part of the PASS evidence.
 
 ## Known traps, from the record
 

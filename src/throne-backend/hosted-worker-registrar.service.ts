@@ -58,15 +58,19 @@ export class HostedWorkerRegistrarService implements OnApplicationBootstrap {
   }
 
   private registerCronWorker(worker: CronHostedWorkerLocal): void {
-    const job = new CronJob(worker.cronExpression, () => {
+    const runOnceLoggingFailure = (): void => {
       worker.runOnce().catch((error: unknown) => {
         process.stderr.write(
           `throne-backend: hosted worker "${worker.workerName}" failed: ${errorText(error)}\n`,
         );
       });
-    });
+    };
+    const job = new CronJob(worker.cronExpression, runOnceLoggingFailure);
     this.schedulerRegistry.addCronJob(worker.workerName, job);
     job.start();
+    if (worker.runsAtStart === true) {
+      runOnceLoggingFailure();
+    }
   }
 
   private registerLongLivedWorker(worker: LongLivedHostedWorkerLocal): void {

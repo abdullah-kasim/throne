@@ -9,13 +9,13 @@
 # tree-sitter-bash) are compiled against this image's own glibc instead of
 # risking an ABI mismatch with the host's.
 #
-# node:22-bookworm (glibc, not alpine) because tree-sitter's native addon
+# node:24.19.0-bookworm (glibc, not alpine) because tree-sitter's native addon
 # build needs a standard build toolchain, and bookworm's apt has it.
 # Always built and run as linux/amd64 (run-suite-container.mjs passes
 # --platform): the bun and herdr binaries below are x86_64 at pinned
 # checksums, so an arm64 host runs this image under emulation rather than
 # getting a silently mismatched binary.
-FROM docker.io/library/node:22-bookworm
+FROM docker.io/library/node:24.19.0-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl python3 make g++ git unzip ripgrep && rm -rf /var/lib/apt/lists/*
 

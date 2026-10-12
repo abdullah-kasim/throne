@@ -45,10 +45,9 @@ export async function submitToAgent(
   prompt: string,
   options: SubmitToAgentOptions = {},
   deps: SubmitToAgentDeps = defaultSubmitToAgentDeps(agent),
-): Promise<void> {
+): Promise<string | undefined> {
   if (options.key !== undefined) {
-    await submitToAgentKeyed(agent, senderName, prompt, options, deps);
-    return;
+    return submitToAgentKeyed(agent, senderName, prompt, options, deps);
   }
-  await submitToAgentUnkeyed(agent, senderName, prompt, options, deps);
+  return submitToAgentUnkeyed(agent, senderName, prompt, options, deps);
 }

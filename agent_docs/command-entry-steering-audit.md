@@ -14,6 +14,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `cancel-message` | missing argument | PASS | Executable evidence: `src/cancel-message/cancel-message.command.test.ts` — `cancel-message steers malformed input before identity or cancellation effects`. |
 | `cancel-message` | invalid value | N/A | No message-ID enum or value domain exists beyond exactly-one non-option token. |
 | `cancel-message` | policy refusal | N/A | Sender authorization is evaluated only after the admitted ID resolves stored delivery state; it is not an entrance policy gate. |
+| `read-message` | unknown flag | N/A | The sole positional token is the message ID; option-shaped tokens are rejected by the same exactly-one-ID admission rule. |
+| `read-message` | missing argument | PASS | Executable evidence: `src/read-message/read-message.test.ts` — `read-message steers malformed input before identity or store effects`. |
+| `read-message` | invalid value | N/A | No message-ID enum or value domain exists beyond exactly-one positive-integer token; a malformed token is refused by the same admission rule. |
+| `read-message` | policy refusal | N/A | Recipient-or-sender authorization is evaluated only after the admitted ID resolves a stored row; it is not an entrance policy gate. |
 | `agent-logs`                     | unknown flag     | N/A     | `allowUnknownOptions: true`; parser treats unknown tokens as positional input.                                                                                                                                                                                                                                           |
 | `agent-logs` | missing argument | PASS | Executable evidence: `src/agent-logs/agent-logs.test.ts` — `runAgentLogs steers parser refusals before calling the reader`. |
 | `agent-logs` | invalid value | PASS | Executable evidence: `src/agent-logs/agent-logs.test.ts` — `runAgentLogs steers parser refusals before calling the reader`. |
@@ -178,6 +182,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `amendment` | missing argument | PASS | Executable evidence: `src/amendment/amendment-runtime.test.ts` — `malformed invocations are refused before anything is read or written`. |
 | `amendment` | invalid value | PASS | Executable evidence: `src/amendment/amendment-runtime.test.ts` — `malformed invocations are refused before anything is read or written`. |
 | `amendment` | policy refusal | PASS | Executable evidence: `src/amendment/amendment-runtime.test.ts` — `an Alpha may not record an amendment; nothing is recorded or sent`. |
+| `release-deferred` | unknown flag | PASS | Executable evidence: `src/release-deferred/release-deferred-runtime.test.ts` — `a malformed release request is refused before the queue is touched`. |
+| `release-deferred` | missing argument | PASS | Executable evidence: `src/release-deferred/release-deferred-runtime.test.ts` — `a malformed release request is refused before the queue is touched`. |
+| `release-deferred` | invalid value | PASS | Executable evidence: `src/release-deferred/release-deferred-runtime.test.ts` — `a malformed release request is refused before the queue is touched`. |
+| `release-deferred` | policy refusal | PASS | Executable evidence: `src/release-deferred/release-deferred-runtime.test.ts` — `a Stager that did not file the row cannot release it`. |
 | `check-queue-amendments-reconciled` | unknown flag | PASS | Executable evidence: `src/amendment/check-reconciled-runtime.test.ts` — `a malformed invocation is refused`. |
 | `check-queue-amendments-reconciled` | missing argument | PASS | Executable evidence: `src/amendment/check-reconciled-runtime.test.ts` — `a malformed invocation is refused`. |
 | `check-queue-amendments-reconciled` | invalid value | PASS | Executable evidence: `src/amendment/check-reconciled-runtime.test.ts` — `a malformed invocation is refused`. |
@@ -262,6 +270,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `git-identity` | missing argument | N/A | No arguments are declared. |
 | `git-identity` | invalid value | N/A | No value-bearing option exists. |
 | `git-identity` | policy refusal | N/A | An unset identity is a status (exit 3), not an entrance policy gate. |
+| `forge` | unknown flag | PASS | Executable evidence: `test/forge-github-pull-requests.test.ts` — `forge refuses an unknown operation, a missing value and a bad limit before doing anything`. |
+| `forge` | missing argument | PASS | Executable evidence: `test/forge-github-pull-requests.test.ts` — `forge refuses an unknown operation, a missing value and a bad limit before doing anything`. |
+| `forge` | invalid value | PASS | Executable evidence: `test/forge-github-pull-requests.test.ts` — `forge refuses an unknown operation, a missing value and a bad limit before doing anything`. |
+| `forge` | policy refusal | N/A | A Forgejo that does not answer, or a missing token, is a runtime refusal (exit 1) after argument admission, not an entrance policy gate. |
 | `memory-dir` | unknown flag | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `an unknown flag or a second DIR is a steered exit 2`. |
 | `memory-dir` | missing argument | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `a missing DIR is a steered exit 2 that names the omission, never a silent cwd`. |
 | `memory-dir` | invalid value | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `a resolver failure is a steered exit 2 with the cause`. |
@@ -298,6 +310,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `render-queue` | missing argument | N/A | The command defaults all inputs and receives Commander-built options; no command-local unknown or missing parser refusal exists. |
 | `render-queue` | invalid value | PASS | Executable evidence: `src/regent-queue/regent-queue-render.command.test.ts` — `render-queue invalid status refusal gives command-local steering before a store opens`. |
 | `render-queue`                   | policy refusal   | N/A     | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; operational or mutation policy occurs only after argument admission.                                                                                                                                       |
+| `work-log` | unknown flag | PASS | Executable evidence: `src/work-log/work-log.test.ts` — `work-log refuses an unknown flag, a missing --since or a since value that is not an ISO date before reading anything`. |
+| `work-log` | missing argument | PASS | Executable evidence: `src/work-log/work-log.test.ts` — `work-log refuses an unknown flag, a missing --since or a since value that is not an ISO date before reading anything`. |
+| `work-log` | invalid value | PASS | Executable evidence: `src/work-log/work-log.test.ts` — `work-log refuses an unknown flag, a missing --since or a since value that is not an ISO date before reading anything`. |
+| `work-log` | policy refusal | N/A | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; the command only reads. |
 | `consume-fence-handoff-on-start` | unknown flag | PASS | Executable evidence: `src/command-registry-coverage/framework-entrance-steering.test.ts` — `consume-fence-handoff-on-start real Nest invocation steers an unknown flag before effects`. |
 | `consume-fence-handoff-on-start` | missing argument | N/A | The command has no positional or value input domain; its record path is an internal configuration seam. |
 | `consume-fence-handoff-on-start` | invalid value | N/A | The command has no positional or value input domain; its record path is an internal configuration seam. |

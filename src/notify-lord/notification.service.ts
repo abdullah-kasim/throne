@@ -17,7 +17,6 @@ import {
   LIVE_ROLE_WORD_UNION,
   resolveCanonicalRoleWord,
 } from "../shared-policy/role-word-union.ts";
-import { FILE_BACKED_DELIVERY_THRESHOLD_BYTES } from "../send-agent/payload-transport.ts";
 
 // The committed tree carries a deliberately inert loopback identity. The real
 // server address and topic are host-local secrets (a private tailnet IP and an
@@ -27,8 +26,7 @@ import { FILE_BACKED_DELIVERY_THRESHOLD_BYTES } from "../send-agent/payload-tran
 const DEFAULT_SERVER_URL = "http://127.0.0.1:8410";
 const DEFAULT_TOPIC = "throne-notifications";
 const DEFAULT_TIMEOUT_MS = 5_000;
-export const MAX_COMPLETION_MESSAGE_BYTES =
-  FILE_BACKED_DELIVERY_THRESHOLD_BYTES - 1;
+export const MAX_COMPLETION_MESSAGE_BYTES = 4095;
 const COMPLETION_TRUNCATION_SUFFIX = "\nQueue: [truncated]";
 const ledgerData = new LedgerDataService();
 

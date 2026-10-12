@@ -52,12 +52,12 @@ function seedQueue(queuePath: string): void {
     const gamma = store.insertItem({ objectiveCode: "gamma", body: "INTENT: gamma", priority: 2 });
     store.mutateItem(gamma.id, {
       status: RegentQueueItemStatus.Deferred,
-      deferral: { dependsOn: ["done"], releaseAuthority: null, reason: "waits for done" },
+      deferral: { dependsOn: ["done"], reason: "waits for done" },
     });
     const held = store.insertItem({ objectiveCode: "held", body: "INTENT: held" });
     store.mutateItem(held.id, {
       status: RegentQueueItemStatus.Deferred,
-      deferral: { dependsOn: [], releaseAuthority: "the Lord", reason: "needs a ruling" },
+      deferral: { dependsOn: [], reason: "needs a ruling" },
     });
     const flying = store.insertItem({ objectiveCode: "flying", body: "INTENT: flying" });
     store.transitionStatus(flying.id, RegentQueueItemStatus.InFlight, { agentName: "alpha-flying-01" });
@@ -131,7 +131,7 @@ function readersOver(court: AutoscaleStatusCourt, reading: CourtReading): AlphaA
       submitToAgent: async () => refuseToWrite("page the Regent"),
     },
     readPressure: () => reading.pressure ?? takeMoreWorkAt(10),
-    promoteDeferredWork: () => refuseToWrite("promote deferred work"),
+    recoverIdleWork: () => refuseToWrite("recover idle work"),
     notifyOfIdleRecovery: async () => refuseToWrite("announce idle recovery"),
     readReadyQueue: () => refuseToWrite("read the unprojected ready queue"),
     autoBriefEligibleItems: () => refuseToWrite("stage launch briefs"),

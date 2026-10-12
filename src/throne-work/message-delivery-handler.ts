@@ -18,6 +18,8 @@ import {
   type MessageQueueStore,
   type WorkItemRow,
 } from "../message-queue/message-queue.store.ts";
+import { isDeliveryNotice } from "../delivery-notice/delivery-notice.ts";
+import { scheduleDeliveryReceiptCheck } from "../delivery-receipt/delivery-receipt-check.ts";
 import type { MessageDeliveryWorkItemPayload } from "../send-agent/message-delivery-enqueue.ts";
 import { appendSentMessageLedgerEntry } from "../send-agent/sent-message-ledger.ts";
 import {
@@ -43,7 +45,7 @@ export interface MessageDeliveryHandlerDeps {
       disableFileBackedDelivery?: boolean;
       messageId?: number;
     },
-  ) => Promise<void>;
+  ) => Promise<string | void>;
   clearBlockedMarker: (name: string) => Promise<void>;
   readAgentRole: (name: string) => Promise<IdentityLineRead>;
   readAgentSupervisor: (name: string) => Promise<IdentityLineRead>;
@@ -162,6 +164,24 @@ async function recordScheduledDeliveryBookkeeping(
   }
 }
 
+function messageIdTypedAfter(item: WorkItemRow): { messageId?: number } {
+  return isDeliveryNotice(item) ? {} : { messageId: item.id };
+}
+
+function scheduleReceiptCheckIgnoringFailure(
+  store: MessageQueueStore,
+  finished: WorkItemRow,
+  typedText: string | void,
+): void {
+  if (finished.state !== MessageQueueWorkItemState.Delivered) return;
+  if (typeof typedText !== "string") return;
+  try {
+    scheduleDeliveryReceiptCheck(store, finished, typedText);
+  } catch (error) {
+    process.stderr.write(`throne-work: delivered, but its receipt check could not be scheduled, ignoring: ${error instanceof Error ? error.message : String(error)}\n`);
+  }
+}
+
 /**
  * Delivers one claimed `message-delivery` work item through the existing,
  * unmodified `submitToAgent` path — the sole pane-writing call this server
@@ -180,11 +200,11 @@ export async function deliverMessageWorkItem(
   for (;;) {
     try {
       const recipient = await deps.resolveAgent(payload.recipientName);
-      await deps.submitToAgent(
+      const typedText = await deps.submitToAgent(
         recipient,
         payload.senderName,
         payload.prompt,
-        { ...forwardedSubmitOptions(payload), messageId: item.id },
+        { ...forwardedSubmitOptions(payload), ...messageIdTypedAfter(item) },
       );
       await recordAttributedDelivery(payload, deps);
       if (item.dueAt !== null) {
@@ -193,7 +213,9 @@ export async function deliverMessageWorkItem(
       if (payload.clearRecipientBlockedOnDelivery) {
         await deps.clearBlockedMarker(payload.recipientName);
       }
-      return store.finishWorkItemIdempotently(item.id, MessageQueueWorkItemState.Delivered);
+      const finished = store.finishWorkItemIdempotently(item.id, MessageQueueWorkItemState.Delivered);
+      scheduleReceiptCheckIgnoringFailure(store, finished, typedText);
+      return finished;
     } catch (error) {
       const outcome = classifySubmitAttemptError(error, attempt, deps.maxNotSentAttempts);
       if (outcome.kind === "retry") {

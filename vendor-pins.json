@@ -10,6 +10,12 @@
     "this tag and systemd/ntfy-serve runs it.",
     "tools.conduwuit pins the conduwuit (continuwuity) Matrix homeserver",
     "image, run the same way by systemd/conduwuit-serve.",
+    "tools.forgejo pins the Forgejo forge image (the -rootless variant, which",
+    "runs as an unprivileged user). Only install-forgejo.sh pulls it, and",
+    "systemd/forgejo-serve runs it, on the tailnet address only.",
+    "tools.tea pins the tea CLI release install-forgejo.sh installs, with the",
+    "sha256 of each platform's binary from the release's checksums.txt;",
+    "agent_docs/forgejo.md records where each sha256 came from.",
     "To move a pin: edit the version here, run ./install.sh, verify, commit."
   ],
   "tools": {
@@ -18,17 +24,37 @@
     },
     "conduwuit": {
       "image": "ghcr.io/continuwuity/continuwuity:v26.8.1"
+    },
+    "forgejo": {
+      "image": "codeberg.org/forgejo/forgejo:16.0.5-rootless"
+    },
+    "tea": {
+      "version": "0.16.0",
+      "artifacts": {
+        "linux-amd64": {
+          "sha256": "9c142c8a0b31485eea2387031c1c404f12b7141075eb4ffbd7ced49441590636"
+        },
+        "linux-arm64": {
+          "sha256": "0e14a036322eeb1fc55e266acafeb8490e523ed99f9232034ae74861e2339879"
+        },
+        "darwin-amd64": {
+          "sha256": "792fd7866a79ebb74d6cdbc01af0d8263e1814a0354911cf1e210fbec16f5bfb"
+        },
+        "darwin-arm64": {
+          "sha256": "f7f70f57dac1616d17edc0d010469648222642bf3462e09c05bca26b38f3dfdb"
+        }
+      }
     }
   },
   "harnesses": {
     "claude": {
       "package": "@anthropic-ai/claude-code",
-      "version": "2.1.280",
+      "version": "2.1.293",
       "bin": "claude"
     },
     "codex": {
       "package": "@openai/codex",
-      "version": "0.156.0",
+      "version": "0.161.0",
       "bin": "codex"
     }
   }

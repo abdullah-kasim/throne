@@ -28,9 +28,9 @@ export interface DeferredQueueRow {
   readonly objectiveCode: string;
   readonly priority: number;
   readonly waitsOn: readonly string[];
-  readonly releaseAuthority: string | null;
   readonly reason: string | null;
-  readonly wouldRelease: boolean;
+  readonly deferredSince: string | null;
+  readonly heldForHours: number | null;
 }
 
 export interface InFlightQueueRow {
@@ -88,17 +88,32 @@ function rowsWithStatus(
   return items.filter((item) => item.status === status && item.objectiveCode !== null);
 }
 
+const MILLISECONDS_PER_HOUR = 3_600_000;
+
+function deferredQueueRow(item: RegentQueueItemRow, nowMs: number): DeferredQueueRow {
+  const deferredAt = item.deferral?.deferredAt ?? null;
+  return {
+    objectiveCode: item.objectiveCode!,
+    priority: item.priority,
+    waitsOn: item.deferral?.dependsOn ?? [],
+    reason: item.deferral?.reason ?? null,
+    deferredSince: deferredAt === null ? null : new Date(deferredAt).toISOString(),
+    heldForHours:
+      deferredAt === null ? null : Math.floor((nowMs - deferredAt) / MILLISECONDS_PER_HOUR),
+  };
+}
+
 export function describeAutoscaleStatusQueue(
   queueAsRead: RegentQueueReadResult,
   projection: NextRunQueueProjection,
   readyQueue: ReadyQueueResult,
   mutatingTargets: readonly string[],
+  nowMs: number,
 ): AutoscaleStatusQueue {
   const items = queueItems(queueAsRead);
   const projectedItems = queueItems(projection.source.readAll());
   const launchable = launchableRows(readyQueue, items);
   const launchableCodes = new Set(launchable.map((row) => row.objectiveCode));
-  const releasedCodes = new Set(projection.wouldRelease.map((release) => release.objectiveCode));
   return {
     readyQueue: readyQueue.state,
     readyQueueReasons: readyQueueReasons(readyQueue),
@@ -109,14 +124,9 @@ export function describeAutoscaleStatusQueue(
         objectiveCode: item.objectiveCode!,
         reason: effectiveIneligibilityReason(item),
       })),
-    deferred: rowsWithStatus(items, RegentQueueItemStatus.Deferred).map((item) => ({
-      objectiveCode: item.objectiveCode!,
-      priority: item.priority,
-      waitsOn: item.deferral?.dependsOn ?? [],
-      releaseAuthority: item.deferral?.releaseAuthority ?? null,
-      reason: item.deferral?.reason ?? null,
-      wouldRelease: releasedCodes.has(item.objectiveCode!),
-    })),
+    deferred: rowsWithStatus(items, RegentQueueItemStatus.Deferred).map((item) =>
+      deferredQueueRow(item, nowMs),
+    ),
     inFlight: rowsWithStatus(items, RegentQueueItemStatus.InFlight).map((item) => ({
       objectiveCode: item.objectiveCode!,
       alphaName: item.agentName,

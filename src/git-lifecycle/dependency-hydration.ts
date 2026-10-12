@@ -17,6 +17,7 @@ import {
   type DependencyHydrationMode,
   type DependencyHydrationResult,
   type DependencyInstallPlatform,
+  type NodeChoice,
   NpmInstallPlatform,
 } from "./dependency-hydration-install.ts";
 
@@ -26,6 +27,7 @@ export {
   type DependencyHydrationMode,
   type DependencyHydrationResult,
   type DependencyInstallPlatform,
+  type NodeChoice,
 } from "./dependency-hydration-install.ts";
 
 export type DependencyEcosystem =
@@ -297,6 +299,7 @@ export async function hydrateDependencies(
       );
 
   let mode: DependencyHydrationMode = "skipped";
+  let node: NodeChoice | undefined;
 
   for (const relativePath of hydrationPaths) {
     if (reflinkTrustworthy) {
@@ -358,12 +361,21 @@ export async function hydrateDependencies(
     } catch {
       // The fresh worktree normally has no ignored destination yet.
     }
-    await installFallbackPath(destinationProjectDir, relativePath, installer);
+    node = await installFallbackPath(
+      destinationProjectDir,
+      relativePath,
+      installer,
+    );
     await writeHydrationProvenance(destinationProjectDir, relativePath);
     mode = "install";
   }
 
-  return { projectDir: destinationProjectDir, paths: hydrationPaths, mode };
+  return {
+    projectDir: destinationProjectDir,
+    paths: hydrationPaths,
+    mode,
+    ...(node === undefined ? {} : { node }),
+  };
 }
 
 export async function validateHydratedDependencies(

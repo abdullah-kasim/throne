@@ -6,7 +6,6 @@ import type { HerdrAgent } from '../herdr/herdr-inventory.service.ts';
 import { HARNESS_NAMES } from '../harness-routing/harness.ts';
 import { enqueueHeartbeatMessage } from '../throne-work/enqueue-heartbeat-message.ts';
 import { openMessageQueueStore } from '../message-queue/message-queue.store.ts';
-import { requiresFileBackedDelivery } from '../send-agent/payload-transport.ts';
 import { NO_IDLING_SENDER } from './no-idling-sender.ts';
 import { spawnedAtAgeMs } from './idle-family.ts';
 import {
@@ -29,8 +28,8 @@ const MODAL_ANSWER_KEY = '2';
  * as available to a stranded-spawn sweep as it is to every other no-idling
  * notice already flowing through it, so a direct `deliverOpeningPrompt`
  * call would be an unreasoned bypass, not a genuine exception.
- * `omitSenderAttribution`, the file-backing threshold, and
- * `waitForStartupQuiescence` mirror `deliverOpeningPrompt`'s own
+ * `omitSenderAttribution` and `waitForStartupQuiescence` mirror
+ * `deliverOpeningPrompt`'s own
  * opening-prompt options exactly -- this is the same delivery, queued
  * instead of synchronous. The recipient's pane is already known (the
  * classification pass that produced it just read the pane), so unlike
@@ -50,7 +49,6 @@ async function redeliverOpeningPromptViaQueue(
       prompt,
       clearRecipientBlockedOnDelivery: false,
       omitSenderAttribution: true,
-      disableFileBackedDelivery: !requiresFileBackedDelivery(prompt),
       waitForStartupQuiescence: true,
     });
   } finally {

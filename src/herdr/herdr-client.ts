@@ -121,6 +121,27 @@ export class NestHerdrCommandError extends Error {
 
 export { NestHerdrCommandError as HerdrCommandError };
 
+export const HERDR_SERVER_NOT_RUNNING_ERROR_CODE = 'server_not_running';
+
+export function isHerdrServerNotRunning(failure: unknown): boolean {
+  return (
+    failure instanceof NestHerdrCommandError &&
+    failure.code === HERDR_SERVER_NOT_RUNNING_ERROR_CODE
+  );
+}
+
+export async function listAgentsReadingStoppedSessionAsEmpty<Agent>(
+  sessionName: string,
+  listAgentsInSession: (sessionName: string) => Promise<Agent[]>,
+): Promise<Agent[]> {
+  try {
+    return await listAgentsInSession(sessionName);
+  } catch (failure) {
+    if (isHerdrServerNotRunning(failure)) return [];
+    throw failure;
+  }
+}
+
 export function ownedHerdrClientPath(
   env: NodeJS.ProcessEnv = process.env,
   homeDirectory: string = os.homedir(),

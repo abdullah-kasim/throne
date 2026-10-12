@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 import {
+  EDITOR_FIELD,
   IDENTITY_SECTION_FIELDS,
   PERSONA_SECTION_FIELDS,
   RECALL_SECTION_FIELDS,
@@ -27,6 +28,7 @@ test('docs/CONFIG.md documents every key the loader knows', async () => {
     ...STEERING_SECTION_FIELDS,
     ...IDENTITY_SECTION_FIELDS,
     ...RECALL_SECTION_FIELDS,
+    EDITOR_FIELD,
     'alpha', 'shadow', 'shadowSlice99',
     'regent',
     ...PLAN_PRESET_NAMES,

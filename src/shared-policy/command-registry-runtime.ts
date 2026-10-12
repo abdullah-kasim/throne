@@ -8,6 +8,7 @@ import { McqCommand } from "../pane-prompts/mcq.command.ts";
 import { SendAgentLegacyCommand } from "../send-agent-legacy/send-agent-legacy.command.ts";
 import { MessageStatusCommand } from "../message-status/message-status.command.ts";
 import { CancelMessageCommand } from "../cancel-message/cancel-message.command.ts";
+import { ReadMessageCommand } from "../read-message/read-message.command.ts";
 import { DeliveryFailuresCommand } from "../delivery-failures/delivery-failures.command.ts";
 import { ThroneBackendCommand } from "../throne-backend/throne-backend.command.ts";
 import { QueueHealthCommand } from "../throne-work/queue-health.command.ts";
@@ -96,6 +97,14 @@ export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Cancel one scheduled message before delivery begins.",
+  },
+  {
+    name: "read-message",
+    provider: ReadMessageCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Print the stored text of one message by its id, to its recipient or its sender.",
   },
   {
     name: "delivery-failures",

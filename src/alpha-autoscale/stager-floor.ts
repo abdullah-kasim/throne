@@ -87,6 +87,13 @@ function isConfirmedStager(entry: AgentStatusesRosterEntry): boolean {
   );
 }
 
+export function isLiveStager(
+  entry: AgentStatusesRosterEntry,
+  forkedAgentNames: ReadonlySet<string>,
+): boolean {
+  return isStagerCandidate(entry, forkedAgentNames) && isConfirmedStager(entry);
+}
+
 export function decideStagerFloorAction(
   desiredState: DesiredState,
   roster: readonly AgentStatusesRosterEntry[],

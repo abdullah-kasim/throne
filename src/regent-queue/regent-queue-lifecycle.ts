@@ -1,7 +1,13 @@
+import { REAP_REASON } from "../agent-timings/reap-reason.ts";
 import {
   RegentQueueItemStatus,
+  TERMINAL_QUEUE_ITEM_STATUSES,
   isForwardQueueItemStatusTransition,
 } from "./regent-queue-item-state.ts";
+import {
+  QueueOutcome,
+  type QueueOutcomeMutation,
+} from "./regent-queue-outcome.ts";
 import type {
   RegentQueueItemRow,
   RegentQueueStore,
@@ -101,11 +107,12 @@ export function recordAgentLaunchOnQueueItem(
  * The Lord's exact status mapping for a reap outcome — `completed` ->
  * `complete`, `superseded` -> `complete` (the objective's content was
  * independently delivered under different provenance — the same real-world
- * outcome as `completed`, just proven differently), `cancelled` -> `open`
- * (the item is available for a future relaunch attempt), `force` ->
- * `abandoned` (a forced teardown never claims completion). Every other reap
- * reason has no entry: see this slice's question-log Q5 for why that is a
- * deliberate no-op, not an omission.
+ * outcome as `completed`, just proven differently), `abandoned` and
+ * `force` -> `abandoned` (stopped work never claims completion). No reason
+ * maps to `open`: an abandoned row is final, and reopening it is a separate
+ * explicit `update-queue --status open`. Every other reap reason has no
+ * entry: see this slice's question-log Q5 for why that is a deliberate
+ * no-op, not an omission.
  */
 const REAP_REASON_QUEUE_STATUS: Readonly<
   Partial<Record<string, RegentQueueItemStatus>>
@@ -113,9 +120,14 @@ const REAP_REASON_QUEUE_STATUS: Readonly<
   completed: RegentQueueItemStatus.Complete,
   superseded: RegentQueueItemStatus.Complete,
   "completed-unpublishable": RegentQueueItemStatus.Abandoned,
-  cancelled: RegentQueueItemStatus.Open,
+  abandoned: RegentQueueItemStatus.Abandoned,
   force: RegentQueueItemStatus.Abandoned,
 };
+
+const REAP_REASONS_RECORDING_ABANDONED_OUTCOME: ReadonlySet<string> = new Set([
+  REAP_REASON.ABANDONED,
+  REAP_REASON.FORCE,
+]);
 
 export function queueStatusForReapReason(
   reason: string,
@@ -123,10 +135,44 @@ export function queueStatusForReapReason(
   return REAP_REASON_QUEUE_STATUS[reason];
 }
 
+export interface StatedQueueOutcome {
+  readonly outcome: QueueOutcome;
+  readonly outcomeSummary?: string;
+  readonly prUrl?: string;
+  readonly resultCommit?: string;
+}
+
 export interface QueueReapOutcome {
   readonly agentName: string;
   readonly reason: string;
   readonly deliveryCommit?: string;
+  readonly statedOutcome?: StatedQueueOutcome;
+}
+
+function outcomeRecordForReap(
+  reap: QueueReapOutcome,
+  targetStatus: RegentQueueItemStatus,
+): QueueOutcomeMutation {
+  if (!TERMINAL_QUEUE_ITEM_STATUSES.has(targetStatus)) return {};
+  if (reap.statedOutcome !== undefined) {
+    return {
+      ...reap.statedOutcome,
+      resultCommit: reap.statedOutcome.resultCommit ?? reap.deliveryCommit,
+    };
+  }
+  if (REAP_REASONS_RECORDING_ABANDONED_OUTCOME.has(reap.reason)) {
+    return { outcome: QueueOutcome.Abandoned };
+  }
+  if (
+    targetStatus === RegentQueueItemStatus.Complete &&
+    reap.deliveryCommit !== undefined
+  ) {
+    return {
+      outcome: QueueOutcome.Delivered,
+      resultCommit: reap.deliveryCommit,
+    };
+  }
+  return {};
 }
 
 /**
@@ -165,6 +211,7 @@ export function recordAgentReapOutcomeOnQueueItem(
   }
   const updated = store.transitionStatus(item.id, targetStatus, {
     deliveryCommit: outcome.deliveryCommit,
+    ...outcomeRecordForReap(outcome, targetStatus),
   });
   return { matched: true, item: updated };
 }

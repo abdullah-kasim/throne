@@ -14,9 +14,10 @@ section of `config.user.ts`. This skill is that action, made repeatable.
 1. Read `~/.throne/data/<your-name>/identity.md`. The `Role:` line must be
    `Stager`. Any other role — Regent, Alpha, Shadow — REFUSES loudly and
    relays the request to a live Stager (`throne send-agent <stager> ...`).
-   Reason: the Stager is the one role that works in the live main checkout,
-   where `config.user.ts` lives; every other role sits in a worktree whose
-   copy of that file is not the one `create-agent` reads.
+   Reason: the Stager is the role the Lord steers directly, and the one
+   allowed to edit the live throne root's `config.user.ts`, the copy
+   `create-agent` reads. Every agent, the Stager included, runs in its own
+   tree, and no tree's copy of that file is the one that counts.
 2. Resolve the live throne root with the same throne-context guard the todo
    skills use. Outside the live throne, refuse; do not write a stray
    `config.user.ts` into some unrelated repository.

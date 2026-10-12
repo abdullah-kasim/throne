@@ -11,11 +11,13 @@ import type { BlockedMarkerLedger } from './idle-family.ts';
 import type { SubmitToAgentOptions } from '../herdr/herdr-send.types.ts';
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
 import type { StaleTabReport, StrandedSpawnReport } from './stale-tab-report.ts';
+import type { UnnamedAgentReport } from './unnamed-agent-report.ts';
 import type { ConfirmedObservationTracker } from './confirmed-observation.ts';
 import type {
   StrandedSpawnClassification,
 } from './stranded-spawn-classification.ts';
 import type { StrandedSpawnRecoveryResult } from './stranded-spawn-recovery.ts';
+import type { DeferredRowPingQueue } from '../regent-queue/regent-queue.store.ts';
 
 export interface NoIdlingDependencies {
   resolveLiveRoot: () => Promise<string>;
@@ -48,6 +50,7 @@ export interface NoIdlingDependencies {
   // classification pulled OUT of `detectStaleTabs`'s result, so the two
   // are always disjoint. Read-only; never recovers or closes anything.
   detectStrandedSpawns: (dataDir: string) => Promise<StrandedSpawnReport[]>;
+  detectUnnamedAgents: (dataDir: string) => Promise<UnnamedAgentReport[]>;
   // Mechanically clears one stranded-spawn classification (modal keypress
   // and/or opening-prompt redelivery, per `recoverStrandedSpawn`'s
   // classification-to-remedy dispatch) and reports the outcome for logging.
@@ -79,6 +82,7 @@ export interface NoIdlingDependencies {
   // evidence half: a `reapable` last-message tag alone never proves this --
   // an Alpha idle-awaiting a live Shadow ends its own turn `reapable` too.
   hasProvenDelivery: (name: string, dataDir: string) => Promise<boolean>;
+  openRegentQueue: () => DeferredRowPingQueue;
   now?: () => number;
   /**
    * Carries each Alpha's "no raw live children" confirmation streak across
@@ -92,6 +96,7 @@ export interface NoIdlingDependencies {
    * consecutive minute-apart samples.
    */
   fullyIdleFamilyLiveChildrenTracker?: ConfirmedObservationTracker;
+  unnamedAgentTracker?: ConfirmedObservationTracker;
   /** Process-lifetime set of unchanged exclusion diagnostics already emitted. */
   excludedFamilyObservations?: Set<string>;
   stillBlockedObservations?: Map<string, number>;

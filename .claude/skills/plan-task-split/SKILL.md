@@ -135,6 +135,22 @@ A place where features get finished. If spokes are still being completed during
 wiring, the spokes were not done, and the plan is a chain wearing a star's
 diagram.
 
+## Across pull requests, the core is the wiring PR
+
+When one feature is filed as several pull requests, the PR that consumes the
+others is the wiring PR, and it is the star's core. It is stacked on the PRs it
+consumes, so it can be run and tested end to end from its own branch, and it
+carries the end-to-end tests and the manual test walkthrough for the whole
+feature. The PRs it consumes are spokes, each proven alone by its own unit
+tests.
+
+Picture a recipe API PR and the recipe page PR that calls it. The page PR is
+the wiring PR, stacked on the API PR's branch, so testing the page never means
+pulling the API PR's changes in by hand. Without a wiring PR, everyone who
+wants to try the feature has to assemble it themselves first (Lord,
+2026-10-05: stacked PRs make testing easier). `/queue-objective` names the
+wiring row when the rows are filed.
+
 ## Where this bites in the throne
 
 The star is not an abstraction here; it maps onto machinery this repo already

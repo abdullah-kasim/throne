@@ -23,7 +23,7 @@ export interface SendAgentCommandDependencies<
     senderName: string,
     prompt: string,
     options: { key?: string; onDeliveredWhileLocked?: () => Promise<void> },
-  ): Promise<void>;
+  ): Promise<unknown>;
   openMessageQueueStore?: () => MessageQueueStore;
   now?: () => number;
   readAgentRole?: IdentityDataService["readAgentRole"];

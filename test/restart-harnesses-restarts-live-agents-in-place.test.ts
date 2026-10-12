@@ -133,6 +133,13 @@ test("the plan skips unnamed panes and working agents, includes the invoker, and
   );
 });
 
+test("restart-harnesses skips a pane whose herdr name is blank", () => {
+  const roster = [agent({ name: "  ", paneId: "w1:pBlank" }), agent({ name: "stager-b" })];
+  const { targets, skipped } = planRestarts(roster, undefined, ALL);
+  assert.deepEqual(targets.map((target) => target.name), ["stager-b"]);
+  assert.deepEqual(skipped.map((outcome) => [outcome.name, outcome.detail]), [["(claude) w1:pBlank", "unnamed pane"]]);
+});
+
 test("the invoker is included even while its own pane reports working status", () => {
   const roster = [agent({ name: "stager-a", paneId: SELF_PANE, agentStatus: "working" })];
   const { targets } = planRestarts(roster, SELF_PANE, ALL);

@@ -185,7 +185,7 @@ export async function requireReachableFromMergeTarget(
         `"${mergeTargetBranch}", rerun with --force to complete teardown ` +
         "while preserving this branch as a recovery ref; if the branch " +
         "carries genuine unlanded unique work, rerun with " +
-        "--archive-cancelled-unmerged to preserve it under cancelled " +
+        "--archive-abandoned-unmerged to preserve it under abandoned " +
         "provenance instead.",
     );
   }
@@ -285,7 +285,7 @@ export async function requireNotReachableFromMergeTarget(
   if (result.code === 0) {
     throw new Error(
       `branch "${branch}" is already reachable from its recorded merge-target ` +
-        `branch "${mergeTargetBranch}"; cancelled-unmerged archival requires ` +
+        `branch "${mergeTargetBranch}"; abandoned-unmerged archival requires ` +
         "an intentionally unmerged branch",
     );
   }

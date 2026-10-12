@@ -15,9 +15,10 @@ program is the same `ntfy-serve` script the linux unit runs; that script is
 platform-aware (ifconfig instead of iproute2, the Tailscale.app bundle CLI,
 optional GNU timeout) and runs the server as the pinned binwiederhier/ntfy
 image (vendor-pins.json tools.ntfy.image, pulled by ./install.sh) under
-docker or podman, whichever the host has. Tailscale is the one prerequisite
+docker or podman, whichever systemd/container-runtime-ensure reports
+reachable. Tailscale is the one prerequisite
 nothing here installs: ntfy is tailnet-only by design, and without a tailnet
-address (or with the runtime still starting) ntfy-serve exits non-zero, so KeepAlive
+address ntfy-serve exits non-zero, so KeepAlive
 relaunches it after ThrottleInterval — the same wait-and-retry boot-race
 contract as the linux unit's Restart=always.
 

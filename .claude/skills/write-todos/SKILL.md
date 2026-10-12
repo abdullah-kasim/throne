@@ -546,6 +546,7 @@ forbids.
     ├── 03z_critique_<module>.md   ← perceptual bundles only: rubric gate paired with 03
     ├── 04_seam_<wave>.md          ← perceptual bundles only: the one slice touching core
     ├── ...
+    ├── 98_ticket_<topic>.md           ← ticket-driven bundles only: does this match the TICKET?
     ├── 99a_conform_<topic>.md         ← fresh gate: does this do what was ASKED?
     ├── 99b_verify_<topic>.md          ← fresh tests-and-lint gate, fixes what fails
     └── 99c_deliver_<topic>.md         ← fresh Shadow merges latest and delivers LAST
@@ -560,7 +561,8 @@ forbids.
   fails, and `99c_deliver_<topic>.md` merges the latest target and delivers.
   Slices take `01`–`98`; a perceptual bundle's `NNz_critique_<module>` gate
   shares its builder's number with a `z` suffix (see "Perceptual-quality
-  bundles"). Numbers order and cross-reference; ordinary slices do
+  bundles"). A ticket-driven bundle keeps `98` for `98_ticket_<topic>.md`
+  (see "The ticket-alignment todo"), so its other slices take `01`–`97`. Numbers order and cross-reference; ordinary slices do
   NOT force numerical execution order. `00` reads first, then the fresh
   terminal Shadows run `99a`, `99b` and `99c` in order. Keep the role word in
   each terminal filename: the throne classifies terminal gates by verb, not by
@@ -597,6 +599,7 @@ Output the **list of titles** in numerical order, bracketed by the two bookends:
 03 — Wire store to route                        ← contract already pinned by 01
 04 — Slice-ring time-sync coherence            ← subtle concurrency/timing
 05 — Add Vitest coverage                        ← mirrors existing tests
+98 — Check the candidate against the ticket     ← ticket-driven bundles only
 99a — Grade the candidate against what was literally asked for
 99b — Run the tests and lint, and fix what fails
 99c — Merge the latest target, then deliver and smoke-check it
@@ -609,7 +612,7 @@ planner does not rank or score slices. Spend the
 judgment on the CUT instead — whether each slice is genuinely independently
 testable, and whether its boundary is a real seam.
 
-`00`, `99a`, `99b`, and `99c` are non-negotiable — every new bundle ships with all four. Draft `00`'s "Done when:" checklist HERE, out loud, and confirm **every criterion maps to a numbered slice and every slice maps to a criterion**. That mapping IS the answer to "do these steps actually achieve the goal?" — and catching a gap now costs one line of text, not an execution re-run.
+`00`, `99a`, `99b`, and `99c` are non-negotiable — every new bundle ships with all four. A ticket-driven bundle also ships `98_ticket_<topic>.md` (see "The ticket-alignment todo"). Draft `00`'s "Done when:" checklist HERE, out loud, and confirm **every criterion maps to a numbered slice and every slice maps to a criterion**. That mapping IS the answer to "do these steps actually achieve the goal?" — and catching a gap now costs one line of text, not an execution re-run.
 
 **COUNT YOUR DEPENDENCY CHAIN BEFORE YOU COMMIT TO IT (Lord, 2026-08-25).**
 Slice by independently-testable unit, not by sequential phase. The test is one
@@ -688,8 +691,11 @@ Once the breakdown is settled:
    throne root.
 2. Write `00_overview.md` first (see "The overview file" below) with the bundle-level `todo_run_personality:` stamp and, when the classification in "Front-end bundles" below fires, `frontend: true`; it is never executed.
 3. Write each `NN_<task>.md` slice (one per title), each opening with the `deps:` and `touches:` lines settled there. Never emit legacy `tier:`/`model:` stamps.
-4. Write `99a_conform_<topic>.md` (see "The conformance todo" below) with
-   `deps: [<every ordinary slice>]`.
+4. When the bundle is ticket-driven, write `98_ticket_<topic>.md` (see "The
+   ticket-alignment todo" below) with `deps:` on every other ordinary slice.
+   Then write `99a_conform_<topic>.md` (see "The conformance todo" below) with
+   `deps: [<every ordinary slice>]`, which includes `98_ticket_<topic>` when
+   that todo exists.
 5. Write `99b_verify_<topic>.md` (see "The verify todo" below) with
    `deps: [99a]` frontmatter. It runs the
    bundle's tests and lint, and fixes what fails. When `00` stamps
@@ -1106,7 +1112,7 @@ leaving the gate to find living prose about dead code.
 
 ## The overview file (`00_overview.md`)
 
-Always the first file. It is **read-first context, never an executed todo** — `/execute-todos` loads it into every worker's prompt so each slice knows the whole it plugs into, and never runs a worker for it. It carries bundle metadata such as `todo_run_personality` and, for bundles that change a web UI, `frontend: true` (see "Front-end bundles").
+Always the first file. It is **read-first context, never an executed todo** — `/execute-todos` loads it into every worker's prompt so each slice knows the whole it plugs into, and never runs a worker for it. It carries bundle metadata such as `todo_run_personality`, for bundles that change a web UI `frontend: true` (see "Front-end bundles"), and for a ticket-driven bundle `ticket: <key or URL>` (several tickets: comma-separated). A bundle is ticket-driven when the queue row carries a `TICKET:` block or the tasking names a ticket; the `ticket:` stamp is what "the overview names a ticket" means.
 
 It also carries a mandatory `## Exact user wording` section. Preserve the
 initial user request and every later amendment as separate, ordered, verbatim
@@ -1138,6 +1144,7 @@ The entire `00_overview.md` is the authoritative bundle outcome. Its objective, 
 ```markdown
 ---
 todo_run_personality: default
+ticket: <key or URL, only when the bundle is ticket-driven>
 ---
 
 # 00 — <Feature> overview
@@ -1313,6 +1320,66 @@ invalidates — `99a` whenever the amendment changes what was asked for, `99b`
 whenever it changes code — over the amended bundle, before any `99c`
 delivery.
 
+## The ticket-alignment todo (`98_ticket_<topic>.md`)
+
+Present only in a ticket-driven bundle: the queue row carries a `TICKET:`
+block, or `00_overview.md` stamps `ticket:`. It exists because `99a` grades
+the candidate against the queue row, which is one reader's account of the
+ticket; a misread or narrowed ticket passes `99a` untouched. This todo grades
+the candidate against the ticket's own words.
+
+It is a fresh real Shadow and **verdict-only**: spawned with
+`--deliverable-shape verdict-only`, it writes no product code and commits
+nothing, so its empty branch is expected. Its `deps:` name every other
+ordinary slice, so it runs after all of them and before `99a`. It runs the
+global `/ticket-check` skill on the campaign branch candidate, passing as
+rulings the row's `RULINGS:`, every queue amendment, and every source-turn
+amendment in `00_overview.md`. It calls `/ticket-check` and never restates
+its procedure.
+
+Two outputs leave it. Its execution log ends with exactly one line,
+`**Ticket alignment outcome:** PASS` or `**Ticket alignment outcome:** FAIL`.
+And it writes `ticket-warning.md` into the bundle folder, holding either
+`/ticket-check`'s DIFFERENT BY RULING lines plus its warning block verbatim,
+or the single line `no warning needed`; `99c` reads that file when it writes
+the pull request body.
+
+A FAIL (a ticket line UNMET with no ruling behind it) is corrective work for
+the Alpha, exactly like a `99a` FAIL: one consolidated corrective slice, then
+a fresh `98` Shadow re-runs, and `99a` does not start until it passes.
+
+```markdown
+---
+deps: [<every other ordinary slice>]
+---
+
+# 98 — Check <feature> against the ticket
+
+Fresh independent Shadow, verdict-only. You are not grading the code against
+the queue row; you are grading it against the ticket.
+
+1. Run the global `/ticket-check` on the campaign branch candidate for the
+   ticket `00_overview.md` stamps in `ticket:`. Pass as its rulings the queue
+   row's `RULINGS:`, every queue amendment, and every source-turn amendment in
+   `00_overview.md`, each quoted in full.
+2. Write `ticket-warning.md` into this bundle folder: `/ticket-check`'s
+   DIFFERENT BY RULING lines and its warning block verbatim, or the single
+   line `no warning needed` when it reports none.
+
+## Out of scope
+
+- Fixing what you find. An UNMET ticket line is corrective work for the Alpha.
+- Grading against the queue row alone. That is `99a`'s job.
+
+## Deliverable
+
+- End with exactly one `**Ticket alignment outcome:** PASS` or
+  `**Ticket alignment outcome:** FAIL`, as `/ticket-check` decides it.
+- FAIL names each ticket line left UNMET with no ruling, quoting the ticket.
+- `ticket-warning.md` exists in the bundle folder either way.
+- Your branch carries no product commits. That is the expected shape.
+```
+
 ## The conformance todo (`99a_conform_<topic>.md`)
 
 Always the FIRST terminal executable todo and always a fresh real Shadow. It
@@ -1352,9 +1419,16 @@ expects that (`isTerminalGateShadowName`). A gap it finds goes back as a FAIL
 naming the unmet requirement and the evidence, which is corrective work for the
 Alpha — unlike `99b`, which fixes what it finds.
 
+**A ticket-driven bundle's `99a` waits on the ticket check.** When the bundle
+has a `98_ticket_<topic>.md`, `99a`'s `deps:` include it, and `99a` FAILs
+unless that todo's file carries `**Ticket alignment outcome:** PASS` on its
+own line. The push guard already refuses delivery until `99a` records
+`**Conformance outcome:** PASS`, so it enforces the ticket check with no
+change of its own.
+
 ```markdown
 ---
-deps: [<every ordinary slice>]
+deps: [<every ordinary slice, including 98_ticket_<topic> when it exists>]
 ---
 
 # 99a — Grade <feature> against what was literally asked for
@@ -1394,6 +1468,8 @@ the code is the thing that was requested.
 - FAIL names each unmet claim, quotes the requirement text it comes from, and
   states what evidence would have satisfied it. Never a vague "does not meet
   the objective".
+- When this bundle has a `98_ticket_<topic>.md`, FAIL unless that file carries
+  `**Ticket alignment outcome:** PASS` on its own line.
 - Your branch carries no product commits. That is the expected shape.
 ```
 
@@ -1468,18 +1544,18 @@ or `tests executed: unknown` is never a PASS, whatever the exit code says.
 This bundle changes a web UI. Rebuild and serve the assembled candidate,
 confirm the served bytes carry the change, then run the throne-local
 `/frontend-critic` skill against every surface the bundle touched, in every
-state it names (default, hover, focus, fallback), in Chromium, Firefox and
-WebKit. Each defect it reports (a baseline off by more than 0.5px, a shifted
-neighbour, a clipped or overlapping box, an undersized click target) is a
-failure you fix here and commit, exactly like a red test. Re-run the critic
-after each fix and finish on an empty report.
+state it names (default, hover, focus, fallback), in Chromium only, as
+section 4 of that skill sets out. Each defect it reports (a baseline off by
+more than 0.5px, a shifted neighbour, a clipped or overlapping box, an
+undersized click target) is a failure you fix here and commit, exactly like a
+red test. Re-run the critic after each fix and finish on an empty report.
 
 ## Deliverable
 
 - End with exactly one `**Verify outcome:** PASS` or `**Verify outcome:** FAIL`.
 - PASS requires a final clean run of every applicable command, cited with its
   exit code and the suite's `tests executed: N` line, and for a front-end
-  bundle the critic's final empty report with the browsers measured.
+  bundle the critic's final empty report, naming Chromium.
 - FAIL only when repair is genuinely impossible for you — a requirement nobody
   wrote, two slices whose designs contradict, or an environment you cannot fix.
   Name that precise blocker; never forward a raw test or lint failure as one.
@@ -1495,13 +1571,19 @@ conflicts delivery hits in `git-repo` mode: it merges the latest target branch
 into the campaign branch, resolves every conflict there, and then delivers the
 result to the target. When the deliverable is a pull request (the queue row's
 launch facts carry `pr: <branch>`, or the objective says so), the todo also
-pushes the human-named PR branch and opens the draft PR from it — see
+pushes the human-named PR branch with `throne forge push-branch` and opens the
+draft PR from it with `throne forge pr create --draft`, so on a host where
+Forgejo is installed the PR lands in Forgejo — see
 `/execute-todos` "Pull-request delivery": the branch, the PR title and body,
 and every pushed commit message are written as the repository's own
 contributor would write them, and never name `alpha`, `shadow`, an objective
 code, an agent, a bundle or a gate. Write the PR branch name and the base
 branch into the todo verbatim; a `99c` that has to guess them is a defect of
-this bundle. In `no-git` mode it invokes no merge tooling: it records
+this bundle. When the deliverable is a PR and the bundle's `ticket-warning.md`
+holds a warning block, `99c` puts that block verbatim at the very bottom of
+the PR body, after `## Agents`, as the `## Ticket Status` section
+`/pr-description` describes; `no warning needed` means the body has no
+`## Ticket Status` section at all. In `no-git` mode it invokes no merge tooling: it records
 Git delivery as N/A with the classifier reason, verifies the requested
 operational outcome with its naturally applicable evidence, and records the
 explicit final outcome.
@@ -1545,6 +1627,12 @@ target, compare it afterwards, and restore anything that changed. Plain git
 carries no stash-and-restore of its own, so this bracket is the only protection
 the ambient dirt has.
 
+When delivering a pull request and this bundle's `ticket-warning.md` holds a
+warning block, put that block verbatim at the very bottom of the PR body, after
+`## Agents`, as the `## Ticket Status` section `/pr-description` describes.
+When it reads `no warning needed`, the body has no `## Ticket Status` section
+at all.
+
 Never leave the live target in a conflicted merge state. An unexpected conflict
 during real integration is abandoned and the target is returned to its pre-merge
 baseline before any further attempt.
@@ -1578,6 +1666,10 @@ classifies a terminal gate by its ROLE WORD, not its letter
 Keep the verb in every terminal filename — `99a_conform_<topic>`,
 `99b_verify_<topic>`, `99c_deliver_<topic>` — or a delivery gate stops being
 recognisable as one.
+
+`98_ticket_<topic>` keeps its role word too. It is the last ordinary-band
+number, so it runs after every other ordinary slice and before `99a`, and it
+is not one of the three terminal gates the throne classifies by verb.
 
 ## What does NOT go in a todo
 

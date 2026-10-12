@@ -223,3 +223,34 @@ export function buildStrandedSpawnsMessage(params: StrandedSpawnsMessageParams):
     .join('; ');
   return `No-idling detected live agent(s) stranded during spawn, never a dead tab: ${details}. Each is correctly provisioned and mid-campaign; never close its tab. Recover it directly: answer the modal for MODAL_BLOCKING, redeliver opening-prompt.md for STRANDED_SPAWN, or press Enter in the composer for PROMPT_UNSUBMITTED — never redeliver the prompt to a PROMPT_UNSUBMITTED agent, that would double it.`;
 }
+
+export interface UnnamedAgentPane {
+  readonly paneId: string;
+  readonly tabLabel?: string;
+  readonly harness: string;
+  readonly likelyOwner?: string;
+}
+
+export interface UnnamedAgentsMessageParams {
+  readonly unnamedAgents: readonly UnnamedAgentPane[];
+}
+
+function agentRenameCommand(paneId: string, ownerName: string): string {
+  return `herdr agent rename ${paneId} ${ownerName}`;
+}
+
+function describeUnnamedAgentRepair({ paneId, likelyOwner }: UnnamedAgentPane): string {
+  return likelyOwner === undefined
+    ? 'owner unknown, inspect the pane to find which agent it belongs to'
+    : `likely owner ${likelyOwner}, repair with ${agentRenameCommand(paneId, likelyOwner)}`;
+}
+
+export function buildUnnamedAgentsMessage(params: UnnamedAgentsMessageParams): string {
+  const details = params.unnamedAgents
+    .map(
+      (pane) =>
+        `pane ${pane.paneId} (${pane.tabLabel === undefined ? 'no tab label' : `tab label ${pane.tabLabel}`}, ${pane.harness}) — ${describeUnnamedAgentRepair(pane)}`,
+    )
+    .join('; ');
+  return `No-idling detected live agent pane(s) whose herdr agent name is gone, so they cannot send or receive and their owner shows as DEAD: ${details}. Run the rename command given for each pane with a likely owner, and inspect each pane whose owner is unknown before naming it; this notice never renames a pane itself.`;
+}

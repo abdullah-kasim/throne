@@ -63,11 +63,7 @@ async function runOneTick(court: Court): Promise<string[]> {
       resolveAgent: async () => ({ paneId: "test-pane" }) as never,
       submitToAgent: async () => {},
     },
-    promoteDeferredWork: () => ({
-      released: [],
-      recovered: null,
-      overriddenAuthority: null,
-    }),
+    recoverIdleWork: () => ({ recovered: null }),
     notifyOfIdleRecovery: async () => {},
     readPressure: () =>
       court.pressureReadings[
@@ -135,12 +131,12 @@ test("at pressure 40 one tick launches two", async () => {
   assert.equal(launched.length, 2);
 });
 
-test("at pressure 65 the tick launches nothing although pressure is below the at-capacity line", async () => {
+test("at pressure 65, below the at-capacity line, one tick launches exactly one Alpha", async () => {
   const launched = await runOneTick({
     queueCodes: FIVE_ROWS,
     pressureReadings: [takeMoreWorkAt(65)],
   });
-  assert.deepEqual(launched, []);
+  assert.deepEqual(launched, ["alpha-one-01"]);
 });
 
 test("a later pressure reading of at-capacity stops the tick after the first launch", async () => {
@@ -164,11 +160,12 @@ test("the Alpha capacity stops the tick before the pressure budget does", async 
   assert.equal(launched.length, ALPHA_AUTOSCALE_HARD_MAXIMUM - 6);
 });
 
-test("the launch budget follows the Lord's examples and never exceeds the hard maximum", () => {
+test("while pressure is below the at-capacity line at least one Alpha may launch per tick, and the budget never exceeds the hard maximum", () => {
   assert.equal(alphaLaunchBudgetForPressure(0), 4);
   assert.equal(alphaLaunchBudgetForPressure(40), 2);
   assert.equal(alphaLaunchBudgetForPressure(60), 1);
-  assert.equal(alphaLaunchBudgetForPressure(65), 0);
+  assert.equal(alphaLaunchBudgetForPressure(65), 1);
+  assert.equal(alphaLaunchBudgetForPressure(69.9), 1);
   assert.equal(alphaLaunchBudgetForPressure(70), 0);
   assert.equal(alphaLaunchBudgetForPressure(100), 0);
   assert.equal(alphaLaunchBudgetForPressure(null), 0);

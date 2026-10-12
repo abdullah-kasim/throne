@@ -7,7 +7,6 @@ import {
   enqueueMessageDelivery,
 } from "../send-agent/message-delivery-enqueue.ts";
 import { deriveDefaultMessageDeliveryIdempotencyKey } from "../message-queue/message-delivery-idempotency.ts";
-import { requiresFileBackedDelivery } from "../send-agent/payload-transport.ts";
 import { errorText } from "../shared-policy/error-text.ts";
 import { type CreateAgentDeps, type PolicyResolution } from "./create.types.ts";
 import { currentIsoTime, stderrWriter } from "./command-context.ts";
@@ -42,16 +41,9 @@ async function recordAgentTaskedAtSpawn(
   }
 }
 
-/**
- * The shared literal delivery flags an opening prompt always carries: no
- * sender attribution on a first turn, file-backing only once the prompt
- * crosses the transport's inline-size threshold, and a wait for the
- * harness's startup chrome to settle before writing.
- */
-function openingPromptDeliveryFlags(prompt: string) {
+function openingPromptDeliveryFlags() {
   return {
     omitSenderAttribution: true,
-    disableFileBackedDelivery: !requiresFileBackedDelivery(prompt),
     waitForStartupQuiescence: true,
   };
 }
@@ -80,7 +72,7 @@ async function enqueueOpeningPromptViaSqlite(
         prompt,
         key: idempotencyKey,
         clearRecipientBlockedOnDelivery: false,
-        ...openingPromptDeliveryFlags(prompt),
+        ...openingPromptDeliveryFlags(),
       }),
     );
   } catch (error) {

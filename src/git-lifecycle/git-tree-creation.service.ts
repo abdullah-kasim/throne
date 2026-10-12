@@ -1,6 +1,11 @@
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { Inject, Injectable } from "@nestjs/common";
+import {
+  CHECKOUT_STANDING,
+  checkoutStandingAgainst,
+  fastForwardCheckoutOnto,
+} from "./checkout-standing.ts";
 import { GitLifecycleService, repoRoot } from "./git-command.service.ts";
 import {
   managedWorktreeRoot,
@@ -114,13 +119,8 @@ export class GitTreeCreationService {
     worktreeRoot: string,
     baseRef: string,
   ): Promise<void> {
-    const changes = await this.git.run(["status", "--porcelain"], worktreeRoot);
-    if (changes.stdout.trim() !== "") return;
-    const behindBase = await this.git.status(
-      ["merge-base", "--is-ancestor", "HEAD", baseRef],
-      worktreeRoot,
-    );
-    if (behindBase.code !== 0) return;
-    await this.git.run(["merge", "--ff-only", baseRef], worktreeRoot);
+    const standing = await checkoutStandingAgainst(worktreeRoot, baseRef, this.git);
+    if (standing.kind !== CHECKOUT_STANDING.BEHIND) return;
+    await fastForwardCheckoutOnto(worktreeRoot, baseRef, this.git);
   }
 }

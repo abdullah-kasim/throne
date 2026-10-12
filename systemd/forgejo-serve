@@ -1,0 +1,125 @@
+#!/bin/sh
+set -eu
+
+node_binary="${FORGEJO_NODE_BIN:-}"
+if [ -z "$node_binary" ]; then
+    echo "forgejo-serve: FORGEJO_NODE_BIN is not set; the service unit must pass the node version pinned in mise.toml, rerun ./install-forgejo.sh" >&2
+    exit 1
+fi
+
+for required_command in chmod date dirname grep head id mkdir "$node_binary" sleep uname; do
+    if ! command -v "$required_command" >/dev/null 2>&1; then
+        echo "forgejo-serve: required command is unavailable: $required_command" >&2
+        exit 1
+    fi
+done
+
+forgejo_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/forgejo"
+forgejo_data_dir="$forgejo_state_dir/data"
+forgejo_config_dir="$forgejo_state_dir/config"
+forgejo_app_ini="$forgejo_config_dir/app.ini"
+container_name=throne-forgejo
+tailnet_published_port=8420
+loopback_address=127.0.0.1
+loopback_published_port=8421
+forgejo_http_port_in_container=3000
+forgejo_user_id_in_image=1000
+tailnet_wait_seconds="${FORGEJO_TAILNET_WAIT_SECONDS:-60}"
+tailscale_app_cli="${FORGEJO_TAILSCALE_APP_CLI:-/Applications/Tailscale.app/Contents/MacOS/Tailscale}"
+
+if [ ! -f "$forgejo_app_ini" ]; then
+    echo "forgejo-serve: $forgejo_app_ini does not exist; Forgejo has not been configured on this host, run ./install-forgejo.sh" >&2
+    exit 1
+fi
+
+runtime=$("$(dirname "$0")/container-runtime-ensure")
+
+container_user_mapping() {
+    version_report=$("$runtime" version 2>/dev/null || true)
+    client_report=${version_report%%Server:*}
+    server_report=${version_report#*Server:}
+    case "$client_report" in
+        *'Podman Engine'*)
+            echo "--userns=keep-id:uid=${forgejo_user_id_in_image},gid=${forgejo_user_id_in_image}"
+            return
+            ;;
+    esac
+    case "$server_report" in
+        *Engine*)
+            ;;
+        *)
+            echo "forgejo-serve: $runtime reports no container engine this script knows ($(printf '%s\n' "$server_report" | head -1)); running the container as the invoking user" >&2
+            ;;
+    esac
+    echo "--user=$(id -u):$(id -g)"
+}
+
+pins_file="$(cd "$(dirname "$0")/.." && pwd -P)/vendor-pins.json"
+forgejo_image=$("$node_binary" -e 'process.stdout.write(require(process.argv[1]).tools?.forgejo?.image ?? "")' "$pins_file")
+if [ -z "$forgejo_image" ]; then
+    echo "forgejo-serve: no tools.forgejo.image pin in $pins_file" >&2
+    exit 1
+fi
+
+mount_label=""
+if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled 2>/dev/null; then
+    mount_label="Z"
+fi
+
+if command -v tailscale >/dev/null 2>&1; then
+    tailscale_cli=tailscale
+elif [ -x "$tailscale_app_cli" ]; then
+    tailscale_cli=$tailscale_app_cli
+else
+    echo "forgejo-serve: tailscale is not installed (not on PATH, no $tailscale_app_cli); Forgejo is tailnet-only and cannot start without it" >&2
+    exit 1
+fi
+
+if command -v timeout >/dev/null 2>&1; then
+    probe_tailnet_ip() { timeout 2s "$tailscale_cli" ip -4 2>/dev/null || true; }
+else
+    probe_tailnet_ip() { "$tailscale_cli" ip -4 2>/dev/null || true; }
+fi
+
+case "$(uname -s)" in
+    Darwin)
+        interface_holds() { ifconfig 2>/dev/null | grep -Fq "inet $1 "; }
+        ;;
+    *)
+        interface_holds() {
+            ip -4 -o addr show dev tailscale0 2>/dev/null | grep -Fq " inet $1/"
+        }
+        ;;
+esac
+
+deadline=$(( $(date +%s) + tailnet_wait_seconds ))
+
+while :; do
+    tailnet_ip=$(probe_tailnet_ip)
+    case "$tailnet_ip" in
+        ''|*[!0-9.]*)
+            ;;
+        *)
+            if interface_holds "$tailnet_ip"; then
+                mkdir -p "$forgejo_data_dir"
+                chmod 0700 "$forgejo_state_dir"
+                user_mapping=$(container_user_mapping)
+                "$runtime" rm -f "$container_name" >/dev/null 2>&1 || true
+                exec "$runtime" run --rm --name "$container_name" \
+                    "$user_mapping" \
+                    -p "${tailnet_ip}:${tailnet_published_port}:${forgejo_http_port_in_container}" \
+                    -p "${loopback_address}:${loopback_published_port}:${forgejo_http_port_in_container}" \
+                    -v "${forgejo_data_dir}:/var/lib/gitea${mount_label:+:$mount_label}" \
+                    -v "${forgejo_config_dir}:/etc/gitea${mount_label:+:$mount_label}" \
+                    -e GITEA_APP_INI=/etc/gitea/app.ini \
+                    "$forgejo_image"
+            fi
+            ;;
+    esac
+
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+        echo "forgejo-serve: no Tailscale IPv4 address after ${tailnet_wait_seconds} seconds" >&2
+        exit 1
+    fi
+    sleep 1
+done

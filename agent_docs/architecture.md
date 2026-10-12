@@ -7,7 +7,8 @@ plus systemd-scheduled background nudges. The hierarchy (Lord → Regent → Alp
 ## Language + runtime
 
 - **TypeScript, run directly by Node** (`./bin/throne-cli <command>`). Node
-  v24 strips types natively — there is **no build step and no `tsx`**.
+  24.19.0, pinned in `mise.toml` (the single place to bump it, see README.md),
+  strips types natively — there is **no build step and no `tsx`**.
 - Type-stripping only _erases_ types; it does not _transform_. So **no `enum`,
   no `namespace`, no parameter-properties, no decorators** — they need a real
   compiler. Use `const` objects + union types instead of enums.
@@ -116,7 +117,7 @@ onDeliveredWhileLocked})` is the thin throne wrapper around that primitive,
   `<sender-name> said: <prompt> [message <id>]` and delivers that logical body to the resolved
   recipient through the platform call.
 
-  `filebackeddelivery.ts` splits transport at 4096 UTF-8 bytes. The classification
+  `filebackeddelivery.ts` splits transport at 768 UTF-8 bytes. The classification
   judges the exact attributed logical body. A large body is staged byte-identical
   in a unique owner-only file under `~/.throne/payloads/`; only a comfortably
   sub-threshold pointer enters the platform prompt. Staging remains
@@ -551,15 +552,15 @@ deletion fails after worktree removal, `restoreBranchCleanup` keeps or recreates
 the preflighted ref and restores the clean worktree when practical, while the
 live ledger remains unarchived for retry.
 
-`reap-agent <name> --reason cancelled --archive-cancelled-unmerged` is the
+`reap-agent <name> --reason abandoned --archive-abandoned-unmerged` is the
 deliberate opposite branch disposition, and the supported replacement for FPC's
-historical manual provenance rename. `cancelled` and
-`--archive-cancelled-unmerged` are a mandatory pair; `--force` remains only
-the liveness/live-child override. This path still requires exact, readable,
+historical manual provenance rename. `--archive-abandoned-unmerged` requires
+`--reason abandoned`, while `--reason abandoned` alone runs ordinary teardown;
+`--force` remains only the liveness/live-child override. This path still requires exact, readable,
 name-matching target-repository provenance and every normal Regent,
 liveness, and child gate.
 
-Before any lifecycle mutation, `preflightCancelledUnmergedBranch` proves the exact
+Before any lifecycle mutation, `preflightAbandonedUnmergedBranch` proves the exact
 existing `refs/heads/<name>` resolves to a full object ID, is intentionally
 not reachable from the recorded merge-target branch, and is checked out in at most its
 one dedicated managed worktree (never the retained target, a foreign tree, or
@@ -570,15 +571,15 @@ removed is allowed only when the same ref and provenance proofs still hold.
 
 After preflight succeeds, the accepted path closes an eligible live tab, removes
 the dedicated worktree when present, preserves the original `tree-base.json`
-bytes as `tree-base.cancelled-unmerged.json`, and re-verifies the unchanged
+bytes as `tree-base.abandoned-unmerged.json`, and re-verifies the unchanged
 unmerged ref/tip and zero remaining checkouts. If the ref moves after preflight,
 archival refuses at that post-teardown verification stage while the moved ref
 and preserved provenance marker remain in the live ledger for recovery with the
 same explicit command. An initial proof failure is earlier and leaves the tab,
 worktree, and ledger untouched.
 
-After verification succeeds, the path records the `cancelled` timing reason and
-rotates the complete ledger under `.reaped`. It emits `CANCELLED-UNMERGED`
+After verification succeeds, the path records the `abandoned` timing reason and
+rotates the complete ledger under `.reaped`. It emits `ABANDONED-UNMERGED`
 with the retained ref and exact tip. It never merges, calls `git branch -d` or
 `git branch -D`, deletes an `update-ref` or remote ref, renames the branch,
 or bypasses same-name reuse. The retained local ref deliberately makes exact-
@@ -586,11 +587,11 @@ name `spawn-git-tree` creation fail; a later lifecycle uses a new name unless
 an operator first inspects and explicitly resolves the recovery ref.
 
 Until archival succeeds, the preserved provenance marker is an in-progress
-cancellation marker: ordinary reap refuses it with that exact retry command
+abandonment marker: ordinary reap refuses it with that exact retry command
 rather than treating branch authority as absent, and changed or ambiguous
 provenance also refuses. Ordinary reap treats an already-gone branch, worktree,
-or data dir as an idempotent no-op. Explicit cancellation instead requires live
-`tree-base.json` or preserved `tree-base.cancelled-unmerged.json` authority
+or data dir as an idempotent no-op. Explicit abandoned-unmerged archival instead
+requires live `tree-base.json` or preserved `tree-base.abandoned-unmerged.json` authority
 until archival succeeds; rerunning it after successful archival is an authority
 failure, not the ordinary already-gone no-op path.
 
@@ -781,15 +782,32 @@ or has been stood down. Like the digest it fails safe (an unreadable marker ⇒
 `describeDesiredState` descriptor) is what `agent-statuses` prints above its
 roster table. This is objective K.
 
-The existing `alpha-autoscale` hosted tick owns a second level-triggered floor:
-exactly one live Stager while the desired state is `running`. Its shared
-decision/effect lives under `src/alpha-autoscale/` and is also called after
-confirmed-Regent startup reconciliation. It projects the shared status roster,
-fails closed on unreadable, role-unknown, or multiple-candidate evidence, and
-uses the normal managed worktree plus `create-agent --role Stager` path when
-absence is positively known. Running breaches are logged and acted on every
-evaluation with no grace or operational-hold exemption; `dismissed` is the sole
-court-wide `STAY DOWN` exemption.
+The backend's `court-liveness` hosted worker
+(`src/throne-backend/court-liveness.hosted-worker.ts`) is the one owner that
+raises the court. It runs once when `throne-backend` starts and every minute
+after, so a reboot or a crash restart needs nobody to open a harness by hand.
+Each tick reads the desired state, the shared status roster and the forked
+agent names, and `decideCourtLiveness` grades the Regent and the Stager as
+live, missing, stay-down or unknown:
+
+- A missing Regent becomes a `regent-resurrection` item on the durable queue.
+  The worker never spawns a Regent itself and never calls `summon-regent`.
+- A missing Stager is raised only on a tick where the Regent is live, so the
+  two never race. The worker first brings back the newest registered dead
+  Stager whose worktree is present and clean, under its own name, worktree and
+  recorded session (`src/alpha-autoscale/stager-reuse.ts`). Only when none can
+  be reused does it call the Stager floor (`ensureLiveStager` in
+  `src/alpha-autoscale/stager-floor.ts`), which fails closed on unreadable,
+  role-unknown, or multiple-candidate evidence and uses the normal managed
+  worktree plus `create-agent --role Stager` path when absence is positively
+  known.
+- `dismissed` is the sole court-wide `STAY DOWN` exemption: a dismissed court
+  is left down.
+- An unreadable roster, or any throw, spawns nothing. Three failed checks in a
+  row notify the Lord once through ntfy; a clean tick ends the streak.
+
+The worker never runs startup reconciliation, and the SessionStart hook never
+raises the Stager. A tick still running when the next one fires is skipped.
 
 Every signal the autoscale family reads is dual-platform (the Lord's order of
 2026-09-02: "all of the signals need to support both linux and mac"). The
@@ -874,8 +892,8 @@ the agent-statuses roster, so it is decoupled from the roster-display code.
   `~/.throne/data/<name>` → `~/.throne/data/.reaped/`). Startup reconciliation invokes ordinary
   reap with `--reason completed` for COMPLETE orphans and `--reason orphan`
   for inert DEAD orphans; it never selects
-  `--reason cancelled --archive-cancelled-unmerged` and therefore never
-  automatically retains a cancelled-unmerged recovery ref.
+  `--reason abandoned --archive-abandoned-unmerged` and therefore never
+  automatically retains an abandoned-unmerged recovery ref.
 - **Payload drain.** The real `reconcile()` entry first awaits the required
   `ReconcileDeps.reapStalePayloads` seam. Production binds it to the real
   24-hour-TTL reaper; tests must supply an explicit fake so they can never drift

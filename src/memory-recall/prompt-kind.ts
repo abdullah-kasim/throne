@@ -17,7 +17,7 @@ const DELIVERED_MESSAGE_NUMBER_AT_THE_END = /\[message \d+\]\s*$/;
 const TASK_NOTIFICATION_OPENING = /^\s*<task-notification>/;
 const HARNESS_WRAPPER_OPENING = /^\s*<[a-z][\w-]*>/;
 
-function withPastedContentUnwrapped(prompt: string): string {
+export function withPastedContentUnwrapped(prompt: string): string {
   return prompt.replace(PASTED_CONTENT_TAG, '');
 }
 

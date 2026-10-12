@@ -1,0 +1,112 @@
+#!/bin/sh
+set -eu
+
+known_runtimes="docker podman"
+forced_runtime="${THRONE_CONTAINER_RUNTIME:-}"
+wait_seconds="${THRONE_CONTAINER_RUNTIME_WAIT_SECONDS:-180}"
+start_lock_file="${XDG_STATE_HOME:-$HOME/.local/state}/throne/container-runtime-start.lock"
+docker_desktop_app="${THRONE_DOCKER_DESKTOP_APP:-/Applications/Docker.app}"
+platform=$(uname -s)
+
+refuse() {
+    echo "container-runtime-ensure: $1" >&2
+    exit 1
+}
+
+command_is_installed() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+runtime_is_reachable() {
+    "$1" info >/dev/null 2>&1
+}
+
+starter_for_runtime() {
+    if [ "$platform" != Darwin ]; then
+        return 0
+    fi
+    case "$1" in
+        podman)
+            echo "podman machine start"
+            ;;
+        docker)
+            if command_is_installed colima; then
+                echo "colima start"
+            elif command_is_installed orbctl; then
+                echo "orbctl start"
+            elif [ -d "$docker_desktop_app" ]; then
+                echo "open -ga $docker_desktop_app"
+            fi
+            ;;
+    esac
+}
+
+host_can_bring_up() {
+    [ "$platform" != Darwin ] || [ -n "$(starter_for_runtime "$1")" ]
+}
+
+choose_runtime() {
+    if [ -n "$forced_runtime" ]; then
+        if command_is_installed "$forced_runtime"; then
+            echo "$forced_runtime"
+        fi
+        return 0
+    fi
+    for candidate in $known_runtimes; do
+        if runtime_is_reachable "$candidate"; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    for candidate in $known_runtimes; do
+        if command_is_installed "$candidate" && host_can_bring_up "$candidate"; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+}
+
+wait_until_reachable() {
+    deadline=$(( $(date +%s) + wait_seconds ))
+    until runtime_is_reachable "$1"; do
+        if [ "$(date +%s)" -ge "$deadline" ]; then
+            return 1
+        fi
+        sleep 1
+    done
+}
+
+run_from_home_in_own_process_group() {
+    (cd "$HOME" && exec perl -e 'setpgrp(0, 0); exec @ARGV' "$@") </dev/null >/dev/null 2>&1 || true
+}
+
+run_without_start_lock() {
+    ("$@") 9>&-
+}
+
+start_once_until_reachable() {
+    mkdir -p "$(dirname "$start_lock_file")"
+    (
+        flock 9 || exit 1
+        if ! runtime_is_reachable "$1"; then
+            run_without_start_lock run_from_home_in_own_process_group $2
+        fi
+        wait_until_reachable "$1"
+    ) 9>"$start_lock_file"
+}
+
+runtime=$(choose_runtime)
+if [ -z "$runtime" ]; then
+    refuse "no container runtime is installed that this host can run (looked for ${forced_runtime:-$known_runtimes})"
+fi
+
+if ! runtime_is_reachable "$runtime"; then
+    starter=$(starter_for_runtime "$runtime")
+    if [ -n "$starter" ]; then
+        start_once_until_reachable "$runtime" "$starter"
+    else
+        wait_until_reachable "$runtime"
+    fi || refuse "$runtime did not become reachable within $wait_seconds seconds"
+fi
+
+echo "$runtime"

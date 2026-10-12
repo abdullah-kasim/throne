@@ -60,10 +60,10 @@ test("a queue of nothing but held rows does NOT render as empty", () => {
   // on the Lord's ruling, everything else terminal.
   const items = [
     row("olgp", RegentQueueItemStatus.Deferred, {
-      deferral: { dependsOn: [], releaseAuthority: "Lord", reason: null },
+      deferral: { dependsOn: [], reason: null, deferredAt: null },
     }),
     row("olsv", RegentQueueItemStatus.Deferred, {
-      deferral: { dependsOn: ["olgp"], releaseAuthority: null, reason: null },
+      deferral: { dependsOn: ["olgp"], reason: null, deferredAt: null },
     }),
     row("done", RegentQueueItemStatus.Complete),
   ];
@@ -97,7 +97,7 @@ test("a held row is visually distinct from one in flight", () => {
       state: "items",
       items: [
         row("held", RegentQueueItemStatus.Deferred, {
-          deferral: { dependsOn: ["x"], releaseAuthority: null, reason: null },
+          deferral: { dependsOn: ["x"], reason: null, deferredAt: null },
         }),
         row("flying", RegentQueueItemStatus.InFlight, {
           agentName: "alpha-flying",

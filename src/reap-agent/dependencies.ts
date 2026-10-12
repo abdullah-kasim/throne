@@ -8,7 +8,7 @@ import {
   preflightBranchCleanup,
   restoreBranchCleanup,
 } from '../git-lifecycle/branch-cleanup.ts';
-import { preflightCancelledUnmergedBranch, verifyCancelledUnmergedBranch } from '../git-lifecycle/cancelled-branch.ts';
+import { preflightAbandonedUnmergedBranch, verifyAbandonedUnmergedBranch } from '../git-lifecycle/abandoned-branch.ts';
 import { THRONE_PROJECT_DIR } from '../git-lifecycle/git-worktree.service.ts';
 import { GitWorktreeService, type Worktree } from '../git-lifecycle/git-worktree.service.ts';
 import { repoRoot } from '../git-lifecycle/git-command.service.ts';
@@ -68,10 +68,10 @@ export const REAL_DEPS: ReapDeps = {
   removeTree: WORKTREES.remove.bind(WORKTREES),
   archiveAgentData: LEDGER_DATA.archiveAgentData,
   preflightBranchCleanup,
-  readTreeBaseForCancelledUnmerged: TREE_BASE_DATA.readForCancelledUnmerged.bind(TREE_BASE_DATA),
-  preserveTreeBaseForCancelledUnmerged: TREE_BASE_DATA.preserveForCancelledUnmerged.bind(TREE_BASE_DATA),
-  preflightCancelledUnmergedBranch,
-  verifyCancelledUnmergedBranch,
+  readTreeBaseForAbandonedUnmerged: TREE_BASE_DATA.readForAbandonedUnmerged.bind(TREE_BASE_DATA),
+  preserveTreeBaseForAbandonedUnmerged: TREE_BASE_DATA.preserveForAbandonedUnmerged.bind(TREE_BASE_DATA),
+  preflightAbandonedUnmergedBranch,
+  verifyAbandonedUnmergedBranch,
   deleteBranchCleanup,
   restoreBranchCleanup,
   listCompletedAgents: LEDGER_DATA.listCompletedAgents,

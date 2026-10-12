@@ -8,14 +8,14 @@ import type {
   restoreBranchCleanup,
 } from '../git-lifecycle/branch-cleanup.ts';
 import type {
-  CancelledUnmergedBranchPlan,
-  preflightCancelledUnmergedBranch,
-  verifyCancelledUnmergedBranch,
-} from '../git-lifecycle/cancelled-branch.ts';
+  AbandonedUnmergedBranchPlan,
+  preflightAbandonedUnmergedBranch,
+  verifyAbandonedUnmergedBranch,
+} from '../git-lifecycle/abandoned-branch.ts';
 import type { Worktree } from '../git-lifecycle/git-worktree.service.ts';
 import type {
   TreeBase,
-  CancelledUnmergedTreeBaseAuthority,
+  AbandonedUnmergedTreeBaseAuthority,
 } from '../agentdata/tree-base-data.service.ts';
 import type { readAgentSupervisor, readAgentRole } from '../agentdata/identity-data.service.ts';
 import type { LedgerDataService } from '../agentdata/ledger-data.service.ts';
@@ -26,7 +26,7 @@ import type { ScratchDirRemovalResult } from '../tmp-scratch-lifecycle/tmp-scrat
 import type { SliceEvidenceResult } from '../slice-evidence/agent-evidence-gate.ts';
 import type {
   readQueueLinkage,
-  resolveQueueReapDeliveryCommit,
+  resolveQueueReapEvidence,
   writeQueueReapOutcome,
 } from './queue-reap-writeback.ts';
 import type { appendLaunchLedgerStatus } from '../alpha-launch-queue/launch-ledger.ts';
@@ -55,10 +55,10 @@ export interface ReapDeps {
   removeTree: (name: string, projectDir?: string) => Promise<boolean>;
   archiveAgentData: LedgerDataService['archiveAgentData'];
   preflightBranchCleanup?: typeof preflightBranchCleanup;
-  readTreeBaseForCancelledUnmerged?: (name: string) => Promise<CancelledUnmergedTreeBaseAuthority>;
-  preserveTreeBaseForCancelledUnmerged?: (name: string, authority: CancelledUnmergedTreeBaseAuthority) => Promise<'preserved' | 'already-preserved'>;
-  preflightCancelledUnmergedBranch?: typeof preflightCancelledUnmergedBranch;
-  verifyCancelledUnmergedBranch?: typeof verifyCancelledUnmergedBranch;
+  readTreeBaseForAbandonedUnmerged?: (name: string) => Promise<AbandonedUnmergedTreeBaseAuthority>;
+  preserveTreeBaseForAbandonedUnmerged?: (name: string, authority: AbandonedUnmergedTreeBaseAuthority) => Promise<'preserved' | 'already-preserved'>;
+  preflightAbandonedUnmergedBranch?: typeof preflightAbandonedUnmergedBranch;
+  verifyAbandonedUnmergedBranch?: typeof verifyAbandonedUnmergedBranch;
   deleteBranchCleanup?: typeof deleteBranchCleanup;
   restoreBranchCleanup?: typeof restoreBranchCleanup;
   listCompletedAgents: LedgerDataService['listCompletedAgents'];
@@ -114,7 +114,7 @@ export interface ReapDeps {
   writeQueueReapOutcome?: typeof writeQueueReapOutcome;
   /** Pre-teardown half of the queue write-back: resolves the delivery
    *  commit while the branch still exists. Falls back to the real lookup. */
-  resolveQueueReapDeliveryCommit?: typeof resolveQueueReapDeliveryCommit;
+  resolveQueueReapEvidence?: typeof resolveQueueReapEvidence;
   /** Reads whether the agent is the recorded launcher of an in-flight queue
    *  row. A `--reason scratch` reap refuses on linkage. Falls back to the real
    *  store read. */
@@ -131,7 +131,7 @@ export interface ParsedReapArgs {
   name?: string;
   force: boolean;
   bypassMarker: boolean;
-  archiveCancelledUnmerged: boolean;
+  archiveAbandonedUnmerged: boolean;
   reason?: ReapReason;
 }
 
@@ -139,12 +139,12 @@ export interface ReapRequest {
   name: string;
   force: boolean;
   bypassMarker?: boolean;
-  archiveCancelledUnmerged: boolean;
+  archiveAbandonedUnmerged: boolean;
   reason: ReapReason;
 }
 
-export type CancelledDisposition = Pick<
-  CancelledUnmergedBranchPlan,
+export type AbandonedDisposition = Pick<
+  AbandonedUnmergedBranchPlan,
   'ref' | 'tip'
 >;
 

@@ -3,10 +3,7 @@ import { test } from "node:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import {
-  AlphaAutoscaleHostedWorker,
-  type AlphaAutoscaleDependencies,
-} from "./alpha-autoscale.hosted-worker.ts";
+import { AlphaAutoscaleHostedWorker } from "./alpha-autoscale.hosted-worker.ts";
 import type { LaunchQueueCandidate } from "../alpha-launch-queue/ready-queue.ts";
 import { parseAddToQueueArgs } from "../add-to-queue/add-to-queue-runtime.ts";
 import { openRegentQueueStore } from "../regent-queue/regent-queue.store.ts";
@@ -28,7 +25,7 @@ import {
   writeIdentity,
   writeOpeningPrompt,
 } from "../agentdata/identity-data.service.ts";
-import { acquireSweepLockOfItsOwn } from "./alpha-autoscale-sweep-lock-test-fixtures.ts";
+import { tickDependenciesWithRoomToLaunch } from "./autoscale-tick-test-fixtures.ts";
 
 const OBJECTIVE_CODE = "brg";
 const ALPHA_NAME = "alpha-brg-01";
@@ -97,38 +94,8 @@ async function createAgentArgvFor(
     effort,
   };
   let createAgentArgv: readonly string[] | undefined;
-  const deps: AlphaAutoscaleDependencies = {
-    log: () => {},
-    acquireSweepLock: acquireSweepLockOfItsOwn,
-    notifyOfFloorBreach: {
-      resolveAgent: async () => ({ paneId: "test-pane" }) as never,
-      submitToAgent: async () => {},
-    },
-    promoteDeferredWork: () => ({
-      released: [],
-      recovered: null,
-      overriddenAuthority: null,
-    }),
-    notifyOfIdleRecovery: async () => {},
-    readPressure: () => ({
-      verdict: "take-more-work",
-      pressure: 0,
-      reasons: [],
-    }),
+  const deps = tickDependenciesWithRoomToLaunch({
     readReadyQueue: () => ({ state: "candidates", candidates: [candidate] }),
-    autoBriefEligibleItems: () => ({ state: "staged", count: 0 }),
-    readKillSwitch: () => true,
-    readSpawnCooldown: () => ({ elapsed: true }),
-    recordSuccessfulSpawn: () => {},
-    readActiveCapacityInputs: async () => ({
-      activeRecords: [],
-      mutatingTargets: [],
-    }),
-    readLaunchLedger: async () => ({ state: "entries", entries: [] }) as never,
-    resolvePublishedRuntime: () => ({
-      repoRoot: "/tmp/throne-dist",
-      generation: "g",
-    }),
     invokeCli: async (_executable, argv) => {
       if (argv[1] === "create-agent") createAgentArgv = argv;
       return {
@@ -140,7 +107,7 @@ async function createAgentArgvFor(
         },
       };
     },
-  };
+  });
   await new AlphaAutoscaleHostedWorker(deps).runOnce();
   assert.ok(createAgentArgv, "create-agent was never invoked");
   return createAgentArgv;

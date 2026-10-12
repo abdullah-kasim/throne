@@ -36,6 +36,7 @@ import {
   runHerdr,
   THRONE_HERDR_SESSION_NAMES,
   DuplicateAgentNameAcrossSessionsError,
+  listAgentsReadingStoppedSessionAsEmpty,
 } from './herdr-client.ts';
 import { listAgentsInSession } from './herdr-runtime-session-reads.ts';
 import { resolveLowercaseTabIdentity, SharedIdentityResolutionError } from '../shared-identity/shared-identity.ts';
@@ -211,10 +212,12 @@ export async function resolveAgentAcrossSessions(
   sessionNames: readonly string[] = THRONE_HERDR_SESSION_NAMES,
   listAgentsForSession: (sessionName: string) => Promise<HerdrAgent[]> = listAgentsInSession,
 ): Promise<HerdrAgent> {
+  const listAgentsOfSession = (sessionName: string) =>
+    listAgentsReadingStoppedSessionAsEmpty(sessionName, listAgentsForSession);
   const perSessionMatches = await Promise.all(
     sessionNames.map(async (sessionName) => ({
       sessionName,
-      matches: (await listAgentsForSession(sessionName)).filter((agent) =>
+      matches: (await listAgentsOfSession(sessionName)).filter((agent) =>
         sameAgentName(agent.name, name),
       ),
     })),
@@ -228,7 +231,7 @@ export async function resolveAgentAcrossSessions(
   }
   const resolvingSessionName = sessionsWithMatch[0]?.sessionName ?? sessionNames[0]!;
   const resolved = await resolveAgent(name, {
-    listAgents: () => listAgentsForSession(resolvingSessionName),
+    listAgents: () => listAgentsOfSession(resolvingSessionName),
   });
   return { ...resolved, herdrSessionName: resolvingSessionName };
 }

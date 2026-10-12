@@ -5,7 +5,8 @@ Every concrete, repeatable action is a `throne-cli <command>`. Bare
 checkout**. Use bare form for court-state, plan, and routing questions. Use
 relative form for candidate CLI and self-update validation. Both forms are
 deliberate authorities; never mechanically rewrite one to the other.
-Node v24 runs the TypeScript directly — there is no build step. All commands
+Commands run the compiled `dist/` build (`npm run build`) on Node 24.19.0,
+pinned in `mise.toml`, the single place to bump it (see README.md). All commands
 resolve agents by their unique herdr **name** and fail loudly (non-zero,
 sending nothing) on a zero-or-ambiguous match — the reliability rule.
 
@@ -111,7 +112,7 @@ The throne retains only its own value around that call:
     not-sent, and is preserved byte-for-byte (the long-transcript fixture's draft
     text is recovered exactly).
 - **File-backed bodies.** The exact attributed UTF-8 payload is classified;
-  bodies at or above 4096 bytes are never sent through the prompt path: while
+  bodies at or above 768 bytes are never sent through the prompt path: while
   still under the lock and after identity refresh, the throne stages the exact
   body in a unique `0600` file beneath the `0700` `~/.throne/payloads/`
   directory and submits only a short pointer (see below).
@@ -137,7 +138,7 @@ other dash-prefixed tokens remain prompt text.
 ### File-backed bodies and `read-payload`
 
 The engine classifies the exact attributed UTF-8 payload. Bodies at or above
-4096 bytes are never typed into the composer: while still under the recipient
+768 bytes are never typed into the composer: while still under the recipient
 pane lock and after identity refresh, throne stages the exact body in a unique
 `0600` file beneath the `0700` `~/.throne/payloads/` directory and submits only
 a short pointer. Below-threshold bodies retain the direct composer path. Before
@@ -795,24 +796,51 @@ The confirmed result prints as a second stdout line, `Spawn tasking:
   a resume that left the harness already live, or no genuine caller-supplied
   `--prompt` to confirm.
 
-**Opening prompt receipt.** Delivery is one `herdr pane send-text`, but the pty
-hands the text to Claude Code in roughly 1 KiB reads, so a prompt longer than
-that lands in the composer as several `[Pasted text #N]` placeholders plus a
-literal tail. On 2026-09-16 `stager-eighth`'s Claude dropped both placeholders
-at submit and its first turn was the last 235 of 2275 characters. Because the
-loss happens inside the harness and leaves no screen signal, `create-agent`
-now verifies receipt instead of trusting the enqueue: for a Claude launch
-whose prompt is not file-backed, `awaitOpeningPromptReceipt`
-(`src/create-agent/opening-prompt-receipt.ts`) polls the spawned agent's own
-transcript (3-second interval, 90-second deadline) for its first user turn and
-compares it, whitespace-normalized, with the opening prompt. A clipped turn is
-reported on stderr and the complete prompt is re-enqueued behind
-`CLIPPED_OPENING_PROMPT_PREFACE`. The result is appended to the tasking line
-as `Opening prompt receipt: <intact | clipped-resent | unobserved |
-not-applicable>.` — `unobserved` means no first user turn appeared before the
-deadline and the operator should verify by hand; `not-applicable` covers
-non-Claude harnesses, file-backed prompts (whose short pointer never
-fragments), and launches that were not started.
+**Delivery receipt check.** Delivery is one `herdr pane send-text`, but the pty
+hands the text to Claude Code in roughly 1 KiB reads, so a long text lands in
+the composer as several `[Pasted text #N]` placeholders plus a literal tail. On
+2026-09-16 `stager-eighth`'s Claude dropped both placeholders at submit and its
+first turn was the last 235 of 2275 characters. The loss happens inside the
+harness and leaves no screen signal, so the court checks the recipient's
+transcript after delivery. `create-agent` itself does not wait on that check
+and never pastes a prompt a second time: an opening prompt delivered through
+the queue is an ordinary delivered message and is checked like every other.
+
+When `deliverMessageWorkItem` (`src/throne-work/message-delivery-handler.ts`)
+marks a `message-delivery` row `delivered`, it schedules one
+`delivery-receipt-check` work item
+(`src/delivery-receipt/delivery-receipt-check.ts`) due 10 seconds later. The
+item carries the message id, the delivered time, and the exact text that was
+typed into the pane: the attributed payload, or the pointer line when the
+message went file-backed. A failure to schedule is written to stderr and never
+changes the delivered message. A message that failed delivery, a direct send,
+and a delivery notice get no check.
+
+The check is dispatched through the plain work-kind handler table, outside the
+recipient's pane lock. It finds the recipient's Claude transcript from its
+spawn record (`readSpawnSpec`, then `claudeTranscriptPathFor`) and judges it
+with `deliveryReceiptVerdict`:
+
+- `intact` — the check ends.
+- `truncated` — the recipient is sent the one cut-short notice.
+- `absent` — the check looks again 60 seconds later. Once 15 minutes have
+  passed since delivery and the recipient is idle (`idle` or `done` in the
+  status `agent-statuses` prints), it is sent the one may-not-have-reached-you
+  notice. A busy recipient, or one not among the live agents, is not notified;
+  60 minutes after delivery the check ends as `unobserved` and sends nothing.
+
+A recipient that is not a Claude-branch harness, has no spawn record, or has
+no transcript ends the check as `unobserved` with nothing sent, and so does a
+message whose own row was already swept. Every check row ends `delivered` with
+its result in the payload's `outcome` field: `intact`, `truncated`,
+`absent-notified`, or `unobserved`. A notice is enqueued through
+`enqueueDeliveryNotice`, which refuses a second notice for the same message id
+in any state, and a notice is typed without the `[message <id>]` suffix so its
+last characters are the `read-message` command.
+
+One limit: when a spawn record holds no session id, the transcript read is the
+newest one in the recipient's Claude project folder, so a second Claude
+session started in the same working directory can be the one that is read.
 
 Confirmation evidence is written the same way `checkAgentRuntimeModelAcceptance`
 already persists it for every phase, under
@@ -979,7 +1007,7 @@ environment variable all three routes are explicitly skipped.
 
 ```bash
 ./bin/throne-cli reap-agent <name> --reason <enum> [--force] [--bypass-marker]
-./bin/throne-cli reap-agent <name> --reason cancelled --archive-cancelled-unmerged [--force] [--bypass-marker]
+./bin/throne-cli reap-agent <name> --reason abandoned --archive-abandoned-unmerged [--force] [--bypass-marker]
 ```
 
 Tears an agent down entirely through the tooling — the teardown counterpart to
@@ -988,7 +1016,7 @@ Tears an agent down entirely through the tooling — the teardown counterpart to
 the agent's herdr **tab** (via `closeAgentTab` — falling back to its pane),
 removes the git **worktree** from the recorded target repo, safely deletes the
 exact merged dedicated **branch** for ordinary reaps, and **archives**
-`~/.throne/data/<name>/`. The distinct cancelled-unmerged disposition retains its exact
+`~/.throne/data/<name>/`. The distinct abandoned-unmerged disposition retains its exact
 local branch instead; its full contract is below. The worktree is found by
 branch rather than a reconstructed path and removed through `git worktree
 remove --force` + `prune`; ordinary branch deletion is permitted only through
@@ -997,7 +1025,7 @@ entirely.
 
 - **Live reapability claim required.** Before any live agent teardown,
   `reap-agent` reads the target's latest pane message and requires the exact
-  one-key JSON claim `{"reapable":"completed"}` (also accepting `cancelled`
+  one-key JSON claim `{"reapable":"completed"}` (also accepting `abandoned`
   and `task_restart_required`). The same claim may appear as an anchored token
   within the latest message. Retired `reapable_status` / `__REAPABLE_*__`
   markers never authorize teardown. An absent or unreadable claim refuses and
@@ -1012,9 +1040,9 @@ entirely.
 - **Explicit reason required.** Before archival, reap records `reaped_at` and
   `reap_reason`, then appends the complete lifecycle row to
   `data/stats/agent-timings.jsonl`. `--reason` accepts
-  `completed|completed-unpublishable|stalled|force|orphan|superseded|error|cancelled|scratch|other`;
+  `completed|completed-unpublishable|stalled|force|orphan|superseded|error|abandoned|scratch|other`;
   `completed-unpublishable` records work that finished successfully but could
-  not publish, and remains distinct from cancellation in timing, queue, and
+  not publish, and remains distinct from `abandoned` in timing, queue, and
   launch-ledger history;
   missing or invalid values are rejected before any teardown mutation.
   `--reason scratch` is for a disposable diagnostic probe that completed no
@@ -1022,9 +1050,15 @@ entirely.
   `scratch` rows from its completion/stall breakdowns entirely, so a
   throwaway probe never inflates or shrinks a harness's measured completion
   or stall rate. Use `scratch`, not `completed` or `other`, for that case.
-  `--reason cancelled` is valid **only** with `--archive-cancelled-unmerged`, and that
-  mode is valid **only** with `--reason cancelled`; either mismatch refuses
-  before teardown.
+  `--archive-abandoned-unmerged` is valid **only** with `--reason abandoned`;
+  the mismatch refuses before teardown. `--reason abandoned` alone runs
+  ordinary teardown.
+- **Abandoned is final.** A reap never reopens a queue row: `--reason
+  abandoned` (by hand, or by autoreap from `{"reapable":"abandoned"}`)
+  leaves a queue-linked row `abandoned`, and the autoscaler never launches an
+  `abandoned` row. Reopening is a separate explicit act,
+  `update-queue --objective-code <code> --status open`, by the row's filer or
+  the Regent. No reap reason sets a row to `open`.
 - **Completion push hook.** A successful `--reason completed` reap evaluates the
   notification predicate in `src/notify-lord/notification.service.ts`: completed **Alphas** notify by
   default, and completed **Shadows** notify only when
@@ -1033,11 +1067,11 @@ entirely.
   `src/notify-lord/notification.service.ts`. See `agent_docs/ntfy-phone-notifications.md` for the live
   server/topic contract and operator steps.
 
-- **Cancelled-unmerged archival is explicit.** The single supported replacement
+- **Abandoned-unmerged archival is explicit.** The single supported replacement
   for FPC's historical manual `tree-base.json` rename is:
 
   ```bash
-  ./bin/throne-cli reap-agent <name> --reason cancelled --archive-cancelled-unmerged
+  ./bin/throne-cli reap-agent <name> --reason abandoned --archive-abandoned-unmerged
   ```
 
   Never rename provenance by hand. This mode inherits every normal Regent,
@@ -1045,11 +1079,11 @@ entirely.
   meaning: it is only the live-agent/live-child override and can kill
   genuinely working agents. Agent memory lives outside every worktree (see
   `memory-dir`), so reap has nothing of it to protect. In particular,
-  `--reason completed` is not a cancellation shortcut: it requires the ordinary
+  `--reason completed` is not an abandonment shortcut: it requires the ordinary
   merged-branch cleanup path.
 
-- **Strict cancellation preflight.** Before any lifecycle mutation,
-  cancellation requires readable, structurally complete, name-matching
+- **Strict abandonment preflight.** Before any lifecycle mutation,
+  abandoned-unmerged archival requires readable, structurally complete, name-matching
   target-repository provenance; an exact existing local `refs/heads/<name>`
   with a full object ID; and proof that the tip is intentionally **not**
   reachable from the recorded merge-target branch (`tree-base.json` `branch`;
@@ -1065,37 +1099,37 @@ entirely.
   before preserving provenance and re-verifying the unchanged unmerged ref and
   tip. If the ref moves after preflight, archival refuses at that verification
   stage — after tab/worktree teardown — while the moved ref and preserved
-  `tree-base.cancelled-unmerged.json` marker remain in the live ledger for
-  recovery with the explicit cancellation command. This is distinct from an
+  `tree-base.abandoned-unmerged.json` marker remain in the live ledger for
+  recovery with the explicit archival command. This is distinct from an
   initial proof failure, which leaves tab, worktree, and ledger untouched.
-- **Cancellation disposition.** After preflight succeeds, reap closes the
+- **Abandonment disposition.** After preflight succeeds, reap closes the
   eligible live tab, removes the dedicated worktree, and preserves the original
   `tree-base.json` bytes byte-for-byte as
-  `tree-base.cancelled-unmerged.json` (or verifies that marker is unchanged on
+  `tree-base.abandoned-unmerged.json` (or verifies that marker is unchanged on
   retry). It then re-verifies the unchanged unmerged ref and tip. After that
-  post-teardown verification succeeds, it records the `cancelled` timing reason
+  post-teardown verification succeeds, it records the `abandoned` timing reason
   and rotates the complete ledger under `~/.throne/data/.reaped/`. It emits a prominent
-  `CANCELLED-UNMERGED` result
+  `ABANDONED-UNMERGED` result
   that names the retained `refs/heads/<name>` and its exact tip. It does
   **not** merge, run `git branch -d` or `git branch -D`, delete a ref with
   `update-ref`, delete a remote ref, rename the recovery branch, or add a
   same-name reuse bypass.
 - **`--force` reaps carrying a different reason share the mechanism, not the
   vocabulary.** The ancestry guard also blocks a `--force` reap whose
-  `--reason` is anything other than `cancelled` — commonly a history-rewrite
+  `--reason` is anything other than `abandoned` — commonly a history-rewrite
   transplant campaign whose content already landed, so its commits are never
   literally reachable from the target. That case retains the branch through
   the identical mechanism above (ref kept, not merged or deleted, name reuse
   blocked, ledger archived complete) but is reported as `UNMERGED-RETAINED`,
-  never `CANCELLED-UNMERGED` — that label, and the "cancelled" framing, is
-  reserved for the explicit `--reason cancelled --archive-cancelled-unmerged`
+  never `ABANDONED-UNMERGED` — that label, and the "abandoned" framing, is
+  reserved for the explicit `--reason abandoned --archive-abandoned-unmerged`
   form. The timing row still records the caller's actual `--reason`
   untouched either way, so `agent-stats` reads it correctly regardless of
   which label was printed.
 - **Retry and recovery boundary.** Before archival, the preserved provenance
   marker makes a partial failure recoverable: retry the same explicit
-  cancellation command. Ordinary reap sees a live
-  `tree-base.cancelled-unmerged.json` marker as an in-progress cancellation
+  archival command. Ordinary reap sees a live
+  `tree-base.abandoned-unmerged.json` marker as an in-progress abandonment
   lifecycle and refuses with the exact retry command; it never treats that
   marker as missing branch authority. Ambiguous or changed provenance still
   refuses. The preserved local ref intentionally blocks exact
@@ -1105,10 +1139,10 @@ entirely.
   behalf.
 
 - **Idempotency is mode-specific.** Ordinary reap treats an already-gone
-  branch, worktree, or data dir as a clean no-op success. Explicit cancellation
-  instead requires live `tree-base.json` or preserved
-  `tree-base.cancelled-unmerged.json` authority until archival succeeds; after
-  successful ledger archival, rerunning the cancellation command is an
+  branch, worktree, or data dir as a clean no-op success. Explicit
+  abandoned-unmerged archival instead requires live `tree-base.json` or preserved
+  `tree-base.abandoned-unmerged.json` authority until archival succeeds; after
+  successful ledger archival, rerunning the archival command is an
   authority failure, not the ordinary already-gone no-op path.
 - **Exact branch ownership.** Branch cleanup is authorized only by a readable,
   structurally complete `~/.throne/data/<name>/tree-base.json` whose canonical `name`
@@ -1158,7 +1192,7 @@ merge-base --is-ancestor <branch tip> <merge-target tip>`
   (content diff/manifest against the target, not branch ancestry), then rerun
   with `--force` to complete teardown while preserving the branch as a
   recovery ref if the content is already confirmed landed, or with
-  `--archive-cancelled-unmerged` if the branch carries genuine unlanded unique
+  `--archive-abandoned-unmerged` if the branch carries genuine unlanded unique
   work. The ancestry check itself is unchanged and still refuses a branch
   with real unlanded work; teaching the guard to detect content-equivalence
   directly (so the transplant shape above no longer needs the operator's
@@ -1179,7 +1213,7 @@ merge-base --is-ancestor <branch tip> <merge-target tip>`
   earlier contents. Ordinary successful git cleanup removes the dedicated local
   branch, so real `spawn-git-tree <name>` and fresh `identity.md` / `spawn.json`
   registration can reuse the exact canonical name independently of old archives.
-  Cancelled-unmerged archival deliberately retains the local ref and therefore
+  Abandoned-unmerged archival deliberately retains the local ref and therefore
   remains an exact-name reuse barrier.
 - **Safe.** It normally **refuses to reap a LIVE agent** without `--force` and
   touches nothing when it refuses. The one plain-reap exception is
@@ -1206,6 +1240,27 @@ merge-base --is-ancestor <branch tip> <merge-target tip>`
 - **The Regent is protected.** `reap-agent Regent` (any case) is refused
   unconditionally — the Regent is managed by the self-heal watchdog
   (summon/dismiss), and `~/.throne/data/regent/` holds the durable QUEUE.
+
+### Curing a failed autoscale launch ("launch history unresolved")
+
+An autoscale launch that failed part-way leaves a `launch` line for its Alpha
+in `~/.throne/data/regent/alpha-launch-ledger.jsonl` with no `status` line
+after it. `create-agent` links the queue row in flight only when the launch
+succeeds, so the row is still `open`, and every autoscale tick that selects it
+refuses with `launch history unresolved for "<alpha>"`. One sequence clears it
+and leaves the row launchable:
+
+1. If the half-spawned Alpha left a harness tab behind, close it:
+   `herdr tab close <tab>`.
+2. `throne reap-agent <alpha> --reason abandoned --force` tears the
+   half-spawned Alpha down and appends the ledger's `abandoned` status line,
+   which clears "launch history unresolved". The row was never linked to the
+   Alpha, so it stays `open` and the next tick launches it again. If the row
+   was linked in flight to that Alpha, the same reap closes it as `abandoned`
+   and the next tick launches nothing for it.
+3. `throne update-queue --objective-code <code> --status open` is the
+   explicit reopen: it reopens a row the reap closed and is harmless on a row
+   that is already `open`. Either way the next tick launches the row.
 
 ## complete-agent
 
@@ -1455,8 +1510,10 @@ need the hand procedure in `agent_docs/MODEL_POLICY.md`.
 (rendered as `pr: <name>` in the queue and carried into the launch brief; also
 settable later with `update-queue --pr-branch`, cleared with
 `--clear-pr-branch`). For a PR-shaped campaign the Stager creates that branch
-from the repository's default branch first and files it as `--target-branch` as
-well, so delivery lands on it and `99c` opens the draft PR from it (see
+from the repository's default branch first, or from the other pull request's
+branch when the work builds on another open pull request
+(`.claude/skills/queue-objective/SKILL.md`, "Prefer stacking"), and files it as
+`--target-branch` as well, so delivery lands on it and `99c` opens the draft PR from it (see
 `.claude/skills/execute-todos/SKILL.md`, "Pull-request delivery"). The name is
 the human contributor's — `add/<feature>`, `fix/<bug>` — never an agent name,
 an objective code or any throne machinery (Lord, 2026-09-08).
@@ -1527,6 +1584,41 @@ Exit `0` recorded and everyone told, `1` refused, `2` recorded but at least
 one recipient was not told (the message names who and why). `render-queue`
 prints each amendment under its row's body. The `/amendment` skill is the
 usage guide.
+
+## update-queue: deferring a row
+
+```bash
+./bin/throne-cli update-queue --objective-code <code> --status deferred --depends-on <code>[,<code>...] --defer-reason "<why it is held>"
+```
+
+`--status deferred` requires both `--depends-on` (the objective codes the row
+waits on) and `--defer-reason` (why it is held); either one alone, or either
+flag without `--status deferred`, is refused and nothing is written. The row
+records when it became deferred; re-deferring an already deferred row to
+change what it waits on keeps that time. `update-queue` refuses to move a
+deferred row to `open` and names `release-deferred`, the only way a deferred
+row starts. Moving a deferred row to `abandoned` still works.
+
+## release-deferred
+
+```bash
+./bin/throne-cli release-deferred --objective-code <code> --reason "<why it may start now>" [--requested-by <agent>]
+```
+
+Moves one `deferred` queue row to `open`. The row is then launch-eligible
+exactly when it already carries its launch facts; releasing invents none. It
+records on the row who asked (`--requested-by`, or nobody), who released it,
+the reason and when, and the record stays on the row after it moves on. It
+writes one `queue_mutation_audit` entry in the same transaction. With
+`--requested-by`, it then sends that agent one message,
+`Released <code>: <reason>`, through `send-agent`.
+
+Only the Regent, or the Stager that filed the row (`add-to-queue` records
+the filer's name), may run it. Anyone else, an unidentifiable caller, a
+missing row, or a row that is not `deferred` is refused, and nothing is
+written. Exit `0` released (and the requester told), `1` refused, `2`
+released but the reply could not be sent; the message names the requester
+and the text to send by hand.
 
 ## check-queue-amendments-reconciled
 
@@ -1613,6 +1705,35 @@ reimplemented here. An empty store or a store with no terminal items prints a
 "nothing to trim" message and exits 0. A store the read layer reports as
 `unknown` (could not read) is a hard error (non-zero exit) — never silently
 treated as empty.
+
+## work-log
+
+```bash
+./bin/throne-cli work-log --since <date> [--json]
+```
+
+Answers "what happened since <date>" without reading reports or transcripts.
+`--since` takes an ISO date (`2026-10-06`, local midnight) or date-time
+(`2026-10-06T09:00`); the window runs from it to now. Read-only: it opens the
+queue store as `render-queue` does and writes nothing.
+
+- **Queue rows:** every row whose `completed_at` or `updated_at` falls in the
+  window, oldest update first, with its objective code, status, recorded
+  outcome (`not recorded` when the row has none), outcome summary, pull
+  request URL, result commit, completion and update times, and the first
+  sentence of its `INTENT:` section.
+- **GitHub actions:** every line of
+  `<THRONE_DATA_HOME or ~/.throne>/data/github-actions.jsonl` (the gh guard's
+  mutation log) whose `timestamp` falls in the window. A missing file means no
+  actions yet; a malformed line is skipped and counted.
+
+`--json` prints one object: `since` (ISO-8601), `rows` (each with
+`objectiveCode`, `status`, `outcome`, `outcomeSummary`, `prUrl`,
+`resultCommit`, `completedAt`, `updatedAt`, `intent`; an unrecorded field is
+`null`), `githubActions` (the log lines as written) and
+`malformedGithubActionLines`. Exit 0 listed, 1 a store or log that could not
+be read, 2 an unknown flag, a missing `--since` or a value that is not an ISO
+date.
 
 ## git-identity
 
@@ -1708,6 +1829,412 @@ own lines; otherwise it is refused with exit 66 naming that file and
 /execute-todos "Sliceless mode". A shadowed or shadowless-only Alpha is still
 held to the bundle path; the sliceless path adds evidence, it loosens
 nothing.
+
+## push-waiver
+
+```bash
+./bin/throne-cli push-waiver --repo <dir> --remote <name> --ref <local branch> --findings-file <file> --entries-file <file>
+```
+
+The one sanctioned way for a court session to skip the push checks (Lord,
+2026-10-05). When the checks configured in `push-check.command` block a push,
+the pushing agent alone may certify, finding by finding, that nothing they
+reported is a defect in the branch it is pushing, and record that proof as a
+waiver. The waiver lets exactly one push skip the checks: the commit `--ref`
+points to when the waiver is written, pushed to the same-named branch on
+`--remote`, once. A finding that fits none of the three reasons below is
+fixed, not waived.
+
+`--findings-file` is the blocked push's own report, saved from the push's
+stderr: one finding per non-blank line, a severity word first and a
+`path:line` token in it, or the check's JSON when it has one (an array, or an
+object with a `findings` array, of objects with a severity, a `file` or
+`path`, a `line`, and a `title` or `message`). Findings are numbered from 1 in
+file order. `--entries-file` is a JSON array with exactly one entry per
+finding, `{ "finding": <number>, "reason": <kind>, … }`, where the reason is
+one of three kinds and each kind carries its own evidence:
+
+| Reason | When | Evidence |
+|---|---|---|
+| `other-open-pr` | The finding is about code another open PR adds. | `pr` (a positive whole number), `commit` (that PR's head, fetched so it resolves locally), `location` (the `path:line` on that head that provides it). |
+| `already-on-base` | The behaviour exists unchanged on the base branch. | `commit` (the base commit), `location` (the `path:line` where the same code is). |
+| `finding-wrong` | The code already does what the finding says it does not. | `location` (a `path:line` in the pushed commit) or `test` (the name of a test that passes; recorded, not run). |
+
+An invented example: a "review-bot" check blocks a push of a recipe app's
+`add/ratings-page` branch with three findings.
+
+```text
+high src/api/recipes.ts:42 Calls GET /api/ratings, which the server does not serve
+medium src/views/RecipeList.tsx:88 Load more retries silently on failure
+low src/views/RatingStars.tsx:12 Half stars are not rounded
+```
+
+```json
+[
+  { "finding": 1, "reason": "other-open-pr", "pr": 41, "commit": "<head commit of PR 41>", "location": "server/routes/ratings.ts:17" },
+  { "finding": 2, "reason": "already-on-base", "commit": "<base commit>", "location": "src/views/RecipeList.tsx:88" },
+  { "finding": 3, "reason": "finding-wrong", "test": "half stars round to the nearest half" }
+]
+```
+
+The command refuses, writing nothing, when the repository is not a court
+checkout (its top level must lie under `$THRONE_DATA_HOME/worktrees/`,
+default `~/.throne`, with `$THRONE_DATA_HOME/data/<basename>/identity.md`
+present; the basename is the agent), when `--remote` is not a configured
+remote or `--ref` is not a local branch, when a findings line or the findings
+JSON is malformed, when any finding has no entry or two, when an entry names a
+finding that does not exist or a reason outside the three kinds (the refusal
+lists the allowed kinds), or when evidence is empty or malformed: a commit
+that does not resolve, or a `path:line` whose file is missing at that commit or
+has fewer lines. Each refusal names the finding and what is wrong with it.
+
+On success it writes the waiver record under
+`$THRONE_DATA_HOME/data/<agent>/push-waivers/`, keyed by remote, branch and
+commit, holding the agent, repository, remote, branch, commit, when it was
+written, the parsed findings and the entries. It prints the record's path,
+one line per finding (`finding N: <severity> <path:line> <title> — <reason>:
+<evidence>`), and the one push command to run:
+
+```bash
+git -C <repo> push --no-verify <remote> <branch>
+```
+
+Run that command as printed, without `--bypass` (`PUSH_CHECK_SKIP=1` in place
+of `--no-verify` is admitted the same way). The `bin/git` guard admits the
+skip only when the pushing agent's own ledger holds an unspent waiver written
+by that agent for that remote, for a push whose single refspec is that branch
+name, and the branch still points at the waived commit. It then marks the
+waiver used, keeping the record on disk, and prints
+`throne git guard: push checks skipped under waiver <path>`. A spent waiver is
+never reused: the replay, a different commit, a different branch, another
+agent's waiver, and a skip with no waiver are all refused with exit 68, and
+the refusal names `throne push-waiver`. A new commit needs a new check run
+and, if that is blocked too, a new waiver. The record's path and its entries
+go into the DONE report and into any PR-delivery report.
+
+## forge
+
+```bash
+./bin/throne-cli forge status <number|url|branch> [--repo <path>] [--json]
+./bin/throne-cli forge open <number|url|branch> [--repo <path>] [--editor <cmd>] [--print]
+./bin/throne-cli forge open --cleanup [--repo <path>]
+./bin/throne-cli forge ensure-repository [--base <branch>] [--repo <path>]
+./bin/throne-cli forge push-branch --branch <name> [--base <branch>] [--repo <path>]
+./bin/throne-cli forge sync-branches [--repo <path>]
+./bin/throne-cli forge pr create --title <title> --body-file <path> --base <branch> --head <branch> [--draft] [--repo <path>] [--bypass]
+./bin/throne-cli forge pr view <number|url|branch> [--repo <path>] [--bypass]
+./bin/throne-cli forge pr edit <number|url|branch> --body-file <path> [--repo <path>] [--bypass]
+./bin/throne-cli forge pr list [--limit <n>] [--repo <path>] [--bypass]
+./bin/throne-cli forge pr diff <number|url|branch> [--repo <path>] [--bypass]
+./bin/throne-cli forge pr merge <number|url|branch> --squash [--repo <path>] [--bypass]
+./bin/throne-cli forge pr comment <number|url|branch> --body-file <path> [--repo <path>] [--bypass]
+./bin/throne-cli forge attach <number|url|branch> --file <path> [--repo <path>]
+./bin/throne-cli forge detach <number|url|branch> --url <attachment url> [--repo <path>]
+./bin/throne-cli forge render-markdown --file <path> [--repo <path>] [--bypass]
+./bin/throne-cli forge pr feedback <number|url|branch> [--repo <path>]
+./bin/throne-cli forge pr answer <number|url|branch> --comment <id> --body-file <path> [--resolve] [--repo <path>]
+./bin/throne-cli forge mirror-feedback <number|url|branch> [--repo <path>]
+./bin/throne-cli forge promote <number|url|branch> [--repo <path>]
+./bin/throne-cli forge stage <github pull request url> [--repo <path>]
+./bin/throne-cli forge close-merged-twin <number|url|branch> [--repo <path>]
+```
+
+The one place the court decides where a pull request lives and talks to it.
+Skills call this instead of `gh` for pull-request work. `--repo` names the
+local checkout and defaults to the current directory.
+
+**Which forge the host uses.** Forgejo when the install marker
+`${XDG_STATE_HOME:-$HOME/.local/state}/forgejo/enabled` exists (the marker
+`install-forgejo.sh` writes; see `agent_docs/forgejo.md`) and the instance at
+`config/app.ini`'s `ROOT_URL` answers `GET /api/v1/version` within 5 s.
+Otherwise GitHub. A marker whose Forgejo does not answer is a refusal (exit 1)
+naming the URL and `systemctl --user status forgejo.service` (on a mac, the
+`launchctl print` line for `com.throne.forgejo`). It never falls back to GitHub.
+
+**Which forge a pull request belongs to.** A URL whose origin is the Forgejo
+`ROOT_URL` origin, or `http://<tailnet ip>:8420` (the address from
+`tailscale ip -4`), is Forgejo. A `github.com` URL is GitHub through `gh`; any
+other host is GitHub Enterprise through `ghe`, the same choice the `pr-merge`
+scripts make. A bare number or branch belongs to the repository's own forge,
+which is the host's forge.
+
+One exception, on a host with Forgejo installed: a GitHub pull request that
+has an open Forgejo twin is STAGED and belongs to Forgejo. The twin is found
+from Forgejo alone, never by reading GitHub: among the open pull requests of
+the Forgejo copy named after the GitHub repository (owned by the Forgejo
+admin, so it works from any directory), the one whose metadata comment names
+that GitHub URL. Every operation that takes a target then works on the twin,
+except `pr merge`: nothing is merged in Forgejo, so a staged pull request
+merges on GitHub. A twin that has been closed is no longer found, so its
+GitHub URL is plain GitHub again. A host without Forgejo makes no such read.
+
+**The metadata comment.** Every staged Forgejo pull request carries exactly
+one conversation comment, written by the Forgejo admin, that holds all the
+bookkeeping between the twins (`src/forge/staging-metadata.ts`):
+
+```
+GitHub: <github pull request url>
+
+<!-- github-twin: <github pull request url> -->
+<!-- staging-sync: {"promotedHead":"<sha or null>","carriedAnswers":[<forgejo comment ids>]} -->
+```
+
+The first line is the visible link to the GitHub twin. `promotedHead` is the
+head commit the last `promote` pushed, `null` until then. `carriedAnswers`
+lists the Forgejo answers already carried back to GitHub. `stage`, `promote`
+and repromote write it: the first write posts it and every later one rewrites
+the same comment in place, so there is never a second one. An older comment in
+the same place, such as `Promoted to GitHub: <url>` with only a `github-twin`
+record, is rewritten into this shape. The Forgejo body carries no record, and
+GitHub carries none at all: no body, title, reply or comment the forge code
+sends to GitHub names Forgejo.
+
+**`status`** prints every fact known about one pull request on both forges.
+The target is a GitHub URL (github.com or GitHub Enterprise), a Forgejo URL, a
+bare number or a branch. With `--json` it prints one object:
+
+```
+{
+  "target":   { "asked", "kind": "github-url"|"forgejo-url"|"number"|"branch",
+                "resolvedOn": "forgejo"|"github", "how" },
+  "hostForge": "forgejo"|"github",
+  "stage":    "forgejo-only"|"promoted"|"github-only"|"merged-on-github"|"closed",
+  "forgejo":  { "url","number","state","draft","base","head","headSha" } | null,
+  "github":   { "url","number","state","draft","base","head","headSha","mergedAt","mergeCommit" } | null,
+  "inSync":   true|false|null,
+  "publishTo": "forgejo"|"github",
+  "mergeTarget": { "url","program": "gh"|"ghe","forgejoUrl" } | null,
+  "mergeTargetRefusal": "<text>" | null
+}
+```
+
+Without `--json` it prints the same facts as short `key: value` lines.
+`target.asked` is the text given and `target.how` one sentence saying where it
+was found. `hostForge` is the host's forge, decided as above. `state` on
+either side is `OPEN`, `CLOSED` or `MERGED`; `mergedAt` is an ISO time or
+`null` and `mergeCommit` the merge commit's sha or `null`. `inSync` is `true`
+when the two head shas are equal, `false` when they differ, and `null` when
+either side is missing. It writes nothing. It exits 0 when the pull request
+was found on either forge; one found on neither is a refusal (exit 1) naming
+where it looked.
+
+- **Resolution.** A Forgejo URL reads that Forgejo pull request, and its
+  GitHub twin through the metadata comment. A GitHub URL reads GitHub, and
+  its Forgejo twin through the open pull requests of the Forgejo copy (the
+  twin lookup above; a host without Forgejo makes no Forgejo read). A bare
+  number or branch is looked up in the checkout's Forgejo copy first, and on
+  the checkout's GitHub repository only when Forgejo has no such pull request
+  or the host has no Forgejo. A number that exists on both forges therefore
+  names the Forgejo one; pass the GitHub URL to address the other.
+- **`stage`.** GitHub `MERGED` is `merged-on-github`; GitHub `CLOSED` is
+  `closed`; GitHub `OPEN` is `promoted` when a Forgejo pull request is linked
+  and `github-only` when none is. With no GitHub pull request, Forgejo `OPEN`
+  is `forgejo-only` and anything else is `closed`.
+- **`publishTo`** is where writes aimed at this pull request (pr-media's
+  published media, pr-review's pending reviews) go. A GitHub URL is always
+  `github`, whatever twin it has. A Forgejo URL is `forgejo`. A number or branch is `github` when the stage is
+  `github-only` or `merged-on-github` or there is no Forgejo pull request, and
+  `forgejo` otherwise.
+- **`mergeTarget`** is the GitHub pull request a merge lands on, for
+  `pr-merge`'s `stack.mjs`: its `url`, the `program` that reaches it, and the
+  linked Forgejo pull request's URL as `forgejoUrl` (`null` when none is
+  linked). Nothing is merged in Forgejo, so a Forgejo pull request with no
+  GitHub twin has `mergeTarget` `null` and `mergeTargetRefusal` set to
+  `<forgejo url> is not on GitHub yet: it has no metadata comment linking a
+  GitHub pull request (it was never staged or promoted), and nothing is merged
+  in Forgejo. It must be promoted first with /pr-promote on the Lord's word.`
+  `mergeTargetRefusal` is `null` whenever `mergeTarget` is set.
+
+**`open`** opens one pull request in the user's editor, on either forge. It
+resolves the target exactly as `status` does (same internals, `status`
+unchanged), then:
+
+- **Local clone.** First hit wins: `--repo`; the Forgejo checkouts registry
+  (`${XDG_STATE_HOME:-$HOME/.local/state}/forgejo/checkouts.json`,
+  `owner/repo` to path); the court's known checkouts (queue rows' target
+  repositories and recall's `repositories.json`) whose `origin` points at the
+  pull request's repository. None is a refusal (exit 1): `no local clone of
+  <owner/repo>; pass --repo or clone it`. It never clones.
+- **Checkout.** Candidates are that clone's worktrees (`git worktree list`).
+  A tree whose basename is a live agent's name (`herdr agent list`) or that is
+  dirty (`git status --porcelain` not empty) is never touched, and each one
+  skipped is printed with its reason. A finished or reaped agent's tree is
+  fair game. In order: reuse a clean tree whose HEAD is the head sha; else
+  fetch and move the detached HEAD of a clean earlier review tree for this
+  pull request; else create the review tree `<checkout>-pr-<n>`
+  (`<checkout>-<branch-slug>` for a branch target) beside the clone with
+  `git worktree add --detach` at the head sha, fetched from the remote named
+  `forgejo` when the head is held on Forgejo, else `origin`. A dirty review
+  tree for this pull request is a refusal naming its path. It never checks
+  out the branch, resets or stashes.
+- **Editor.** `--editor <cmd>`, else `editor` in `config.user.ts`, else
+  `$VISUAL`, else `code`, launched detached with the tree's path as its last
+  argument, before anything is installed.
+- **Dependencies.** Right after the editor starts, the court's dependency
+  hydration (a copy from the clone when the manifests match, else a real
+  install) runs as a detached background process logging to
+  `${XDG_STATE_HOME:-$HOME/.local/state}/throne/forge-open/<tree basename>.log`;
+  the log path is printed and the command returns without waiting. When the
+  tree's dependencies are already current it starts nothing and prints
+  `dependencies already current`.
+- **`--print`** prints the path only and launches neither the editor nor the
+  install.
+- **`--cleanup`** (from any checkout of the repository, bare, main or linked,
+  or `--repo`) acts only on the review trees `forge open` recorded: whenever
+  `open` returns a review tree it writes the pull request's URL into that
+  tree's private git directory. Cleanup reads each tree's status by that URL
+  and removes, with `git worktree remove` and never `--force`, each one whose
+  pull request is merged or closed. Every other worktree is kept and not
+  listed, and a dirty review tree is reported, not removed.
+
+**Credentials.** On a Forgejo host every API call reads the token from
+`${XDG_STATE_HOME:-$HOME/.local/state}/forgejo/api-token` (mode 0600, written
+by `install-forgejo.sh`). The seam only reads it; a missing or empty file is a
+refusal naming `install-forgejo.sh`. API calls send `Authorization: token …`.
+A push to Forgejo passes `Authorization: Basic <admin>:<token>` to git as an
+`http.extraHeader` through `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n`
+in that one git process's environment, so the token is never in a remote URL,
+`.git/config`, an argument list, stdout or a log line.
+
+**The Forgejo copy of a repository (lazy mirror).** It is owned by the
+Forgejo admin (`GET /api/v1/user`) and is private. Its name is the last path
+segment of the local `origin` URL without `.git`, or the checkout directory's
+name when there is no `origin`. The local `forgejo` remote,
+`<ROOT_URL><admin>/<name>.git`, records that the copy exists.
+`ensure-repository` acts on that one repository only. When the `forgejo`
+remote exists and the Forgejo repository exists, it pushes nothing. Otherwise it
+creates the repository, adds the remote and pushes the base branch: `--base`,
+or the branch `refs/remotes/origin/HEAD` names (a refusal asks for `--base`
+when there is none). Before it compares or pushes a base it fetches that
+branch from GitHub with
+`git fetch origin +refs/heads/<base>:refs/remotes/origin/<base>`, an explicit
+refspec, so a clone with no fetch refspec (a bare-backed one) is fetched too.
+It then pushes the fetched `origin/<base>`, so neither a stale
+remote-tracking ref nor a local base that is ahead of `origin` becomes the
+Forgejo base. A base GitHub does not have, such as a stacked pull request's
+base that exists only locally and in Forgejo, is pushed from the local
+branch. Any other failed fetch, an unreachable GitHub included, is a refusal
+(exit 1) that names the fetch, and nothing is pushed. It prints
+`{"owner","name","created"}`. On a GitHub host it refuses, because a Forgejo
+copy is only made where Forgejo is installed. Every forge command that
+resolves a repository's Forgejo copy from a local checkout
+(`ensure-repository`, `push-branch`, `pr create`, `sync-branches`) records
+that checkout's path, which is how the backend's branch mirror finds it (see
+`agent_docs/forgejo.md`, "Keeping Forgejo copies current").
+
+**Drafts.** Forgejo has no draft flag. A draft is a title starting with
+`WIP: `. `pr create --draft` adds it, and `pr view` and `pr list` report
+`isDraft` from it and print the title without it.
+
+**The GitHub number in a Forgejo title.** Every Forgejo pull request title
+carries `[GH-<github number>]` right after any `WIP: ` prefix, before the
+rest of the title: `WIP: [GH-123] Add the export button`. `[GH-##]` stands
+in until a GitHub twin exists. `pr create` on Forgejo adds `[GH-##]`;
+`stage` and `promote` set the number, taken from the GitHub URL's last path
+segment. Writing a marker replaces any `[GH-...]` already in that place, so
+it is never doubled. `pr view` and `pr list` print the title with its marker.
+GitHub never receives it: on a host without Forgejo `pr create` sends the
+title unchanged, and `promote` removes the marker from the title it sends.
+
+**Operations.** Each one runs on the forge decided above. Every GitHub branch
+runs the `gh` command the skills ran before this command existed. A caller's
+`--bypass` is put first, for the `bin/gh` guard. The seam never adds
+`--bypass` on its own. GitHub output and exit status pass through unchanged.
+
+| operation | Forgejo | GitHub argv | prints |
+| --- | --- | --- | --- |
+| `push-branch` | ensure the copy, push the base branch as `ensure-repository` chooses it, then `git push forgejo refs/heads/<branch>:refs/heads/<branch>` | `git push -u origin <branch>` | Forgejo: `{"owner","name","created","branch"}`; GitHub: git's output |
+| `pr create` | ensure the copy, push `--base` and `--head` as `push-branch` does, then return the open pull request with the same head and base, or open one (`POST /repos/{o}/{r}/pulls`) titled with `[GH-##]` after any `WIP: ` | `gh pr create [--draft] --base <b> --head <h> --title <t> --body-file <f>` | the pull request URL |
+| `pr view` | `GET /repos/{o}/{r}/pulls/{n}` | `gh pr view <target> --json number,url,title,body,state,isDraft,headRefName,baseRefName` | JSON with those fields; `state` is `OPEN`, `CLOSED` or `MERGED` |
+| `pr edit` | `PATCH …/pulls/{n}` with the body | `gh pr edit <target> --body-file <f>` | the pull request URL |
+| `pr list` | open pull requests (`GET …/pulls?state=open`) and each one's files; `[]` when the repository has no Forgejo copy | `gh pr list --state open --limit <n> --json number,title,headRefName,url,files` (default limit 30) | JSON array with those fields, `files` as `[{"path"}]` |
+| `pr diff` | `GET …/pulls/{n}.diff` | `gh pr diff <target>` | the diff |
+| `pr merge --squash` | refused before any write: nothing is merged in Forgejo, which is only the staging area; the refusal says to promote with `/pr-promote` on the Lord's word and merge the GitHub pull request. A staged GitHub URL is not sent to its twin; it merges on GitHub | `gh pr merge <target> --squash --delete-branch=false` | GitHub: gh's output |
+| `pr comment` | `POST /repos/{o}/{r}/issues/{n}/comments` | `gh pr comment <target> --body-file <f>` | the comment URL |
+| `attach` | `POST /repos/{o}/{r}/issues/{n}/assets` (multipart field `attachment`) | refused: GitHub has no upload that returns a URL; GitHub media goes through `pr-media`'s `gh pr edit --attach` publish | `{"url","markdown"}` |
+| `detach` | the attachment of `GET /repos/{o}/{r}/issues/{n}/assets` whose `browser_download_url` is `--url`, deleted with `DELETE …/issues/{n}/assets/{id}`; nothing when the pull request has no such attachment | refused: GitHub has no API that removes an uploaded file | `{"detached"}`, `true` when an attachment was deleted |
+| `render-markdown` | `POST /api/v1/markdown` with `{"Mode":"gfm","Text":…,"Context":"<admin>/<name>"}` | `gh api -X POST /markdown -f mode=gfm -f text=<file contents>` | the HTML |
+
+A `<target>` is a number, a URL or a branch. On Forgejo a branch resolves to
+the open pull request whose head is that branch. `attach` returns the
+attachment's `browser_download_url` and the markdown that embeds it. An image
+gets `![<name>](<url>)`. A `.mp4`, `.webm` or `.mov` gets
+`<video src="<url>" title="<name>" controls></video>`, which is what
+Forgejo's own "Copy link" button writes for a video. Forgejo 16.0.5's
+sanitizer keeps `<video>` with `src` and `controls`
+(`modules/markup/sanitizer.go`), so it plays inline. `<name>` is the file name
+without its extension.
+
+**Fresh base.** `push-branch` and `pr create` bring the Forgejo copy of the
+base branch up to date every time, so a pull request opened after the base
+moved is diffed against the moved base. They first fetch the base from
+`origin` as `ensure-repository` does, refusing when that fetch fails, then
+fetch the same branch from the `forgejo` remote and compare the two.
+When the Forgejo copy already contains the base, for example after someone
+committed to it by hand in Forgejo's web editor, nothing is pushed. When it is behind, the base
+is pushed. The push is never forced: when the two have moved apart and
+neither contains the other, the call refuses (exit 1) naming the branch and
+both tips, and the Forgejo base is left as it was.
+
+**Mirroring every branch.** `sync-branches` brings every GitHub branch onto
+the repository's Forgejo copy, on a Forgejo host only (on a GitHub host it
+refuses as `ensure-repository` does). When the repository has no Forgejo copy
+it makes one first, exactly as `push-branch` does. It fetches every branch
+`origin` advertises into `refs/remotes/origin/*` with an explicit refspec, no
+tags and no pruning, so a bare-backed clone is fetched too. Then it compares
+each GitHub branch with Forgejo's copy of it and acts on the outcome:
+
+| outcome | Forgejo's copy | what happens |
+| --- | --- | --- |
+| created | missing | the branch is pushed |
+| fast-forwarded | behind GitHub's | the branch is pushed; git itself refuses a push that would not fast-forward |
+| current | equal to GitHub's | nothing |
+| ahead | holds commits GitHub's lacks | left alone: rewinding it would need a force push |
+| diverged | neither contains the other | left alone, logged on stderr and reported |
+
+Every push is the same plain, never-forced push `push-branch` makes. A branch
+Forgejo has and GitHub does not, such as a staged pull request's head, is
+never pushed, rewritten or deleted, and nothing is ever deleted or pushed to
+`origin`. The bases of open Forgejo pull requests go first, then the other
+branches; a run where nothing moved pushes nothing. It prints one JSON object
+that lists the branches under each outcome and every open pull request whose
+base it could not bring current (ahead, diverged, or a failed push), with the
+pull request's number, its base and the reason. An open pull request whose
+base GitHub does not have has nothing to bring current and is never
+reported as a failure.
+It exits 0 when every branch was brought current or reported ahead or
+diverged, 1 when any branch push failed (the JSON is still printed, every
+failed branch under `failed` with git's reason), and 1 when the repository
+could not be read or fetched, in which case nothing is pushed. These pushes
+carry only commits `origin` already has, so the push checks skip them. The backend runs it for every recorded repository every 10 minutes
+(`agent_docs/forgejo.md`, "Keeping Forgejo copies current").
+
+**Staging a pull request on GitHub.** Forgejo is the Lord's staging area. A
+pull request reaches GitHub only through `promote`, which only the
+`/pr-promote` skill runs, on his word; `stage` brings a pull request that is
+already on GitHub into Forgejo without writing to GitHub. Every record below
+is hidden HTML in a Forgejo comment. Every title, body and reply sent to
+GitHub has its records removed first and is refused, before any GitHub write,
+when it still names the Forgejo host (its `ROOT_URL` host or the tailnet
+address) or still holds a record. On a host with Forgejo that includes the
+body file `pr edit` and `pr comment` send to a GitHub pull request.
+
+| operation | what it does | prints |
+| --- | --- | --- |
+| `promote <forgejo pr>` | Reads the Forgejo pull request live. Downloads every Forgejo attachment its body embeds (`GET …/issues/{n}/assets`, a `pr-media` anchor's name or the attachment's own name), and puts a `<!-- drop <name> here -->` placeholder where each was. Refuses before any GitHub write when the title or that body still names the Forgejo host or holds a record. Runs `git push -u origin <head>`. The first time, it runs `gh --bypass pr create [--draft] --base --head --title --body-file`, with the title without `WIP: ` or its `[GH-...]` marker and the body as it is, then writes the metadata comment with the GitHub URL and the pushed head as `promotedHead`, and sets the Forgejo title's marker to `[GH-<github number>]` (`PATCH …/pulls/{n}` with `{"title"}`, only when the title differs). Last, it runs `pr-media`'s `publish.mjs <github url> --folder <downloads>` (with `--stills-only` when there is no video), which uploads the files to GitHub and fills the placeholders. Then it reads the GitHub body back with `gh pr view <github url> --json …` (`ghe` on GitHub Enterprise) and refuses with exit 1, printing nothing on stdout, while it still holds a `<!-- drop <name> here -->` placeholder or names the Forgejo host; the refusal names what remains and `throne forge promote <forgejo url>` as the one command that finishes it. When the publish failed because nobody signed in within the wait, the refusal says so and names the same command; when it failed because the page fell back to `--wizard`, it keeps the downloads in `~/tmp/pr-media-<github number>/` (a fresh sibling folder when that exists) and names `node <pr-media>/publish.mjs <github url> --folder <kept folder> --wizard`. | `{"forgejoUrl","githubUrl","created","mergedOnGithub","answers"}` |
+| `promote` again (repromote) | Finds the metadata comment and opens nothing. Pushes the head, replaces the GitHub body through `gh --bypass pr edit <url> --body-file`, records the pushed head as `promotedHead`, sets `[GH-<github number>]` on the Forgejo title when it does not already carry it, and re-hosts the media the same way. Then carries back every Forgejo answer to a mirrored item that GitHub does not yet hold: in a thread through `gh --bypass api repos/{o}/{r}/pulls/{n}/comments -f body=… -F in_reply_to=<first comment id>`, otherwise through `gh --bypass api repos/{o}/{r}/issues/{n}/comments -f body=…`. The answer goes with its records removed and nothing added. After each reply the answer's Forgejo id joins `carriedAnswers` in the metadata comment, which is how a later run knows it was sent; `mirror-feedback` likewise skips a GitHub comment whose text is exactly a carried answer, so it is never mirrored back as new feedback. Finally it resolves, with the `resolveReviewThread` GraphQL mutation, each GitHub thread whose Forgejo twin is resolved. Running it again sends nothing twice. | the same; `answers` is `{"replied":[forgejo ids],"resolved":[thread ids]}` |
+| `promote` once the GitHub twin is merged | Finds the metadata comment and reads `gh pr view <url> --json state`. When it is `MERGED` (someone merged it on GitHub directly), it does not repromote: it pushes nothing and opens or edits nothing on GitHub. It closes the Forgejo pull request as `close-merged-twin` does. | the same, with `"mergedOnGithub": true` and empty `answers`; every other run prints `false` |
+| `stage <github pr>` | Stages an existing GitHub pull request in Forgejo, on a Forgejo host only. Reads it with `gh pr view <url> --json number,url,title,body,state,isDraft,headRefName,baseRefName`. When it already has an open Forgejo twin, it only writes the metadata comment (rewriting an older shape in place), sets `[GH-<github number>]` on the twin's title when it does not already carry it, and stops. Otherwise it refuses, changing nothing, unless the head branch exists locally as `refs/heads/<head>`, and names `git fetch origin <head>:<head>`. It opens the twin as `pr create` does: ensures the copy, pushes the base and the head, and opens the Forgejo pull request titled `[GH-<github number>] <github title>` (`WIP: [GH-<github number>] <github title>` for a draft) and the live GitHub body with its records removed. When the push is refused by a review pre-push hook that names `AI_REVIEW_HOOK_BASE`, the refusal names `git fetch origin +refs/heads/<base>:refs/remotes/origin/<base>` and the rerun `AI_REVIEW_HOOK_BASE=origin/<base> throne forge stage <url>`. Every GitHub-hosted image and video the body embeds (`github.com/user-attachments/assets/…`, `user-images.githubusercontent.com/…`) is downloaded with `gh api <url>` (`ghe api` on GitHub Enterprise), replaced by a `<!-- drop <name> here -->` placeholder, and attached to the twin through `pr-media`'s `publish.mjs <forgejo url> --folder <downloads>`. Then it writes the metadata comment (`promotedHead` `null`) and runs `mirror-feedback` once. Writes nothing to GitHub. | `{"githubUrl","twinUrl","created"}`; `created` is `false` when the twin already existed |
+| `close-merged-twin <github or forgejo pr>` | The one operation that closes a Forgejo pull request whose GitHub twin is merged; `pr-merge` runs it right after merging a staged root, and `promote` uses it when it finds the twin merged. Takes a staged pull request by either URL; a pull request with no metadata comment is refused. Reads `gh pr view <github url> --json state` and refuses unless it is `MERGED`. Then, only when the Forgejo pull request is still open, it posts `This pull request has been merged on the GitHub side: <github url>` (`POST …/issues/{n}/comments`) and closes it (`PATCH …/pulls/{n}` with `{"state":"closed"}`), never merging it. An already closed twin gets no second comment. Writes nothing to GitHub. | `{"forgejoUrl","githubUrl","closed"}`; `closed` is `false` when it was already closed |
+| `mirror-feedback <github or forgejo pr>` | Takes a staged pull request by either URL; a Forgejo one with no metadata comment is refused. Reads the GitHub feedback with `threads.mjs`'s `dumpFeedback`, so the given pull request and its rolled-in layers are covered. It mirrors every unresolved thread, every conversation comment, every review body and each bot's latest report that the twin does not already hold, with `<!-- github-feedback: <kind> <pr> <id> -->`. A thread whose line is in the twin's diff becomes a review comment on that file and line (`POST …/pulls/{n}/reviews`, event `COMMENT`). Any other item becomes a conversation comment, and a thread's comment names its file and line. Writes nothing to GitHub. | `{"githubUrl","twinUrl","mirrored","alreadyMirrored"}` (GitHub keys) |
+| `pr feedback <pr>` | Lists the Forgejo pull request's conversation comments, review bodies and review comments (`GET …/issues/{n}/comments`, `…/pulls/{n}/reviews`, `…/reviews/{id}/comments`). A staged GitHub URL reads its twin; a GitHub pull request that was never staged is refused, because `threads.mjs` reads those. | JSON array of `{"id","kind","author","place","reviewId","resolved","url","body","githubKey","answers"}`; `kind` is `comment`, `review` or `review-comment`; `place` is `{"path","line","onOldSide"}` and `reviewId` the review holding the comment, both `null` for anything but a review comment |
+| `pr answer <pr> --comment <id> --body-file <f> [--resolve]` | Answers one item with `<!-- forgejo-answer: <id>[ resolved] -->`: a review comment as a reply in its own conversation, anything else as a conversation comment. A reply signs in to Forgejo's web as the admin (`POST /user/login` with `admin-password` from the state directory, mode 0600, keeping the last of the two `session` cookies Forgejo sets) and posts `…/{o}/{r}/pulls/{n}/files/reviews/comments` with `reply=<review id>` and the comment's file, line and side, because Forgejo 16's API only opens new reviews. Forgejo then gives the reply the first comment's commit and diff, so it joins that conversation even after a fix commit moved the head. `--resolve` on a review comment then posts `…/{o}/{r}/pulls/resolve_conversation` in the same session, because the API has no resolve route either. Then it re-reads the item and refuses if it is still open. On any other item the `resolved` in the record is the resolution. Writes nothing to GitHub. | `{"answered","resolved"}` |
+
+Exit status: 0 on success; 2 for an unknown operation, flag or missing value
+(the usage and an entrance refusal go to stderr); 1 for a refusal (Forgejo not
+answering, no token, a Forgejo API error, a failed fetch from `origin`, no
+open pull request for a branch);
+and a GitHub command's own status on the GitHub branch.
 
 ## memory-dir
 
@@ -1808,9 +2335,22 @@ because the session already saw it gets `suppressed: true` and
 predates serving times) on its decision line; it still counts toward the
 verdict.
 
-`--hook` reads `prompt`, `session_id`, `cwd` and `transcript_path` from the
+`--hook` first keeps a Stager's own checkout current
+(`src/stager-tree-refresh/`). When the tab's `THRONE_AGENT_NAME` is registered
+with role `Stager` and the payload's `cwd` lies inside that Stager's recorded
+`spawn.json` `cwd`, the checkout is compared with the local `main` branch (no
+fetch). Clean and strictly behind: `git merge --ff-only main`, and one line
+naming the commit count and new tip is printed ahead of any memories. Dirty
+(any `git status --porcelain` output, untracked files included) or diverged
+(commits of its own that `main` lacks): nothing changes, and one `WARNING:`
+line names how many commits it is behind (and, when diverged, ahead). At or
+ahead of `main`: silence. Any other session, an Alpha's or a Shadow's
+included, is never touched. This runs whether or not `recall.hookEnabled` is
+on, and a failure only writes one stderr line.
+
+`--hook` then reads `prompt`, `session_id`, `cwd` and `transcript_path` from the
 hook payload, searches only the repository of that `cwd` plus the global
-directories, prints nothing unless `recall.hookEnabled` is true, and exits 0 on
+directories, prints no memories unless `recall.hookEnabled` is true, and exits 0 on
 every error. It judges every prompt, relayed agent messages and background-task
 notifications included. `recall.hookMode` picks the arm: `serve` prints,
 `shadow` judges and records the would-be serve but prints nothing, `split`
@@ -2492,18 +3032,21 @@ parse, and `launchctl print` / `enable` / `bootstrap` / `bootout` behave as
 covers the retirement, bootstrap and idempotence branches with fakes. A mac
 has no journal: both live agents append to `~/Library/Logs/throne/`.
 
-The separate five-minute `alpha-autoscale` hosted tick also enforces the live
-Stager floor before evaluating any Alpha queue signal. While desired state is
-`running`, zero positively-known live Stagers is an immediate breach: there is
-no grace tick, cooldown, capacity hold, or autoscale kill-switch exemption
-(the env switch `THRONE_ALPHA_AUTOSCALE_ENABLED=1` is permanently armed in
-both service templates since 2026-09-02; the operator pause is
+The separate five-minute `alpha-autoscale` hosted tick touches Alphas and
+Shadows only (the env switch `THRONE_ALPHA_AUTOSCALE_ENABLED=1` is permanently
+armed in both service templates since 2026-09-02; the operator pause is
 `steering.autoscaleEnabled: false` in the live `config.user.ts`, flipped by
-the `/autoscaler` skill and re-read by the worker every tick). The
-tick uses ordinary `spawn-git-tree` and `create-agent --role Stager`, and a
-uniquely live Stager makes the effect idempotent. Unknown role/roster evidence
-or multiple live candidates fails closed. `dismissed` is the sole exemption and
-logs `STAY DOWN` without creating anything.
+the `/autoscaler` skill and re-read by the worker every tick). The live Stager
+floor belongs to the backend's every-minute `court-liveness` worker, which
+also runs once at backend start. While desired state is `running` and the
+Regent is live, zero positively-known live Stagers is an immediate breach with
+no grace tick, cooldown, capacity hold, or autoscale kill-switch exemption:
+the worker brings back the newest registered dead Stager under its own name,
+worktree and session, and only when none can be reused creates one through
+ordinary `spawn-git-tree` and `create-agent --role Stager`. A live Stager
+makes the effect idempotent. Unknown role/roster evidence or multiple live
+candidates fails closed. `dismissed` is the sole exemption and logs
+`STAY DOWN` without creating anything.
 
 ```bash
 ./bin/throne-cli alpha-autoscale-tick
@@ -2565,15 +3108,55 @@ The report has seven sections, in this order:
 5. Spawn cooldown: elapsed, or the limiter's own reason it is not.
 6. Queue: launchable rows in the order the next run would take them (objective,
    priority, Alpha name, target repository and branch, model hint, sliceless or
-   shadowless); open rows that are not launchable and why; deferred rows with
-   what they wait on and whether the next run releases them; in-flight rows with
-   their Alpha; which rows the next run would brief or recover; and the
-   repositories being changed now.
+   shadowless); open rows that are not launchable and why; deferred rows, each
+   listed as held until the Regent runs `release-deferred`, with what it waits
+   on, its defer reason, and since when it has been deferred (time and whole
+   hours); in-flight rows with their Alpha; which rows the next run would brief
+   or recover (only agentless in-flight rows are ever recovered); and the
+   repositories being changed now. A deferred row is never shown as about to
+   release or launch: the autoscaler never starts one.
 7. Next run: `would spawn <code> as <alpha>` or `would skip: <reason>`, where the
    reason is the line the sweep itself would log. It is a prediction computed by
    the sweep's own decision over the queue as the next run will see it after its
-   briefing and release steps, and pressure or the queue can change it before
+   briefing and recovery steps, and pressure or the queue can change it before
    the tick.
+
+## no-idling
+
+```bash
+./bin/throne-cli no-idling [--notify] [--local]
+```
+
+`throne-backend` runs this sweep every minute and sends its notices; run by
+hand without `--notify`, it reports and sends nothing. Besides waking idle Alpha
+families, each sweep checks every `deferred` queue row and pings the Regent
+with one `send-agent` line per reason that applies:
+
+- every objective the row waits on is done (complete, or its delivery is
+  recorded as delivered):
+  `Deferred <code> can start: <deps> are done. Run release-deferred.`
+- an objective it waits on is abandoned, or no queue row has that code:
+  `Deferred <code> waits on <dep>, which is abandoned. Release or abandon it.`
+  (`which is missing` for a code with no row);
+- the row has been deferred for more than 24 hours, whatever it waits on:
+  `Deferred <code> has been held for <n> h waiting on <deps>.`
+
+Each row and reason (and, for the second, each dependency) is pinged at most
+once an hour. The last ping time is stored in the queue database, so a backend
+restart does not reset it. Pings stop once the row is no longer deferred. An
+unreadable queue skips the check with one line on stderr.
+
+Each sweep also reports every live herdr agent row with no name (a harness
+whose pane lost its herdr agent name, so it cannot send or receive and
+`agent-statuses` shows its owner as DEAD). A pane is reported only once it has
+been seen unnamed on two consecutive sweeps for the same agent session, so the
+short window between a launch and `create-agent`'s own rename never pages
+anyone. The Regent then gets one notice per sweep listing every such pane: when
+the tab label matches a live or reaped ledger agent, the notice gives the exact
+`herdr agent rename <pane id> <owner name>`; otherwise it says the owner is
+unknown and the pane must be inspected. The notice repeats every sweep until
+the pane is named again, waits while the Regent cannot accept notices, and the
+sweep never renames anything itself.
 
 ## throne-startup
 
@@ -2609,11 +3192,12 @@ module dir (like `THRONE_ROOT`, never cwd), and lists only open
 the SessionStart hook's output is already injected into the harness's opening
 context.
 
-For a confirmed Regent only, startup reconciliation is followed by the same
-shared Stager-floor effect used by the `alpha-autoscale` hosted tick. Thus a
-running court with no live Stager heals immediately on startup through the
-normal managed-worktree/create-agent path; a live Stager is a no-op, ambiguous
-evidence refuses, and `dismissed` says `STAY DOWN`.
+The hook never raises the Stager. For a confirmed Regent it runs startup
+reconciliation and stops there; a running court with no live Stager heals
+within a minute through the backend's `court-liveness` worker, which brings
+back a registered dead Stager or creates one through the Stager floor. A live
+Stager is a no-op, ambiguous evidence refuses, and `dismissed` says
+`STAY DOWN`.
 
 ## restart-harnesses
 

@@ -86,7 +86,7 @@ function toAgentStatus(value: unknown): AgentStatus {
     : 'unknown';
 }
 
-function nativeSessionId(agentSession: unknown): string | undefined {
+export function nativeSessionId(agentSession: unknown): string | undefined {
   if (typeof agentSession !== 'object' || agentSession === null) {
     return undefined;
   }

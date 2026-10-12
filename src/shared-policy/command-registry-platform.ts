@@ -16,6 +16,7 @@ import { LocateCommand } from "../file-locate/locate.command.ts";
 import { SiftCommand } from "../log-sift/sift.command.ts";
 import { JevProbeCommand } from "../jev-probe/jev-probe.command.ts";
 import { GitIdentityCommand } from "../git-identity/git-identity.command.ts";
+import { ForgeCommand } from "../forge/forge.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "../reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
 import {
   DisableThroneCommand,
@@ -123,6 +124,14 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     description:
       "Print the git author identity from config.user.ts (`identity.name`/`identity.email`); exit 3 when unset.",
     ownHelp: true,
+  },
+  {
+    name: "forge",
+    provider: ForgeCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Work with pull requests on this host's forge: which forge, ensure-repository, push-branch, pr create/view/edit/list/diff/comment, attach, detach and render-markdown, on Forgejo when it is installed and answering, otherwise through gh; stage an existing GitHub pull request in Forgejo; pr merge only on GitHub, never in Forgejo.",
   },
   {
     name: "memory-dir",

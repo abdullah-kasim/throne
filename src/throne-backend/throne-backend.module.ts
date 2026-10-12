@@ -12,20 +12,24 @@ import { TransportRouteDispatcherHostedWorker } from "./transport-route-dispatch
 import { BlockedAgentPagingHostedWorker } from "../blocked-paging/blocked-agent-paging.hosted-worker.ts";
 import { AutoreapHostedWorker } from "../autoreap/autoreap.hosted-worker.ts";
 import { ProcwatchHostedWorker } from "../procwatch/procwatch.hosted-worker.ts";
+import { ForgejoBranchSyncHostedWorker } from "./forgejo-branch-sync.hosted-worker.ts";
+import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
 
 /**
  * The long-lived `throne-backend` server: a real bootstrapped Nest
  * application (not `nest-commander`'s one-shot `CommandFactory`), hosting
- * exactly nine in-process workers — no-idling, the SQLite queue drain, the
+ * exactly eleven in-process workers — no-idling, the SQLite queue drain, the
  * service-generation-marker refresher, the dispatcher, the blocked-agent
  * paging subscriber, the alpha-autoscale cron
  * (`AlphaAutoscaleHostedWorker`, the kill-switch-gated actor that spawns
  * pre-briefed Alphas off the CPU/memory pressure signal -- separate from and
  * with no spawn authority granted to keep-going's own tick), the claimed-agent
- * autoreap cron, and the hourly procwatch — `ProcwatchHostedWorker`, which
+ * autoreap cron, the hourly procwatch — `ProcwatchHostedWorker`, which
  * FINDS long-running high-CPU and owner-less processes and ASKS the Regent to
  * launch an Opus-level investigator for each; it never kills, never spawns,
- * and never decides killability) — behind the uniform `HostedWorker`
+ * and never decides killability), the ten-minute Forgejo branch mirror
+ * (`ForgejoBranchSyncHostedWorker`), and the every-minute court liveness
+ * check (`CourtLivenessHostedWorker`) — behind the uniform `HostedWorker`
  * registration shape.
  *
  * REBUILDING IS NO LONGER ONE OF THESE WORKERS (2026-08-26). A self-rebuild
@@ -61,6 +65,8 @@ import { ProcwatchHostedWorker } from "../procwatch/procwatch.hosted-worker.ts";
     AlphaAutoscaleHostedWorker,
     AutoreapHostedWorker,
     ProcwatchHostedWorker,
+    ForgejoBranchSyncHostedWorker,
+    CourtLivenessHostedWorker,
     {
       provide: HOSTED_WORKERS,
       inject: [
@@ -73,6 +79,8 @@ import { ProcwatchHostedWorker } from "../procwatch/procwatch.hosted-worker.ts";
         AlphaAutoscaleHostedWorker,
         AutoreapHostedWorker,
         ProcwatchHostedWorker,
+        ForgejoBranchSyncHostedWorker,
+        CourtLivenessHostedWorker,
       ],
       useFactory: (
         noIdling: NoIdlingHostedWorker,
@@ -84,6 +92,8 @@ import { ProcwatchHostedWorker } from "../procwatch/procwatch.hosted-worker.ts";
         alphaAutoscale: AlphaAutoscaleHostedWorker,
         autoreap: AutoreapHostedWorker,
         procwatch: ProcwatchHostedWorker,
+        forgejoBranchSync: ForgejoBranchSyncHostedWorker,
+        courtLiveness: CourtLivenessHostedWorker,
       ) => [
         noIdling,
         sqliteQueueDrain,
@@ -94,6 +104,8 @@ import { ProcwatchHostedWorker } from "../procwatch/procwatch.hosted-worker.ts";
         alphaAutoscale,
         autoreap,
         procwatch,
+        forgejoBranchSync,
+        courtLiveness,
       ],
     },
     HostedWorkerRegistrarService,

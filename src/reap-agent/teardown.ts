@@ -7,15 +7,15 @@ import {
   restoreBranchCleanup,
   type BranchCleanupPlan,
 } from '../git-lifecycle/branch-cleanup.ts';
-import { preflightCancelledUnmergedBranch, verifyCancelledUnmergedBranch, type CancelledUnmergedBranchPlan } from '../git-lifecycle/cancelled-branch.ts';
+import { preflightAbandonedUnmergedBranch, verifyAbandonedUnmergedBranch, type AbandonedUnmergedBranchPlan } from '../git-lifecycle/abandoned-branch.ts';
 import {
   UnmergedLifecycleBranchError,
   UnobservedMergeBranchError,
 } from '../git-lifecycle/branch-authority.ts';
 import {
-  CANCELLED_UNMERGED_TREE_BASE_BASENAME,
+  ABANDONED_UNMERGED_TREE_BASE_BASENAME,
   TREE_BASE_DATA,
-  type CancelledUnmergedTreeBaseAuthority,
+  type AbandonedUnmergedTreeBaseAuthority,
   type TreeBase,
 } from '../agentdata/tree-base-data.service.ts';
 import { recordAgentTiming } from '../agent-timings/record-agent-timing.ts';
@@ -30,7 +30,7 @@ import {
 import { reapAgentScratchDirs, removedScratchDirs, stillHeldScratchDirs } from './scratch-cleanup.ts';
 import { terminateReapedAgentProcesses } from './process-teardown.ts';
 import type {
-  CancelledDisposition,
+  AbandonedDisposition,
   ReapDeps,
   ReapRequest,
 } from './reap-agent.types.ts';
@@ -63,7 +63,7 @@ export type TeardownOutcome =
       status: 'completed';
       actions: string[];
       spawnCwd: string | undefined;
-      cancelledDisposition: CancelledDisposition | undefined;
+      abandonedDisposition: AbandonedDisposition | undefined;
     };
 
 export function branchCleanupTarget(
@@ -115,28 +115,28 @@ async function readCleanupAuthority(
   request: ReapRequest,
   deps: ReapDeps,
 ): Promise<{
-  authority: CancelledUnmergedTreeBaseAuthority | undefined;
+  authority: AbandonedUnmergedTreeBaseAuthority | undefined;
   disposition: CleanupAuthorityDisposition;
   target: BranchCleanupTarget;
 }> {
-  let authority: CancelledUnmergedTreeBaseAuthority | undefined;
-  let treeBase = request.archiveCancelledUnmerged
+  let authority: AbandonedUnmergedTreeBaseAuthority | undefined;
+  let treeBase = request.archiveAbandonedUnmerged
     ? (authority = await (
-        deps.readTreeBaseForCancelledUnmerged ??
-        TREE_BASE_DATA.readForCancelledUnmerged.bind(TREE_BASE_DATA)
+        deps.readTreeBaseForAbandonedUnmerged ??
+        TREE_BASE_DATA.readForAbandonedUnmerged.bind(TREE_BASE_DATA)
       )(request.name)).record
     : await (deps.readTreeBase ?? TREE_BASE_DATA.read.bind(TREE_BASE_DATA))(request.name);
   if (request.force && treeBase === null) {
     try {
       authority = await (
-        deps.readTreeBaseForCancelledUnmerged ??
-        TREE_BASE_DATA.readForCancelledUnmerged.bind(TREE_BASE_DATA)
+        deps.readTreeBaseForAbandonedUnmerged ??
+        TREE_BASE_DATA.readForAbandonedUnmerged.bind(TREE_BASE_DATA)
       )(request.name);
       treeBase = authority.record;
     } catch (error) {
       if (
         !errorText(error).includes(
-          'has no tree-base.json or tree-base.cancelled-unmerged.json',
+          'has no tree-base.json or tree-base.abandoned-unmerged.json',
         )
       ) {
         throw error;
@@ -149,13 +149,13 @@ async function readCleanupAuthority(
     request.name,
     treeBase,
     disposition === 'preserved'
-      ? CANCELLED_UNMERGED_TREE_BASE_BASENAME
+      ? ABANDONED_UNMERGED_TREE_BASE_BASENAME
       : 'tree-base.json',
   );
-  if (request.archiveCancelledUnmerged && target.status !== 'eligible') {
+  if (request.archiveAbandonedUnmerged && target.status !== 'eligible') {
     throw new Error(
       `data/${request.name}/tree-base.json lacks exact target-repository provenance; ` +
-        'refusing cancelled-unmerged teardown',
+        'refusing abandoned-unmerged teardown',
     );
   }
   return { authority, disposition, target };
@@ -168,7 +168,7 @@ async function resolveCleanupRepo(
   deps: ReapDeps,
 ): Promise<string | undefined> {
   const strictRecordedRepo =
-    request.archiveCancelledUnmerged || disposition === 'preserved'
+    request.archiveAbandonedUnmerged || disposition === 'preserved'
       ? undefined
       : await (deps.readTreeRepo ?? readTreeRepo)(request.name);
   if (
@@ -188,26 +188,26 @@ async function resolveCleanupRepo(
 async function preflightBranchDisposition(
   request: ReapRequest,
   target: BranchCleanupTarget,
-  authority: CancelledUnmergedTreeBaseAuthority | undefined,
+  authority: AbandonedUnmergedTreeBaseAuthority | undefined,
   disposition: CleanupAuthorityDisposition,
   deps: ReapDeps,
   contentDeliveryCommit?: string,
   allowUnadvancedBranch = false,
 ): Promise<{
   ordinary: BranchCleanupPlan | undefined;
-  cancelled: CancelledUnmergedBranchPlan | undefined;
-  authority: CancelledUnmergedTreeBaseAuthority | undefined;
+  abandoned: AbandonedUnmergedBranchPlan | undefined;
+  authority: AbandonedUnmergedTreeBaseAuthority | undefined;
 }> {
   if (
-    (request.archiveCancelledUnmerged ||
+    (request.archiveAbandonedUnmerged ||
       (request.force && disposition === 'preserved')) &&
     target.status === 'eligible'
   ) {
     return {
       ordinary: undefined,
-      cancelled: await (
-        deps.preflightCancelledUnmergedBranch ??
-        preflightCancelledUnmergedBranch
+      abandoned: await (
+        deps.preflightAbandonedUnmergedBranch ??
+        preflightAbandonedUnmergedBranch
       )(target.branch, target.repo, target.mergeTargetBranch),
       authority,
     };
@@ -226,7 +226,7 @@ async function preflightBranchDisposition(
           contentDeliveryCommit,
           allowUnadvancedBranch,
         ),
-        cancelled: undefined,
+        abandoned: undefined,
         authority: undefined,
       };
     } catch (error) {
@@ -240,18 +240,18 @@ async function preflightBranchDisposition(
             `reaping. Worktree/archive teardown continues, but investigate ` +
             `that branch before reusing this name.\n`,
         );
-        return { ordinary: undefined, cancelled: undefined, authority: undefined };
+        return { ordinary: undefined, abandoned: undefined, authority: undefined };
       }
       const authority = await (
-        deps.readTreeBaseForCancelledUnmerged ??
-        TREE_BASE_DATA.readForCancelledUnmerged.bind(TREE_BASE_DATA)
+        deps.readTreeBaseForAbandonedUnmerged ??
+        TREE_BASE_DATA.readForAbandonedUnmerged.bind(TREE_BASE_DATA)
       )(request.name);
       branchCleanupTarget(request.name, authority.record);
       return {
         ordinary: undefined,
-        cancelled: await (
-          deps.preflightCancelledUnmergedBranch ??
-          preflightCancelledUnmergedBranch
+        abandoned: await (
+          deps.preflightAbandonedUnmergedBranch ??
+          preflightAbandonedUnmergedBranch
         )(target.branch, target.repo, target.mergeTargetBranch),
         authority,
       };
@@ -264,7 +264,7 @@ async function preflightBranchDisposition(
         `teardown continues, but inspect that branch before reusing this name.\n`,
     );
   }
-  return { ordinary: undefined, cancelled: undefined, authority: undefined };
+  return { ordinary: undefined, abandoned: undefined, authority: undefined };
 }
 
 async function deleteOrdinaryBranch(
@@ -299,10 +299,10 @@ async function deleteOrdinaryBranch(
   }
 }
 
-async function preserveCancelledBranch(
+async function preserveAbandonedBranch(
   name: string,
-  plan: CancelledUnmergedBranchPlan | undefined,
-  authority: CancelledUnmergedTreeBaseAuthority | undefined,
+  plan: AbandonedUnmergedBranchPlan | undefined,
+  authority: AbandonedUnmergedTreeBaseAuthority | undefined,
   deps: ReapDeps,
   actions: string[],
 ): Promise<void> {
@@ -310,14 +310,14 @@ async function preserveCancelledBranch(
     return;
   }
   await (
-    deps.preserveTreeBaseForCancelledUnmerged ??
-    TREE_BASE_DATA.preserveForCancelledUnmerged.bind(TREE_BASE_DATA)
+    deps.preserveTreeBaseForAbandonedUnmerged ??
+    TREE_BASE_DATA.preserveForAbandonedUnmerged.bind(TREE_BASE_DATA)
   )(name, authority);
   actions.push(
-    `preserved provenance as ${CANCELLED_UNMERGED_TREE_BASE_BASENAME}`,
+    `preserved provenance as ${ABANDONED_UNMERGED_TREE_BASE_BASENAME}`,
   );
   await (
-    deps.verifyCancelledUnmergedBranch ?? verifyCancelledUnmergedBranch
+    deps.verifyAbandonedUnmergedBranch ?? verifyAbandonedUnmergedBranch
   )(plan);
 }
 
@@ -416,9 +416,9 @@ export async function executeTeardown(
     await rm(spawnCwd!, { recursive: true, force: false });
     actions.push('removed managed empty workspace');
   }
-  await preserveCancelledBranch(
+  await preserveAbandonedBranch(
     request.name,
-    plans.cancelled,
+    plans.abandoned,
     plans.authority ?? authority,
     deps,
     actions,
@@ -432,15 +432,15 @@ export async function executeTeardown(
   await recordLifecycleEffects(request, deps);
 
   const archiveResult = await deps.archiveAgentData(request.name);
-  if (plans.cancelled !== undefined && archiveResult !== 'archived') {
+  if (plans.abandoned !== undefined && archiveResult !== 'archived') {
     throw new Error(
-      `data/${request.name} vanished before cancelled-unmerged archival completed`,
+      `data/${request.name} vanished before abandoned-unmerged archival completed`,
     );
   }
   if (archiveResult === 'archived') {
     actions.push(
-      plans.cancelled !== undefined
-        ? `archived complete ledger under data/.reaped/ with ${CANCELLED_UNMERGED_TREE_BASE_BASENAME}`
+      plans.abandoned !== undefined
+        ? `archived complete ledger under data/.reaped/ with ${ABANDONED_UNMERGED_TREE_BASE_BASENAME}`
         : `archived data/${request.name} → data/.reaped/${request.name}`,
     );
   }
@@ -449,6 +449,6 @@ export async function executeTeardown(
     status: 'completed',
     actions,
     spawnCwd,
-    cancelledDisposition: plans.cancelled,
+    abandonedDisposition: plans.abandoned,
   };
 }

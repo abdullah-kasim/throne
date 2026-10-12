@@ -8,7 +8,7 @@
 # installed and running under the host's own service manager — systemd
 # --user on linux, launchd (per-user LaunchAgents) on macOS — and a Regent
 # on the throne with a Stager beside it (keep-going raises the Regent, the
-# Regent's startup hook raises the Stager, both before this script returns).
+# backend's liveness worker raises the Stager, both before this returns).
 # Both platforms are proven: linux on the court's own box, macOS on a real
 # mac (2026-09-02).
 #
@@ -93,7 +93,7 @@ if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ] ||
 fi
 ok "bash ${BASH_VERSION%%(*}"
 
-for required in node npm git curl; do
+for required in mise git curl; do
     command -v "$required" >/dev/null 2>&1 ||
         die "\`$required\` is not on PATH; install it and re-run."
 done
@@ -133,12 +133,12 @@ if ! command -v flock >/dev/null 2>&1; then
 fi
 ok "flock: $(command -v flock)"
 
-node_major=$(node -p 'process.versions.node.split(".")[0]')
-if [ "$node_major" -lt 24 ]; then
-    die "node >= 24 required (found $(node --version)); the throne relies on
-     native TypeScript type stripping and modern test-runner behaviour."
-fi
-ok "node $(node --version), npm $(npm --version)"
+. "$THRONE_ROOT/bin/pinned-node-lib.sh"
+mise trust --quiet "$THRONE_ROOT/mise.toml"
+mise install node
+pinned_node_reports_pinned_version "$THRONE_ROOT" || die "fix the pinned node error above and re-run."
+use_pinned_node "$THRONE_ROOT"
+ok "node $("$pinned_node" --version) (pinned in mise.toml), npm $(npm --version)"
 
 [ -f "$PINS_FILE" ] || die "missing $PINS_FILE — this is not a throne checkout."
 ok "pins: $(basename "$PINS_FILE")"
@@ -174,7 +174,7 @@ tool_pin_field() {
 # ntfy is the throne's self-hosted phone-push server
 # (agent_docs/ntfy-phone-notifications.md). It runs as the pinned
 # binwiederhier/ntfy image on every host, under whichever OCI runtime the box
-# has — docker or podman, detected the same way systemd/ntfy-serve detects it
+# has — docker or podman, the first one installed
 # (THRONE_CONTAINER_RUNTIME overrides). Upstream ships no macOS server binary
 # and brew's mac formula is client-only, so a container is the one shape
 # that works everywhere. Tailscale is NOT installed here: ntfy is tailnet-only
@@ -438,9 +438,9 @@ else
     # its install order by send-agent; one that was already live got
     # keep-going's ordinary nudge and needs nothing more.
     #
-    # The Stager is raised by the Regent's own SessionStart hook
-    # (throne-startup → ensureLiveStager). This step waits for that, and if
-    # the hook did not deliver, applies the same floor directly — the court
+    # The Stager is raised by throne-backend's every-minute court liveness
+    # worker once the Regent is live. This step waits for that, and if the
+    # worker did not deliver, applies the same floor directly — the court
     # must have a Stager before the installer returns.
 
     step "Regent + Stager"
@@ -550,7 +550,7 @@ else
             fi
         fi
 
-        # The Stager: wait for the Regent's startup hook to raise one.
+        # The Stager: wait for the court liveness worker to raise one.
         waited=0
         read_probe || true
         if [ "$regent_live" = "live" ]; then
@@ -573,7 +573,7 @@ else
                 dump_retained_pane "${stager_state#refuse }"
                 ;;
             *)
-                # The hook did not deliver within the wait; apply the floor here.
+                # The worker did not deliver within the wait; apply the floor here.
                 node --input-type=module -e '
                   const floor = await import("./dist/src/alpha-autoscale/stager-floor.js");
                   const decision = await floor.ensureLiveStager();
@@ -581,7 +581,7 @@ else
                 ' 2>&1 | grep -vE 'ExperimentalWarning|--trace-warnings' || true
                 read_probe || true
                 case "$stager_state" in
-                    present*) did "raised the Stager directly: ${stager_state#present } (the $regent_name's startup hook had not within ${waited}s)" ;;
+                    present*) did "raised the Stager directly: ${stager_state#present } (the court liveness worker had not within ${waited}s)" ;;
                     refuse*)  warn "Stager floor refused: ${stager_state#refuse }"
                               dump_retained_pane "${stager_state#refuse }" ;;
                     *)        warn "no live Stager after ${waited}s and a direct floor pass (state: $stager_state); inspect: node ./dist/src/tools.js agent-statuses" ;;

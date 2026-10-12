@@ -1,7 +1,7 @@
 ---
 name: pr-media
 description: Capture before and after screenshots and click videos of a UI change with agent-browser, one on the PR's base and one on its head, write an index.html contact sheet that shows each pair side by side, and publish the folder to a GitHub pull request, replacing the media the PR body already carries. Use when a PR needs screenshots, a screen recording, a GIF, or "before and after" images, when the user says "take screenshots of your changes", "record a video of pressing it", "add media to the PR", or "publish the screenshots to the PR", when the user asks to refresh, regenerate or redo the PR media or screenshots, or as `/pr-media publish <pr>`. Covers github.com and GitHub Enterprise.
-version: 2.3.0
+version: 2.4.0
 user-invocable: true
 ---
 
@@ -52,8 +52,24 @@ Set a fixed viewport so every capture has the same size:
 ```bash
 export AGENT_BROWSER_SESSION="$(agent-browser session id --scope worktree --prefix media)"
 agent-browser open <url> && agent-browser wait --load networkidle
-agent-browser set viewport 1400 900
+agent-browser set viewport 1920 1080 1
 ```
+
+Desktop captures run in a 1080p browser at 100% zoom: a 1920x1080
+viewport with no page zoom and no device scaling (the third argument is
+the device scale factor), so a full-viewport screenshot comes out
+1920x1080. Lord, 2026-10-06: "most people view in 1080p. If the layout
+is designed for 1080p there's really just no good way to scale down to
+1440x900 or something", and "basically 1080p browser, 0% zoom". A
+smaller window lays the page out bigger relative to its width, so its
+shots look zoomed in next to a real 1080p screen. Capture at another
+size only when the request asks for it.
+
+Before every desktop capture, check the viewport in the page:
+`agent-browser eval "innerWidth + 'x' + innerHeight + ' @' + devicePixelRatio"`
+must print `"1920x1080 @1"` (agent-browser quotes a string result).
+Record that output in `~/tmp/pr-media-<pr>/verify.md`. Any other output
+means the viewport is wrong: set it again before capturing.
 
 A change that a phone can reach gets a second set of captures at the
 phone viewport, iPhone 16, 393x852 (`agent-browser set viewport 393
@@ -126,7 +142,7 @@ CUR="$(cat "$THRONE_LIVE_ROOT/.claude/skills/pr-media/cursor-overlay.js")"
 GLIDE="$THRONE_LIVE_ROOT/.claude/skills/pr-media/glide.sh"
 agent-browser scrollintoview "#container"     # the recording shows the viewport as it is
 agent-browser eval "$CUR"
-agent-browser mouse move 700 450              # park at the centre so the glide starts there
+agent-browser mouse move 960 540              # park at the centre so the glide starts there
 agent-browser record start ~/tmp/pr-media-<pr>/<part>.mp4
 agent-browser wait 700
 "$GLIDE" "<css selector of the target>" 24    # eased sweep, 24 steps
@@ -251,6 +267,7 @@ All files in one folder, named for what they show, `<pr>` in the folder:
 ~/tmp/pr-media-99/
   index.html
   screenshots.md
+  verify.md
   01-cart-total-before.png
   01-cart-total-after.png
   02-coupon-field-before.png
@@ -299,8 +316,9 @@ limits gh enforces. Then, in the final message:
 ## 3. Draft the Screenshots section — locally, never on the PR
 
 Write `~/tmp/pr-media-<pr>/screenshots.md`: the whole `## Screenshots`
-section as it should read on the PR, between `## How` and `## Testing`
-(see the `pr-description` skill). The content is wrapped in the
+section as it should read on the PR, between `## How` and `## Testing`,
+ahead of the hidden `## Agents` section (see the
+`pr-description` skill). The content is wrapped in the
 collapsible spoiler `pr-description` describes as the default:
 `<details><summary>Screenshots</summary>`, a blank line, the captures,
 a blank line, `</details>`, with the `## Screenshots` heading itself
@@ -315,7 +333,7 @@ the row directly above it; singles keep one paragraph each:
 <details>
 <summary>Screenshots</summary>
 
-Desktop 1400x900, dark theme:
+Desktop 1920x1080, dark theme:
 
 <table>
 <tr><th>Before</th><th>After</th></tr>
@@ -576,6 +594,45 @@ defaults to `~/tmp/pr-media-<number>`. What the script does, in order:
 
 `--dry-run` prints the rewritten body and the exact gh command and sends
 nothing; the body on GitHub is unchanged.
+
+### On a Forgejo pull request
+
+A github.com URL always takes the GitHub steps above. For any other
+target (a GHES URL, a Forgejo URL, a bare number), publish first reads
+`publishTo` from `throne forge status <target> --json`. When it is
+`github`, everything above runs unchanged, GitHub Enterprise Server
+included. A GHES pull request staged in Forgejo is still a GitHub pull
+request, so its `publishTo` is `github`: it takes the GitHub steps above
+and its Forgejo twin is never touched. When `publishTo` is `forgejo` (a URL
+on this host's Forgejo, or a bare number that names a pull request still
+worked on in Forgejo):
+
+1. Reads the live body with `throne forge pr view <target>`, which also
+   gives the number for the default folder.
+2. Lists and refuses exactly as in step 1 above, video rule and
+   `--stills-only` included.
+3. Uploads every image and video with `throne forge attach <target>
+   --file <path>`, one call per file, through Forgejo's attachment API.
+4. Rewrites the body with the same anchor logic as step 3 above,
+   `screenshots.md` and `--replace-all` included. Each anchor holds the
+   markdown `forge attach` returns: `![<name>](<url>)` for an image and
+   `<video src="<url>" title="<name>" controls></video>` for a video,
+   which Forgejo plays inline.
+5. Writes it with `throne forge pr edit <target> --body-file <folder>/live.md`,
+   then re-reads it and verifies it as in step 5 above, where a Forgejo
+   `/attachments/` URL counts as an uploaded file.
+6. Removes from the pull request, with `throne forge detach <target>
+   --url <url>`, every attachment whose URL the old body embedded and the
+   published body no longer does, so a re-publish replaces the files
+   listed under the description instead of adding to them. Attachments
+   the body still embeds, and ones it never embedded, stay.
+
+No browser, no proxy and no gh are involved, so `--bypass` does not
+apply. `--wizard`, `--collect` and `--asset` are refused on a Forgejo
+pull request, because they exist only for hand uploads on GitHub
+Enterprise Server. `--dry-run` reads the body, uploads nothing, edits
+nothing, and prints the rewritten body and the `throne forge pr edit`
+command.
 
 **The `--bypass` rule.** In a court tab the throne's `bin/gh` guard sits
 on PATH and denies every GitHub mutation. Publishing is the one

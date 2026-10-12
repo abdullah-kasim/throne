@@ -173,6 +173,7 @@ export function harness(
       currentDirectory: () => root,
       dataDirectory,
       agentLedgerDirectory: path.join(root, 'agents'),
+      tabAgentName: undefined,
       jevDataHome,
       now: () => now,
       writeStdout: (text) => stdout.push(text),

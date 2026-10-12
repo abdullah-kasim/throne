@@ -43,8 +43,9 @@ stamp_write() { printf '%s\n' "$2" > "$STAMP_DIR/$1"; }
 
 step "Preflight"
 
-command -v node >/dev/null 2>&1 || die "\`node\` is not on PATH; run ./install.sh first."
-ok "node $(node --version)"
+. "$THRONE_ROOT/bin/pinned-node-lib.sh"
+use_pinned_node "$THRONE_ROOT" || die "the node pinned in mise.toml is not installed; run ./install.sh first."
+ok "node $("$pinned_node" --version) (pinned in mise.toml)"
 
 container_runtime() {
     local candidate
@@ -93,7 +94,7 @@ fi
 
 step "install-services (throne-bot-herdr.service, throne-bot-bridge@.service, conduwuit units)"
 
-node ./dist/src/tools.js install-services
+"$pinned_node" ./dist/src/tools.js install-services
 
 step "throne-bot herdr session"
 

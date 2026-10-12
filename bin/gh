@@ -91,19 +91,205 @@ if text_carries_ai_attribution "$fenced_text"; then
 fi
 set -- "${fenced_args[@]}"
 
+json_string_or_null() {
+    local value backslash='\' quote='"'
+    value=$(printf '%s' "$1" | tr -d '\000-\037')
+    if [ -z "$value" ]; then
+        printf null
+        return
+    fi
+    value=${value//"$backslash"/"$backslash$backslash"}
+    value=${value//"$quote"/"$backslash$quote"}
+    printf '"%s"' "$value"
+}
+
+flag_takes_content() {
+    case "$1" in
+        --body|-b|--body-file|--title|-t|--subject|--message|-m|--notes|-n|--notes-file|--field|-f|--raw-field|-F|--input|--header|-H|--jq|-q|--template) return 0 ;;
+    esac
+    return 1
+}
+
+subcommand_with_flag_names() {
+    local words=$1 argument flag_name skip_next=false
+    shift
+    if [ "$words" != api ] && [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+        words="$words $1"
+        shift
+    fi
+    for argument in "$@"; do
+        if [ "$skip_next" = true ]; then
+            skip_next=false
+            continue
+        fi
+        case "$argument" in
+            --) break ;;
+            --[A-Za-z]*) flag_name=${argument%%=*} ;;
+            -[A-Za-z]*) flag_name=${argument:0:2} ;;
+            *) continue ;;
+        esac
+        case "${flag_name#--}" in *[!A-Za-z0-9-]*) continue ;; esac
+        words="$words $flag_name"
+        if [ "$flag_name" = "$argument" ] && flag_takes_content "$flag_name"; then
+            skip_next=true
+        fi
+    done
+    printf '%s' "$words"
+}
+
+remember_pull_request_number() {
+    local kind=$1 number=${2%%[#?]*}
+    case "$kind" in pull|pulls|issues) ;; *) return 0 ;; esac
+    case "$number" in ''|*[!0-9]*) return 0 ;; esac
+    [ -n "$target_pull_request" ] || target_pull_request=$((10#$number))
+}
+
+remember_repository_reference() {
+    local reference=${1#*://} segments host
+    IFS=/ read -r -a segments <<<"$reference"
+    case "${#segments[@]}" in
+        0|1) return 0 ;;
+        2)
+            [ -n "$target_repo" ] || target_repo="${segments[0]}/${segments[1]%.git}"
+            ;;
+        *)
+            host=${segments[0]##*@}
+            [ -n "$target_host" ] || target_host=${host%%:*}
+            [ -n "$target_repo" ] || target_repo="${segments[1]}/${segments[2]%.git}"
+            remember_pull_request_number "${segments[3]:-}" "${segments[4]:-}"
+            ;;
+    esac
+}
+
+remember_api_url_host() {
+    local address=${1#*://}
+    [ -n "$target_host" ] || target_host=${address%%/*}
+}
+
+remember_api_endpoint() {
+    local argument endpoint segments
+    for argument in "$@"; do
+        case "$argument" in
+            http://*/repos/*/*|https://*/repos/*/*)
+                remember_api_url_host "$argument"
+                argument=repos/${argument#*/repos/}
+                ;;
+        esac
+        case "$argument" in
+            repos/*/*|/repos/*/*)
+                endpoint=${argument#/}
+                IFS=/ read -r -a segments <<<"${endpoint%%[?]*}"
+                [ -n "$target_repo" ] || target_repo="${segments[1]}/${segments[2]}"
+                remember_pull_request_number "${segments[3]:-}" "${segments[4]:-}"
+                return 0
+                ;;
+        esac
+    done
+}
+
+remember_target_argument() {
+    local command_name=$1 target=$2
+    case "$target" in
+        *://*) remember_repository_reference "$target" ;;
+        *)
+            [ "$command_name" = pr ] || return 0
+            target=${target#\#}
+            case "$target" in ''|*[!0-9]*) ;; *) target_pull_request=$((10#$target)) ;; esac
+            ;;
+    esac
+}
+
+remember_origin_remote() {
+    local remote slash=/
+    remote=$(git config --get remote.origin.url 2>/dev/null) || return 0
+    case "$remote" in
+        *://*) ;;
+        *:*) remote=${remote/:/$slash} ;;
+    esac
+    remember_repository_reference "$remote"
+}
+
+gh_default_host=github.com
+
+host_pinned_by_real_binary() {
+    local assignment
+    assignment=$(grep -IEo -m1 "GH_HOST=[\"']?[A-Za-z0-9.-]+" -- "$real_gh" 2>/dev/null | head -1) || return 0
+    assignment=${assignment#GH_HOST=}
+    printf '%s' "${assignment#[\"\']}"
+}
+
+derive_github_target() {
+    local command_name=${1:-} previous="" argument hostname=""
+    target_host="" target_repo="" target_pull_request=""
+    for argument in "$@"; do
+        case "$previous" in
+            -R|--repo) remember_repository_reference "$argument" ;;
+            --hostname) hostname=$argument ;;
+        esac
+        case "$argument" in
+            --repo=*) remember_repository_reference "${argument#--repo=}" ;;
+            -R?*) remember_repository_reference "${argument#-R}" ;;
+            --hostname=*) hostname=${argument#--hostname=} ;;
+        esac
+        previous=$argument
+    done
+    if [ "$command_name" = api ]; then
+        remember_api_endpoint "${@:2}"
+    elif [ $# -ge 3 ]; then
+        remember_target_argument "$command_name" "$3"
+    fi
+    [ -n "$target_host" ] || target_host=$hostname
+    [ -n "$target_host" ] || target_host=${GH_HOST:-}
+    [ -n "$target_host" ] || target_host=$(host_pinned_by_real_binary)
+    [ -n "$target_host" ] && [ -n "$target_repo" ] || remember_origin_remote
+    [ -n "$target_host" ] || [ "$guarded_command" != gh ] || target_host=$gh_default_host
+}
+
+github_action_json_line() {
+    local exit_code=$1
+    shift
+    derive_github_target "$@"
+    printf '{"timestamp":"%s","agent":%s,"host":%s,"repo":%s,"subcommand":%s,"pr":%s,"exit_code":%s}' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        "$(json_string_or_null "${THRONE_AGENT_NAME:-}")" \
+        "$(json_string_or_null "$target_host")" \
+        "$(json_string_or_null "$target_repo")" \
+        "$(json_string_or_null "$(subcommand_with_flag_names "$@")")" \
+        "${target_pull_request:-null}" \
+        "$exit_code"
+}
+
+github_action_log_file() {
+    local data_home=${THRONE_DATA_HOME:-$HOME/.throne}
+    case "$data_home" in
+        /*) printf '%s/data/github-actions.jsonl' "$data_home" ;;
+        *) return 1 ;;
+    esac
+}
+
+record_github_action() {
+    local log_file line
+    log_file=$(github_action_log_file) &&
+        line=$(github_action_json_line "$@") &&
+        { mkdir -p "${log_file%/*}" && printf '%s\n' "$line" >>"$log_file"; } 2>/dev/null ||
+        echo "throne gh guard: the GitHub action log could not be written: ${log_file:-THRONE_DATA_HOME is not an absolute path}" >&2
+}
+
+bypass_source=none
 if [ "${THRONE_GH_GUARD_WAIVED:-}" = 1 ]; then
+    bypass_source=outer_guard
     echo "throne gh guard: BYPASSED by an outer guard's --bypass: $guarded_command $*" >&2
-    exec "$real_gh" "$@"
 fi
 
 # An explicit `--bypass` as the FIRST argument waives the guard for this one
 # invocation and is stripped before the real binary sees it. Position matters:
 # scanning the whole argv would let the literal string "--bypass" inside a PR
 # body, issue title or --jq expression silently unlock a mutation.
-if [ "${1:-}" = "--bypass" ]; then
+if [ "$bypass_source" = none ] && [ "${1:-}" = "--bypass" ]; then
     shift
+    bypass_source=explicit
     echo "throne gh guard: BYPASSED by explicit --bypass: $guarded_command $*" >&2
-    THRONE_GH_GUARD_WAIVED=1 exec "$real_gh" "$@"
+    export THRONE_GH_GUARD_WAIVED=1
 fi
 
 command_name=${1:-help}
@@ -141,7 +327,7 @@ case "$command_name" in
             esac
             api_i=$((api_i + 1))
         done
-        case "${api_method^^}" in
+        case "$(printf '%s' "$api_method" | tr '[:lower:]' '[:upper:]')" in
             GET|HEAD) allowed=true ;;
         esac
         ;;
@@ -180,10 +366,21 @@ case "$command_name" in
         ;;
 esac
 
-if [ "$allowed" != true ]; then
+if [ "$allowed" = true ]; then
+    exec "$real_gh" "$@"
+fi
+
+if [ "$bypass_source" = none ]; then
     echo "throne gh guard: denied GitHub mutation or unclassified command: $guarded_command $*" >&2
     echo "throne agents may inspect GitHub but may not mutate external GitHub state" >&2
     exit 64
 fi
 
-exec "$real_gh" "$@"
+if [ "${THRONE_GH_OUTER_GUARD_LOGS:-}" = 1 ]; then
+    exec "$real_gh" "$@"
+fi
+
+mutation_exit_code=0
+THRONE_GH_OUTER_GUARD_LOGS=1 "$real_gh" "$@" || mutation_exit_code=$?
+record_github_action "$mutation_exit_code" "$@" || true
+exit "$mutation_exit_code"

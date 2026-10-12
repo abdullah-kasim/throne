@@ -5,8 +5,10 @@ import {
   resolveHerdrReadOnlyInvocationForSession,
   DuplicateAgentNameAcrossSessionsError,
   THRONE_HERDR_SESSION_NAMES,
+  listAgentsReadingStoppedSessionAsEmpty,
   type HerdrReadOnlyClientDependencies,
 } from '../herdr/herdr-client.ts';
+import { nativeSessionId } from '../herdr/herdr-inventory.service.ts';
 
 export const AGENT_STATUSES = [
   'idle',
@@ -28,6 +30,7 @@ export interface LiveAgentStatus {
   readonly tabId: string;
   readonly tabLabel?: string;
   readonly terminalId: string;
+  readonly agentSessionId?: string;
 }
 
 function toAgentStatus(value: unknown): AgentStatus {
@@ -44,6 +47,7 @@ function toLiveAgentStatus(raw: unknown): LiveAgentStatus | null {
   if (typeof row.agent !== 'string' || typeof row.terminal_id !== 'string') {
     return null;
   }
+  const agentSessionId = nativeSessionId(row.agent_session);
   return {
     agent: row.agent,
     name: typeof row.name === 'string' ? row.name : undefined,
@@ -54,6 +58,7 @@ function toLiveAgentStatus(raw: unknown): LiveAgentStatus | null {
     tabId: typeof row.tab_id === 'string' ? row.tab_id : '',
     ...(typeof row.tab_label === 'string' ? { tabLabel: row.tab_label } : {}),
     terminalId: row.terminal_id,
+    ...(agentSessionId === undefined ? {} : { agentSessionId }),
   };
 }
 
@@ -122,7 +127,10 @@ export async function listLiveAgentStatusesAcrossSessions(
   const bySession = await Promise.all(
     sessionNames.map(async (sessionName) => ({
       sessionName,
-      agents: await listAgentsInSession(sessionName),
+      agents: await listAgentsReadingStoppedSessionAsEmpty(
+        sessionName,
+        listAgentsInSession,
+      ),
     })),
   );
   const sessionOwningName = new Map<string, string>();

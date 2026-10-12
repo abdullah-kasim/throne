@@ -10,9 +10,17 @@ What `throne-startup` does when it works: the SessionStart hook in
 or `~/bin/throne-cli`, planted by `install-services`), which resolves its own
 herdr pane, no-ops outside the throne root, renames an unnamed pane to
 `Regent` only if no Regent exists, banners the Regent desired-state
-(`RUNNING`|`DISMISSED`), prints the QUEUE digest, ensures the heartbeat, and
-raises the Stager floor. It always exits 0 — so a broken startup is SILENT
-unless you look. This skill is the looking.
+(`RUNNING`|`DISMISSED`), prints the QUEUE digest, and ensures the heartbeat.
+It always exits 0 — so a broken startup is SILENT unless you look. This skill
+is the looking.
+
+The hook does not raise the court. throne-backend's `court-liveness` worker
+does, once when the backend starts and every minute after: a missing Regent
+becomes a `regent-resurrection` item on the durable queue; once the Regent is
+live, a missing Stager is brought back from the newest registered dead Stager
+(same name, worktree and session), or created through the Stager floor when
+none can be reused. A `dismissed` desired-state keeps the court down, and
+three failed checks in a row notify the Lord once.
 
 Run every step from your own cwd with the `throne` on PATH; never `cd` into
 the live root to reach the CLI.
@@ -24,9 +32,10 @@ Do these in order, in your own session, before any diagnosis:
 1. Read `AGENTS.md`.
 2. `npm start -- consume-fence-handoff-on-start`
 3. `throne render-queue`
-4. `throne agent-statuses` — confirm a live Stager. Your SessionStart hook
-   raises one; if none is live after a minute, go to the `stager-floor` row
-   of the table in step 2 below, then re-run `throne-cli throne-startup`.
+4. `throne agent-statuses` — confirm a live Stager. The backend's
+   `court-liveness` worker raises one within a minute of your going live; if
+   none is live after two minutes, go to the `stager-floor` row of the table
+   in step 2 below.
 5. Reconcile any in-flight campaign from durable ledger state (not process
    presence), then dispatch the next dependency-eligible queued objective.
 6. Report outcomes to the Lord. Never put questions to him.
@@ -52,9 +61,9 @@ NULL there is not "fine".
 
 | symptom | cause | remedy |
 |---|---|---|
-| No Regent for up to 30 min after a reboot | `keep-going` only ENQUEUES a `regent-resurrection` item; throne-backend's `sqlite-queue-drain` spawns it, and the backend's own `keep-going` cron is `*/30` with no run-on-start | `throne keep-going` (honours `dismissed`). Do NOT use `summon-regent` for anything automatic: it overwrites desired-state to `running`. |
+| No Regent a few minutes after a reboot | the backend's `court-liveness` worker only ENQUEUES a `regent-resurrection` item, at start and every minute; throne-backend's `sqlite-queue-drain` spawns it. Either the backend is not running, desired-state is `dismissed`, or the check itself is failing (it logs each failure and notifies the Lord after three in a row) | read the throne-backend log for `court-liveness`, then `throne keep-going` (honours `dismissed`). Do NOT use `summon-regent` for anything automatic: it overwrites desired-state to `running`. |
 | Hook "timed out" on the first spawn in a worktree | the hook pointed at `${CLAUDE_PROJECT_DIR}/bin/throne-cli`, whose shim lazily `npm install`s + builds on first use and blows the 10 s hook timeout | the tracked `.claude/settings.json` must exec the installed global CLI first; if a worktree's copy differs, that worktree is stale — rebase it. |
-| `a branch named 'stager-floor' already exists`, `~/.throne/data/stager-floor/` empty | the hook died mid Stager-floor spawn and stranded a clean worktree + branch + empty ledger dir; `spawn-git-tree` has no reuse path | `git -C <live-root> worktree remove ~/.throne/worktrees/throne/stager-floor && git -C <live-root> branch -d stager-floor && rmdir ~/.throne/data/stager-floor`, then `throne-cli throne-startup` by hand — it is idempotent. Confirm the ledger dir has no `identity.md` before removing it; one that does is a live agent, not debris. |
+| `a branch named 'stager-floor' already exists`, `~/.throne/data/stager-floor/` empty | a Stager-floor spawn died midway and stranded a clean worktree + branch + empty ledger dir; `spawn-git-tree` has no reuse path | `git -C <live-root> worktree remove ~/.throne/worktrees/throne/stager-floor && git -C <live-root> branch -d stager-floor && rmdir ~/.throne/data/stager-floor`; the next `court-liveness` tick raises the Stager within a minute. Confirm the ledger dir has no `identity.md` before removing it; one that does is a live agent, not debris. |
 | Every pane write fails `spawn flock ENOENT` (macOS) | stock macOS ships no `flock`; the recipient-pane mutex spawns it | `brew install flock` (discoteq, arg-compatible). `install.sh` does this now; a machine installed before 2026-09-02 may not have it. |
 | Deliveries wait the full 15-min lane bound on the mac | herdr `pane process-info` reports claude's MCP child as `{name:"node", argv0:"mcp-context-work"}` with no argv — the old parser rejected the whole pane | fixed in the parser (`e546976`); if it recurs on a newer herdr, capture `herdr --session throne pane process-info <pane>` as evidence before touching the parser. |
 | "DEGRADED COURT" on every enqueue; even `regent-resurrection` starves | one delivery yielding on a resident human draft re-dued every second while the drain claimed oldest-first and only heart-beat on idle ticks | fixed in `e546976` (heartbeat every tick, non-message kinds every tick, never-scheduled first). If the banner shows anyway, find the yielding item in `work_items` and check whose pane holds an unsent draft. |

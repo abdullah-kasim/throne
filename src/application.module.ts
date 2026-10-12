@@ -10,6 +10,7 @@ import { McqCommand } from "./pane-prompts/mcq.command.ts";
 import { SendAgentLegacyCommand } from "./send-agent-legacy/send-agent-legacy.command.ts";
 import { MessageStatusCommand } from "./message-status/message-status.command.ts";
 import { CancelMessageCommand } from "./cancel-message/cancel-message.command.ts";
+import { ReadMessageCommand } from "./read-message/read-message.command.ts";
 import { DeliveryFailuresCommand } from "./delivery-failures/delivery-failures.command.ts";
 import { ThroneBackendCommand } from "./throne-backend/throne-backend.command.ts";
 import { QueueHealthCommand } from "./throne-work/queue-health.command.ts";
@@ -49,6 +50,7 @@ import { VerifyDeliveryCommand } from "./verify-delivery/verify-delivery.command
 import { ValidateDeliveryCommand } from "./validate-delivery/validate-delivery.command.ts";
 import { CheckMainIntegrityCommand } from "./check-main-integrity/check-main-integrity.command.ts";
 import { TrimQueueCommand } from "./trim-queue/trim-queue.command.ts";
+import { PushWaiverCommand } from "./push-waiver/push-waiver.command.ts";
 import { RegentQueueMigrateCommand } from "./regent-queue/regent-queue-migrate.command.ts";
 import { AddToQueueCommand } from "./add-to-queue/add-to-queue.command.ts";
 import { ThroneBotSayCommand } from "./throne-bot/throne-bot-say.command.ts";
@@ -58,12 +60,14 @@ import { ThroneBotListBotsCommand } from "./throne-bot/throne-bot-list-bots.comm
 import { ThroneBotLintObjectiveCommand } from "./throne-bot/throne-bot-lint-objective.command.ts";
 import { UpdateQueueCommand } from "./update-queue/update-queue.command.ts";
 import { AmendmentCommand } from "./amendment/amendment.command.ts";
+import { ReleaseDeferredCommand } from "./release-deferred/release-deferred.command.ts";
 import { CheckQueueAmendmentsReconciledCommand } from "./amendment/check-reconciled.command.ts";
 import { SituationBriefCommand } from "./situation-brief/situation-brief.command.ts";
 import { MarkQueueLaunchEligibleCommand } from "./mark-queue-launch-eligible/mark-queue-launch-eligible.command.ts";
 import { ReconcileQueueCommand } from "./reconcile-queue/reconcile-queue.command.ts";
 import { StageLaunchBriefCommand } from "./stage-launch-brief/stage-launch-brief.command.ts";
 import { RegentQueueRenderCommand } from "./regent-queue/regent-queue-render.command.ts";
+import { WorkLogCommand } from "./work-log/work-log.command.ts";
 import { InstallServicesCommand } from "./install-services/install-services.command.ts";
 import { EnsureHarnessSetupCommand } from "./ensure-harness-setup/ensure-harness-setup.command.ts";
 import { AttachThroneHerdrCommand } from "./attach-throne-herdr/attach-throne-herdr.command.ts";
@@ -89,6 +93,7 @@ import { LocateCommand } from "./file-locate/locate.command.ts";
 import { SiftCommand } from "./log-sift/sift.command.ts";
 import { JevProbeCommand } from "./jev-probe/jev-probe.command.ts";
 import { GitIdentityCommand } from "./git-identity/git-identity.command.ts";
+import { ForgeCommand } from "./forge/forge.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "./reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
 import {
   CodexUsageDependenciesService,
@@ -223,6 +228,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
       provide: CancelMessageCommand,
       useFactory: () => new CancelMessageCommand(),
     },
+    ReadMessageCommand,
     {
       provide: DeliveryFailuresCommand,
       useFactory: () => new DeliveryFailuresCommand(),
@@ -289,6 +295,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     ValidateDeliveryCommand,
     CheckMainIntegrityCommand,
     TrimQueueCommand,
+    PushWaiverCommand,
     RegentQueueMigrateCommand,
     AddToQueueCommand,
     ThroneBotSayCommand,
@@ -298,12 +305,14 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     ThroneBotLintObjectiveCommand,
     UpdateQueueCommand,
     AmendmentCommand,
+    ReleaseDeferredCommand,
     CheckQueueAmendmentsReconciledCommand,
     SituationBriefCommand,
     MarkQueueLaunchEligibleCommand,
     ReconcileQueueCommand,
     StageLaunchBriefCommand,
     RegentQueueRenderCommand,
+    WorkLogCommand,
     InstallServicesCommand,
     EnsureHarnessSetupCommand,
     AttachThroneHerdrCommand,
@@ -339,6 +348,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     SiftCommand,
     JevProbeCommand,
     GitIdentityCommand,
+    ForgeCommand,
     ReclaimAgentScratchpadsCommand,
     SwitchPersonaCommand,
     DisableThroneCommand,

@@ -1,3 +1,8 @@
+import {
+  DELIVERY_RECEIPT_CHECK_WORK_ITEM_KIND,
+  checkDeliveryReceipt,
+  type DeliveryReceiptCheckDeps,
+} from "../delivery-receipt/delivery-receipt-check.ts";
 import { MESSAGE_DELIVERY_WORK_ITEM_KIND } from "../send-agent/message-delivery-enqueue.ts";
 import {
   MessageQueueWorkItemState,
@@ -43,6 +48,7 @@ export const ORPHANED_IN_FLIGHT_AFTER_RESTART_REASON =
 export interface ThroneWorkHandlerDeps {
   messageDelivery?: MessageDeliveryHandlerDeps;
   regentResurrection?: RegentResurrectionHandlerDeps;
+  deliveryReceiptCheck?: DeliveryReceiptCheckDeps;
 }
 
 /**
@@ -63,6 +69,10 @@ const WORK_KIND_HANDLERS: ReadonlyMap<
   [
     REGENT_RESURRECTION_WORK_ITEM_KIND,
     (store, item, deps) => resurrectRegentWorkItem(store, item, deps.regentResurrection),
+  ],
+  [
+    DELIVERY_RECEIPT_CHECK_WORK_ITEM_KIND,
+    (store, item, deps) => checkDeliveryReceipt(store, item, deps.deliveryReceiptCheck),
   ],
 ]);
 

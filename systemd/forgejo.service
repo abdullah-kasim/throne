@@ -1,0 +1,26 @@
+[Unit]
+Description=Forgejo forge on the Tailscale network
+Documentation=https://forgejo.org/docs/latest/
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=%h
+Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+Environment=FORGEJO_NODE_BIN={{NODE_BIN}}
+ExecStart={{THRONE_ROOT}}/systemd/forgejo-serve
+StateDirectory=forgejo
+StateDirectoryMode=0700
+UMask=0077
+TimeoutStartSec=70
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forgejo
+
+[Install]
+WantedBy=default.target

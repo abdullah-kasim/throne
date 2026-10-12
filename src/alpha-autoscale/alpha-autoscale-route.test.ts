@@ -23,11 +23,7 @@ const STUB_DEPENDENCIES: AlphaAutoscaleDependencies = {
     resolveAgent: async () => ({ paneId: "test-pane" }) as never,
     submitToAgent: async () => {},
   },
-  promoteDeferredWork: () => ({
-    released: [],
-    recovered: null,
-    overriddenAuthority: null,
-  }),
+  recoverIdleWork: () => ({ recovered: null }),
   notifyOfIdleRecovery: async () => {},
   readPressure: () => ({ verdict: "take-more-work", pressure: 0, reasons: [] }),
   // "positively-empty" is a guaranteed, side-effect-free `skip` regardless of

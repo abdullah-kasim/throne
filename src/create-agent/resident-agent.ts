@@ -22,10 +22,7 @@ import {
   prepareCodexLaunchTrust,
   verifyCodexLaunchTrust,
 } from "./codex-launch-trust.ts";
-import {
-  deliverAgentOpeningPrompt,
-  type OpeningPromptReceiptOutcome,
-} from "./opening-prompt.ts";
+import { deliverAgentOpeningPrompt } from "./opening-prompt.ts";
 import {
   resolveMemoryDir,
   type MemoryResolution,
@@ -164,7 +161,6 @@ function reportResidentAgent(
   request: PolicyResolution,
   deps: CreateAgentDeps,
   taskingOutcome: SpawnTaskingOutcome,
-  receipt: OpeningPromptReceiptOutcome,
 ): void {
   const routed =
     request.routingNote === "" ? "" : ` — routed: ${request.routingNote}`;
@@ -190,7 +186,7 @@ function reportResidentAgent(
       `[${request.launchModel} / effort ${request.launchEffort}] ` +
       `— supervisor ${supervisor}, escalation ${escalation}${routed}${policy}.\n`,
   );
-  write(`Spawn tasking: ${taskingOutcome}. Opening prompt receipt: ${receipt}.\n`);
+  write(`Spawn tasking: ${taskingOutcome}.\n`);
 }
 
 export async function runResidentAgent(
@@ -240,6 +236,6 @@ export async function runResidentAgent(
   if (!delivery.delivered) {
     return 1;
   }
-  reportResidentAgent(request, deps, delivery.outcome, delivery.receipt);
+  reportResidentAgent(request, deps, delivery.outcome);
   return 0;
 }

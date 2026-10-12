@@ -43,14 +43,16 @@ async function runOwnedKeyedWindow(
   key: string,
   store: KeyedSubmissionWindowStore,
   deps: SubmitToAgentDeps,
-): Promise<void> {
+): Promise<string | undefined> {
+  let typedText: string | undefined;
   try {
-    await submitToAgentUnkeyed(agent, '', '', {}, deps, { name, key, store });
+    typedText = await submitToAgentUnkeyed(agent, '', '', {}, deps, { name, key, store });
   } catch (error) {
     await store.publishOutcome(name, key, classifySubmitError(error));
     throw error;
   }
   await store.publishOutcome(name, key, { status: 'fulfilled' });
+  return typedText;
 }
 
 /**
@@ -66,18 +68,17 @@ async function joinKeyedWindow(
   key: string,
   store: KeyedSubmissionWindowStore,
   deps: SubmitToAgentDeps,
-): Promise<void> {
+): Promise<string | undefined> {
   const deadline = deps.now() + RESIDENT_COMPOSER_TIMEOUT_MS;
   while (true) {
     const snapshot = await store.reread(name, key);
     if (snapshot?.outcome !== undefined) {
       applyKeyedOutcome(name, snapshot.outcome);
-      return;
+      return undefined;
     }
     if (await store.attemptIsAbandoned(name, key)) {
       if (await store.takeOverAttempt(name, key)) {
-        await runOwnedKeyedWindow(agent, name, key, store, deps);
-        return;
+        return runOwnedKeyedWindow(agent, name, key, store, deps);
       }
       continue;
     }
@@ -98,7 +99,7 @@ export async function submitToAgentKeyed(
   prompt: string,
   options: SubmitToAgentOptions,
   deps: SubmitToAgentDeps,
-): Promise<void> {
+): Promise<string | undefined> {
   const name = recipientName(agent);
   const key = options.key!;
   const store = deps.keyedSubmissionWindowStore ?? REAL_KEYED_SUBMISSION_WINDOW_STORE;
@@ -110,8 +111,7 @@ export async function submitToAgentKeyed(
     deps.now(),
   );
   if (claim.owner) {
-    await runOwnedKeyedWindow(agent, name, key, store, deps);
-    return;
+    return runOwnedKeyedWindow(agent, name, key, store, deps);
   }
-  await joinKeyedWindow(agent, name, key, store, deps);
+  return joinKeyedWindow(agent, name, key, store, deps);
 }

@@ -4,8 +4,8 @@
 # (launchd/com.throne.ntfy.plist) on macOS; both platforms use this one file.
 #
 # The server is the pinned binwiederhier/ntfy image (vendor-pins.json
-# tools.ntfy.image, pulled by ./install.sh) run under whichever OCI runtime
-# the host has — docker or podman, THRONE_CONTAINER_RUNTIME to force one.
+# tools.ntfy.image, pulled by ./install.sh) run under an OCI runtime that is
+# reachable — docker or podman, THRONE_CONTAINER_RUNTIME to force one.
 # Tailscale is the one thing nothing installs for you: without it there is
 # no tailnet address to bind to, and the wait below times out and exits
 # non-zero so the service manager retries (the deliberate boot-race guard,
@@ -30,19 +30,7 @@ for required_command in date grep sleep; do
     fi
 done
 
-# The container runtime: docker and podman share the CLI surface used here
-# (info, rm -f, run --rm --name -p -v). THRONE_CONTAINER_RUNTIME forces one.
-runtime=""
-for candidate in ${THRONE_CONTAINER_RUNTIME:-} docker podman; do
-    if command -v "$candidate" >/dev/null 2>&1; then
-        runtime=$candidate
-        break
-    fi
-done
-if [ -z "$runtime" ]; then
-    echo "ntfy-serve: no container runtime found (looked for docker, podman); run ./install.sh" >&2
-    exit 1
-fi
+runtime=$("$(dirname "$0")/container-runtime-ensure")
 
 # The image tag is the pin ./install.sh pulled, read from the pins file in
 # this script's own throne checkout.
@@ -109,18 +97,12 @@ while :; do
                 cache_dir="${XDG_STATE_HOME:-$HOME/.local/state}/ntfy"
                 mkdir -p "$cache_dir"
                 chmod 0700 "$cache_dir"
-                # The runtime may still be starting at login (Docker
-                # Desktop, a podman machine), so a failure here exits
-                # non-zero and the service manager retries. The container
+                # The container
                 # binds ONLY to the tailnet address on the host — the same
                 # containment boundary the old binary had — listens on its
                 # own :80 inside, and is attached in the foreground so a
                 # stop of this process stops it; a stale container from an
                 # unclean stop is removed first.
-                if ! "$runtime" info >/dev/null 2>&1; then
-                    echo "ntfy-serve: $runtime is not reachable yet" >&2
-                    exit 1
-                fi
                 "$runtime" rm -f throne-ntfy >/dev/null 2>&1 || true
                 exec "$runtime" run --rm --name throne-ntfy \
                     -p "${tailnet_ip}:8410:80" \

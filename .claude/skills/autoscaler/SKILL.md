@@ -17,9 +17,11 @@ made repeatable and verified.
 What "paused" means: every alpha-autoscale tick (cron every 5 minutes, and
 the manual `throne alpha-autoscale-tick`) logs
 `skip: autoscaler disabled in config.user.ts (steering.autoscaleEnabled: false) ...`
-and returns BEFORE auto-brief, deferral promotion, or any queue read — no
-Alpha is born, no queue row is touched, and no floor-breach page is sent
-(the breach is the operator's deliberate state). Everything else keeps
+and returns BEFORE auto-brief, idle recovery of agentless in-flight rows, or
+any queue read — no Alpha is born, no queue row is touched, and no
+floor-breach page is sent (the breach is the operator's deliberate state).
+Running or paused, the autoscaler never releases or launches a `deferred`
+row: only the Regent's `throne release-deferred` starts one. Everything else keeps
 running: keep-going, no-idling, autoreap, dispatch, the Regent and live
 agents. Paused means "the throne takes on no new campaigns", not "the court
 is dead".
@@ -33,8 +35,8 @@ restart in either direction.
 1. Read `~/.throne/data/<your-name>/identity.md`. The `Role:` line must be
    `Stager`. Any other role REFUSES loudly and relays the request to a live
    Stager (`throne send-agent <stager> ...`). The Stager is the one role that
-   works against the live main checkout, where the one `config.user.ts` that
-   the backend reads lives.
+   edits the live throne root's `config.user.ts`, the one copy the backend
+   reads; its own tree's copy is not that file.
 2. Resolve the live throne root with the same throne-context guard the todo
    skills use. Outside the live throne, refuse.
 

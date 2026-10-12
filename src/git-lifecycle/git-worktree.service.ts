@@ -59,7 +59,9 @@ export function treeNameFromPath(
 
 export interface Worktree {
   path: string;
+  head?: string;
   branch?: string;
+  detached?: boolean;
 }
 
 export function parseWorktreeList(porcelain: string): Worktree[] {
@@ -69,6 +71,10 @@ export function parseWorktreeList(porcelain: string): Worktree[] {
     if (line.startsWith('worktree ')) {
       current = { path: line.slice('worktree '.length).trim() };
       worktrees.push(current);
+    } else if (line.startsWith('HEAD ') && current) {
+      current.head = line.slice('HEAD '.length).trim();
+    } else if (line === 'detached' && current) {
+      current.detached = true;
     } else if (line.startsWith('branch ') && current) {
       const ref = line.slice('branch '.length).trim();
       current.branch = ref.replace(/^refs\/heads\//, '');

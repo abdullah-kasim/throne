@@ -65,6 +65,39 @@ as traps, slice boundaries are independently executable.
 Cite relevant memory files by name (agent-docs memories, known traps) so the
 Alpha inherits the scar tissue (checklist item 3).
 
+#### When the objective has a ticket, add a `TICKET:` block
+
+The five markers carry your reading of the ticket. A ticket-driven body also
+carries the ticket's own words, so the work is later checked against the
+ticket and not only against your reading of it.
+
+- **Read the ticket fresh, now.** Use the Linear MCP (`get_issue`, then
+  `list_comments`), or `ghe issue view <number> --comments` for a GitHub
+  Enterprise issue (`gh issue view <number> --comments` for github.com).
+  Never quote from a summary, an earlier paste or memory.
+- **Quote it verbatim under `TICKET:`:** the ticket's link, its description,
+  every acceptance point, and every comment that changes the ask. Copy the
+  words exactly; do not tidy, merge or shorten them.
+- **Number the quoted points T1, T2, …** in the order they appear, so they
+  line up with the numbered points `/ticket-check` grades the finished work
+  against. This step quotes and maps them; grading is `/ticket-check`'s job.
+- **Map every point** with `→` either to where `SCOPE:` covers it, or to the
+  `RULINGS:` line that knowingly changes or drops it.
+- **A point with neither is a gap.** Raise it with the Lord before filing and
+  record his answer under `RULINGS:`, so the point maps. Never file with an
+  unmapped point, and never map one to a default you chose yourself.
+
+The lint stays five-marker: `TICKET:` is an extra block it accepts, never a
+sixth marker it checks, and a row with no ticket carries no `TICKET:` block.
+The shape, for an invented ticket:
+
+```text
+TICKET: https://tracker.example/SHOP-12 (read fresh with get_issue and list_comments)
+- T1 (description): "Show the discount on every invoice line." → SCOPE: invoice line rendering.
+- T2 (acceptance): "Totals round to the nearest cent." → SCOPE: the rounding option on formatMoney.
+- T3 (comment): "Also email the invoice to the customer." → RULINGS: dropped ("not this round" — Lord, 2026-10-06).
+```
+
 ### 3. Verify every code noun before writing it
 
 Model aliases, command names, file paths, preset names, agent names: grep
@@ -127,30 +160,58 @@ throne add-to-queue --objective-code <code> \
 - `<code>`: ASCII alphanumerics only (`OBJECTIVE_CODE_PATTERN`), short,
   memorable; it prefixes every agent name in the campaign
   (`alpha-<code>-…`, `shadow-<code>-…`).
-- **Never stack one PR on another (Lord, 2026-09-15).** Every PR branch is
-  cut from the default branch, never from another open PR's branch, even when
-  the new work needs a helper the other PR adds: copy the helper under a
-  non-colliding name whose suffix names the feature that copied it
-  (`renderNameForCurrentFunction`). That suffix is the whole record: it is a
-  grep-able marker that the code has a twin, and the dedupe after both land
-  is mechanical. **It does not go in the PR body** (Lord, 2026-09-17: "I
-  don't need to know about 'Consolidation after merge'. Remove it, that's
-  noise") — a reviewer reads the PR to judge the change, not to learn the
-  court's branch bookkeeping. A
-  stacked PR cannot merge until its parent does, so a child can sit blocked
-  for days behind its parent's flaky tests. If a stacked branch already
-  exists, unstacking it (rebase onto the default branch, duplicate, force
-  push, retarget the PR base) is its own objective.
+- **Prefer stacking (Lord, 2026-10-05): "Also, please prefer stacked PRs -
+  update our skills in that case. Stacked PRs makes testing easier!"** When
+  the objective builds on another open PR (it calls that PR's API, uses its
+  helpers, or edits its files), cut the new PR branch from that PR's branch.
+  Bring the parent branch current first with "Before filing against an
+  existing branch, compare the local and remote tips" below, then
+  `git -C <repo> branch <new> <parent-branch>`; file with `--target-branch`
+  and `--pr-branch` both set to the new branch and `--base-commit` from it,
+  and state the parent PR and its branch in `SCOPE:`. How the stacked branch
+  starts and opens is `/pr-split`'s execution contract ("A stacked PR starts
+  with `git merge --ff-only <parent-branch>`"); point the body at it instead
+  of restating it. When the parent PR is not pushed yet, file the child row
+  deferred on the parent's row; the Regent releases it once the parent is
+  pushed. Defer it straight after filing with `throne update-queue
+  --objective-code <child> --status deferred --depends-on <parent>
+  --defer-reason "<child> is stacked on <parent>'s branch"`; the parent's
+  Alpha asks the Regent for the release, and only the Regent's
+  `throne release-deferred` starts the child. Parent updates enter the child by merge, never by rebase or force
+  push. Independent work and unrelated tickets still branch from the default
+  branch. A stack lands through `/pr-merge`: roll every upper PR into the
+  root, then one squash merge.
+- **Never file a row whose work is to wait or poll for a human approval**
+  (a review, a `reviewDecision` of `APPROVED`) (Lord, 2026-10-07: "alphas
+  should not wait for PR approval if the repo doesnt allow human approval
+  bypass despite being authorized by me, just mark the work as done").
+  When a merge was refused only for an approval the Lord's authorization
+  cannot bypass, the work is done; the pull request waits on humans, not
+  on an Alpha. `/pr-merge`'s **Stop** rule says how such a row ends.
+- **Name the wiring PR when one feature is filed as several PRs (Lord,
+  2026-10-05: testing an upper PR must never mean pulling the lower PR's
+  changes in by hand).** The wiring PR is the one that consumes the others.
+  Stack it on the rows it consumes, and put the end-to-end scenarios and the
+  manual test walkthrough in its body, so the whole feature runs and tests
+  from its branch. Example: a recipe API PR and the recipe page PR that calls
+  it; the page PR is the wiring PR, stacked on the API PR.
+- **A PR that codes against another open PR it cannot stack on** (the other
+  PR lives in another repository, or the Lord chose not to stack) says so in
+  `SCOPE:`, naming that PR. Its `RULINGS:` note that the pre-push review may
+  report findings about the other PR's code, which the agent settles with
+  `throne push-waiver` and the reason `other-open-pr`.
 - **A pull request as deliverable (Lord, 2026-09-08): name the branch like a
   human, and make it the target.** Before filing, create the PR branch in the
   target repo from its default branch — `git -C <repo> branch add/<feature>
-  <default>` — named in that repository's own convention (`add/…`, `fix/…`,
+  <default>`, or from the parent PR's branch for a stacked row (above) —
+  named in that repository's own convention (`add/…`, `fix/…`,
   `update/…`), never with `alpha`, `shadow`, the objective code, an agent name
   or any other throne machinery. Then file with `--target-branch` AND
   `--pr-branch` both set to that branch, and `--base-commit` from it. The
   campaign delivers onto the PR branch and `99c` opens the draft PR from it to
-  the default branch (`/execute-todos`, "Pull-request delivery"); the default
-  branch is never merged into or pushed. State the branch and the base in the
+  the default branch, or to the parent PR's branch for a stacked row
+  (`/execute-todos`, "Pull-request delivery"); that base branch is never
+  merged into or pushed. State the branch and the base in the
   body's `SCOPE:` too.
 - **`--shadowless` only on the Lord's own words** ("shadowless", "no shadows",
   "run it without shadows"), spoken for THIS objective. It authorizes the

@@ -10,9 +10,8 @@ import {
   writeSpawnSpec,
   readSpawnSpec,
 } from "../src/agentdata/spawn-data-contracts.ts";
-import { IdentityLineReadStatus } from "../src/agentdata/identity-data.service.ts";
-import type { DeliveryVerdict } from "../src/verify-delivery/verify-delivery-runtime.ts";
 import { formatReapabilityClaim } from "../src/reap-agent/reapability-claim.ts";
+import { reapDepsWithNothingToTearDown } from "../src/reap-agent/reap-agent-test-fixtures.ts";
 import {
   checkAgentEvidenceRequirementByName,
   type SliceEvidenceResult,
@@ -86,7 +85,7 @@ function baseRequest(name: string): ReapRequest {
     name,
     force: false,
     bypassMarker: false,
-    archiveCancelledUnmerged: false,
+    archiveAbandonedUnmerged: false,
     reason: "completed",
   };
 }
@@ -95,31 +94,13 @@ function buildDeps(overrides: {
   name: string;
   claimOutput: string;
 }): ReapDeps {
-  return {
+  return reapDepsWithNothingToTearDown({
     listAgents: async () => [liveShadow(overrides.name, "done")],
-    sleep: async () => {},
     readAgent: async () => overrides.claimOutput,
     readSpawnSpec: (name) => readSpawnSpec(name, ledgerBaseDir),
-    closeAgentTab: async () => {},
-    removeTree: async () => false,
-    archiveAgentData: async () => "archived",
-    listCompletedAgents: async () => [],
-    listRegisteredAgents: async () => [],
-    readAgentSupervisor: async () => ({ status: IdentityLineReadStatus.FieldAbsent }),
-    readTreeBase: async () => null,
-    readTreeRepo: async () => undefined,
-    checkDeliveryVerdict: async (): Promise<DeliveryVerdict> => ({
-      status: "missing-provenance",
-      missingFields: "test fixture",
-    }),
-    readSpawnCwd: async () => undefined,
-    recordTiming: async () => {},
-    notify: async () => undefined,
     writeQueueReapOutcome: async () => {},
     appendLaunchLedgerStatus: async () => {},
-    cleanupAgentScratch: async () => [],
-    terminateWorktreeProcesses: async () => ({ killed: [], failed: [] }),
-  };
+  });
 }
 
 async function captureStderr(run: () => Promise<number>): Promise<{ code: number; stderr: string }> {

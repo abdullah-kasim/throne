@@ -286,43 +286,41 @@ export const REAL_DEPS: AddToQueueDeps = {
   recordModelHintAuthorizations: recordFiledModelHintAuthorizations,
 };
 
-/**
- * Only a Stager may file a queue objective (Lord, 2026-08-21). Fails CLOSED:
- * an unreadable or absent role is a refusal, never an admission, because the
- * whole point of the cap is that the Lord decides what the court works on and
- * an unidentifiable caller has not been shown to be him talking through his
- * Stager.
- */
-async function refuseNonStagerFiler(
+type FilerAdmission =
+  | { readonly admitted: true; readonly filerName: string }
+  | { readonly admitted: false; readonly refusal: string };
+
+async function admitStagerFiler(
   deps: AddToQueueDeps,
-): Promise<string | undefined> {
+): Promise<FilerAdmission> {
+  const refuse = (refusal: string): FilerAdmission => ({ admitted: false, refusal });
   let name: string;
   try {
     name = await deps.currentAgentName();
   } catch (err) {
-    return `add-to-queue: could not resolve the calling agent (${
+    return refuse(`add-to-queue: could not resolve the calling agent (${
       err instanceof Error ? err.message : String(err)
-    }) — filing is admitted only for a Stager, so an unidentifiable caller is refused.`;
+    }) — filing is admitted only for a Stager, so an unidentifiable caller is refused.`);
   }
 
   const roleRead = await deps.readRole(name);
   if (roleRead.status !== IdentityLineReadStatus.Found) {
-    return (
+    return refuse(
       `add-to-queue: "${name}" has no readable role (identity.md missing, ` +
-      `unreadable, or carrying no Role line) — filing is admitted only for a Stager.`
+      `unreadable, or carrying no Role line) — filing is admitted only for a Stager.`,
     );
   }
   if (!isQueueFilerRoleName(roleRead.value ?? "")) {
-    return (
+    return refuse(
       `add-to-queue: filing a queue objective is admitted only for a Stager; ` +
       `"${name}" is a ${roleRead.value}. The Lord caps what the court works on, ` +
       `and he sets that cap through the Stager. Report the finding to your ` +
       `supervisor and let the Lord decide whether it becomes an objective — ` +
       `routing it through a supervisor to file instead is the same outcome with ` +
-      `an extra hop, and is equally refused. Nothing was added to the queue.`
+      `an extra hop, and is equally refused. Nothing was added to the queue.`,
     );
   }
-  return undefined;
+  return { admitted: true, filerName: name };
 }
 
 const SLICELESS_SUCCESS_SUFFIX = "; SLICELESS (implies shadowless), Lord-authorized";
@@ -401,9 +399,9 @@ export async function run(
   // Who-may-file is checked BEFORE launch metadata is derived: a refused
   // caller should not cause a git probe of the caller's checkout, and the
   // cheaper refusal is also the one that fails closed.
-  const refusal = await refuseNonStagerFiler(deps);
-  if (refusal !== undefined) {
-    process.stderr.write(`${refusal}\n`);
+  const admission = await admitStagerFiler(deps);
+  if (!admission.admitted) {
+    process.stderr.write(`${admission.refusal}\n`);
     return 1;
   }
 
@@ -440,6 +438,7 @@ export async function run(
       ...(parsed.sliceless === undefined ? {} : { sliceless: parsed.sliceless }),
       ...(parsed.effort === undefined ? {} : { effort: parsed.effort }),
       launch,
+      filedBy: admission.filerName,
       deliveryMirror: {
         verdict: "not-started",
         deliveryCommit: null,

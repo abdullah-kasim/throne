@@ -47,12 +47,12 @@ import {
   readDesiredState,
   describeDesiredState,
   REGENT_NAME,
+  REGENT_TAB_LABEL,
   writeRegentRoute,
   writeRegentHarness,
 } from "../regent-state/regent-state.service.ts";
 import { HARNESS_NAMES, type Harness } from "../harness-routing/harness.ts";
 import { pathsResolveEqual } from "../shared-policy/path-equivalence.ts";
-import { ensureLiveStager } from "../alpha-autoscale/stager-floor.ts";
 import { appendFile } from "node:fs/promises";
 import { resolveLiveThroneRoot } from "../throne-root-resolution.ts";
 import {
@@ -105,8 +105,6 @@ export interface ThroneStartupDeps {
    * real reconciler. Its own failures are swallowed — see `reconcileSafely`.
    */
   reconcile?: (liveAgents: HerdrAgent[]) => Promise<unknown>;
-  /** Shared Stager-floor effect. Runs only for the confirmed Regent. */
-  ensureStagerFloor?: () => Promise<unknown>;
   exportSessionEnv?: () => Promise<SessionEnvExportOutcome>;
 }
 
@@ -139,7 +137,6 @@ export const REAL_DEPS: ThroneStartupDeps = {
   writeRegentHarness,
   writeRegentRoute,
   reconcile: async () => [],
-  ensureStagerFloor: ensureLiveStager,
   exportSessionEnv: () =>
     exportGitShimToSession({
       sessionEnvFile: process.env.CLAUDE_ENV_FILE,
@@ -236,12 +233,6 @@ async function maybeRenameSelf(
 }
 
 /**
- * The Regent's herdr TAB label is deliberately lowercase while the agent
- * identity remains `Regent`; identity comparisons are case-insensitive.
- */
-const REGENT_TAB_LABEL = "regent";
-
-/**
  * Claim the Regent's herdr TAB by relabelling it `regent`, so the tab reflects
  * the Regent durably on every launch — the agent rename alone leaves the tab
  * showing whatever label it launched with, which does NOT survive a restart.
@@ -329,17 +320,6 @@ async function reconcileSafely(
   } catch (err) {
     process.stderr.write(
       `throne-startup: startup reconciliation threw (${errText(err)}); continuing\n`,
-    );
-  }
-}
-
-async function ensureStagerFloorSafely(deps: ThroneStartupDeps): Promise<void> {
-  if (!deps.ensureStagerFloor) return;
-  try {
-    await deps.ensureStagerFloor();
-  } catch (err) {
-    process.stderr.write(
-      `throne-startup: Stager-floor reconciliation threw (${errText(err)}); continuing\n`,
     );
   }
 }
@@ -443,7 +423,6 @@ export async function run(
   // resuming its sibling agents.
   if (isRegent) {
     await reconcileSafely(deps, agents);
-    await ensureStagerFloorSafely(deps);
   }
   return 0;
 }

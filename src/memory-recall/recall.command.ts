@@ -24,6 +24,10 @@ import {
 import { renderEntranceRefusal } from '../shared-policy/entrance-refusal.ts';
 import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
 import {
+  TAB_AGENT_NAME_VARIABLE,
+  refreshStagerTreeForPrompt,
+} from '../stager-tree-refresh/stager-tree-refresh.ts';
+import {
   parseRecallArguments,
   type AskLintRequest,
   type ParsedRecallArguments,
@@ -57,6 +61,7 @@ import {
   isSkippedHookPayload,
   recallRequestFromHookPayload,
   type RecallRequest,
+  type SkippedHookPayload,
 } from './hook-payload.ts';
 import { promptKindOf, type PromptKind } from './prompt-kind.ts';
 import {
@@ -81,6 +86,7 @@ export interface RecallDependencies
   readJevSwitch(config: RecallConfig): Promise<JevSwitch>;
   readJevSpending(config: RecallConfig): Promise<JevSpending>;
   readStdin(): Promise<string>;
+  readonly tabAgentName: string | undefined;
   projectMemoryDirectoriesToLint(): Promise<readonly LintedMemoryDirectory[]>;
 }
 
@@ -104,7 +110,9 @@ export const USAGE =
   'repositories are not printed. Every repository recall searches is remembered in\n' +
   '~/.throne/data/recall/repositories.json for this question.\n' +
   '--json prints { scope, verdict, memories, withheldMemories, otherRepositories } instead of the text.\n' +
-  '--hook prints nothing unless recall.hookEnabled is true, and never exits non-zero. It searches only the\n' +
+  '--hook first fast-forwards a registered Stager\'s own checkout to main when it is clean and behind, printing one\n' +
+  'line, or prints one WARNING line naming the commit counts when it is dirty or diverged; any other session is untouched.\n' +
+  '--hook prints no memories unless recall.hookEnabled is true, and never exits non-zero. It searches only the\n' +
   'repository the session sits in plus the global memories, and says so whenever it prints. Each hook prompt is\n' +
   'appended to ~/.throne/data/recall/prompts.jsonl; recall.hookMode picks serve, shadow (judge and record,\n' +
   'print nothing) or split (a coin per prompt). A verdict line naming who answered (Jev with its confidence, or the rules) follows the memories.\n' +
@@ -156,6 +164,9 @@ const PRODUCTION_DEPENDENCIES: RecallDependencies = {
   currentDirectory: () => process.cwd(),
   dataDirectory: productionRecallDataDirectory(),
   agentLedgerDirectory: RUNTIME_DATA_DIR,
+  get tabAgentName() {
+    return process.env[TAB_AGENT_NAME_VARIABLE];
+  },
   get jevDataHome() {
     return jevDataHomeOfThisMachine();
   },
@@ -189,6 +200,27 @@ async function writePromptToPromptLog(
   }
 }
 
+async function printStagerTreeRefresh(
+  request: RecallRequest | SkippedHookPayload,
+  dependencies: RecallDependencies,
+): Promise<void> {
+  if (isSkippedHookPayload(request)) return;
+  const promptDirectory = request.directories[0];
+  if (promptDirectory === undefined) return;
+  try {
+    const line = await refreshStagerTreeForPrompt({
+      agentName: dependencies.tabAgentName,
+      agentLedgerDirectory: dependencies.agentLedgerDirectory,
+      promptDirectory,
+    });
+    if (line !== undefined) dependencies.writeStdout(`${line}\n`);
+  } catch (error) {
+    dependencies.writeStderr(
+      `recall: the Stager checkout could not be refreshed: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+  }
+}
+
 async function runRecallForHook(
   dependencies: RecallDependencies,
 ): Promise<number> {
@@ -197,6 +229,7 @@ async function runRecallForHook(
   try {
     const request = recallRequestFromHookPayload(await dependencies.readStdin());
     sessionId = request.sessionId;
+    await printStagerTreeRefresh(request, dependencies);
     const config = await dependencies.loadConfig();
     if (!config.hookEnabled) {
       await recordSkippedHookRun(sessionId, HOOK_DISABLED, startedAt, dependencies);

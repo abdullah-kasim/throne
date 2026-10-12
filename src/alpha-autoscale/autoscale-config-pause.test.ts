@@ -1,9 +1,3 @@
-// Requirement: the operator can pause the whole court's spawning from the
-// live `config.user.ts` (`steering.autoscaleEnabled: false`) now that the
-// env switch is permanently armed in both service templates (the Lord's
-// order of 2026-09-02). A paused tick is INERT -- it skips before auto-brief
-// or deferral promotion touch a queue row -- and the pause is read fresh per
-// tick, so no backend restart is involved in either direction.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -31,9 +25,9 @@ function dependencies(
       },
       submitToAgent: async () => {},
     },
-    promoteDeferredWork: () => {
-      touched.push("promoteDeferredWork");
-      return { released: [], recovered: null, overriddenAuthority: null };
+    recoverIdleWork: () => {
+      touched.push("recoverIdleWork");
+      return { recovered: null };
     },
     notifyOfIdleRecovery: async () => {},
     readPressure: () => ({ verdict: "take-more-work", pressure: 0, reasons: [] }),

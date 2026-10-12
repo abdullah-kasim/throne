@@ -193,7 +193,7 @@ export async function collectAutoscaleStatus(
       holdingSpawns: pressure.verdict !== "take-more-work" || launchBudget === 0,
     },
     cooldown,
-    queue: describeAutoscaleStatusQueue(queue, projection, readyQueue, mutatingTargets),
+    queue: describeAutoscaleStatusQueue(queue, projection, readyQueue, mutatingTargets, sources.now()),
     prediction: predictNextRun({
       configPause,
       unreadableQueueReason: projection.unreadableQueueReason,

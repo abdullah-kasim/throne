@@ -3,7 +3,11 @@ import type {
   RegentQueueItemRow,
   RegentQueueReadResult,
 } from "./regent-queue.store.ts";
-import { RegentQueueItemStatus } from "./regent-queue-item-state.ts";
+import {
+  RegentQueueItemStatus,
+  TERMINAL_QUEUE_ITEM_STATUSES,
+} from "./regent-queue-item-state.ts";
+import { OUTCOME_NOT_RECORDED } from "./regent-queue-outcome.ts";
 import {
   classifyEffectiveQueueDecision,
   isActiveQueueAbsorption,
@@ -95,6 +99,23 @@ export function renderQueueAmendment(amendment: QueueAmendment): string {
   );
 }
 
+export function outcomeFieldsOf(item: RegentQueueItemRow): string[] {
+  return [
+    `outcome: ${item.outcome ?? OUTCOME_NOT_RECORDED}`,
+    item.outcomeSummary ? `summary: ${item.outcomeSummary}` : undefined,
+    item.prUrl ? `pull request: ${item.prUrl}` : undefined,
+    item.resultCommit ? `result commit: ${item.resultCommit}` : undefined,
+    item.completedAt == null
+      ? undefined
+      : `completed: ${new Date(item.completedAt).toISOString()}`,
+  ].filter((bit): bit is string => bit !== undefined);
+}
+
+function renderOutcomeSuffix(item: RegentQueueItemRow): string {
+  if (!TERMINAL_QUEUE_ITEM_STATUSES.has(item.status)) return "";
+  return ` _(${outcomeFieldsOf(item).join(", ")})_`;
+}
+
 function renderItem(
   item: RegentQueueItemRow,
   amendments: readonly QueueAmendment[],
@@ -150,7 +171,7 @@ function renderItem(
   const renderedAmendments = amendments
     .map((amendment) => `\n\n  ${renderQueueAmendment(amendment)}`)
     .join("");
-  return `- ${marker} **${label}** (${item.status})${lifecycleSuffix}${eligibility}${decisionSuffix}${evidenceSuffix}\n\n  ${item.body}${renderedAmendments}`;
+  return `- ${marker} **${label}** (${item.status})${lifecycleSuffix}${renderOutcomeSuffix(item)}${eligibility}${decisionSuffix}${evidenceSuffix}\n\n  ${item.body}${renderedAmendments}`;
 }
 
 /**

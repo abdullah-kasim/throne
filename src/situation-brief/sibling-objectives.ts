@@ -30,18 +30,22 @@ function isRelevantSibling(
   );
 }
 
-export function rulingLinesOf(body: string): string[] {
+export function planSectionLines(body: string, sectionMarker: string): string[] {
   const lines = body.split("\n");
-  const start = lines.findIndex((line) => line.trimStart().startsWith("RULINGS:"));
+  const start = lines.findIndex((line) => line.trimStart().startsWith(sectionMarker));
   if (start === -1) return [];
-  const rulings: string[] = [];
-  const first = lines[start]!.trimStart().slice("RULINGS:".length).trim();
-  if (first !== "") rulings.push(first);
+  const section: string[] = [];
+  const first = lines[start]!.trimStart().slice(sectionMarker.length).trim();
+  if (first !== "") section.push(first);
   for (const line of lines.slice(start + 1)) {
     if (PLAN_MARKERS.some((marker) => line.trimStart().startsWith(marker))) break;
-    if (line.trim() !== "") rulings.push(line.trim());
+    if (line.trim() !== "") section.push(line.trim());
   }
-  return rulings
+  return section;
+}
+
+export function rulingLinesOf(body: string): string[] {
+  return planSectionLines(body, "RULINGS:")
     .slice(0, RULING_LINES_PER_SIBLING)
     .map((line) => (line.length > RULING_LINE_LENGTH ? `${line.slice(0, RULING_LINE_LENGTH)}…` : line));
 }

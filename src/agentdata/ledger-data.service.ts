@@ -23,6 +23,7 @@ const BUNDLE_DIR_RE = /^todo[-_]/i;
 export const DEFAULT_DATA_DIR = RUNTIME_DATA_DIR;
 const TOOLS_RELATIVE_PATH = path.join("src", "tools.ts");
 export const REAPED_DIR_NAME = ".reaped";
+const COMPLETION_REPORT_FILE_NAME = "REPORT.md";
 const CANONICAL_LEDGER_DIR_RE = /^(alpha|shadow)-(.+)$/;
 
 export interface LiveLedgerAgent {
@@ -88,7 +89,7 @@ async function listReapedAgentNames(
 }
 
 async function hasCompletionReport(agentDirPath: string): Promise<boolean> {
-  if (await fileExists(path.join(agentDirPath, "REPORT.md"))) return true;
+  if (await fileExists(path.join(agentDirPath, COMPLETION_REPORT_FILE_NAME))) return true;
   let subEntries;
   try {
     subEntries = await readdir(agentDirPath, { withFileTypes: true });
@@ -98,7 +99,7 @@ async function hasCompletionReport(agentDirPath: string): Promise<boolean> {
   for (const subEntry of subEntries) {
     if (
       subEntry.isDirectory() &&
-      (await fileExists(path.join(agentDirPath, subEntry.name, "REPORT.md")))
+      (await fileExists(path.join(agentDirPath, subEntry.name, COMPLETION_REPORT_FILE_NAME)))
     ) {
       return true;
     }
@@ -117,6 +118,13 @@ export async function hasCompletionReportForAgent(
   baseDir: string = DEFAULT_DATA_DIR,
 ): Promise<boolean> {
   return hasCompletionReport(path.join(baseDir, name));
+}
+
+export function completionReportPathForAgent(
+  name: string,
+  baseDir: string = DEFAULT_DATA_DIR,
+): string {
+  return path.join(baseDir, name, COMPLETION_REPORT_FILE_NAME);
 }
 
 async function listCompletedAgents(

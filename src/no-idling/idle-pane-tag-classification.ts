@@ -1,5 +1,5 @@
 import {
-  REAPABLE_MARKER_CANCELLED,
+  REAPABLE_MARKER_ABANDONED,
   REAPABLE_MARKER_COMPLETED,
   REAPABLE_MARKER_FAIL,
   REAPABLE_MARKER_TASK_RESTART_REQUIRED,
@@ -157,10 +157,14 @@ export function lastMessageBlock(output: string): string {
  *  one-key object, so a status quoted inside prose never speaks for the agent. */
 const STANDALONE_REAPABLE_STATUSES: Readonly<Record<string, string>> = {
   completed: REAPABLE_MARKER_COMPLETED,
-  cancelled: REAPABLE_MARKER_CANCELLED,
+  abandoned: REAPABLE_MARKER_ABANDONED,
   task_restart_required: REAPABLE_MARKER_TASK_RESTART_REQUIRED,
   fail: REAPABLE_MARKER_FAIL,
 };
+
+const RENAMED_CLAIM_STATUSES: ReadonlyMap<string, ReapabilityClaimStatus> = new Map([
+  ['cancelled', 'abandoned'],
+]);
 
 // The `{"blocked":true}` marker must be recognized ANYWHERE in the latest
 // message, not only when it is the whole trimmed message: a courteous
@@ -175,7 +179,7 @@ const STANDALONE_REAPABLE_STATUSES: Readonly<Record<string, string>> = {
 const BLOCKED_MARKER_ANYWHERE_PATTERN =
   /(?<![\w"])\{\s*"blocked"\s*:\s*true\s*\}(?![\w"])/;
 const REAPABLE_CLAIM_ANYWHERE_PATTERN =
-  /(?<![\w"])\{\s*"reapable"\s*:\s*"(completed|cancelled|task_restart_required|fail)"\s*\}(?![\w"])/i;
+  /(?<![\w"])\{\s*"reapable"\s*:\s*"(completed|abandoned|cancelled|task_restart_required|fail)"\s*\}(?![\w"])/i;
 
 /** A single-key object literal, or undefined when `text` is not one. */
 function standaloneSingleKeyObject(
@@ -204,7 +208,7 @@ export function classifyLastMessageTags(text: string): LastMessageTagState {
     return { kind: 'blocked', blockedBy: parseBlockedByMarkers(text) };
   }
   // Standalone reapable, the counterpart of the blocked marker:
-  //   {"reapable":"completed"} {"reapable":"cancelled"}
+  //   {"reapable":"completed"} {"reapable":"abandoned"}
   //   {"reapable":"task_restart_required"} {"reapable":"fail"}
   // An agent can end its turn with one line and be classified exactly, without
   // embedding a `"reapable_status"` field in surrounding prose.
@@ -239,7 +243,7 @@ export function hasReapabilityClaim(text: string): boolean {
 
 export type ReapabilityClaimStatus =
   | 'completed'
-  | 'cancelled'
+  | 'abandoned'
   | 'task_restart_required'
   | 'fail';
 
@@ -254,8 +258,10 @@ export function readReapabilityClaimStatus(
       ? standalone.reapable
       : REAPABLE_CLAIM_ANYWHERE_PATTERN.exec(trimmed)?.[1];
   const normalized = status?.toLowerCase();
-  return normalized !== undefined && normalized in STANDALONE_REAPABLE_STATUSES
-    ? (normalized as ReapabilityClaimStatus)
+  const current =
+    normalized === undefined ? undefined : RENAMED_CLAIM_STATUSES.get(normalized) ?? normalized;
+  return current !== undefined && current in STANDALONE_REAPABLE_STATUSES
+    ? (current as ReapabilityClaimStatus)
     : undefined;
 }
 

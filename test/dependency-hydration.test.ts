@@ -7,6 +7,7 @@ import { after, test } from "node:test";
 import {
   hydrateDependencies,
   validateHydratedDependencies,
+  type NodeChoice,
 } from "../src/git-lifecycle/dependency-hydration.ts";
 import { GitTreeCreationService } from "../src/git-lifecycle/git-tree-creation.service.ts";
 import { git, initRepo } from "./git-repo-test-fixture.ts";
@@ -148,7 +149,17 @@ test("an untrustworthy npm source hydrates a destination dependency by installin
   );
 
   let installs = 0;
+  const node: NodeChoice = {
+    version: "24.19.0",
+    binDirectory: "/node/24.19.0/bin",
+    declared: null,
+    decidedBy: "throne pin",
+    reason: "the throne pin",
+  };
   const installer = {
+    async chooseNode(): Promise<NodeChoice> {
+      return node;
+    },
     async install(projectDir: string): Promise<void> {
       installs += 1;
       await mkdir(path.join(projectDir, "node_modules"));
@@ -167,6 +178,7 @@ test("an untrustworthy npm source hydrates a destination dependency by installin
     projectDir: destination,
     paths: ["node_modules"],
     mode: "install",
+    node,
   });
   assert.equal(installs, 1);
   await access(path.join(destination, "node_modules"));

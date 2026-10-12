@@ -65,7 +65,7 @@ export const HERDR_BIN_TOKEN = "{{HERDR_BIN}}";
 
 /**
  * The absolute node interpreter path substituted into unit sources at
- * install time — the mise `lts` symlink form, never a version-pinned path.
+ * install time — the mise install of the exact version pinned in mise.toml.
  */
 export const NODE_BIN_TOKEN = "{{NODE_BIN}}";
 
@@ -78,6 +78,7 @@ export const SYSTEMD_UNIT_NAMES = {
   BUILD_SERVICE: "throne-build.service",
   HERDR_SERVER: "herdr-server.service",
   NTFY: "ntfy.service",
+  FORGEJO: "forgejo.service",
   CONDUWUIT: "conduwuit.service",
   CONDUWUIT_MEDIA_SWEEP_SERVICE: "conduwuit-media-sweep.service",
   CONDUWUIT_MEDIA_SWEEP_TIMER: "conduwuit-media-sweep.timer",
@@ -106,6 +107,10 @@ export const LAUNCHD_AGENT_NAMES = {
   NTFY: {
     basename: "com.throne.ntfy.plist",
     label: "com.throne.ntfy",
+  },
+  FORGEJO: {
+    basename: "com.throne.forgejo.plist",
+    label: "com.throne.forgejo",
   },
   KEEP_GOING: {
     basename: "com.throne.keep-going.plist",
@@ -181,7 +186,7 @@ export interface InstalledUnit {
 export interface UnitTokens {
   throneRoot: string;
   herdrBin: string | null;
-  /** The resolved mise `lts` node interpreter path; only the systemd units that call node directly use it. */
+  /** The mise install path of the node version pinned in mise.toml; only the units that call node directly use it. */
   nodeBin?: string | null;
 }
 

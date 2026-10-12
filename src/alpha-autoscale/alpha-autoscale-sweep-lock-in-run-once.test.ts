@@ -51,7 +51,7 @@ function courtWithTwoLaunchableRows(
         observations.pages.push(prompt);
       },
     },
-    promoteDeferredWork: () => ({ released: [], recovered: null, overriddenAuthority: null }),
+    recoverIdleWork: () => ({ recovered: null }),
     notifyOfIdleRecovery: async () => {},
     readPressure: () => ({ verdict: "take-more-work", pressure: 0, reasons: [] }),
     readReadyQueue: () => {
@@ -133,7 +133,7 @@ test("a sweep releases its lock when it finishes and when it throws", async () =
 
   const throwing: AlphaAutoscaleDependencies = {
     ...courtWithTwoLaunchableRows(() => acquireSweepLock({ lockPath }), freshObservations()),
-    promoteDeferredWork: () => {
+    recoverIdleWork: () => {
       throw new Error("queue store exploded");
     },
   };

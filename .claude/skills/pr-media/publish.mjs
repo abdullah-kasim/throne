@@ -1,10 +1,31 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { accessSync, constants, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { accessSync, constants, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { proxyFor, uploadWithBrowser } from './browser-upload.mjs';
+import {
+  attachmentUrlsIn,
+  collapseBlankLines,
+  localReference,
+  readScreenshotsDraft,
+  removeAnchorsOutsideFolder,
+  replaceScreenshotsSection,
+  rewriteBody,
+  SCREENSHOTS_DRAFT_FILE,
+  SCREENSHOTS_HEADING,
+  verifyPublishedBody,
+} from './body-rewrite.mjs';
 import { writeContactSheet } from './contact-sheet.mjs';
+import {
+  attachToForgejoPullRequest,
+  detachFromForgejoPullRequest,
+  editForgejoPullRequestBody,
+  FORGE_COMMAND_ON_PATH,
+  forgejoEditArguments,
+  isForgejoPullRequest,
+  viewForgejoPullRequest,
+} from './forge-command.mjs';
 import { collectLooseUploads, mapUploadsToFiles } from './loose-uploads.mjs';
 import {
   altTextFor,
@@ -13,170 +34,31 @@ import {
   listMediaFiles,
   namesMissingTheirPartner,
   namesWithoutOrderPrefix,
-  ORDER_PREFIX,
   sizeRefusal,
 } from './media-folder.mjs';
+
+export {
+  anchorNamesIn,
+  anchorPair,
+  anchorPairPattern,
+  collapseBlankLines,
+  isInsideTableRow,
+  localReference,
+  readScreenshotsDraft,
+  removeAnchorsOutsideFolder,
+  replaceScreenshotsSection,
+  rewriteBody,
+  SCREENSHOTS_DRAFT_FILE,
+  verifyPublishedBody,
+} from './body-rewrite.mjs';
 
 export const MINIMUM_GH_VERSION_FOR_ATTACH = '2.99.0';
 const GUARD_MARKER = 'throne-gh-guard-shim';
 const PUBLIC_GITHUB_HOST = 'github.com';
 const LIVE_BODY_FILE = 'live.md';
-export const SCREENSHOTS_DRAFT_FILE = 'screenshots.md';
-const SCREENSHOTS_HEADING = '## Screenshots';
-const TESTING_HEADING = '## Testing';
-const ATTACHMENT_URL_PATTERN = /https:\/\/[^\s)<>"']*user-attachments[^\s)<>"']*/;
-
-function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-export function anchorPairPattern(name) {
-  const escaped = escapeRegExp(name);
-  return new RegExp(`<!-- pr-media: ${escaped} -->[\\s\\S]*?<!-- /pr-media: ${escaped} -->`, 'g');
-}
-
-function placeholderPattern(name) {
-  return new RegExp(`<!-- drop ${escapeRegExp(name)} here -->`, 'g');
-}
-
-export function anchorNamesIn(body) {
-  return [...body.matchAll(/<!-- pr-media: (.+?) -->/g)].map((match) => match[1]);
-}
-
-function placeholderNamesIn(body) {
-  return [...body.matchAll(/<!-- drop (.+?) here -->/g)].map((match) => match[1]);
-}
-
-function namesClaimedByFolder(files) {
-  return new Set(files.flatMap((file) => [file.name, file.name.replace(ORDER_PREFIX, '')]));
-}
-
-function anchorNamesOutsideFolder(body, files) {
-  const claimedNames = namesClaimedByFolder(files);
-  return [...new Set([...anchorNamesIn(body), ...placeholderNamesIn(body)])].filter((name) => !claimedNames.has(name));
-}
-
-export function removeAnchorsOutsideFolder(body, files) {
-  const removed = anchorNamesOutsideFolder(body, files);
-  const cleaned = removed.reduce((text, name) => text.replace(anchorPairPattern(name), '').replace(placeholderPattern(name), ''), body);
-  return { body: collapseBlankLines(cleaned), removed };
-}
-
-export function localReference(file) {
-  return `![${altTextFor(file.name)}](./${file.name})`;
-}
 
 export function assetReference(file, url) {
   return file.kind === 'video' ? url : `![${altTextFor(file.name)}](${url})`;
-}
-
-export function anchorPair(file, reference, { inTableRow = false } = {}) {
-  const separator = inTableRow ? ' ' : '\n';
-  return `<!-- pr-media: ${file.name} -->${separator}${reference}${separator}<!-- /pr-media: ${file.name} -->`;
-}
-
-export function isInsideTableRow(text, offset) {
-  const lineStart = text.lastIndexOf('\n', offset - 1) + 1;
-  return text.slice(lineStart, offset).trimStart().startsWith('|');
-}
-
-function replaceWithAnchorPair(text, pattern, file, reference) {
-  return text.replace(pattern, (...match) => {
-    const offset = match.at(-2);
-    return anchorPair(file, reference, { inTableRow: isInsideTableRow(text, offset) });
-  });
-}
-
-function insertIntoScreenshots(body, pairs) {
-  const addition = pairs.join('\n\n');
-  const bounds = screenshotsSectionBounds(body);
-  if (bounds) {
-    const section = body.slice(bounds.start, bounds.end);
-    const closingDetailsOffset = section.lastIndexOf('</details>');
-    if (closingDetailsOffset >= 0) {
-      const insertAt = bounds.start + closingDetailsOffset;
-      const before = body.slice(0, insertAt).replace(/\s+$/, '');
-      const after = body.slice(insertAt);
-      return `${before}\n\n${addition}\n\n${after}`;
-    }
-    const before = body.slice(0, bounds.end).replace(/\s+$/, '');
-    const after = body.slice(bounds.end);
-    return `${before}\n\n${addition}\n${after ? `\n${after}` : ''}`;
-  }
-  const section = `${SCREENSHOTS_HEADING}\n\n${addition}`;
-  const testingAt = body.search(new RegExp(`^${escapeRegExp(TESTING_HEADING)}\\s*$`, 'm'));
-  if (testingAt >= 0) {
-    return `${body.slice(0, testingAt).replace(/\s+$/, '')}\n\n${section}\n\n${body.slice(testingAt)}`;
-  }
-  return `${body.replace(/\s+$/, '')}\n\n${section}\n`;
-}
-
-function screenshotsSectionBounds(body) {
-  const screenshotsAt = body.search(new RegExp(`^${escapeRegExp(SCREENSHOTS_HEADING)}\\s*$`, 'm'));
-  if (screenshotsAt < 0) return null;
-  const nextHeading = body.slice(screenshotsAt + SCREENSHOTS_HEADING.length).search(/^## /m);
-  const end = nextHeading >= 0 ? screenshotsAt + SCREENSHOTS_HEADING.length + nextHeading : body.length;
-  return { start: screenshotsAt, end };
-}
-
-export function replaceScreenshotsSection(body, draft) {
-  const section = draft.trim().startsWith(SCREENSHOTS_HEADING) ? draft.trim() : `${SCREENSHOTS_HEADING}\n\n${draft.trim()}`;
-  const bounds = screenshotsSectionBounds(body);
-  if (bounds) {
-    const after = body.slice(bounds.end);
-    return `${body.slice(0, bounds.start)}${section}\n${after ? `\n${after}` : ''}`;
-  }
-  const testingAt = body.search(new RegExp(`^${escapeRegExp(TESTING_HEADING)}\\s*$`, 'm'));
-  if (testingAt >= 0) {
-    return `${body.slice(0, testingAt).replace(/\s+$/, '')}\n\n${section}\n\n${body.slice(testingAt)}`;
-  }
-  return `${body.replace(/\s+$/, '')}\n\n${section}\n`;
-}
-
-export function readScreenshotsDraft(folder) {
-  const draftPath = path.join(folder, SCREENSHOTS_DRAFT_FILE);
-  return existsSync(draftPath) ? readFileSync(draftPath, 'utf8') : null;
-}
-
-export function rewriteBody(body, files, referenceFor = localReference) {
-  const replaced = [];
-  const converted = [];
-  const renumbered = [];
-  const appended = [];
-  const pending = [];
-  let rewritten = body;
-  for (const file of files) {
-    const reference = referenceFor(file);
-    const existing = rewritten.match(anchorPairPattern(file.name)) ?? [];
-    if (existing.length > 1) throw new Error(`${file.name} has ${existing.length} anchor pairs in the body; keep one`);
-    if (existing.length === 1) {
-      rewritten = replaceWithAnchorPair(rewritten, anchorPairPattern(file.name), file, reference);
-      replaced.push(file.name);
-      continue;
-    }
-    if (placeholderPattern(file.name).test(rewritten)) {
-      rewritten = replaceWithAnchorPair(rewritten, placeholderPattern(file.name), file, reference);
-      converted.push(file.name);
-      continue;
-    }
-    const unnumbered = file.name.replace(ORDER_PREFIX, '');
-    if (unnumbered !== file.name && (rewritten.match(anchorPairPattern(unnumbered)) ?? []).length === 1) {
-      rewritten = replaceWithAnchorPair(rewritten, anchorPairPattern(unnumbered), file, reference);
-      renumbered.push(`${unnumbered} -> ${file.name}`);
-      continue;
-    }
-    if (unnumbered !== file.name && placeholderPattern(unnumbered).test(rewritten)) {
-      rewritten = replaceWithAnchorPair(rewritten, placeholderPattern(unnumbered), file, reference);
-      renumbered.push(`${unnumbered} -> ${file.name}`);
-      continue;
-    }
-    pending.push(anchorPair(file, reference));
-    appended.push(file.name);
-  }
-  if (pending.length > 0) rewritten = insertIntoScreenshots(rewritten, pending);
-  const claimedNames = namesClaimedByFolder(files);
-  const orphans = anchorNamesIn(body).filter((name) => !claimedNames.has(name));
-  return { body: rewritten, replaced, converted, renumbered, appended, orphans };
 }
 
 export function removeLooseUploads(body, uploads) {
@@ -185,10 +67,6 @@ export function removeLooseUploads(body, uploads) {
     cleaned = cleaned.replace(upload.text, '');
   }
   return collapseBlankLines(cleaned);
-}
-
-export function collapseBlankLines(body) {
-  return body.replace(/(?:[ \t]*\r?\n){3,}/g, '\n\n');
 }
 
 export function wizardInstructions(pullRequest, files) {
@@ -204,35 +82,6 @@ export function wizardInstructions(pullRequest, files) {
   lines.push('4. Say "done" here. The collect step then reads the live body, moves each upload into its anchor and removes the loose copies.');
   lines.push('', `Then run: node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url> --collect`);
   return lines.join('\n');
-}
-
-export function verifyPublishedBody(body, files, { replaceAll = false } = {}) {
-  const urls = new Map();
-  const failures = replaceAll
-    ? anchorNamesOutsideFolder(body, files).map((name) => `${name}: anchor outside the folder survived in the published body`)
-    : [];
-  for (const file of files) {
-    const pairs = body.match(anchorPairPattern(file.name)) ?? [];
-    if (pairs.length !== 1) {
-      failures.push(`${file.name}: expected one anchor pair after publishing, found ${pairs.length}`);
-      continue;
-    }
-    if (pairs[0].includes('\n') && isInsideTableRow(body, body.indexOf(pairs[0]))) {
-      failures.push(`${file.name}: anchor pair in a table row spans several lines, which breaks the row`);
-      continue;
-    }
-    const url = pairs[0].match(ATTACHMENT_URL_PATTERN)?.[0];
-    if (!url) {
-      failures.push(`${file.name}: anchor pair holds no user-attachments URL`);
-      continue;
-    }
-    if (pairs[0].includes(`./${file.name}`)) {
-      failures.push(`${file.name}: anchor pair still carries the local path`);
-      continue;
-    }
-    urls.set(file.name, url);
-  }
-  return { urls, failures };
 }
 
 export function parseArguments(argv) {
@@ -407,16 +256,21 @@ function describeRewrite(rewrite) {
   if (rewrite.draftApplied) lines.push(`${SCREENSHOTS_HEADING} section replaced from ${SCREENSHOTS_DRAFT_FILE}`);
   if (rewrite.stillsOnly) lines.push(`stills only: ${rewrite.stillsOnly}`);
   if (rewrite.browserUpload) lines.push(`${rewrite.browserUpload} file(s) would be uploaded through the signed-in browser before the edit`);
+  if (rewrite.forgejoAttachments) lines.push(`${rewrite.forgejoAttachments} file(s) would be uploaded as Forgejo attachments before the edit`);
   return lines.join('\n');
 }
 
-export function publish(options, gh = { path: resolveGhOnPath(), bypassArguments: [] }) {
-  gh.bypassArguments = isThroneGuard(gh.path) ? ['--bypass'] : [];
-  const pullRequest = parsePullRequestTarget(options.target, () => repositoryFromCwd(gh));
-  gh.environment = environmentForHost(pullRequest.host);
-  const folder = path.resolve(options.folder ?? path.join(process.env.HOME ?? '', 'tmp', `pr-media-${pullRequest.number}`));
+function isPublicGithubUrl(target) {
+  return URL.canParse(target) && new URL(target).host === PUBLIC_GITHUB_HOST;
+}
+
+function mediaFolderFor(options, number) {
+  return path.resolve(options.folder ?? path.join(process.env.HOME ?? '', 'tmp', `pr-media-${number}`));
+}
+
+function readMediaFolder(folder, stillsOnlyReason) {
   const listedFiles = listMediaFiles(folder);
-  refuseFolderWithoutVideo(listedFiles, options.stillsOnly);
+  refuseFolderWithoutVideo(listedFiles, stillsOnlyReason);
   const groups = groupIntoPairsAndSingles(listedFiles);
   const files = filesInBodyOrder(groups);
   const unnumbered = namesWithoutOrderPrefix(files);
@@ -428,6 +282,88 @@ export function publish(options, gh = { path: resolveGhOnPath(), bypassArguments
     process.stderr.write(`pr-media: ${unpartnered.length} file(s) are one side of a before/after pair whose other side is not in the folder, so each is shown alone: ${unpartnered.join(', ')}\n`);
   }
   refuseOversizedFiles(files);
+  return files;
+}
+
+function rewriteLiveBody(liveBody, files, folder, options, referenceFor) {
+  const draft = readScreenshotsDraft(folder);
+  const bodyToRewrite = draft === null ? liveBody : replaceScreenshotsSection(liveBody, draft);
+  const rewrite = rewriteBody(bodyToRewrite, files, referenceFor);
+  if (options.replaceAll) {
+    const removal = removeAnchorsOutsideFolder(rewrite.body, files);
+    Object.assign(rewrite, { body: removal.body, removed: removal.removed, orphans: [] });
+  }
+  if (draft !== null) rewrite.draftApplied = true;
+  if (options.stillsOnly) rewrite.stillsOnly = options.stillsOnly;
+  return rewrite;
+}
+
+function shellLine(argv) {
+  return argv.map((argument) => (/[\s#]/.test(argument) ? `'${argument}'` : argument)).join(' ');
+}
+
+function writeBodyAndEdit(folder, body, edit) {
+  const liveBodyPath = path.join(folder, LIVE_BODY_FILE);
+  writeFileSync(liveBodyPath, `${body}\n`);
+  try {
+    edit(liveBodyPath);
+  } finally {
+    rmSync(liveBodyPath, { force: true });
+  }
+}
+
+function verifyAndFinishPublish(publishedBody, files, folder, options, rewrite) {
+  const verification = verifyPublishedBody(publishedBody, files, { replaceAll: options.replaceAll });
+  if (verification.failures.length > 0) {
+    throw new Error(`published body failed verification:\n${verification.failures.join('\n')}`);
+  }
+  writeContactSheet(folder);
+  return { dryRun: false, folder, urls: verification.urls, summary: describeRewrite(rewrite), orphans: rewrite.orphans };
+}
+
+function refuseManualUploadOnForgejo(options) {
+  if (!options.wizard && !options.collect && options.assets.size === 0) return;
+  throw new Error(`${options.target} is a Forgejo pull request, where publish uploads every file through the Forgejo attachment API; --wizard, --collect and --asset are for GitHub Enterprise Server only`);
+}
+
+function attachEachFileToForgejo(forge, target, folder, files) {
+  return new Map(files.map((file) => [file.name, attachToForgejoPullRequest(forge, target, path.join(folder, file.name)).markdown]));
+}
+
+function detachAttachmentsTakenOutOfBody(forge, target, bodyBefore, bodyAfter) {
+  const stillEmbedded = attachmentUrlsIn(bodyAfter);
+  for (const url of attachmentUrlsIn(bodyBefore)) {
+    if (!stillEmbedded.has(url)) detachFromForgejoPullRequest(forge, target, url);
+  }
+}
+
+function publishToForgejo(options, forge) {
+  const pullRequest = viewForgejoPullRequest(forge, options.target);
+  const folder = mediaFolderFor(options, pullRequest.number);
+  const files = readMediaFolder(folder, options.stillsOnly);
+  refuseManualUploadOnForgejo(options);
+  const markdownByName = options.dryRun ? null : attachEachFileToForgejo(forge, options.target, folder, files);
+  const referenceFor = markdownByName ? (file) => markdownByName.get(file.name) : localReference;
+  const rewrite = rewriteLiveBody(pullRequest.body.replace(/\s+$/, ''), files, folder, options, referenceFor);
+  if (options.dryRun) {
+    rewrite.forgejoAttachments = files.length;
+    const commandLine = shellLine(['throne', 'forge', ...forgejoEditArguments(options.target, path.join(folder, LIVE_BODY_FILE))]);
+    return { dryRun: true, folder, body: rewrite.body, commandLine, summary: describeRewrite(rewrite) };
+  }
+  writeBodyAndEdit(folder, rewrite.body, (bodyFile) => editForgejoPullRequestBody(forge, options.target, bodyFile));
+  const publishedBody = viewForgejoPullRequest(forge, options.target).body;
+  const result = verifyAndFinishPublish(publishedBody, files, folder, options, rewrite);
+  detachAttachmentsTakenOutOfBody(forge, options.target, pullRequest.body, publishedBody);
+  return result;
+}
+
+export function publish(options, gh = { path: resolveGhOnPath(), bypassArguments: [] }, forge = FORGE_COMMAND_ON_PATH) {
+  if (!isPublicGithubUrl(options.target) && isForgejoPullRequest(forge, options.target)) return publishToForgejo(options, forge);
+  gh.bypassArguments = isThroneGuard(gh.path) ? ['--bypass'] : [];
+  const pullRequest = parsePullRequestTarget(options.target, () => repositoryFromCwd(gh));
+  gh.environment = environmentForHost(pullRequest.host);
+  const folder = mediaFolderFor(options, pullRequest.number);
+  const files = readMediaFolder(folder, options.stillsOnly);
   if (options.wizard) {
     return { wizard: true, folder, instructions: wizardInstructions(pullRequest, files) };
   }
@@ -437,36 +373,16 @@ export function publish(options, gh = { path: resolveGhOnPath(), bypassArguments
   }
   const plan = planPublish(pullRequest, files, options.assets, gh, options.collect, liveBody, options.dryRun);
   const withoutLooseUploads = options.collect ? removeLooseUploads(liveBody, plan.uploads) : liveBody;
-  const draft = readScreenshotsDraft(folder);
-  const bodyToRewrite = draft === null ? withoutLooseUploads : replaceScreenshotsSection(withoutLooseUploads, draft);
-  const rewrite = rewriteBody(bodyToRewrite, files, plan.referenceFor);
-  if (options.replaceAll) {
-    const removal = removeAnchorsOutsideFolder(rewrite.body, files);
-    Object.assign(rewrite, { body: removal.body, removed: removal.removed, orphans: [] });
-  }
-  if (draft !== null) rewrite.draftApplied = true;
+  const rewrite = rewriteLiveBody(withoutLooseUploads, files, folder, options, plan.referenceFor);
   if (plan.extra?.length) rewrite.extra = plan.extra;
   if (plan.browserUpload) rewrite.browserUpload = files.length;
-  if (options.stillsOnly) rewrite.stillsOnly = options.stillsOnly;
   const editArguments = ['pr', 'edit', pullRequest.number, '-R', repositoryFlag(pullRequest), '--body-file', LIVE_BODY_FILE, ...plan.attach];
-  const commandLine = ['gh', ...gh.bypassArguments, ...editArguments].map((argument) => (/[\s#]/.test(argument) ? `'${argument}'` : argument)).join(' ');
+  const commandLine = shellLine(['gh', ...gh.bypassArguments, ...editArguments]);
   if (options.dryRun) {
     return { dryRun: true, folder, body: rewrite.body, commandLine, summary: describeRewrite(rewrite) };
   }
-  const liveBodyPath = path.join(folder, LIVE_BODY_FILE);
-  writeFileSync(liveBodyPath, `${rewrite.body}\n`);
-  try {
-    runGh(gh, editArguments, { cwd: folder, bypassGuard: true });
-  } finally {
-    rmSync(liveBodyPath, { force: true });
-  }
-  const publishedBody = readLiveBody(gh, pullRequest);
-  const verification = verifyPublishedBody(publishedBody, files, { replaceAll: options.replaceAll });
-  if (verification.failures.length > 0) {
-    throw new Error(`published body failed verification:\n${verification.failures.join('\n')}`);
-  }
-  writeContactSheet(folder);
-  return { dryRun: false, folder, urls: verification.urls, summary: describeRewrite(rewrite), orphans: rewrite.orphans };
+  writeBodyAndEdit(folder, rewrite.body, () => runGh(gh, editArguments, { cwd: folder, bypassGuard: true }));
+  return verifyAndFinishPublish(readLiveBody(gh, pullRequest), files, folder, options, rewrite);
 }
 
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

@@ -61,6 +61,17 @@ export const LINUX_UNITS: readonly LinuxUnitSpec[] = [
   { basename: SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_CLAUDE1000_TIMER, enabledDirectly: true },
 ];
 
+const FORGEJO_UNIT: LinuxUnitSpec = {
+  basename: SYSTEMD_UNIT_NAMES.FORGEJO,
+  enabledDirectly: true,
+};
+
+export function linuxUnitsForHost(
+  forgejoInstalled: boolean,
+): readonly LinuxUnitSpec[] {
+  return forgejoInstalled ? [...LINUX_UNITS, FORGEJO_UNIT] : LINUX_UNITS;
+}
+
 /**
  * Units this install no longer manages, retired the same way BCL retired
  * `throne-build.service`: stop, disable, remove the unit file, idempotent,
@@ -227,7 +238,7 @@ export async function installLinuxServices(
       tokens: {
         throneRoot: options.throneRoot,
         herdrBin,
-        nodeBin: deps.resolveNodeBin(),
+        nodeBin: deps.resolveNodeBin(options.throneRoot),
       },
       dryRun: options.dryRun,
     })),

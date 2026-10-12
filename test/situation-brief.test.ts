@@ -4,6 +4,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { git, initRepo } from "./git-repo-test-fixture.ts";
+import { FAKE_FORGEJO_ADMIN, startFakeForgejo } from "./forge-fake-forgejo.ts";
+import {
+  forgeDependenciesWithFakeGithub,
+  repositoryWithOriginAndFeatureBranch,
+  TEST_FORGEJO_TOKEN,
+  useFreshForgejoStateDirectory,
+} from "./forge-test-support.ts";
 import { openRegentQueueAmendments } from "../src/regent-queue/regent-queue-amendments.ts";
 import { openRegentQueueStore } from "../src/regent-queue/regent-queue.store.ts";
 import { runBriefCommand, type BriefCommandRunner } from "../src/situation-brief/brief-command-runner.ts";
@@ -18,11 +25,14 @@ import {
 } from "../src/situation-brief/situation-brief-composer.ts";
 import { composeSituationBriefForObjective } from "../src/situation-brief/situation-brief-runtime.ts";
 import type { QueueAmendment } from "../src/regent-queue/regent-queue-amendments.ts";
+import { RegentQueueItemStatus } from "../src/regent-queue/regent-queue-item-state.ts";
 import type { RegentQueueItemRow } from "../src/regent-queue/regent-queue.store.ts";
 
 const cleanup: string[] = [];
+const forgejoState = await useFreshForgejoStateDirectory();
 test.after(async () => {
   for (const dir of cleanup) await rm(dir, { recursive: true, force: true });
+  await forgejoState.remove();
 });
 
 async function commitFile(repo: string, name: string, text: string): Promise<string> {
@@ -44,6 +54,7 @@ async function repoWithOrigin(prefix: string): Promise<{ repo: string; remote: s
 
 const withoutGitHub: BriefCommandRunner = (file, args, cwd, timeout) =>
   file === "gh" ? Promise.resolve({ ok: false, detail: "gh is not available in this test" }) : runBriefCommand(file, args, cwd, timeout);
+const forgeWithoutGitHub = forgeDependenciesWithFakeGithub(() => ({ exitCode: 4, stdout: "", stderr: "gh is not available in this test\n" }));
 
 test("a local branch left on a diverged commit is flagged, with the remote difference counted", async () => {
   const { repo } = await repoWithOrigin("brief-diverged-");
@@ -105,8 +116,8 @@ test("open pull requests are kept when they share the branch or a file the body 
     { number: 12, title: "Shares a file", headRefName: "other", url: "https://example.test/12", files: [{ path: "src/routes/metadata.ts" }] },
     { number: 13, title: "Unrelated", headRefName: "elsewhere", url: "https://example.test/13", files: [{ path: "README.md" }] },
   ]);
-  const runner: BriefCommandRunner = async () => ({ ok: true, stdout: listing });
-  const section = await readOpenPullRequests(runner, {
+  const github = forgeDependenciesWithFakeGithub(() => ({ exitCode: 0, stdout: `${listing}\n`, stderr: "" }));
+  const section = await readOpenPullRequests(github, {
     repository: "/repo",
     branch: "add/feature",
     body: "SCOPE: touch src/routes/metadata.ts only",
@@ -115,8 +126,59 @@ test("open pull requests are kept when they share the branch or a file the body 
     "- #7873 Same branch (add/feature; this branch) https://example.test/7873",
     "- #12 Shares a file (other; files: src/routes/metadata.ts) https://example.test/12",
   ]);
-  const failing: BriefCommandRunner = async () => ({ ok: false, detail: "gh: not logged in" });
+  assert.deepEqual(github.githubCalls, [
+    {
+      program: "gh",
+      args: ["pr", "list", "--state", "open", "--limit", "30", "--json", "number,title,headRefName,url,files"],
+      cwd: "/repo",
+    },
+  ]);
+  const failing = forgeDependenciesWithFakeGithub(() => ({ exitCode: 1, stdout: "", stderr: "gh: not logged in\nrun gh auth login\n" }));
   assert.deepEqual((await readOpenPullRequests(failing, { repository: "/repo", branch: "b", body: "" })).lines, ["Unavailable (gh: not logged in)."]);
+  const garbled = forgeDependenciesWithFakeGithub(() => ({ exitCode: 0, stdout: "<html>", stderr: "" }));
+  assert.deepEqual((await readOpenPullRequests(garbled, { repository: "/repo", branch: "b", body: "" })).lines, ["Unavailable (gh returned something that is not JSON)."]);
+});
+
+test("the situation brief lists Forgejo pull requests with the same lines it prints for GitHub", async () => {
+  const checkout = await repositoryWithOriginAndFeatureBranch("brief-forgejo-");
+  const forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
+  try {
+    await forgejoState.installForgejo(forgejo.rootUrl);
+    const forgejoCopy = forgejo.bareRepositoryPath(`${FAKE_FORGEJO_ADMIN}/staging-demo`);
+    forgejo.repositories.set(`${FAKE_FORGEJO_ADMIN}/staging-demo`, { private: true });
+    await git(checkout.repo, ["init", "--bare", "-q", forgejoCopy]);
+    await git(checkout.repo, ["push", "-q", forgejoCopy, "main", "add/feature"]);
+    forgejo.pullRequests.push({
+      number: 4,
+      html_url: "https://example.test/4",
+      title: "WIP: Add the feature",
+      body: "",
+      state: "open",
+      merged: false,
+      head: { ref: "add/feature" },
+      base: { ref: "main" },
+      repository: `${FAKE_FORGEJO_ADMIN}/staging-demo`,
+    });
+    const input = { repository: checkout.repo, branch: "elsewhere", body: "touches feature.txt" };
+    const forgejoHost = forgeDependenciesWithFakeGithub();
+    const onForgejo = await readOpenPullRequests(forgejoHost, input);
+    await rm(path.join(forgejoState.forgejoDirectory, "enabled"));
+    const githubListing = JSON.stringify([
+      { number: 4, title: "Add the feature", headRefName: "add/feature", url: "https://example.test/4", files: [{ path: "feature.txt" }] },
+    ]);
+    const onGitHub = await readOpenPullRequests(
+      forgeDependenciesWithFakeGithub(() => ({ exitCode: 0, stdout: githubListing, stderr: "" })),
+      input,
+    );
+
+    assert.deepEqual(onForgejo, onGitHub);
+    assert.deepEqual(onForgejo.lines, ["- #4 Add the feature (add/feature; files: feature.txt) https://example.test/4"]);
+    assert.deepEqual(forgejoHost.githubCalls, []);
+  } finally {
+    await rm(path.join(forgejoState.forgejoDirectory, "enabled"), { force: true });
+    await forgejo.close();
+    await checkout.remove();
+  }
 });
 
 test("ruling lines and cited commits are extracted from a plan body", () => {
@@ -224,6 +286,7 @@ test("the whole brief is composed from a real queue row, its amendments and its 
     openStore: () => openRegentQueueStore(queueFile),
     openAmendments: () => openRegentQueueAmendments(queueFile),
     runCommand: withoutGitHub,
+    forge: forgeWithoutGitHub,
     now: () => Date.parse("2026-09-17T12:00:00Z"),
   });
   assert.match(brief, /Composed 2026-09-17T12:00:00.000Z for queue row "wired"/);
@@ -242,6 +305,7 @@ test("a code with no queue row yields a short brief that says so", async () => {
     openStore: () => openRegentQueueStore(queueFile),
     openAmendments: () => openRegentQueueAmendments(queueFile),
     runCommand: withoutGitHub,
+    forge: forgeWithoutGitHub,
     now: () => 0,
   });
   assert.match(brief, /no queue row is named "ghost"/);
@@ -256,6 +320,7 @@ test("situation-brief refuses anything but exactly --objective-code <code>", asy
     openStore: () => openRegentQueueStore(queueFile),
     openAmendments: () => openRegentQueueAmendments(queueFile),
     runCommand: withoutGitHub,
+    forge: forgeWithoutGitHub,
     now: () => 0,
   };
   for (const args of [[], ["--objective-code"], ["--code", "wired"], ["--objective-code", "not a code!"], ["--objective-code", "wired", "--extra"]]) {
@@ -298,4 +363,76 @@ test("a filed base that is not a commit at all is named as a wrong hash, not as 
   ).lines.join("\n");
   assert.match(text, /the filed base a4b268b235cfb1fd2cdb44e3db8b2b1f65e1e7a0 is not a commit in this repository at all/);
   assert.doesNotMatch(text, /does NOT contain/);
+});
+
+const commandsUnavailable: BriefCommandRunner = async () => ({ ok: false, detail: "commands are not run in this test" });
+
+interface FiledRow {
+  readonly objectiveCode: string;
+  readonly body?: string;
+  readonly dependsOn?: readonly string[];
+}
+
+async function briefForQueue(objectiveCode: string, filedRows: readonly FiledRow[]): Promise<string> {
+  const dir = await mkdtemp(path.join(tmpdir(), "brief-deferred-"));
+  cleanup.push(dir);
+  const queueFile = path.join(dir, "queue.sqlite3");
+  const store = openRegentQueueStore(queueFile);
+  for (const filed of filedRows) {
+    const inserted = store.insertItem({
+      objectiveCode: filed.objectiveCode,
+      body: filed.body ?? `INTENT: ${filed.objectiveCode}`,
+      launch: { alphaName: `alpha-${filed.objectiveCode}-01`, targetRepo: "/repo", targetBranch: "main", baseCommit: "a".repeat(40) },
+    });
+    if (filed.dependsOn !== undefined)
+      store.mutateItem(inserted.id, {
+        status: RegentQueueItemStatus.Deferred,
+        deferral: { dependsOn: filed.dependsOn, reason: `waits for ${filed.dependsOn.join(", ")}` },
+      });
+  }
+  store.close();
+  return composeSituationBriefForObjective(objectiveCode, {
+    openStore: () => openRegentQueueStore(queueFile),
+    openAmendments: () => openRegentQueueAmendments(queueFile),
+    runCommand: commandsUnavailable,
+    now: () => Date.parse("2026-10-05T12:00:00Z"),
+  });
+}
+
+test("an Alpha's launch brief lists the deferred rows that wait on its objective with the release request it must send", async () => {
+  const brief = await briefForQueue("builder", [
+    { objectiveCode: "builder" },
+    { objectiveCode: "checker", dependsOn: ["builder"] },
+    { objectiveCode: "upper", dependsOn: ["groundwork", "builder"] },
+    { objectiveCode: "elsewhere", dependsOn: ["groundwork"] },
+  ]);
+  assert.match(brief, /### Deferred rows waiting on this objective/);
+  assert.match(brief, /- checker\n  `throne send-agent Regent "Release deferred checker: builder delivered at <sha>"`/);
+  assert.match(brief, /- upper \(also waits on: groundwork\)\n  `throne send-agent Regent "Release deferred upper: builder delivered at <sha>"`/);
+  assert.doesNotMatch(brief, /Release deferred elsewhere/);
+  assert.match(brief, /wait for its "Released <code>" reply before you report done/);
+  assert.match(brief, /never a bare sleep/);
+  assert.match(brief, /no reply after 30 minutes, send it once more; if it is still unanswered, say so in your DONE report/);
+});
+
+test("an Alpha's launch brief has no release section when no deferred row waits on its objective", async () => {
+  const brief = await briefForQueue("builder", [
+    { objectiveCode: "builder" },
+    { objectiveCode: "elsewhere", dependsOn: ["groundwork"] },
+  ]);
+  assert.doesNotMatch(brief, /Deferred rows waiting on this objective/);
+  assert.doesNotMatch(brief, /Release deferred/);
+});
+
+test("the release section survives the brief's size limit", async () => {
+  const longRulings = Array.from({ length: 5 }, (_, index) => `- ruling ${index} ${"r".repeat(190)}`).join("\n");
+  const siblings = Array.from({ length: 20 }, (_, index) => ({ objectiveCode: `sibling${index}`, body: `INTENT: x\nRULINGS:\n${longRulings}` }));
+  const brief = await briefForQueue("builder", [
+    { objectiveCode: "builder" },
+    ...siblings,
+    { objectiveCode: "checker", dependsOn: ["builder"] },
+  ]);
+  assert.match(brief, /older line\(s\) were left out/);
+  assert.match(brief, /`throne send-agent Regent "Release deferred checker: builder delivered at <sha>"`/);
+  assert.match(brief, /say so in your DONE report/);
 });

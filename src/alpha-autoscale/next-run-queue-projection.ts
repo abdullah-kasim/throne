@@ -6,8 +6,7 @@ import type {
   RegentQueueItemRow,
   RegentQueueReadResult,
 } from "../regent-queue/regent-queue.store.ts";
-import type { DeferralRelease } from "./deferral-release.ts";
-import { planDeferralPromotion, reopenRows } from "./deferral-promotion.ts";
+import { planIdleRecovery, reopenRows } from "./idle-recovery.ts";
 import {
   autoscaleLaunchBriefFor,
   selectRowsToBrief,
@@ -18,7 +17,6 @@ export interface NextRunQueueProjection {
   readonly source: AutoscaleQueueSource;
   readonly unreadableQueueReason: string | null;
   readonly wouldBrief: readonly string[];
-  readonly wouldRelease: readonly DeferralRelease[];
   readonly wouldRecover: string | null;
 }
 
@@ -57,18 +55,15 @@ export function projectNextRunQueue(
       source: { readAll: () => queue, readLaunchBriefs: () => briefs },
       unreadableQueueReason: queue.state === "unknown" ? queue.reason : null,
       wouldBrief: [],
-      wouldRelease: [],
       wouldRecover: null,
     };
   }
   const { rowsToBrief } = selectRowsToBrief(queue.items);
-  const plan = planDeferralPromotion(queue.items);
-  const wouldRecover = plan.recovered?.objectiveCode ?? null;
-  const promotedCodes = new Set([
-    ...plan.released.map((release) => release.objectiveCode),
-    ...(wouldRecover === null ? [] : [wouldRecover]),
-  ]);
-  const projectedItems = reopenRows(queue.items, promotedCodes);
+  const wouldRecover = planIdleRecovery(queue.items)?.objectiveCode ?? null;
+  const projectedItems = reopenRows(
+    queue.items,
+    new Set(wouldRecover === null ? [] : [wouldRecover]),
+  );
   const projectedBriefs = briefsAfterStaging(
     briefs,
     rowsToBrief.map((item) => projectedBriefFor(item, nowMs)),
@@ -80,7 +75,6 @@ export function projectNextRunQueue(
     },
     unreadableQueueReason: null,
     wouldBrief: rowsToBrief.map((item) => item.objectiveCode!),
-    wouldRelease: plan.released,
     wouldRecover,
   };
 }

@@ -60,7 +60,7 @@ export interface SendAgentLegacyCommandDependencies<
       composerWaitMilliseconds?: number;
       forceSubmitResidentDraftOnTimeout?: boolean;
     },
-  ): Promise<void>;
+  ): Promise<unknown>;
   readAgentRole?: IdentityDataService['readAgentRole'];
   readAgentSupervisor?: IdentityDataService['readAgentSupervisor'];
   recordDeliveredEvent?: typeof recordDeliveredSupervisionEvent;

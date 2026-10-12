@@ -527,6 +527,10 @@ drift.
    subsequent successful `99c` mode-specific terminal outcome, write `$THRONE_DATA/$ALPHA/REPORT.md`
    FIRST — before the chat summary — exactly as `execute-todos`' Final report
    shape mandates; only after it lands do you report upward.
+   Before that `REPORT.md`, when your launch situation brief has a "Deferred
+   rows waiting on this objective" section, send its release requests and
+   wait for each reply, as `execute-todos`' "After the PASS" step under `99c`
+   says.
    When you are ready to be reaped, tell your supervisor first (the primary,
    never-dropped requirement) and, for an Alpha, only after the complete `99c`
    delivery gate. Shadows publish the canonical claim supplied by their

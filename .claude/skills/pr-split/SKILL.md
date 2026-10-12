@@ -78,9 +78,10 @@ Shape the proposal by these rules, in this order of precedence:
   tests at the bottom, the wiring above them, the front-end on top, the
   manual scenarios on the PR that serves the feature.
 - **Independent PRs from the default branch only for pieces that share
-  nothing**, when someone wants them reviewed side by side. The Lord's
-  never-stack rule of 2026-09-15 governs unrelated PRs, not the layers of
-  one split; a split's stack is planned here and unstacked at landing.
+  nothing**, when someone wants them reviewed side by side. Unrelated
+  tickets stay separate PRs, each cut from the default branch (Lord,
+  2026-09-24); a split's layers are one feature, so they stack, and the
+  stack lands by roll-up through `/pr-merge`.
 - **The original PR survives as the last PR of the set** when it holds
   review comments, a published `## Screenshots` section (its
   `user-attachments` URLs exist only on GitHub) or a discussion worth
@@ -94,14 +95,20 @@ Each row follows `/queue-objective` in full. Create each new PR branch from
 the default branch first (`git -C <repo> branch <name> origin/<default>`),
 named in the repository's own convention; the stacked ones are fast-forwarded
 onto their parent by the Alpha, never by the Stager. File the rows in
-merge order, then defer each stacked row on the row below it:
+merge order, and defer each stacked row on the row below it straight after
+filing it:
 
 ```bash
 throne update-queue --objective-code <upper> --status deferred \
   --depends-on <lower> --defer-reason "<upper> is stacked on <lower>'s branch"
 ```
 
-Independent PRs are not deferred; they run side by side.
+A deferred row starts only when the Regent releases it. The Alpha of each
+lower layer finds the row stacked on it in its launch brief, sends the
+Regent a release request once its PR delivery lands, and waits for the
+reply; the Regent then runs `throne release-deferred` for that upper row.
+The layers start one at a time, bottom up. Independent PRs are not deferred;
+they run side by side.
 
 Every body carries the execution contract below verbatim under `SCOPE:` and
 names this skill, so the Alpha reads the rest of it,
@@ -119,6 +126,25 @@ stack, the words that ordered the stacking.
   builds on it. One list, the same on every PR, updated on all of them when
   a number changes. Nothing about branches, agents, campaigns or merge
   ceremony beyond that list.
+
+## When the PR being split is on Forgejo
+
+Read `publishTo` from `throne forge status <url> --json` before section 1.
+`github` (a github.com or enterprise PR) follows this file exactly as
+written. `forgejo` (a PR on this host's Forgejo) is split the same way, but
+every forge call goes through the forge seam:
+
+- Read it from the `forgejo` remote: `git -C <repo> fetch forgejo`, then the
+  same `diff --stat` against `forgejo/<default>...forgejo/<pr-branch>`.
+- Open each resulting PR with `throne forge push-branch --branch <name>`,
+  then `throne forge pr create --draft --base <parent-branch> --head <name>
+  --title <title> --body-file <file>`. Read and edit bodies with
+  `throne forge pr view` and `throne forge pr edit <url> --body-file <file>`.
+- Retargeting a PR's base has no seam operation: `throne forge pr edit`
+  changes only the body. So a Forgejo cut that keeps the original PR as the
+  last of a stack is never filed. Say "Forgejo cannot retarget a pull
+  request's base through the forge seam, so the original pull request
+  cannot stay as the top of this stack" and stop before filing anything.
 
 ## The execution contract (goes into every body)
 
@@ -161,6 +187,9 @@ The procedure, the three questions the Lord answers (which pull request,
 whether it may merge, the criteria that allows the merge) and the queue row
 shape are in `/pr-merge`; it identifies the whole stack from any one pull
 request in it.
+A stack staged in Forgejo lands the same way, on GitHub: nothing is merged
+in Forgejo, and `/pr-merge` closes the staged root's Forgejo pull request
+with a comment once its GitHub twin is merged.
 
 ## A worked shape
 

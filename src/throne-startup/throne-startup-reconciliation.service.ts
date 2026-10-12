@@ -44,6 +44,7 @@ import {
   type PinnedHarnessGuardContract,
 } from "./throne-startup-pinned-harness-guard.ts";
 import { harnessProvenance } from "../herdr/harness-provenance.ts";
+import { findStagerTheCourtWouldReuse, type ReusableStager } from "../alpha-autoscale/reusable-stager.ts";
 import {
   REAL_DEPS as RESTART_HARNESSES_REAL_DEPS,
   ensurePaneCarriesName,
@@ -86,6 +87,7 @@ export interface StartupReconciliationContract extends PinnedHarnessGuardContrac
    *  campaign's defining symptom (its tree was removed out from under it,
    *  e.g. by a reap of a DIFFERENT agent's worktree it was occupying). */
   pathExists: (target: string) => Promise<boolean>;
+  findStagerTheCourtWouldReuse: (liveAgentNames: string[]) => Promise<ReusableStager | null>;
   log: (message: string) => void;
   warn: (message: string) => void;
 }
@@ -268,7 +270,7 @@ export async function resumeOrphan(
 }
 
 /** Names live agents are addressed by, per the same convention `reconcile()` diffs against. */
-function extractLiveNames(agents: HerdrAgent[]): string[] {
+export function extractLiveNames(agents: HerdrAgent[]): string[] {
   return agents
     .map((agent) => agent.tabLabel ?? agent.name)
     .filter((name): name is string => name !== undefined);
@@ -352,6 +354,7 @@ const REAL_CONTRACT: StartupReconciliationContract = {
   readBlockedMarker: (name) => readBlockedMarker(name),
   clearBlockedMarker: (name) => clearBlockedMarker(name),
   pathExists,
+  findStagerTheCourtWouldReuse: (liveAgentNames) => findStagerTheCourtWouldReuse(liveAgentNames),
   harnessProvenance: (paneId) => harnessProvenance(paneId),
   currentPaneId: () => RESTART_HARNESSES_REAL_DEPS.currentPaneId(),
   stopHarnessInPane: (paneId) =>
@@ -416,10 +419,12 @@ export class ThroneStartupReconciliationService {
     ];
     const completed = new Set(completedList);
     const live = extractLiveNames(liveAgents);
+    const stagerLeftForTheCourtToReuse = await this.contract.findStagerTheCourtWouldReuse(live);
     const orphans = registered.filter(
       (name) =>
         !live.some((liveName) => sameAgentName(liveName, name)) &&
-        !sameAgentName(name, REGENT_NAME),
+        !sameAgentName(name, REGENT_NAME) &&
+        name !== stagerLeftForTheCourtToReuse?.name,
     );
     if (orphans.length === 0) {
       this.contract.log(

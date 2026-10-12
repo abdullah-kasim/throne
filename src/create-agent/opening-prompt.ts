@@ -7,7 +7,6 @@ import {
   enqueueMessageDelivery,
 } from '../send-agent/message-delivery-enqueue.ts';
 import { deriveDefaultMessageDeliveryIdempotencyKey } from '../message-queue/message-delivery-idempotency.ts';
-import { requiresFileBackedDelivery } from '../send-agent/payload-transport.ts';
 import { errorText } from '../shared-policy/error-text.ts';
 import { HARNESS_NAMES, runtimeHarness } from '../harness-routing/harness.ts';
 import {
@@ -23,22 +22,10 @@ import {
   currentIsoTime,
   stderrWriter,
 } from './command-context.ts';
-import {
-  awaitOpeningPromptReceipt,
-  resendOpeningPromptAfterClipping,
-  type OpeningPromptReceipt,
-} from './opening-prompt-receipt.ts';
-
-export type OpeningPromptReceiptOutcome =
-  | 'intact'
-  | 'clipped-resent'
-  | 'unobserved'
-  | 'not-applicable';
 
 export interface OpeningPromptDeliveryResult {
   delivered: boolean;
   outcome: SpawnTaskingOutcome;
-  receipt: OpeningPromptReceiptOutcome;
 }
 
 function requestCarriesGenuineTask(request: PolicyResolution): boolean {
@@ -69,16 +56,9 @@ async function recordAgentTaskedAtSpawn(
   }
 }
 
-/**
- * The shared literal delivery flags an opening prompt always carries: no
- * sender attribution on a first turn, file-backing only once the prompt
- * crosses the transport's inline-size threshold, and a wait for the
- * harness's startup chrome to settle before writing.
- */
-function openingPromptDeliveryFlags(prompt: string) {
+function openingPromptDeliveryFlags() {
   return {
     omitSenderAttribution: true,
-    disableFileBackedDelivery: !requiresFileBackedDelivery(prompt),
     waitForStartupQuiescence: true,
   };
 }
@@ -106,7 +86,7 @@ async function enqueueOpeningPromptViaSqlite(
         prompt,
         key: idempotencyKey,
         clearRecipientBlockedOnDelivery: false,
-        ...openingPromptDeliveryFlags(prompt),
+        ...openingPromptDeliveryFlags(),
       }),
     );
   } catch (error) {
@@ -175,58 +155,6 @@ async function confirmOpeningPromptTasking(
   return confirm(request.name, 'spawn');
 }
 
-function receiptVerificationApplies(
-  request: PolicyResolution,
-  openingPrompt: string,
-): boolean {
-  return (
-    runtimeHarness(request.launchHarness) === HARNESS_NAMES.CLAUDE &&
-    !requiresFileBackedDelivery(openingPrompt)
-  );
-}
-
-function describeClippedReceipt(
-  request: PolicyResolution,
-  openingPrompt: string,
-  receipt: Extract<OpeningPromptReceipt, { status: 'clipped' }>,
-): string {
-  return (
-    `create-agent: "${request.name}" received a CLIPPED opening prompt ` +
-    `(${receipt.receivedText.length} of ${openingPrompt.length} characters ` +
-    `reached its first turn; transcript ${receipt.transcriptPath}). ` +
-    `Re-enqueuing the complete prompt.\n`
-  );
-}
-
-async function verifyOpeningPromptReceipt(
-  agent: HerdrAgent,
-  request: PolicyResolution,
-  deps: CreateAgentDeps,
-  openingPrompt: string,
-): Promise<OpeningPromptReceiptOutcome> {
-  if (!receiptVerificationApplies(request, openingPrompt)) {
-    return 'not-applicable';
-  }
-  const awaitReceipt = deps.awaitOpeningPromptReceipt ?? awaitOpeningPromptReceipt;
-  const receipt = await awaitReceipt(request.name, openingPrompt);
-  if (receipt.status === 'intact') return 'intact';
-  if (receipt.status === 'unobserved') {
-    stderrWriter(deps)(
-      `create-agent: could not verify that "${request.name}" received its ` +
-        `opening prompt intact (${receipt.reason}).\n`,
-    );
-    return 'unobserved';
-  }
-  stderrWriter(deps)(describeClippedReceipt(request, openingPrompt, receipt));
-  await enqueueOpeningPromptDelivery(
-    agent,
-    request,
-    deps,
-    resendOpeningPromptAfterClipping(openingPrompt),
-  );
-  return 'clipped-resent';
-}
-
 export async function deliverAgentOpeningPrompt(
   request: PolicyResolution,
   deps: CreateAgentDeps,
@@ -234,24 +162,17 @@ export async function deliverAgentOpeningPrompt(
   harnessWasLaunched: boolean,
 ): Promise<OpeningPromptDeliveryResult> {
   if (!harnessWasLaunched) {
-    return { delivered: true, outcome: 'not-applicable', receipt: 'not-applicable' };
+    return { delivered: true, outcome: 'not-applicable' };
   }
   const writeStderr = stderrWriter(deps);
   try {
     const agent = await waitForAgentRegistration(request.name, deps);
     await enqueueOpeningPromptDelivery(agent, request, deps, openingPrompt);
     await recordAgentTaskedAtSpawn(request, deps);
-    const receipt = await verifyOpeningPromptReceipt(
-      agent,
-      request,
-      deps,
-      openingPrompt,
-    );
     const confirmation = await confirmOpeningPromptTasking(request, deps);
     return {
       delivered: true,
       outcome: deriveSpawnTaskingOutcome(true, confirmation),
-      receipt,
     };
   } catch (error) {
     const retrySafe =
@@ -269,6 +190,6 @@ export async function deliverAgentOpeningPrompt(
             `whether anything is still owed.`) +
         `\n`,
     );
-    return { delivered: false, outcome: 'not-applicable', receipt: 'not-applicable' };
+    return { delivered: false, outcome: 'not-applicable' };
   }
 }

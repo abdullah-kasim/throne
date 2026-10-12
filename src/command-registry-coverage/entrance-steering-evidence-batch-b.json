@@ -26,6 +26,32 @@
     ]
   },
   {
+    "commandName": "read-message",
+    "failureMode": "missing argument",
+    "testFile": "src/read-message/read-message.test.ts",
+    "testName": "read-message steers malformed input before identity or store effects",
+    "sourceFile": "src/read-message/read-message.ts",
+    "sourceAnchor": "soleMessageId(args)",
+    "invocationTokens": [
+      "room.read(malformedArguments, RECIPIENT_NAME)"
+    ],
+    "reasonAssertionTokens": [
+      "requires exactly one message ID"
+    ],
+    "bypassAssertionTokens": [
+      "No bypass is available for this refusal"
+    ],
+    "humanRouteAssertionTokens": [
+      "Ask your supervisor for an allowed alternative invocation"
+    ],
+    "statusAssertionTokens": [
+      "assert.equal(outcome.exitCode, 1)"
+    ],
+    "noEffectAssertionTokens": [
+      "assert.deepEqual(room.effects, { storeOpenings: 0, identityLookups: 0 })"
+    ]
+  },
+  {
     "commandName": "trim-queue",
     "failureMode": "invalid value",
     "testFile": "src/trim-queue/trim-queue-runtime.test.ts",

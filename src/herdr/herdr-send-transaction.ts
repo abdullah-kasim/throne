@@ -157,7 +157,7 @@ export async function submitToAgentWhileLocked(
   prompt: string,
   options: SubmitToAgentOptions = {},
   deps: SubmitToAgentDeps = REAL_SUBMIT_TO_AGENT_DEPS,
-): Promise<void> {
+): Promise<string | undefined> {
   const name = recipientName(agent);
   const harness = supportedComposerHarness(agent.agent);
   await dismissOpenCodeMessageActionsModal(agent, deps);
@@ -167,7 +167,7 @@ export async function submitToAgentWhileLocked(
     } catch (error) {
       throw asAssumedFilled(name, error);
     }
-    return;
+    return undefined;
   }
   // omp does not go through the composer at all. Its panes are
   // `screen_detection_skipped`, so the observation behind "never overwrite a
@@ -178,15 +178,16 @@ export async function submitToAgentWhileLocked(
   // user turn. Still under the recipient lock, still behind the durable queue:
   // only this innermost submit changes.
   if (harness === HARNESS_NAMES.OMP) {
+    const ompPayload = submittedPayload(senderName, prompt, options);
     const outcome = await deps.deliverToOmp(
-      submittedPayload(senderName, prompt, options),
+      ompPayload,
       options.composerWaitMilliseconds ?? OMP_DELIVERY_TIMEOUT_MS,
       // ADDRESSED to this recipient's pane. Every live omp instance polls the
       // same directory, so an unaddressed request is claimed by whichever one
       // is idle first — see the defect note in omp-delivery-client.ts.
       agent.paneId,
     );
-    if (outcome.kind === "delivered") return;
+    if (outcome.kind === "delivered") return ompPayload;
     if (outcome.kind === "refused") {
       throw new SubmitNotSentError(
         name,
@@ -214,13 +215,13 @@ export async function submitToAgentWhileLocked(
     } catch (error) {
       throw new SubmitNotSentError(name, error);
     }
-    if (options.textOnly) return;
+    if (options.textOnly) return literalPayload;
     try {
       await deps.pressEnter(agent.paneId);
     } catch (error) {
       throw asAssumedFilled(name, error);
     }
-    return;
+    return literalPayload;
   }
   let textWritten = false;
   try {
@@ -326,7 +327,7 @@ export async function submitToAgentWhileLocked(
       // is the authoritative, always-reached evidence of whether the
       // payload actually submitted.
     }
-    if (options.textOnly) return;
+    if (options.textOnly) return literalPayload;
     const { clearance, bounds } = enterUntilEmptyTransactionFor(harness);
     await pressEnterUntilEmptyTextbox(
       agent,
@@ -335,6 +336,7 @@ export async function submitToAgentWhileLocked(
       deps,
       bounds,
     );
+    return literalPayload;
   } catch (error) {
     if (!textWritten && !(error instanceof SubmitAssumedFilledError)) {
       throw new SubmitNotSentError(name, error);

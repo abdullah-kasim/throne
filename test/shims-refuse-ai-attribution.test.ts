@@ -47,6 +47,7 @@ async function fixture(): Promise<Fixture> {
       THRONE_GIT_SIGNING_KEY: 'EXAMPLEKEY',
       THRONE_GIT_IDENTITY_ORIGIN: '',
       THRONE_GH_GUARD_WAIVED: '',
+      THRONE_DATA_HOME: path.join(root, 'data-home'),
     },
   };
 }

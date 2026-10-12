@@ -43,18 +43,26 @@ import {
   type CustomPlanPresetPair,
 } from "../steering-user-config.ts";
 import {} from "../herdr/herdr-create.service.ts";
-import { startAgent } from "../herdr/herdr-creation-orchestration.ts";
+import {
+  REAL_RESUME_REGISTERED_AGENT_DEPS,
+  startAgent,
+} from "../herdr/herdr-creation-orchestration.ts";
 import { deliverOpeningPrompt } from "../herdr/herdr-opening-prompt.ts";
 import { COMPOSER_RECOGNITION_TIMEOUT_MS } from "../herdr/herdr-send.types.ts";
-import type { StartOptions } from "../herdr/herdr-create.contracts.ts";
+import type {
+  ResumeRegisteredAgentInRestoredTabDeps,
+  StartOptions,
+} from "../herdr/herdr-create.contracts.ts";
 import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 import {
   REGENT_NAME,
+  REGENT_TAB_LABEL,
   findLiveRegent,
   RegentLivenessVerdict,
   classifyRegentLiveness,
 } from "./regent-liveness.ts";
+import { relaunchRegentInRestoredTab } from "./regent-restored-tab-launch.ts";
 import type { RegentLivenessClassification } from "./regent-liveness.ts";
 import { installHerdrOperatorSkill } from "../herdr/herdr-operator-skill.ts";
 import {
@@ -64,7 +72,7 @@ import {
   writeSpawnMarker,
 } from "./regent-spawn-marker.ts";
 
-export { REGENT_NAME, findLiveRegent, RegentLivenessVerdict };
+export { REGENT_NAME, REGENT_TAB_LABEL, findLiveRegent, RegentLivenessVerdict };
 export type { RegentLivenessClassification };
 export {
   DEFAULT_SPAWN_MARKER_WINDOW_MS,
@@ -293,6 +301,7 @@ export interface ResurrectDeps {
   configuredRegentLaunch?: () => RegentLaunch | undefined;
   findLiveRegent: typeof findLiveRegent;
   installHerdrOperatorSkill: typeof installHerdrOperatorSkill;
+  restoredTab?: ResumeRegisteredAgentInRestoredTabDeps;
   writeStderr: (text: string) => void;
   throneRoot: string;
   regentDir: string;
@@ -310,6 +319,7 @@ const REAL_RESURRECT_DEPS: ResurrectDeps = {
   configuredRegentLaunch,
   findLiveRegent,
   installHerdrOperatorSkill,
+  restoredTab: REAL_RESUME_REGISTERED_AGENT_DEPS,
   writeStderr: (text) => process.stderr.write(text),
   throneRoot: REPO_ROOT,
   regentDir: REGENT_DIR,
@@ -430,7 +440,19 @@ export async function resurrectRegent(
           `(${skill.message}); the Regent can still run herdr through bin/herdr.\n`,
       );
     }
-    await deps.startAgent(REGENT_NAME, opts);
+    const relaunchedInRestoredTab =
+      deps.restoredTab !== undefined &&
+      (await relaunchRegentInRestoredTab(
+        {
+          freshSession: opts,
+          regentDir: deps.regentDir,
+          writeStderr: deps.writeStderr,
+        },
+        deps.restoredTab,
+      ));
+    if (!relaunchedInRestoredTab) {
+      await deps.startAgent(REGENT_NAME, opts);
+    }
     await deps.deliverOpeningPrompt(REGENT_NAME, RESURRECT_PROMPT, {
       composerWaitMilliseconds: REGENT_RESURRECTION_COMPOSER_WAIT_MS,
       forceSubmitResidentDraftOnTimeout: false,

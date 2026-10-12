@@ -1,8 +1,9 @@
 import { RegentQueueItemStatus } from "./regent-queue-item-state.ts";
 import type { QueueLaunchEligibility } from "./regent-queue-launch-brief.ts";
 import type { ModelPair } from "../config.ts";
+import type { QueueOutcome, QueueOutcomeRecord } from "./regent-queue-outcome.ts";
 
-export interface RegentQueueItemRow {
+export interface RegentQueueItemRow extends QueueOutcomeRecord {
   readonly id: string;
   readonly objectiveCode: string | null;
   readonly status: RegentQueueItemStatus;
@@ -26,8 +27,9 @@ export interface RegentQueueItemRow {
   readonly validationRequiredAt?: number | null;
   readonly deliveryMirror: QueueDeliveryMirror;
   readonly absorption: QueueAbsorption | null;
-  /** Set only while `status` is `deferred`. See `QueueDeferral`. */
   readonly deferral: QueueDeferral | null;
+  readonly release?: QueueRelease | null;
+  readonly filedBy?: string | null;
   readonly priority: number;
   readonly createdAt: number;
   readonly updatedAt: number;
@@ -68,8 +70,18 @@ export interface QueueItemSqlRow {
   absorption_checked_at: number | null;
   absorption_reason: string | null;
   deferred_depends_on: string | null;
-  deferred_release_authority: string | null;
   deferred_reason: string | null;
+  deferred_at: number | null;
+  release_requested_by: string | null;
+  released_by: string | null;
+  release_reason: string | null;
+  released_at: number | null;
+  filed_by: string | null;
+  outcome: string | null;
+  outcome_summary: string | null;
+  pr_url: string | null;
+  result_commit: string | null;
+  completed_at: number | null;
   priority: number;
   created_at: number;
   updated_at: number;
@@ -110,7 +122,7 @@ export interface QueueAbsorption {
   readonly reason: string | null;
 }
 
-export const queueItemColumns = `id, objective_code, status, body, deferred_depends_on, deferred_release_authority, deferred_reason, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, deliverable_shape, shadowless, sliceless, effort, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, priority, created_at, updated_at`;
+export const queueItemColumns = `id, objective_code, status, body, deferred_depends_on, deferred_reason, deferred_at, release_requested_by, released_by, release_reason, released_at, filed_by, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, deliverable_shape, shadowless, sliceless, effort, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, outcome, outcome_summary, pr_url, result_commit, completed_at, priority, created_at, updated_at`;
 
 export function isQueueDeliveryMirrorVerdict(
   value: string,
@@ -184,31 +196,27 @@ function launchEligibility(row: QueueItemSqlRow): QueueLaunchEligibility {
   };
 }
 
-/**
- * Why a row is held, and what would release it.
- *
- * `dependsOn` is the machine-checkable half: the objective codes that must all
- * reach a terminal status before this row may launch. The autoscaler evaluates
- * it every tick and releases the row itself, which is the entire point — the
- * hold that prompted this feature stayed shut for hours after its condition
- * was satisfied because nothing was watching.
- *
- * `releaseAuthority` is the half no predicate can evaluate: "the Lord must
- * rule on D6". A row carrying one is never auto-released and never picked up
- * by idle recovery; it waits for the named authority and nothing else. That
- * exemption is narrow on purpose — it is the only way to make a hold that
- * outlasts an idle court, so it must be spelled deliberately rather than
- * fallen into.
- */
-export interface QueueDeferral {
+export interface QueueDeferralRequest {
   readonly dependsOn: readonly string[];
-  readonly releaseAuthority: string | null;
-  readonly reason: string | null;
+  readonly reason: string;
 }
 
-/** Parses the stored deferral columns. Returns `null` for any row that is not
- *  deferred, so a stale value left on a released row can never be mistaken for
- *  a live hold. */
+export interface QueueDeferral {
+  readonly dependsOn: readonly string[];
+  readonly reason: string | null;
+  readonly deferredAt: number | null;
+}
+
+export interface QueueReleaseRequest {
+  readonly requestedBy: string | null;
+  readonly releasedBy: string;
+  readonly reason: string;
+}
+
+export interface QueueRelease extends QueueReleaseRequest {
+  readonly releasedAt: number;
+}
+
 export function toQueueDeferral(row: QueueItemSqlRow): QueueDeferral | null {
   if (row.status !== RegentQueueItemStatus.Deferred) return null;
   const dependsOn = (row.deferred_depends_on ?? "")
@@ -217,8 +225,19 @@ export function toQueueDeferral(row: QueueItemSqlRow): QueueDeferral | null {
     .filter((code) => code !== "");
   return {
     dependsOn,
-    releaseAuthority: row.deferred_release_authority,
     reason: row.deferred_reason,
+    deferredAt: row.deferred_at,
+  };
+}
+
+function toQueueRelease(row: QueueItemSqlRow): QueueRelease | null {
+  if (row.released_by === null || row.release_reason === null || row.released_at === null)
+    return null;
+  return {
+    requestedBy: row.release_requested_by,
+    releasedBy: row.released_by,
+    reason: row.release_reason,
+    releasedAt: row.released_at,
   };
 }
 
@@ -263,6 +282,13 @@ export function toQueueItemRow(row: QueueItemSqlRow): RegentQueueItemRow {
             reason: row.absorption_reason,
           },
     deferral: toQueueDeferral(row),
+    release: toQueueRelease(row),
+    filedBy: row.filed_by,
+    outcome: row.outcome as QueueOutcome | null,
+    outcomeSummary: row.outcome_summary,
+    prUrl: row.pr_url,
+    resultCommit: row.result_commit,
+    completedAt: row.completed_at,
     priority: row.priority,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

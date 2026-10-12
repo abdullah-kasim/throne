@@ -32,8 +32,8 @@ const refusalCooldown = new AutoreapRefusalCooldown();
 
 function isAutomaticReapReason(
   status: ReturnType<typeof readReapabilityClaimStatus>,
-): status is 'completed' | 'cancelled' {
-  return status === 'completed' || status === 'cancelled';
+): status is 'completed' | 'abandoned' {
+  return status === 'completed' || status === 'abandoned';
 }
 
 export interface AutoreapDependencies {

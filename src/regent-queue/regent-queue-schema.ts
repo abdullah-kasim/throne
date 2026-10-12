@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { RegentQueueItemStatus } from "./regent-queue-item-state.ts";
 
 /**
  * Creates (or upgrades) the `queue_items` table and its indexes on an
@@ -48,8 +49,18 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
       absorption_checked_at INTEGER,
       absorption_reason TEXT,
       deferred_depends_on TEXT,
-      deferred_release_authority TEXT,
       deferred_reason TEXT,
+      deferred_at INTEGER,
+      release_requested_by TEXT,
+      released_by TEXT,
+      release_reason TEXT,
+      released_at INTEGER,
+      filed_by TEXT,
+      outcome TEXT,
+      outcome_summary TEXT,
+      pr_url TEXT,
+      result_commit TEXT,
+      completed_at INTEGER,
       priority INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
@@ -73,17 +84,38 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
     db.exec(`ALTER TABLE queue_items ADD COLUMN launch_base_commit TEXT`);
   if (!names.has("pr_branch"))
     db.exec(`ALTER TABLE queue_items ADD COLUMN pr_branch TEXT`);
-  // Deferral fields, added 2026-08-25 with the `deferred` status. A held row
-  // used to be spelled `in-flight` with no agent, because "deferred" could not
-  // be expressed; that made "an Alpha has this" and "nobody may touch this"
-  // the same state, and a hold whose condition had cleared never released
-  // itself. See `regent-queue-item-state.ts`.
   if (!names.has("deferred_depends_on"))
     db.exec(`ALTER TABLE queue_items ADD COLUMN deferred_depends_on TEXT`);
-  if (!names.has("deferred_release_authority"))
-    db.exec(`ALTER TABLE queue_items ADD COLUMN deferred_release_authority TEXT`);
+  if (names.has("deferred_release_authority"))
+    db.exec(`ALTER TABLE queue_items DROP COLUMN deferred_release_authority`);
   if (!names.has("deferred_reason"))
     db.exec(`ALTER TABLE queue_items ADD COLUMN deferred_reason TEXT`);
+  if (!names.has("deferred_at")) {
+    db.exec(`ALTER TABLE queue_items ADD COLUMN deferred_at INTEGER`);
+    db.prepare(
+      `UPDATE queue_items SET deferred_at = updated_at WHERE status = ?`,
+    ).run(RegentQueueItemStatus.Deferred);
+  }
+  if (!names.has("release_requested_by"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN release_requested_by TEXT`);
+  if (!names.has("released_by"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN released_by TEXT`);
+  if (!names.has("release_reason"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN release_reason TEXT`);
+  if (!names.has("released_at"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN released_at INTEGER`);
+  if (!names.has("filed_by"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN filed_by TEXT`);
+  if (!names.has("outcome"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN outcome TEXT`);
+  if (!names.has("outcome_summary"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN outcome_summary TEXT`);
+  if (!names.has("pr_url"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN pr_url TEXT`);
+  if (!names.has("result_commit"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN result_commit TEXT`);
+  if (!names.has("completed_at"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN completed_at INTEGER`);
   if (!names.has("model_hint_harness"))
     db.exec(`ALTER TABLE queue_items ADD COLUMN model_hint_harness TEXT`);
   if (!names.has("model_hint_model"))
@@ -226,6 +258,10 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
       predicate TEXT NOT NULL,
       operated_at INTEGER NOT NULL,
       row_count INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS deferred_row_pings (
+      ping_key TEXT PRIMARY KEY,
+      pinged_at INTEGER NOT NULL
     );
   `);
   const archiveColumns = db

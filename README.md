@@ -36,7 +36,7 @@ Code and no Codex on it is the expected starting point.
    The installer is run **by an agent, not by hand**: it refuses to start
    without `I_AM_AN_AGENT=1`, which the agent supplies when it runs it. This
    is deliberate — an agent reads whatever breaks on your particular machine
-   (a too-old bash, a missing `flock`, a Node below 24), fixes it, and
+   (a too-old bash, a missing `flock` or `mise`), fixes it, and
    re-runs until the install is clean, where a human pasting commands stops
    at the first error. Its last message tells you to quit it and run `throne`.
 
@@ -45,8 +45,8 @@ three harnesses at pinned versions, pulls the ntfy image, installs and
 starts every service, and then seats the court: it runs `keep-going`, so a
 Regent is live before the installer returns (a `dismissed` desired-state is
 honoured), sends a newly raised Regent its install order, and waits for the
-Stager that the Regent's startup hook raises — applying the same floor
-directly if the hook did not. It is
+Stager that the backend's court liveness worker raises — applying the same
+floor directly if the worker did not. It is
 **idempotent** — re-run it after every `git pull` to apply a moved pin; a
 no-op run takes about a second and changes nothing.
 
@@ -70,14 +70,29 @@ Everything downloaded is gitignored and reproducible from the manifests:
 herdr sits outside the repo deliberately: campaign worktrees are separate
 checkouts that must all resolve the same herdr binary.
 
+Optionally, ask the agent to run `./install-forgejo.sh` too: it adds a
+tailnet-only Forgejo forge for reading pull requests (diffs, markdown, images
+and videos) and the pinned `tea` CLI logged in to it, which a plain install
+never sets up. See
+[agent_docs/forgejo.md](agent_docs/forgejo.md).
+
 Take it back down by asking an agent to run `./uninstall.sh` (add `--purge`
 to drop `dist/` and `node_modules/` too; same `I_AM_AN_AGENT=1` contract). Your `config.user.ts`, the `~/.throne/` ledgers, and the
 checkout itself are never touched. Note that stopping herdr drops every live
 agent pane, so check `./bin/throne-cli agent-statuses` first.
 
 Only two things must already exist: **bash ≥ 4.3** (macOS ships 3.2 — `brew
-install bash`) and **Node ≥ 24**. The installer checks both and refuses early
+install bash`) and **mise**. The installer checks both and refuses early
 with instructions rather than failing halfway.
+
+The throne runs exactly Node 24.19.0, pinned in the repo-root `mise.toml`, the
+single place to bump it. Like every other pin in `vendor-pins.json`, nothing
+resolves the latest Node at install time: `install.sh` runs `mise install node`
+for that version, and the launchers and services run that install, never the
+`node` on PATH. To bump it, edit `mise.toml`, the `FROM` tag in
+`docker/suite-app.Dockerfile` and `engines.node` in `package.json` together
+(a test fails while any of the three disagree), then run `mise install` in the
+throne root and `throne install-services`.
 
 ## Configuration
 

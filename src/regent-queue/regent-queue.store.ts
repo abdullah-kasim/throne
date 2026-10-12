@@ -1,6 +1,15 @@
 import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import { archiveQueueItems } from "./regent-queue-archive.ts";
+import {
+  archiveQueueItems,
+  recordQueueMutationAudit,
+} from "./regent-queue-archive.ts";
+import { insertQueueItem, type NewQueueItem } from "./regent-queue-insert.ts";
+import {
+  outcomeColumnsAfterMutation,
+  type QueueOutcomeMutation,
+} from "./regent-queue-outcome.ts";
+export type { NewQueueItem } from "./regent-queue-insert.ts";
 import {
   openRegentQueueDatabase,
   resolveRegentQueueDatabasePath,
@@ -23,8 +32,8 @@ export type {
   StageQueueLaunchBrief,
 } from "./regent-queue-launch-brief.ts";
 import {
-  type QueueDeliverableShape,
-  type QueueDeferral,
+  type QueueDeferralRequest,
+  type QueueReleaseRequest,
   queueItemColumns,
   requireQueueDeliveryMirror,
   requireQueuePriority,
@@ -37,7 +46,6 @@ import type {
   RegentQueueItemRow,
 } from "./regent-queue-row.ts";
 import type { EligibleQueueLaunchMetadata } from "./regent-queue-launch-brief.ts";
-import type { ModelPair } from "../config.ts";
 export { isQueueDeliveryMirrorVerdict } from "./regent-queue-row.ts";
 export type {
   QueueAbsorption,
@@ -66,47 +74,18 @@ export {
   RegentQueueItemStatus,
 };
 
-/**
- * The store's on-disk home: one SQLite file under the durable throne ledger
- * area (never `/tmp`), so a crashed Regent, a dead CLI invocation, or a
- * reboot never loses queue state. Mirrors
- * `outage-marker.store.ts`/`message-queue.store.ts`'s convention of a
- * dedicated file for its own concern rather than sharing one.
- */
-/** A new item's fields. `id` and `status` are optional so migration import can pin a specific id and a
- * non-open starting status (preserving QUEUE.md's current state); `add-to-queue` omits both and gets a
- * generated id in the open status. */
-export interface NewQueueItem {
-  readonly id?: string;
-  readonly objectiveCode?: string | null;
-  readonly status?: RegentQueueItemStatus;
-  readonly body: string;
-  readonly prBranch?: string | null;
-  readonly modelHint?: ModelPair | null;
-  readonly deliverableShape?: QueueDeliverableShape | null;
-  readonly shadowless?: boolean;
-  readonly sliceless?: boolean;
-  readonly effort?: number | null;
-  readonly launch?: EligibleQueueLaunchMetadata;
-  readonly deliveryMirror?: QueueDeliveryMirror;
-  readonly absorption?: QueueAbsorption | null;
-  readonly priority?: number;
-}
-
 /** Fields a lifecycle write-back or migration import may set while transitioning a status. */
-export interface QueueItemTransitionFields {
+export interface QueueItemTransitionFields extends QueueOutcomeMutation {
   readonly agentName?: string;
   readonly targetRepo?: string;
   readonly baseCommit?: string;
   readonly deliveryCommit?: string;
 }
 
-export interface QueueItemMutation {
+export interface QueueItemMutation extends QueueOutcomeMutation {
   readonly status?: RegentQueueItemStatus;
-  /** Set when deferring; cleared automatically whenever the row leaves
-   *  `deferred`, so a stale hold can never linger on a live row. */
-  readonly deferral?: QueueDeferral | null;
-
+  readonly deferral?: QueueDeferralRequest | null;
+  readonly release?: QueueReleaseRequest;
   readonly body?: string;
   readonly prBranch?: string | null;
   readonly agentName?: string | null;
@@ -117,6 +96,11 @@ export interface QueueItemMutation {
   readonly absorption?: QueueAbsorption | null;
   readonly priority?: number;
   readonly effort?: number | null;
+}
+
+export interface QueueMutationAuditRequest {
+  readonly actor: string;
+  readonly predicate: string;
 }
 
 /**
@@ -149,11 +133,22 @@ export interface RegentQueueStore {
 }
 
 export interface RegentQueueMutationStore extends RegentQueueStore {
-  mutateItem(id: string, mutation: QueueItemMutation): RegentQueueItemRow;
+  mutateItem(
+    id: string,
+    mutation: QueueItemMutation,
+    audit?: QueueMutationAuditRequest,
+  ): RegentQueueItemRow;
 }
 
 export interface RegentQueueValidationStore extends RegentQueueStore {
   markValidationRequired(objectiveCode: string): RegentQueueItemRow;
+}
+
+export interface DeferredRowPingQueue {
+  readAll(): RegentQueueReadResult;
+  readDeferredRowPings(): ReadonlyMap<string, number>;
+  recordDeferredRowPing(pingKey: string, pingedAt: number): void;
+  close(): void;
 }
 
 export interface RegentQueueLaunchBriefStore extends RegentQueueStore {
@@ -165,7 +160,9 @@ export interface RegentQueueLaunchBriefStore extends RegentQueueStore {
   readLaunchBriefs(): QueueLaunchBriefReadResult;
 }
 
-export class RegentQueueSqliteStore implements RegentQueueMutationStore {
+export class RegentQueueSqliteStore
+  implements RegentQueueMutationStore, DeferredRowPingQueue
+{
   private readonly db: DatabaseSync;
   private readonly now: () => number;
   private readonly launchBriefPersistence: RegentQueueLaunchBriefPersistence;
@@ -180,60 +177,7 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
   }
 
   insertItem(item: NewQueueItem): RegentQueueItemRow {
-    const mirror =
-      item.deliveryMirror === undefined
-        ? undefined
-        : requireQueueDeliveryMirror(item.deliveryMirror);
-    const priority =
-      item.priority === undefined ? 0 : requireQueuePriority(item.priority);
-    const timestamp = this.now();
-    const id = item.id ?? item.objectiveCode ?? randomUUID();
-    const status = item.status ?? RegentQueueItemStatus.Open;
-    const row = this.db
-      .prepare(
-        `INSERT INTO queue_items
-           (id, objective_code, status, body, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, deliverable_shape, shadowless, sliceless, effort, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, priority, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         RETURNING ${queueItemColumns}`,
-      )
-      .get(
-        id,
-        item.objectiveCode ?? null,
-        status,
-        item.body,
-        item.launch === undefined ? 0 : 1,
-        item.launch?.alphaName ?? null,
-        item.launch?.targetRepo ?? null,
-        item.launch?.targetBranch ?? null,
-        item.launch?.baseCommit ?? null,
-        item.prBranch ?? null,
-        item.modelHint?.harness ?? null,
-        item.modelHint?.model ?? null,
-        item.deliverableShape ?? null,
-        item.shadowless === true ? 1 : 0,
-        item.sliceless === true ? 1 : 0,
-        item.effort ?? null,
-        item.launch?.targetRepo ?? null,
-        item.launch?.baseCommit ?? null,
-        mirror?.verdict ?? "unknown",
-        mirror?.deliveryCommit ?? null,
-        mirror?.targetRepo ?? null,
-        mirror?.targetBranch ?? null,
-        mirror?.treeIdentity ?? null,
-        mirror?.checkedAt ?? null,
-        mirror?.reason ?? null,
-        item.absorption?.objectiveCode ?? null,
-        item.absorption?.deliveryCommit ?? null,
-        item.absorption?.targetRepo ?? null,
-        item.absorption?.targetBranch ?? null,
-        item.absorption?.treeIdentity ?? null,
-        item.absorption?.checkedAt ?? null,
-        item.absorption?.reason ?? null,
-        priority,
-        timestamp,
-        timestamp,
-      ) as unknown as QueueItemSqlRow;
-    return toQueueItemRow(row);
+    return insertQueueItem(this.db, this.now(), item);
   }
 
   readItem(id: string): RegentQueueItemRow | undefined {
@@ -349,7 +293,11 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
     return toQueueItemRow(row);
   }
 
-  mutateItem(id: string, mutation: QueueItemMutation): RegentQueueItemRow {
+  mutateItem(
+    id: string,
+    mutation: QueueItemMutation,
+    audit?: QueueMutationAuditRequest,
+  ): RegentQueueItemRow {
     const current = this.readItem(id);
     if (current === undefined) throw new QueueItemNotFoundError(id);
     const mirror =
@@ -361,13 +309,23 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
         ? current.priority
         : requireQueuePriority(mutation.priority);
     const nextStatus = mutation.status ?? current.status;
+    const timestamp = this.now();
+    const requestedDeferral =
+      mutation.deferral === undefined ? current.deferral : mutation.deferral;
     const nextDeferral =
       nextStatus === RegentQueueItemStatus.Deferred
-        ? (mutation.deferral === undefined
-            ? current.deferral
-            : mutation.deferral)
+        ? {
+            dependsOn: requestedDeferral?.dependsOn ?? [],
+            reason: requestedDeferral?.reason ?? null,
+            deferredAt: current.deferral?.deferredAt ?? timestamp,
+          }
         : null;
-    const timestamp = this.now();
+    const absorption =
+      mutation.absorption === undefined ? current.absorption : mutation.absorption;
+    const release =
+      mutation.release === undefined
+        ? current.release
+        : { ...mutation.release, releasedAt: timestamp };
     this.db.exec("BEGIN IMMEDIATE");
     try {
       const row = this.db
@@ -395,8 +353,17 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
              absorption_checked_at = ?,
              absorption_reason = ?,
              deferred_depends_on = ?,
-             deferred_release_authority = ?,
              deferred_reason = ?,
+             deferred_at = ?,
+             release_requested_by = ?,
+             released_by = ?,
+             release_reason = ?,
+             released_at = ?,
+             outcome = ?,
+             outcome_summary = ?,
+             pr_url = ?,
+             result_commit = ?,
+             completed_at = ?,
              priority = ?,
              effort = ?,
              updated_at = ?
@@ -428,34 +395,21 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
           mirror.treeIdentity,
           mirror.checkedAt,
           mirror.reason,
-          mutation.absorption === undefined
-            ? (current.absorption?.objectiveCode ?? null)
-            : (mutation.absorption?.objectiveCode ?? null),
-          mutation.absorption === undefined
-            ? (current.absorption?.deliveryCommit ?? null)
-            : (mutation.absorption?.deliveryCommit ?? null),
-          mutation.absorption === undefined
-            ? (current.absorption?.targetRepo ?? null)
-            : (mutation.absorption?.targetRepo ?? null),
-          mutation.absorption === undefined
-            ? (current.absorption?.targetBranch ?? null)
-            : (mutation.absorption?.targetBranch ?? null),
-          mutation.absorption === undefined
-            ? (current.absorption?.treeIdentity ?? null)
-            : (mutation.absorption?.treeIdentity ?? null),
-          mutation.absorption === undefined
-            ? (current.absorption?.checkedAt ?? null)
-            : (mutation.absorption?.checkedAt ?? null),
-          mutation.absorption === undefined
-            ? (current.absorption?.reason ?? null)
-            : (mutation.absorption?.reason ?? null),
-          // A hold is only meaningful while the row is deferred. Writing these
-          // as null the moment the status leaves `deferred` means a released
-          // row can never carry a ghost dependency list that a later reader
-          // mistakes for a live hold.
+          absorption?.objectiveCode ?? null,
+          absorption?.deliveryCommit ?? null,
+          absorption?.targetRepo ?? null,
+          absorption?.targetBranch ?? null,
+          absorption?.treeIdentity ?? null,
+          absorption?.checkedAt ?? null,
+          absorption?.reason ?? null,
           nextDeferral === null ? null : nextDeferral.dependsOn.join(","),
-          nextDeferral?.releaseAuthority ?? null,
           nextDeferral?.reason ?? null,
+          nextDeferral?.deferredAt ?? null,
+          release?.requestedBy ?? null,
+          release?.releasedBy ?? null,
+          release?.reason ?? null,
+          release?.releasedAt ?? null,
+          ...outcomeColumnsAfterMutation(current, mutation, nextStatus, timestamp),
           priority,
           mutation.effort === undefined ? current.effort ?? null : mutation.effort,
           timestamp,
@@ -466,6 +420,15 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
         mutation.status === RegentQueueItemStatus.Abandoned
       ) {
         this.launchBriefPersistence.expireActiveForQueueItem(id, timestamp);
+      }
+      if (audit !== undefined) {
+        recordQueueMutationAudit(this.db, {
+          operationId: randomUUID(),
+          actor: audit.actor,
+          predicate: audit.predicate,
+          operatedAt: timestamp,
+          rowCount: 1,
+        });
       }
       this.db.exec("COMMIT");
       return toQueueItemRow(row);
@@ -493,6 +456,22 @@ export class RegentQueueSqliteStore implements RegentQueueMutationStore {
     return this.launchBriefPersistence.readAll();
   }
 
+  readDeferredRowPings(): ReadonlyMap<string, number> {
+    const rows = this.db
+      .prepare(`SELECT ping_key, pinged_at FROM deferred_row_pings`)
+      .all() as unknown as Array<{ ping_key: string; pinged_at: number }>;
+    return new Map(rows.map((row) => [row.ping_key, Number(row.pinged_at)]));
+  }
+
+  recordDeferredRowPing(pingKey: string, pingedAt: number): void {
+    this.db
+      .prepare(
+        `INSERT INTO deferred_row_pings (ping_key, pinged_at) VALUES (?, ?)
+         ON CONFLICT(ping_key) DO UPDATE SET pinged_at = excluded.pinged_at`,
+      )
+      .run(pingKey, pingedAt);
+  }
+
   close(): void {
     this.db.close();
   }
@@ -503,6 +482,7 @@ export function openRegentQueueStore(
   now: () => number = Date.now,
 ): RegentQueueLaunchBriefStore &
   RegentQueueMutationStore &
-  RegentQueueValidationStore {
+  RegentQueueValidationStore &
+  DeferredRowPingQueue {
   return new RegentQueueSqliteStore(openRegentQueueDatabase(databasePath), now);
 }
