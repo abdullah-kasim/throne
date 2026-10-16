@@ -35,7 +35,7 @@ export function checkPlanningAltitude(source: string): AltitudeRuleId[] {
   const todoTemplate = normalize(source);
 
   if (
-    !/global `claude\/agent_docs\/coding_principles\.md` section “Name the logic before implementing it”/.test(
+    !/`<live-throne>\/agent_docs\/coding_principles\.md` section “Name the logic before implementing it”/.test(
       altitude,
     ) ||
     !/Apply it by reference here; do not duplicate or paraphrase that principle into a second doctrine/.test(

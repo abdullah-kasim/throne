@@ -1,6 +1,6 @@
 // Lord's ruling, 2026-08-08: "its important to know what's the previous
 // persona so that transitions can fallback". Recorded in the DURABLE LEDGER
-// (`RUNTIME_DATA_DIR`, home-anchored — not gitignored worktree state and not
+// (`THRONE_DATA_DIR`, home-anchored — not gitignored worktree state and not
 // pane content), the same class of move BLK made for blocked state
 // (`agentdata/blocked-marker.service.ts`) and for the identical reason: pane
 // scraping is not a source of truth.

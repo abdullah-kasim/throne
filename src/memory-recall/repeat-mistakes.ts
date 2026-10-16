@@ -3,6 +3,8 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { mostLikelyFirst, rankItemsByQuestion } from '../item-rank/rank-by-question.ts';
 import type { RankItem } from '../item-rank/rank-items.ts';
+import { THRONE_MEMORIES_DIRNAME } from '../memory-dir/memory-dir-resolver.ts';
+import { resolveThroneHome } from '../shared-policy/throne-home.ts';
 import {
   pathWithHomeExpanded,
   type RecallConfig,
@@ -57,7 +59,7 @@ export async function productionMemoryDirectoriesForRepeats(
 ): Promise<readonly string[]> {
   const patterns = [
     projectMemoryDirectoryPattern(homeDirectory),
-    path.join(homeDirectory, '.throne', 'memories', '*'),
+    path.join(resolveThroneHome(process.env, homeDirectory), THRONE_MEMORIES_DIRNAME, '*'),
     path.join(homeDirectory, '.claude', 'projects', '*', 'memory'),
   ];
   const directories: string[] = [];

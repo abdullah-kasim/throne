@@ -10,6 +10,8 @@ import { TokenBalanceCommand } from "../token-balance/token-balance.command.ts";
 import { CampaignEvidenceCommand } from "../campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "../sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
 import { MemoryDirCommand } from "../memory-dir/memory-dir.command.ts";
+import { SkillExtensionCommand } from "../skill-extension/skill-extension.command.ts";
+import { MigrateHomeCommand } from "../migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "../memory-recall/recall.command.ts";
 import { RankCommand } from "../item-rank/rank.command.ts";
 import { LocateCommand } from "../file-locate/locate.command.ts";
@@ -134,6 +136,15 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
       "Work with pull requests on this host's forge: which forge, ensure-repository, push-branch, pr create/view/edit/list/diff/comment, attach, detach and render-markdown, on Forgejo when it is installed and answering, otherwise through gh; stage an existing GitHub pull request in Forgejo; pr merge only on GitHub, never in Forgejo.",
   },
   {
+    name: "migrate-home",
+    provider: MigrateHomeCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Move the old settings and browser sign-ins into the throne home, backing up first; refuses an item whose two copies differ.",
+    ownHelp: true,
+  },
+  {
     name: "memory-dir",
     provider: MemoryDirCommand,
     visibility: "public",
@@ -141,6 +152,14 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     description:
       "Print the durable cross-session memory directory for the project containing DIR, deferring to any memory convention already in force.",
     ownHelp: true,
+  },
+  {
+    name: "skill-extension",
+    provider: SkillExtensionCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Print the operator's extension to a named skill from the throne home's skill-extensions folder, or nothing when there is none; --list names every extension present.",
   },
   {
     name: "recall",

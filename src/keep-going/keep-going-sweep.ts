@@ -46,6 +46,10 @@ import {
 } from './keep-going-backlog-report.ts';
 import { renderKeepGoingEligibilityDepthReport } from './keep-going-eligibility-depth-report.ts';
 import { readStallEvidence, type FamilyRecoverySummary } from './keep-going-stalls.ts';
+import {
+  readInFlightRowsWithoutLiveAlpha,
+  type InFlightRowWithoutLiveAlpha,
+} from '../check-in-flight-rows/in-flight-rows-without-live-alpha.ts';
 import type { SubmitToAgentOptions } from '../herdr/herdr-send.types.ts';
 import { runRegentFenceOrchestration } from '../regent-fencing/run-regent-fence-orchestration.ts';
 import type { HerdrAgent, KeepGoingDependencies, ThrottleBand } from './keep-going-context.ts';
@@ -104,6 +108,7 @@ const REAL_KEEP_GOING_DEPENDENCIES: KeepGoingDependencies = {
   getRoster: async () => getAgentStatusesRoster(),
   readStallEvidence,
   resolveHeartbeatRoot: async () => THRONE_ROOT,
+  readInFlightRowsWithoutLiveAlpha: () => readInFlightRowsWithoutLiveAlpha(),
   evaluateRegentFence: evaluateRegentFenceReal,
   runRegentFenceOrchestration,
 };
@@ -135,10 +140,11 @@ async function nudge(
   deps: KeepGoingDependencies,
   throttleBand: ThrottleBand = UNTHROTTLED_EVALUATION.band,
   recoveryFamilies: readonly FamilyRecoverySummary[] = [],
+  inFlightRowsWithoutLiveAlpha: readonly InFlightRowWithoutLiveAlpha[] = [],
 ): Promise<void> {
   const message =
     target.name !== undefined && sameAgentName(target.name, REGENT_NAME)
-      ? buildRegentNudgeText(deps.now, throttleBand, recoveryFamilies)
+      ? buildRegentNudgeText(deps.now, throttleBand, recoveryFamilies, inFlightRowsWithoutLiveAlpha)
       : GENERAL_NUDGE_TEXT;
   const options: SubmitToAgentOptions = {
     key: keepGoingWindowKey(target, deps.now()),

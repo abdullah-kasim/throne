@@ -5,6 +5,8 @@ version: 1.0.0
 user-invocable: true
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension pr-split` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Split a pull request
 
 A PR that changes 30 files is not reviewed, it is skimmed. This skill turns

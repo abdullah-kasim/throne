@@ -1,9 +1,11 @@
 ---
 name: pr-media
-description: Capture before and after screenshots and click videos of a UI change with agent-browser, one on the PR's base and one on its head, write an index.html contact sheet that shows each pair side by side, and publish the folder to a GitHub pull request, replacing the media the PR body already carries. Use when a PR needs screenshots, a screen recording, a GIF, or "before and after" images, when the user says "take screenshots of your changes", "record a video of pressing it", "add media to the PR", or "publish the screenshots to the PR", when the user asks to refresh, regenerate or redo the PR media or screenshots, or as `/pr-media publish <pr>`. Covers github.com and GitHub Enterprise.
+description: Capture before and after screenshots and click videos of a UI change with agent-browser, one on the repository's default branch and one on the PR's head, write an index.html contact sheet that shows each pair side by side, and publish the folder to a GitHub pull request, replacing the media the PR body already carries. Use when a PR needs screenshots, a screen recording, a GIF, or "before and after" images, when the user says "take screenshots of your changes", "record a video of pressing it", "add media to the PR", or "publish the screenshots to the PR", when the user asks to refresh, regenerate or redo the PR media or screenshots, or as `/pr-media publish <pr>`. Covers github.com and GitHub Enterprise.
 version: 2.4.0
 user-invocable: true
 ---
+
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension pr-media` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
 
 # PR media
 
@@ -24,10 +26,31 @@ replaces whatever the anchors held before. Lord, 2026-09-16: "do not
 update the PR description if you're not asked to publish it".
 
 Every state and interaction the PR changes is captured twice, once on
-the PR's base (**before**) and once on its head (**after**), and the two
+the repository's default branch (**before**; the base, below) and once
+on the PR's head (**after**), and the two
 are shown side by side: a two-column table in the contact sheet and in
 the PR body. A capture that shows only the after leaves the reviewer to
 remember what the page looked like.
+
+**The before is always the repository's default branch, never a pull
+request branch.** Capture it on the tip of the default branch (`trunk`,
+`main`, whatever the repository calls it), at its merge base with the
+head when the default branch has moved on with unrelated changes. A
+stacked PR is no exception: its before is the default branch too, never
+the parent PR's branch it is based on, so its pairs show everything the
+stack changes up to it (Lord, 2026-10-15: "Stacked PRs should follow the
+same behavior - BEFORE implies `trunk/main/<whatever>`"). That holds in
+every round: a review fix, a feedback round or a rebuild of the media
+still pairs the default branch with the new head, and every pair in the
+body uses the same before. A reader judges
+what merging does to the product, and a pair against the version a
+reviewer saw shows a diff of a diff (Lord, 2026-10-15, on a contrast
+pull request whose pairs had moved to "the first version of this
+branch, the one design reviewed": "the screenshots SHOULD use `trunk`
+for comparison"). When a reviewer asks what changed since they looked,
+answer in a reply or in the caption's words, never by moving a pair's
+before off the default branch. A queue row or a brief that names any other
+before is wrong; follow this rule and say so in the report.
 
 **Every interaction the PR changes or adds is recorded as a video**: a
 click, a drag, a resize, an expand or collapse, a navigation or
@@ -81,8 +104,8 @@ the Lord ruled on 2026-09-14 that it was too small and limiting.
 ### Before and after, side by side
 
 Serve the base and the head at the same time on two ports, for example
-a second checkout of the base commit (`git worktree add
-~/tmp/pr-media-<pr>-base <base-sha>`) running the dev server on one
+a second checkout of the default branch's commit (`git worktree add
+~/tmp/pr-media-<pr>-base "$(git merge-base origin/<default> <head>)"`) running the dev server on one
 port and the PR branch on another. Keep one agent-browser session per
 side (`--prefix media-before`, `--prefix media-after`) and drive both
 through the same steps, the same data, the same viewport and the same
@@ -216,7 +239,7 @@ main-frame `http://` navigations to `https://` (HTTPS Upgrades; the
 `HttpsUpgradesEnabled` policy definition in the Chromium tree documents
 it) and exempts only non-unique hostnames such as `localhost`, `.local`
 and private IP ranges, which is why `localhost` loads and a public
-`.site` name resolving to 127.0.0.1 does not. Chrome would silently fall
+dev domain resolving to 127.0.0.1 does not. Chrome would silently fall
 back to `http://` when the `https://` attempt fails, but the dev stack's
 self-signed certificate is not a network failure: the daemon, launched
 without certificate errors ignored, aborts the response, and that abort
@@ -316,7 +339,8 @@ limits gh enforces. Then, in the final message:
 ## 3. Draft the Screenshots section — locally, never on the PR
 
 Write `~/tmp/pr-media-<pr>/screenshots.md`: the whole `## Screenshots`
-section as it should read on the PR, between `## How` and `## Testing`,
+section as it should read on the PR, after `## How` and the hidden
+`## Sequence` section when the body has one, before `## Testing`,
 ahead of the hidden `## Agents` section (see the
 `pr-description` skill). The content is wrapped in the
 collapsible spoiler `pr-description` describes as the default:
@@ -492,6 +516,29 @@ is nothing to record, and publish prints it in its summary.
 node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" 99 --folder ~/tmp/pr-media-99 --stills-only "copy change only, no interaction"
 ```
 
+### After a refused copy between the forges
+
+An image or video link that points at the other forge does not load there,
+so `throne forge stage` and every promote and repromote check the body they
+copied for such links, and refuse while one remains. Publish is the repair
+that refusal names. On the Forgejo side it names
+`/pr-media publish <forgejo pull request url>`: a Forgejo URL always
+publishes to Forgejo (below), which uploads the folder's files there and
+rewrites the body to hold Forgejo links. On the GitHub side it names the
+promote again (`/pr-promote`), which runs this same publish on the GitHub
+pull request.
+
+Publish rewrites only its own anchors and the `## Screenshots` section, so a
+link left anywhere else in the body is still there afterwards. Confirm with
+either side's URL:
+
+```bash
+throne forge check-media-links <pull request url>
+```
+
+It prints the cross-host media links left on each side and exits 0 when
+there are none, 1 when there are any.
+
 ### Refreshing the media
 
 "Refresh", "regenerate" or "redo" the media on a PR means, by default:
@@ -660,7 +707,8 @@ do the agent-browser way." What it does:
    Chrome is given `socks5://` where the setting says `socks5h://`.
 2. **Saved sign-in.** The browser runs in its own agent-browser
    namespace, `pr-media-<host>`, with a persistent profile at
-   `~/.config/throne/agent-browser/<host>`, so a sign-in survives between
+   `~/.throne/browser-profiles/<host>` (`$THRONE_DATA_HOME/browser-profiles/<host>`
+   when that is set), so a sign-in survives between
    runs, including the cookies a cookie export would miss. Each run opens
    the PR headless and reads `<meta name="user-login">`. When it is empty,
    because there was never a sign-in or the session expired, the script

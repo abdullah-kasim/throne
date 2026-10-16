@@ -1,15 +1,16 @@
 import { openingPromptPath, readOpeningPrompt } from '../agentdata/identity-data.service.ts';
 import { fileExists, readSpawnSpec, type SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
 import { pressEnter, pressPaneKey } from '../herdr/herdr-client.ts';
+import { RecipientPaneLockService } from '../shared-policy/recipient-pane-lock.service.ts';
 import { readVisibleAnsi, resolveAgent } from '../herdr/herdr-runtime.service.ts';
 import type { HerdrAgent } from '../herdr/herdr-inventory.service.ts';
 import { HARNESS_NAMES } from '../harness-routing/harness.ts';
 import { enqueueHeartbeatMessage } from '../throne-work/enqueue-heartbeat-message.ts';
 import { openMessageQueueStore } from '../message-queue/message-queue.store.ts';
 import { NO_IDLING_SENDER } from './no-idling-sender.ts';
-import { spawnedAtAgeMs } from './idle-family.ts';
 import {
   classifyStrandedSpawnPane,
+  strandedSpawnEvidenceFromSpawnRecord,
   type StrandedSpawnClassification,
 } from './stranded-spawn-classification.ts';
 
@@ -81,8 +82,11 @@ export interface StrandedSpawnRecoveryDeps {
   readSpawnSpec: (agentName: string, dataDir: string | undefined) => Promise<SpawnSpec | null>;
   pressPaneKey: (paneId: string, key: string) => Promise<void>;
   pressEnter: (paneId: string) => Promise<void>;
+  withRecipientPaneLock: RecipientPaneLockService['withRecipientPaneLock'];
   deliverOpeningPrompt: (agentName: string, prompt: string, paneId: string) => Promise<void>;
 }
+
+const RECIPIENT_PANE_LOCK = new RecipientPaneLockService();
 
 export const REAL_STRANDED_SPAWN_RECOVERY_DEPS: StrandedSpawnRecoveryDeps = {
   resolveAgent,
@@ -92,6 +96,7 @@ export const REAL_STRANDED_SPAWN_RECOVERY_DEPS: StrandedSpawnRecoveryDeps = {
   readSpawnSpec,
   pressPaneKey,
   pressEnter,
+  withRecipientPaneLock: RECIPIENT_PANE_LOCK.withRecipientPaneLock.bind(RECIPIENT_PANE_LOCK),
   deliverOpeningPrompt: redeliverOpeningPromptViaQueue,
 };
 
@@ -128,10 +133,12 @@ async function stillMatchesClassification(
     deps.readSpawnSpec(agentName, dataDir),
   ]);
   return (
-    classifyStrandedSpawnPane(HARNESS_NAMES.CLAUDE, paneAnsi, openingPromptExists, {
-      taskedAt: spawnSpec?.tasked_at,
-      ageMs: spawnedAtAgeMs(spawnSpec?.spawned_at, Date.now()),
-    }) === expected
+    classifyStrandedSpawnPane(
+      HARNESS_NAMES.CLAUDE,
+      paneAnsi,
+      openingPromptExists,
+      strandedSpawnEvidenceFromSpawnRecord(spawnSpec, Date.now()),
+    ) === expected
   );
 }
 
@@ -148,46 +155,42 @@ async function redeliverOpeningPrompt(
   await deps.deliverOpeningPrompt(agentName, prompt, paneId);
 }
 
-/**
- * The remedy is selected by classification alone, never re-derived: a
- * `MODAL_BLOCKING` agent gets the modal keypress first, then redelivery;
- * `STRANDED_SPAWN` goes straight to redelivery; `PROMPT_UNSUBMITTED` gets
- * ONLY an Enter keypress and must never reach `deliverOpeningPrompt`, which
- * would double the queued text already sitting in its composer.
- */
-async function applyStrandedSpawnRemedy(
+async function pressRemedyKeys(
+  paneId: string,
+  classification: StrandedSpawnClassification,
+  deps: StrandedSpawnRecoveryDeps,
+): Promise<void> {
+  switch (classification) {
+    case 'MODAL_BLOCKING':
+      await deps.pressPaneKey(paneId, MODAL_ANSWER_KEY);
+      await deps.pressEnter(paneId);
+      return;
+    case 'STRANDED_SPAWN':
+      return;
+    case 'PROMPT_UNSUBMITTED':
+      await deps.pressEnter(paneId);
+      return;
+  }
+}
+
+function remedyRedeliversTheOpeningPrompt(classification: StrandedSpawnClassification): boolean {
+  return classification !== 'PROMPT_UNSUBMITTED';
+}
+
+async function pressRemedyKeysIfStillStranded(
   agentName: string,
   paneId: string,
   classification: StrandedSpawnClassification,
   dataDir: string | undefined,
   deps: StrandedSpawnRecoveryDeps,
-): Promise<void> {
-  switch (classification) {
-    case 'MODAL_BLOCKING':
-      // confirmation: answers the first-run modal's own numbered prompt
-      // ("1. Yes ... 2. No, keep bypass permissions") with the confirmed
-      // safe choice; classifyStrandedSpawnPane already diagnosed this pane
-      // as showing that exact modal immediately before this call.
-      await deps.pressPaneKey(paneId, MODAL_ANSWER_KEY);
-      // Submits the modal's selected answer with one fixed Enter -- no
-      // clearance loop, no re-observation. The pane state this acts on was
-      // just diagnosed as MODAL_BLOCKING (immediately above), so nothing
-      // further needs checking before this single, already-licensed press.
-      await deps.pressEnter(paneId);
-      await redeliverOpeningPrompt(agentName, paneId, dataDir, deps);
-      return;
-    case 'STRANDED_SPAWN':
-      await redeliverOpeningPrompt(agentName, paneId, dataDir, deps);
-      return;
-    case 'PROMPT_UNSUBMITTED':
-      // Clears a composer already diagnosed as holding an unsubmitted
-      // opening prompt with one fixed Enter, never followed by delivery --
-      // `stillMatchesClassification` reconfirmed this pane still matches
-      // that diagnosed shape immediately before `applyStrandedSpawnRemedy`
-      // was called, so this single press needs no further check of its own.
-      await deps.pressEnter(paneId);
-      return;
-  }
+): Promise<boolean> {
+  return deps.withRecipientPaneLock(paneId, async () => {
+    if (!(await stillMatchesClassification(agentName, paneId, classification, dataDir, deps))) {
+      return false;
+    }
+    await pressRemedyKeys(paneId, classification, deps);
+    return true;
+  });
 }
 
 /**
@@ -207,7 +210,7 @@ export async function recoverStrandedSpawn(
   const remedy = remedyLabel(classification);
   try {
     const agent = await deps.resolveAgent(agentName);
-    const stillStranded = await stillMatchesClassification(
+    const stillStranded = await pressRemedyKeysIfStillStranded(
       agentName,
       agent.paneId,
       classification,
@@ -223,7 +226,9 @@ export async function recoverStrandedSpawn(
         detail: 'pane no longer reclassifies as this stranding shape; treated as already started',
       };
     }
-    await applyStrandedSpawnRemedy(agentName, agent.paneId, classification, dataDir, deps);
+    if (remedyRedeliversTheOpeningPrompt(classification)) {
+      await redeliverOpeningPrompt(agentName, agent.paneId, dataDir, deps);
+    }
     return {
       agentName,
       classification,

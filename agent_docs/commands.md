@@ -37,7 +37,9 @@ seam (absent/garbage marker ⇒ `RUNNING`, fail-safe) and flips as the Lord runs
 
 Below the banner it prints a padded table of every herdr agent: `NAME`, `STATE`,
 `STATUS`, `CWD`, `PANE`. The `STATE` column is one of **LIVE** / **DEAD** /
-**COMPLETE**: a registered agent whose herdr process is gone but whose todo
+**COMPLETE** / **STARTING**. STARTING is an agent whose spawn is still
+running with no opening prompt recorded and under 300 s old (see reap-agent);
+it shows whether or not herdr already lists it. Otherwise a registered agent whose herdr process is gone but whose todo
 bundle finished (its `~/.throne/data/<name>/` carries a `REPORT.md`) is COMPLETE
 (reap-ready), as opposed to DEAD (registered, process gone, no completion
 report). The `STATUS` column (`idle|working|blocked|done|unknown`) is meaningful
@@ -342,19 +344,17 @@ stays alive after it reports DONE; only the Lord reaps it.
 
 `create-agent --run-custom-harness-to-exit` is the custom-executable-only, non-resident path. It leaves no registered, watchable agent in herdr, so it is gated on the Lord's explicit authorization: every invocation must also pass `--bypass-run-custom-harness-to-exit`, and that flag is passed only when the Lord asked for a one-shot cell (Lord, 2026-09-08). Without it the command refuses before anything launches and tells the caller to spawn a resident agent instead. It uses the caller's exact `--harness-executable` and every token after the first standalone `--`; `--prompt` is refused because composer delivery remains resident-only. The mode requires `--clear-environment`, accepts unique `--env KEY=VALUE` entries without inheriting ambient variables and refuses duplicate keys, honors `--cwd`, uses the exact caller-supplied `--name` as its visible Herdr tab label, and closes that tab after real process exit. It writes stdout, stderr, numeric exit status (`124` on timeout), wall milliseconds, and scrubbed JSON launcher evidence with requested and filesystem-resolved executable paths to the five explicit path flags. `--timeout-ms` terminates the child process group. It creates no `~/.throne/data/<name>` registration, has no resume recipe, does not participate in worktree-stranding detection, and refuses an already-visible tab with the same label. Every one-shot-only flag is refused when the mode flag is absent, before policy or lifecycle effects. The `--model` is resolved through the canonical model registry, which supplies the harness; caller-supplied `--harness` is refused. Effort, plan admission, steering, capability, quota, and their normal bypass flags are still evaluated as policy evidence; the custom executable replaces only configured launcher argv. Resident custom recipes remain registered, composer-prompted, startup-reconciled, and exactly resumable from `spawn.json`; legacy records without custom fields retain configured-launcher reconstruction.
 
-Claude CMO cell:
+Claude one-shot cell:
 
 ```bash
-./bin/throne-cli create-agent --model fable --effort 1 --name cmo-claude-cell --supervisor alpha-cmo-claude-md-optimization --role Agent --cwd "$CELL_HOME/work" --non-campaign --bypass-preset-agent --harness-executable /absolute/path/to/claude --run-custom-harness-to-exit --bypass-run-custom-harness-to-exit --clear-environment --env "HOME=$CELL_HOME" --env PATH=/usr/local/bin:/usr/bin:/bin --env TERM=dumb --env "CLAUDE_CONFIG_DIR=$CELL_HOME/.claude" --stdout-path "$CELL_HOME/result.jsonl" --stderr-path "$CELL_HOME/result.stderr" --exit-status-path "$CELL_HOME/result.rc" --wall-time-path "$CELL_HOME/result.wallms" --launcher-evidence-path "$CELL_HOME/result.launcher.json" --timeout-ms 120000 -- -p "$PROMPT" --output-format stream-json --verbose
+./bin/throne-cli create-agent --model fable --effort 1 --name example-claude-cell --supervisor alpha-example-one-shot --role Agent --cwd "$CELL_HOME/work" --non-campaign --bypass-preset-agent --harness-executable /absolute/path/to/claude --run-custom-harness-to-exit --bypass-run-custom-harness-to-exit --clear-environment --env "HOME=$CELL_HOME" --env PATH=/usr/local/bin:/usr/bin:/bin --env TERM=dumb --env "CLAUDE_CONFIG_DIR=$CELL_HOME/.claude" --stdout-path "$CELL_HOME/result.jsonl" --stderr-path "$CELL_HOME/result.stderr" --exit-status-path "$CELL_HOME/result.rc" --wall-time-path "$CELL_HOME/result.wallms" --launcher-evidence-path "$CELL_HOME/result.launcher.json" --timeout-ms 120000 -- -p "$PROMPT" --output-format stream-json --verbose
 ```
 
-Codex CMO cell:
+Codex one-shot cell:
 
 ```bash
-./bin/throne-cli create-agent --model gpt-5.4 --effort 1 --name cmo-codex-cell --supervisor alpha-cmo-claude-md-optimization --role Agent --cwd "$CELL_HOME/work" --non-campaign --bypass-preset-agent --harness-executable /absolute/path/to/codex --run-custom-harness-to-exit --bypass-run-custom-harness-to-exit --clear-environment --env "HOME=$CELL_HOME" --env PATH=/usr/local/bin:/usr/bin:/bin --env TERM=dumb --env "CODEX_HOME=$CELL_HOME/.codex" --stdout-path "$CELL_HOME/result.jsonl" --stderr-path "$CELL_HOME/result.stderr" --exit-status-path "$CELL_HOME/result.rc" --wall-time-path "$CELL_HOME/result.wallms" --launcher-evidence-path "$CELL_HOME/result.launcher.json" --timeout-ms 120000 -- exec --json "$PROMPT"
+./bin/throne-cli create-agent --model gpt-5.4 --effort 1 --name example-codex-cell --supervisor alpha-example-one-shot --role Agent --cwd "$CELL_HOME/work" --non-campaign --bypass-preset-agent --harness-executable /absolute/path/to/codex --run-custom-harness-to-exit --bypass-run-custom-harness-to-exit --clear-environment --env "HOME=$CELL_HOME" --env PATH=/usr/local/bin:/usr/bin:/bin --env TERM=dumb --env "CODEX_HOME=$CELL_HOME/.codex" --stdout-path "$CELL_HOME/result.jsonl" --stderr-path "$CELL_HOME/result.stderr" --exit-status-path "$CELL_HOME/result.rc" --wall-time-path "$CELL_HOME/result.wallms" --launcher-evidence-path "$CELL_HOME/result.launcher.json" --timeout-ms 120000 -- exec --json "$PROMPT"
 ```
-
-Under Throne, CMO uses this seam for live cells. CMO's throne-less staging and analysis mode remains CMO-owned.
 
 ```bash
 ./bin/throne-cli create-agent \
@@ -1006,7 +1006,7 @@ environment variable all three routes are explicitly skipped.
 ## reap-agent
 
 ```bash
-./bin/throne-cli reap-agent <name> --reason <enum> [--force] [--bypass-marker]
+./bin/throne-cli reap-agent <name> --reason <enum> [--force] [--bypass-marker] [--spawn-process-gone]
 ./bin/throne-cli reap-agent <name> --reason abandoned --archive-abandoned-unmerged [--force] [--bypass-marker]
 ```
 
@@ -1023,6 +1023,17 @@ remove --force` + `prune`; ordinary branch deletion is permitted only through
 the separate safety gate below. A reaped agent drops out of `agent-statuses`
 entirely.
 
+- **A starting spawn is refused.** Before anything else, `reap-agent` reads
+  the target's `spawn.json`. An agent whose spawn is still starting — its
+  `create-agent` run has not recorded `spawn_finished_at`, no opening prompt
+  is recorded in `tasked_at`, and it is younger than 300 s — is refused with
+  its age and the bound, and nothing is torn down. `--force` does not override
+  this. `--spawn-process-gone` does, and states that the agent's
+  `create-agent` process is gone. The 300 s bound is the longest real
+  spawn-to-prompt gap in the ledgers (about 210 s, over roughly 1,870 spawns)
+  plus a margin; records whose `tasked_at` was stamped by a later
+  `send-agent` after the agent was already working do not count. A starting
+  spawn is also never redelivered as stranded, nor reported as untasked.
 - **Live reapability claim required.** Before any live agent teardown,
   `reap-agent` reads the target's latest pane message and requires the exact
   one-key JSON claim `{"reapable":"completed"}` (also accepting `abandoned`
@@ -1059,6 +1070,25 @@ entirely.
   `abandoned` row. Reopening is a separate explicit act,
   `update-queue --objective-code <code> --status open`, by the row's filer or
   the Regent. No reap reason sets a row to `open`.
+- **A row that was not released says so.** When the target is a campaign Alpha
+  (its `identity.md` role is Alpha and its `spawn.json` carries an
+  `objective_code`) and the reason maps to a row status (`completed`,
+  `superseded`, `completed-unpublishable`, `abandoned`, `force`), but no
+  in-flight row is recorded under its name, the reap still tears the agent
+  down, then prints `reap-agent: "<name>" was torn down (...), but its queue
+  row was NOT released — <reason>.` on stderr and exits 1. It never prints
+  `Reaped ...` in that case. A Shadow carries its Alpha's objective code but
+  never owns a row, so a Shadow reap stays quiet. After any release, read the
+  row with `throne render-queue` and report the status it shows; never claim a
+  row was released or will relaunch without that read. In one launch the agent
+  was reaped while its spawn was still running, the reap printed `Reaped`
+  beside a one-line linkage note, the row was reported released, and a minute
+  later the spawn marked the row in flight under the dead name.
+- **A reaped agent's launch never claims its row.** `create-agent`'s launch
+  write-back first checks that the agent's ledger is still in
+  `~/.throne/data/<name>/` and that herdr still lists it. If either is gone it
+  writes nothing and prints `create-agent: queue linkage not recorded for
+  "<name>" — <reason>.`
 - **Completion push hook.** A successful `--reason completed` reap evaluates the
   notification predicate in `src/notify-lord/notification.service.ts`: completed **Alphas** notify by
   default, and completed **Shadows** notify only when
@@ -1068,7 +1098,7 @@ entirely.
   server/topic contract and operator steps.
 
 - **Abandoned-unmerged archival is explicit.** The single supported replacement
-  for FPC's historical manual `tree-base.json` rename is:
+  for the historical manual `tree-base.json` rename is:
 
   ```bash
   ./bin/throne-cli reap-agent <name> --reason abandoned --archive-abandoned-unmerged
@@ -1250,14 +1280,19 @@ succeeds, so the row is still `open`, and every autoscale tick that selects it
 refuses with `launch history unresolved for "<alpha>"`. One sequence clears it
 and leaves the row launchable:
 
-1. If the half-spawned Alpha left a harness tab behind, close it:
+1. Check the Alpha is not still starting: `throne agent-statuses` must not
+   show it as `STARTING`. A starting Alpha is not a failed launch; wait for its
+   spawn to finish or the 300 s bound to pass. An empty composer alone proves
+   nothing. If the half-spawned Alpha left a harness tab behind, close it:
    `herdr tab close <tab>`.
 2. `throne reap-agent <alpha> --reason abandoned --force` tears the
    half-spawned Alpha down and appends the ledger's `abandoned` status line,
    which clears "launch history unresolved". The row was never linked to the
-   Alpha, so it stays `open` and the next tick launches it again. If the row
-   was linked in flight to that Alpha, the same reap closes it as `abandoned`
-   and the next tick launches nothing for it.
+   Alpha, so the reap prints that the row was NOT released and exits 1; the
+   teardown and the ledger line still happened. Confirm with
+   `throne render-queue` that the row is `open`; the next tick launches it
+   again. If the row was linked in flight to that Alpha, the same reap closes
+   it as `abandoned`, exits 0, and the next tick launches nothing for it.
 3. `throne update-queue --objective-code <code> --status open` is the
    explicit reopen: it reopens a row the reap closed and is harmless on a row
    that is already `open`. Either way the next tick launches the row.
@@ -1301,6 +1336,10 @@ re-implements neither.
   runtime-model gate and who it quarantines".
 - **The Regent is protected** — refused early here (and `reap-agent` hard-refuses
   it too).
+- **Refuses an Alpha whose campaign is not on the Lord's page.** Before any
+  reap, single or `--all`, it asks the `check-where-i-stand` decision about the
+  agent and, while that refuses, prints its sentence and reaps nothing (exit
+  1). `reap-agent --force` is not gated by it.
 - **`--all` sweeps** every COMPLETE agent plus every completion-proven,
   non-working LIVE agent in one pass. It skips working-LIVE and DEAD agents and
   is failure-isolated: one bad reap never suppresses the rest, and the aggregate
@@ -1477,6 +1516,28 @@ nudge only when
 the evaluated band carries no advisory: the pinned literal, optionally
 followed by a single space and that one band's advisory text, and nothing
 else. A non-Regent `--name` target never receives a band advisory.
+
+## check-in-flight-rows
+
+```bash
+./bin/throne-cli check-in-flight-rows
+```
+
+Lists every queue row whose status is `in-flight` while the Alpha recorded on
+it is neither live in herdr nor still starting (spawn not finished and younger
+than the starting bound `agent-statuses` and `reap-agent` use). Each line names
+the objective code, the recorded agent and that agent's state: `DEAD`,
+`COMPLETE`, `reaped` (its ledger was archived under `data/.reaped/`) or
+`never registered`. Exit 1 when any such row exists, 0 with a `none found`
+line otherwise. It reads the queue store, the agent roster and spawn records,
+and changes nothing: it never moves a row's status and never launches an
+Alpha, and the autoscaler's selection is unchanged.
+
+The same findings ride on `keep-going`'s Regent nudge, under "In-flight rows
+with no live Alpha", on every tick while they exist, even when the standing
+heartbeat nudge is off. There is no "already reported" memory: a row stays in
+the report until someone fixes it, for example by relaunching its Alpha or
+moving the row with `update-queue` after reading it back with `render-queue`.
 
 ## add-to-queue
 
@@ -1735,6 +1796,130 @@ queue store as `render-queue` does and writes nothing.
 be read, 2 an unknown flag, a missing `--since` or a value that is not an ISO
 date.
 
+## where-i-stand
+
+```bash
+./bin/throne-cli where-i-stand show
+./bin/throne-cli where-i-stand lock --checksum <checksum> [--ttl <duration>]
+./bin/throne-cli where-i-stand note "<one line>"
+```
+
+Guards the Lord's page, `<THRONE_DATA_HOME or ~/.throne>/where-i-stand.md`.
+The page is Markdown that agents write in their own words inside a fixed frame:
+the headings `## Just happened`, `## Needs you`, `## In flight`,
+`## Queued and deferred`, `## Delivered, not on GitHub` and `## On GitHub`,
+each once, in that order. Under the last four, one entry per piece of work,
+headed `### <objective code>` or `### <repository>#<number>`. Agents change
+the page with their harness's own edit tool, one entry at a time, while they
+hold the lock; the command never writes, reformats or moves an entry itself.
+
+- **`show`** prints the page on standard output, and `path: <page path>` and
+  `checksum: <sha256>` on standard error, so `show > page.md` saves the page
+  alone. The checksum is the SHA-256 of the content. A page that does not
+  exist yet prints the empty frame and that frame's checksum. Needs no agent
+  identity, and changes nothing unless it finds an unrecorded change (below).
+- **`lock --checksum <checksum> [--ttl <duration>]`** is run in the
+  background with the harness's own background run, never a shell `&`. It
+  refuses at once, and leaves the page as it is, when the page's checksum is
+  no longer `<checksum>` (it names the current one: `show`, read and edit
+  again) or when another lock is held (it names the holder and the time the
+  lock lasts until). Otherwise it keeps the previous page as
+  `where-i-stand.previous-1.md` (five copies, `-1` the newest), prints one
+  line naming the holder and the time it holds until, and waits silently.
+  `<duration>` is a whole number of seconds or minutes (`90s`, `10m`); the
+  default is 5 minutes and anything over 15 minutes is refused. While it
+  lasts the holder edits the page with its harness's edit tool.
+- **Releasing the lock**: stop the background command (TERM or INT), or let
+  the TTL end. Before it exits it journals the edit against the copy kept at
+  lock time, when the page changed, and checks the frame. A broken frame never
+  blocks the release: the lock prints every missing, repeated, unknown or
+  out-of-order heading and the kept copy's path, tells the Regent, leaves the
+  page as it is, and exits 3, so the holder takes the lock again and fixes
+  it.
+- **`note "<one line>"`** puts `- <one line>` at the top of `## Just happened`
+  and keeps the newest 15 events, keeping the previous page as `lock` does. It
+  needs no checksum. It refuses at once while a lock is held, naming the
+  holder, and refuses a page whose frame is broken, naming the faults.
+- **`write`** no longer writes. It refuses, changes nothing, and prints the
+  whole flow above, so an agent following older instructions can finish from
+  that message alone.
+
+The lock is advisory: an OS `flock` lock on `where-i-stand.edit.lock` beside
+the page, separate from the page, held for the life of the `lock` process. The
+file holds the holder's name and the time the lock lasts until. It never
+makes the page read-only and never blocks an edit; it only stops a second
+`lock` or a `note`. The kernel frees it when the process ends however it ends,
+SIGKILL included, so nobody cleans the lock file up and its presence means
+nothing. `note` and the start and release of a lock also serialize on
+the short page lock, `where-i-stand.lock`.
+
+Every change is journaled as one JSON line in `where-i-stand.journal.jsonl`:
+`at` (ISO-8601 UTC), `writer` (the calling agent's name), `action` (a note, a
+lock's release, an unrecorded change, or `write` on records from before the
+lock existed), `version` (the page's checksum after the change), and `added`,
+`changed`, `removed` (entry headings; an entry that moved to another section
+counts as changed). The journal is a change log; the page is never read from
+it. Each record also saves the page as it left it in
+`where-i-stand.journaled.md`. When `show`, `lock` or `note` finds the page's
+checksum differs from the newest journal record (a lock killed with SIGKILL,
+or an edit made without one), it journals that change with writer `unknown`,
+listing its entries against `where-i-stand.journaled.md`, and tells the
+Regent; `show` skips this while a lock is held. A refused `lock` or `note`
+leaves the page as it is, though the unrecorded change it found first is
+still journaled.
+
+The writer's name is the caller's agent identity; `lock` and `note` refuse a
+caller with none. Exit 0 shown, noted, or released with the frame intact; 1
+refused (another checksum, a held lock, a broken frame on `note`, no identity,
+or no `flock`: on macOS run `brew install flock`), and `write` always; 2 an
+unknown action or flag, a missing argument, or a TTL that is not a duration,
+is zero, or is over 15 minutes; 3 a lock released with a broken frame.
+
+## check-where-i-stand
+
+```bash
+./bin/throne-cli check-where-i-stand --agent <alpha name>
+```
+
+Answers one question: has this Alpha's campaign recorded its outcome on the
+Lord's page? It holds when `where-i-stand.journal.jsonl` has a record, made by
+the Alpha or by one of its Shadows (a name beginning
+`shadow-<objective code>-`), later than the Alpha's delivery time, whose
+`added` or `changed` names the entry `<objective code>`, and the page as it
+stands does not hold that entry under `## In flight` and starts every entry
+`<objective code>` with its `- Links: ` line. The delivery time is the
+modification time of `REPORT.md` in the Alpha's ledger, so one lock, edit
+and release of the page after the report satisfies it, and no earlier change
+is needed. Editing `REPORT.md` afterwards moves the delivery time forward and
+the entry has to be written again.
+
+It also refuses while an older entry about the same work stands
+uncorrected. Two entries are about the same work when their `- Links: ` lines
+share a Forgejo or GitHub pull request URL, a Forgejo URL and a GitHub URL
+counting as one when any entry on the page carries both, or, when neither has
+a pull request, name the same ticket (not `no ticket`) and the same commit or
+branch, compared as written. Such an entry is older when the newest journal
+record naming it is earlier than the newest one naming `<objective code>`, or
+when no journal record names it, and it stands uncorrected unless it carries a
+line beginning ``Superseded by `### ``. The check reads only the page and its
+journal; it calls no network.
+
+It passes without an entry for an agent that is not an Alpha, an agent with no
+objective code, and an Alpha whose queue row is abandoned. It reads no plan
+bundle, so an Alpha with no plan bundle is judged the same way. When it refuses
+it prints one sentence saying what to do: write `REPORT.md` first, write the
+entry `### <objective code>` under `## Delivered, not on GitHub` or
+`## On GitHub`, move that entry out of `## In flight`, start that entry
+with its links line directly under its heading, or correct each older entry
+about the same work, naming its `### ` heading and quoting its
+`- Where it stands:` line (its links line when it has none) and saying to
+remove the entry or correct that line and add
+``Superseded by `### <objective code>` on <date>``.
+
+`complete-agent` asks the same decision before it reaps and refuses an Alpha
+with the same sentence. Exit 0 recorded or nothing owed; 1 an invocation that
+is not exactly `--agent <name>`; 66 not recorded. It only reads.
+
 ## git-identity
 
 ```bash
@@ -1916,6 +2101,7 @@ go into the DONE report and into any PR-delivery report.
 
 ```bash
 ./bin/throne-cli forge status <number|url|branch> [--repo <path>] [--json]
+./bin/throne-cli forge check-media-links <pull request url> [--repo <path>] [--json]
 ./bin/throne-cli forge open <number|url|branch> [--repo <path>] [--editor <cmd>] [--print]
 ./bin/throne-cli forge open --cleanup [--repo <path>]
 ./bin/throne-cli forge ensure-repository [--base <branch>] [--repo <path>]
@@ -2004,7 +2190,8 @@ bare number or a branch. With `--json` it prints one object:
   "inSync":   true|false|null,
   "publishTo": "forgejo"|"github",
   "mergeTarget": { "url","program": "gh"|"ghe","forgejoUrl" } | null,
-  "mergeTargetRefusal": "<text>" | null
+  "mergeTargetRefusal": "<text>" | null,
+  "crossHostMediaLinks": { "forgejo": ["<link>"], "github": ["<link>"] }
 }
 ```
 
@@ -2044,6 +2231,22 @@ where it looked.
   GitHub pull request (it was never staged or promoted), and nothing is merged
   in Forgejo. It must be promoted first with /pr-promote on the Lord's word.`
   `mergeTargetRefusal` is `null` whenever `mergeTarget` is set.
+- **`crossHostMediaLinks`** lists, for each side, the image and video links
+  in that side's body that point at the other forge and so do not load
+  there: GitHub-hosted media in the Forgejo body, and attachment or media
+  links to this host's Forgejo in the GitHub body. A prose link to the twin
+  pull request or to a commit is not listed. A side that does not exist has
+  an empty list. The plain output prints one `crossHostMediaLinks.<side>.<n>`
+  line per link and none when a list is empty.
+
+**`check-media-links`** reads both sides of a pull request exactly as
+`status` does, from either side's URL, and prints only that finding: one
+`<side>: <link>` line per link, `forgejo` or `github` in front, or
+`no cross-host media links were found`. With `--json` it prints
+`{"forgejo":[…],"github":[…]}`. It writes nothing. It exits 0 when both lists
+are empty and 1 when either holds a link. `stage`, `promote` and a repromote
+run the same check on the body they copied and refuse while a link remains
+(below).
 
 **`open`** opens one pull request in the user's editor, on either forge. It
 resolves the target exactly as `status` does (same internals, `status`
@@ -2221,19 +2424,20 @@ body file `pr edit` and `pr comment` send to a GitHub pull request.
 
 | operation | what it does | prints |
 | --- | --- | --- |
-| `promote <forgejo pr>` | Reads the Forgejo pull request live. Downloads every Forgejo attachment its body embeds (`GET …/issues/{n}/assets`, a `pr-media` anchor's name or the attachment's own name), and puts a `<!-- drop <name> here -->` placeholder where each was. Refuses before any GitHub write when the title or that body still names the Forgejo host or holds a record. Runs `git push -u origin <head>`. The first time, it runs `gh --bypass pr create [--draft] --base --head --title --body-file`, with the title without `WIP: ` or its `[GH-...]` marker and the body as it is, then writes the metadata comment with the GitHub URL and the pushed head as `promotedHead`, and sets the Forgejo title's marker to `[GH-<github number>]` (`PATCH …/pulls/{n}` with `{"title"}`, only when the title differs). Last, it runs `pr-media`'s `publish.mjs <github url> --folder <downloads>` (with `--stills-only` when there is no video), which uploads the files to GitHub and fills the placeholders. Then it reads the GitHub body back with `gh pr view <github url> --json …` (`ghe` on GitHub Enterprise) and refuses with exit 1, printing nothing on stdout, while it still holds a `<!-- drop <name> here -->` placeholder or names the Forgejo host; the refusal names what remains and `throne forge promote <forgejo url>` as the one command that finishes it. When the publish failed because nobody signed in within the wait, the refusal says so and names the same command; when it failed because the page fell back to `--wizard`, it keeps the downloads in `~/tmp/pr-media-<github number>/` (a fresh sibling folder when that exists) and names `node <pr-media>/publish.mjs <github url> --folder <kept folder> --wizard`. | `{"forgejoUrl","githubUrl","created","mergedOnGithub","answers"}` |
+| `promote <forgejo pr>` | Reads the Forgejo pull request live. Downloads every Forgejo attachment its body embeds (`GET …/issues/{n}/assets`, a `pr-media` anchor's name or the attachment's own name), and puts a `<!-- drop <name> here -->` placeholder where each was. Refuses before any GitHub write when the title or that body still names the Forgejo host or holds a record. Runs `git push -u origin <head>`. The first time, it runs `gh --bypass pr create [--draft] --base --head --title --body-file`, with the title without `WIP: ` or its `[GH-...]` marker and the body as it is, then writes the metadata comment with the GitHub URL and the pushed head as `promotedHead`, and sets the Forgejo title's marker to `[GH-<github number>]` (`PATCH …/pulls/{n}` with `{"title"}`, only when the title differs). Last, it runs `pr-media`'s `publish.mjs <github url> --folder <downloads>` (with `--stills-only` when there is no video), which uploads the files to GitHub and fills the placeholders. Then it reads the GitHub body back with `gh pr view <github url> --json …` (`ghe` on GitHub Enterprise) and refuses with exit 1, printing nothing on stdout, while it still holds a `<!-- drop <name> here -->` placeholder or an image or video link to the Forgejo host (the `check-media-links` finding); the refusal names the placeholders, each such link and `throne forge promote <forgejo url>` as the one command that finishes it. When the publish failed because nobody signed in within the wait, the refusal says so and names the same command; when it failed because the page fell back to `--wizard`, it keeps the downloads in `~/tmp/pr-media-<github number>/` (a fresh sibling folder when that exists) and names `node <pr-media>/publish.mjs <github url> --folder <kept folder> --wizard`. | `{"forgejoUrl","githubUrl","created","mergedOnGithub","answers"}` |
 | `promote` again (repromote) | Finds the metadata comment and opens nothing. Pushes the head, replaces the GitHub body through `gh --bypass pr edit <url> --body-file`, records the pushed head as `promotedHead`, sets `[GH-<github number>]` on the Forgejo title when it does not already carry it, and re-hosts the media the same way. Then carries back every Forgejo answer to a mirrored item that GitHub does not yet hold: in a thread through `gh --bypass api repos/{o}/{r}/pulls/{n}/comments -f body=… -F in_reply_to=<first comment id>`, otherwise through `gh --bypass api repos/{o}/{r}/issues/{n}/comments -f body=…`. The answer goes with its records removed and nothing added. After each reply the answer's Forgejo id joins `carriedAnswers` in the metadata comment, which is how a later run knows it was sent; `mirror-feedback` likewise skips a GitHub comment whose text is exactly a carried answer, so it is never mirrored back as new feedback. Finally it resolves, with the `resolveReviewThread` GraphQL mutation, each GitHub thread whose Forgejo twin is resolved. Running it again sends nothing twice. | the same; `answers` is `{"replied":[forgejo ids],"resolved":[thread ids]}` |
 | `promote` once the GitHub twin is merged | Finds the metadata comment and reads `gh pr view <url> --json state`. When it is `MERGED` (someone merged it on GitHub directly), it does not repromote: it pushes nothing and opens or edits nothing on GitHub. It closes the Forgejo pull request as `close-merged-twin` does. | the same, with `"mergedOnGithub": true` and empty `answers`; every other run prints `false` |
-| `stage <github pr>` | Stages an existing GitHub pull request in Forgejo, on a Forgejo host only. Reads it with `gh pr view <url> --json number,url,title,body,state,isDraft,headRefName,baseRefName`. When it already has an open Forgejo twin, it only writes the metadata comment (rewriting an older shape in place), sets `[GH-<github number>]` on the twin's title when it does not already carry it, and stops. Otherwise it refuses, changing nothing, unless the head branch exists locally as `refs/heads/<head>`, and names `git fetch origin <head>:<head>`. It opens the twin as `pr create` does: ensures the copy, pushes the base and the head, and opens the Forgejo pull request titled `[GH-<github number>] <github title>` (`WIP: [GH-<github number>] <github title>` for a draft) and the live GitHub body with its records removed. When the push is refused by a review pre-push hook that names `AI_REVIEW_HOOK_BASE`, the refusal names `git fetch origin +refs/heads/<base>:refs/remotes/origin/<base>` and the rerun `AI_REVIEW_HOOK_BASE=origin/<base> throne forge stage <url>`. Every GitHub-hosted image and video the body embeds (`github.com/user-attachments/assets/…`, `user-images.githubusercontent.com/…`) is downloaded with `gh api <url>` (`ghe api` on GitHub Enterprise), replaced by a `<!-- drop <name> here -->` placeholder, and attached to the twin through `pr-media`'s `publish.mjs <forgejo url> --folder <downloads>`. Then it writes the metadata comment (`promotedHead` `null`) and runs `mirror-feedback` once. Writes nothing to GitHub. | `{"githubUrl","twinUrl","created"}`; `created` is `false` when the twin already existed |
+| `stage <github pr>` | Stages an existing GitHub pull request in Forgejo, on a Forgejo host only. Reads it with `gh pr view <url> --json number,url,title,body,state,isDraft,headRefName,baseRefName`. When it already has an open Forgejo twin, it only writes the metadata comment (rewriting an older shape in place), sets `[GH-<github number>]` on the twin's title when it does not already carry it, runs the media link check below on the twin's body, and stops. Otherwise it refuses, changing nothing, unless the head branch exists locally as `refs/heads/<head>`, and names `git fetch origin <head>:<head>`. It opens the twin as `pr create` does: ensures the copy, pushes the base and the head, and opens the Forgejo pull request titled `[GH-<github number>] <github title>` (`WIP: [GH-<github number>] <github title>` for a draft) and the live GitHub body with its records removed. When the push is refused by a review pre-push hook that names `AI_REVIEW_HOOK_BASE`, the refusal names `git fetch origin +refs/heads/<base>:refs/remotes/origin/<base>` and the rerun `AI_REVIEW_HOOK_BASE=origin/<base> throne forge stage <url>`. Every GitHub-hosted image and video the body embeds (`<any GitHub host>/user-attachments/assets/…`, `user-images.githubusercontent.com/…`) is downloaded with `gh api <url>` (`ghe api` on GitHub Enterprise), replaced by a `<!-- drop <name> here -->` placeholder, and attached to the twin through `pr-media`'s `publish.mjs <forgejo url> --folder <downloads>`; a link whose download is refused stays in the body as it was. Then it writes the metadata comment (`promotedHead` `null`) and runs `mirror-feedback` once. Last, it reads the twin's body back and refuses with exit 1, printing nothing on stdout, while it still holds a GitHub-hosted image or video link (the `check-media-links` finding): the twin stays open with everything above done, and the refusal names the twin, each link and `/pr-media publish <twin url>` as the one command that repairs it, followed by `mirror-feedback`'s report line for each media link in a comment that run mirrored. Writes nothing to GitHub. | `{"githubUrl","twinUrl","created","mediaLinksInMirroredComments"}`; `created` is `false` when the twin already existed; the last field is `mirror-feedback`'s, empty when nothing was mirrored |
 | `close-merged-twin <github or forgejo pr>` | The one operation that closes a Forgejo pull request whose GitHub twin is merged; `pr-merge` runs it right after merging a staged root, and `promote` uses it when it finds the twin merged. Takes a staged pull request by either URL; a pull request with no metadata comment is refused. Reads `gh pr view <github url> --json state` and refuses unless it is `MERGED`. Then, only when the Forgejo pull request is still open, it posts `This pull request has been merged on the GitHub side: <github url>` (`POST …/issues/{n}/comments`) and closes it (`PATCH …/pulls/{n}` with `{"state":"closed"}`), never merging it. An already closed twin gets no second comment. Writes nothing to GitHub. | `{"forgejoUrl","githubUrl","closed"}`; `closed` is `false` when it was already closed |
-| `mirror-feedback <github or forgejo pr>` | Takes a staged pull request by either URL; a Forgejo one with no metadata comment is refused. Reads the GitHub feedback with `threads.mjs`'s `dumpFeedback`, so the given pull request and its rolled-in layers are covered. It mirrors every unresolved thread, every conversation comment, every review body and each bot's latest report that the twin does not already hold, with `<!-- github-feedback: <kind> <pr> <id> -->`. A thread whose line is in the twin's diff becomes a review comment on that file and line (`POST …/pulls/{n}/reviews`, event `COMMENT`). Any other item becomes a conversation comment, and a thread's comment names its file and line. Writes nothing to GitHub. | `{"githubUrl","twinUrl","mirrored","alreadyMirrored"}` (GitHub keys) |
+| `mirror-feedback <github or forgejo pr>` | Takes a staged pull request by either URL; a Forgejo one with no metadata comment is refused. Reads the GitHub feedback with `threads.mjs`'s `dumpFeedback`, so the given pull request and its rolled-in layers are covered. It mirrors every unresolved thread, every conversation comment, every review body and each bot's latest report that the twin does not already hold, with `<!-- github-feedback: <kind> <pr> <id> -->`. A thread whose line is in the twin's diff becomes a review comment on that file and line (`POST …/pulls/{n}/reviews`, event `COMMENT`). Any other item becomes a conversation comment, and a thread's comment names its file and line. A GitHub-hosted image or video link in a comment it mirrored does not load in Forgejo and no command re-hosts a comment's media, so each one is reported, in the printed JSON and as one stderr line naming the link and the GitHub comment where it can be seen, and the exit status stays 0. Writes nothing to GitHub. | `{"githubUrl","twinUrl","mirrored","alreadyMirrored","mediaLinksInMirroredComments"}`; the first two lists hold GitHub keys, the last `{"link","githubCommentUrl"}` |
 | `pr feedback <pr>` | Lists the Forgejo pull request's conversation comments, review bodies and review comments (`GET …/issues/{n}/comments`, `…/pulls/{n}/reviews`, `…/reviews/{id}/comments`). A staged GitHub URL reads its twin; a GitHub pull request that was never staged is refused, because `threads.mjs` reads those. | JSON array of `{"id","kind","author","place","reviewId","resolved","url","body","githubKey","answers"}`; `kind` is `comment`, `review` or `review-comment`; `place` is `{"path","line","onOldSide"}` and `reviewId` the review holding the comment, both `null` for anything but a review comment |
 | `pr answer <pr> --comment <id> --body-file <f> [--resolve]` | Answers one item with `<!-- forgejo-answer: <id>[ resolved] -->`: a review comment as a reply in its own conversation, anything else as a conversation comment. A reply signs in to Forgejo's web as the admin (`POST /user/login` with `admin-password` from the state directory, mode 0600, keeping the last of the two `session` cookies Forgejo sets) and posts `…/{o}/{r}/pulls/{n}/files/reviews/comments` with `reply=<review id>` and the comment's file, line and side, because Forgejo 16's API only opens new reviews. Forgejo then gives the reply the first comment's commit and diff, so it joins that conversation even after a fix commit moved the head. `--resolve` on a review comment then posts `…/{o}/{r}/pulls/resolve_conversation` in the same session, because the API has no resolve route either. Then it re-reads the item and refuses if it is still open. On any other item the `resolved` in the record is the resolution. Writes nothing to GitHub. | `{"answered","resolved"}` |
 
 Exit status: 0 on success; 2 for an unknown operation, flag or missing value
 (the usage and an entrance refusal go to stderr); 1 for a refusal (Forgejo not
 answering, no token, a Forgejo API error, a failed fetch from `origin`, no
-open pull request for a branch);
+open pull request for a branch, a copied body that still holds a cross-host
+media link), and for `check-media-links` when it found a link;
 and a GitHub command's own status on the GitHub branch.
 
 ## memory-dir
@@ -2281,6 +2485,47 @@ absolute path. A missing `git` degrades to the physical-path rule; it never
 fails. `create-agent` runs this resolution from the spawn cwd and writes the
 result into the agent's identity, so every spawn is told its memory directory
 before its first turn. Resolver: `src/memory-dir/memory-dir-resolver.ts`.
+
+## skill-extension
+
+```bash
+./bin/throne-cli skill-extension <skill-name>
+./bin/throne-cli skill-extension --list
+./bin/throne-cli skill-extension --hook < hook-event.json
+```
+
+Prints the operator's own extension to a throne skill: a Markdown file named
+for the skill, `<throne home>/skill-extensions/<skill-name>.md`, which is
+`~/.throne/skill-extensions/<skill-name>.md` unless `THRONE_DATA_HOME` moves
+the throne home. The folder lives outside the repository, so an extension never
+ships. With a file, the command prints one line naming it, then its content
+verbatim:
+
+```text
+$ ./bin/throne-cli skill-extension order-cake
+Operator extension for the order-cake skill, from /home/baker/.throne/skill-extensions/order-cake.md:
+Before taking the order, check the oven schedule.
+```
+
+With no file it prints nothing and exits 0, so a skill can run it
+unconditionally. `--list` prints one `<skill-name>: <path>` line per extension,
+sorted by skill name, and nothing when there are none. A skill name that is not
+a single plain path segment (empty, `.`, `..`, or holding `/` or `\`) is
+refused with exit 2 and reads nothing, as is an unknown flag or anything but
+exactly one argument. Resolver: `src/shared-policy/skill-extensions.ts`, built
+on the throne home resolver; nothing else knows the folder name.
+
+`--hook` is Claude Code's path. `.claude/settings.json` registers it for
+`PreToolUse` with matcher `Skill` (a skill the model loads; the event names it
+in `tool_input.skill`) and for `UserPromptExpansion` (a typed `/skill`, which
+bypasses the Skill tool; the event names it in `command_name`). It reads the
+event JSON on stdin and, only when that skill has an extension, prints
+`{"hookSpecificOutput":{"hookEventName":<event>,"additionalContext":<text>}}`
+with the same text the plain command prints. Anything else (no extension, a
+name that is not a plain segment, another tool or event, malformed stdin)
+prints nothing and exits 0, and the registered command line always exits 0, so
+the hook never blocks a skill or a prompt. It finds the CLI the way the
+SessionStart hook does, so it serves the live checkout's build.
 
 ## recall
 
@@ -2879,7 +3124,7 @@ home-directory variable keeps the literal-home guidance, and command
 substitution such as `$(pwd)` is not checked. Reads
 of `/tmp` pass, and heredoc bodies and single-quoted text are ignored. The
 registration is idempotent (reported as `registered`, `replaced` or
-`unchanged`); an entry for the older dotfiles `rm-literal-home-guard.py`, or
+`unchanged`); an entry for the older standalone `rm-literal-home-guard.py`, or
 for another checkout's copy, is replaced so only one guard runs, and a
 `settings.json` that is not a JSON object is left untouched and fails the run.
 `./uninstall.sh` removes the entry. The hook's own tests live beside it
@@ -2892,7 +3137,7 @@ companion enforcement hook for the `/skill-writer` skill, in
 (`src/install-services/skill-write-guard-hook.ts`). It fires on any write,
 edit, port, move, or copy of a `SKILL.md` file and reminds the writer to run
 `/skill-writer`. Registration appends into the same matcher's `hooks` array
-that already carries `comment-guard.py`, creating the matcher entry only if
+alongside any hooks already registered there, creating the matcher entry only if
 genuinely absent, and is idempotent the same way the guard hook above is: a
 stale prior registration for this hook file is replaced in place, and a
 second run reports `unchanged`. Its own tests live beside it
@@ -3030,7 +3275,8 @@ against a real launchd on 2026-09-02 (macOS 26 / Darwin 25.6): the plists
 parse, and `launchctl print` / `enable` / `bootstrap` / `bootout` behave as
 `src/install-services/darwin.ts` expects; `src/install-services/darwin.spec.ts`
 covers the retirement, bootstrap and idempotence branches with fakes. A mac
-has no journal: both live agents append to `~/Library/Logs/throne/`.
+has no journal: both live agents append to `~/.throne/logs/` (AGENTS.md
+"Where the throne keeps things").
 
 The separate five-minute `alpha-autoscale` hosted tick touches Alphas and
 Shadows only (the env switch `THRONE_ALPHA_AUTOSCALE_ENABLED=1` is permanently
@@ -3121,6 +3367,68 @@ The report has seven sections, in this order:
    briefing and recovery steps, and pressure or the queue can change it before
    the tick.
 
+## agent-settings-tick
+
+```bash
+./bin/throne-cli agent-settings-tick             # check every agent once, now
+./bin/throne-cli agent-settings-tick --dry-run   # print what would change, change nothing
+```
+
+Runs one tick of the agent settings check, the same tick the backend's
+`agent-settings` hosted worker (`src/agent-settings/agent-settings.hosted-worker.ts`)
+runs every five minutes. The check keeps every agent's pane telling the truth
+about who it is: each kind of agent has one colour, and a Claude Code session
+carries the same name as its herdr tab. The tab name is the truth. The check
+never renames or recolours a herdr tab; it only corrects the harness inside it.
+
+Each tick reads the status roster once and prints one line per agent that is
+not reaped:
+
+- A live Claude Code agent is compared with what it should be. Its colour and
+  session name are read from its session transcript, never by typing into the
+  pane. What differs is corrected by typing the harness's own `/color <name>`
+  and `/rename <name>` into the pane, and only when the agent is idle and its
+  textbox is recognised, empty and free of any dialog. Otherwise the line says
+  `skipped-busy` and the next tick tries again.
+- A live agent on another harness is reported and nothing is typed.
+- A tab whose name matches no recorded agent is reported and left as it is.
+- A dead agent whose tab still exists, with one pane and no live harness in
+  it, has its harness brought back in that same pane, resuming its recorded
+  session and keeping its name. Colour and name follow on a later tick. An
+  agent with no tab is left alone and no tab is ever opened. The Regent and
+  the Stager that `court-liveness` keeps alive are left to that worker.
+
+The colours live in the `agentSettings` section of `config.user.ts`
+(`docs/CONFIG.md`), re-read on every tick:
+
+| kind of agent | default colour |
+| --- | --- |
+| Regent | `red` |
+| Stager | `green` |
+| Alpha | `blue` |
+| Shadow | `purple` |
+
+`agentSettings.colourByRole` replaces the colour of the roles it names, and
+`agentSettings.checkEnabled: false` switches the check off: the worker then
+does nothing and this command prints that the check is switched off.
+
+Limits, shared by the timed tick and this command and kept in the agent's data
+directory so a backend restart does not reset them:
+
+- A correction that was typed and is still wrong at the next tick is typed at
+  most 3 times per agent and setting. The fourth tick reports `gave up after 3
+  tries` once, and the setting is left alone until the wanted value or the
+  agent's session changes. `skipped-busy` is not a try. A value whose command
+  left a dialog open is reported as failed and never typed again.
+- An agent is brought back at most 3 times in an hour. After that it is
+  reported once and left alone until its tab or its spawn record changes.
+
+Flags: `--dry-run` runs every read and every decision and prints what would be
+typed or brought back, and types, revives and records nothing. By default the
+tick runs inside `throne-backend` over REST, in turn with the timed tick;
+`--local` (or `--transport local`) runs it in the calling process. A REST
+failure exits non-zero naming `--local`; it never falls back on its own.
+
 ## no-idling
 
 ```bash
@@ -3198,6 +3506,44 @@ within a minute through the backend's `court-liveness` worker, which brings
 back a registered dead Stager or creates one through the Stager floor. A live
 Stager is a no-op, ambiguous evidence refuses, and `dismissed` says
 `STAY DOWN`.
+
+## migrate-home
+
+```bash
+./bin/throne-cli migrate-home [--backup-dir <folder>] [--keep-old-copies] [--leave-browser-profiles] [--include-checkout-config]
+```
+
+Moves an older install's files into the throne home (AGENTS.md "Where the
+throne keeps things"): `features.json` and `private-refs.txt` from
+`~/.config/throne` into `~/.throne/config/`, and the agent-browser sign-ins
+into `~/.throne/browser-profiles/`. `throne-startup` runs it each time it
+starts a Regent session, with `--keep-old-copies` and without the checkout flag, so startup only copies
+what is missing into the throne home and never removes or moves an old file or
+writes `MOVED.txt`; running `throne migrate-home` by hand finishes the move. A
+refusal or error at startup is printed and never fails startup.
+
+Per item: an old file whose new place is empty is moved, and the old folder
+gets a `MOVED.txt` naming the new places; an identical pair is finished by
+removing the old copy; a pair that differs is refused, its difference printed
+and nothing changed for it, and the command exits 1; a browser profile a
+running browser holds is reported as held and left for a later run. Before the
+first move every item to be touched is copied into the backup folder
+(`--backup-dir`, default `~/tmp/throne-home-backup-<time>`); nothing is backed
+up when there is nothing to move. A second run changes nothing. Logs are never
+moved, and nothing else under the throne home is touched.
+
+- `--keep-old-copies` copies instead of moving and leaves every old file in place
+  with no `MOVED.txt`, for processes still running old code that read the old
+  paths; a later plain run finishes each identical pair.
+- `--leave-browser-profiles` leaves the sign-ins where they are.
+- `--include-checkout-config` also moves the live checkout's `config.user.ts`
+  into `~/.throne/config/`, writing a `package.json` of `{ "type": "module" }`
+  beside it; without it the checkout copy stays, and still wins.
+
+Output is one line per item (moved, already in place, nothing to move,
+refused with its difference, held), plus the backup folder when one was
+written. Exit codes: 0 done, 1 an item was refused, 2 bad arguments (the usage
+is printed); `--help` prints the usage and exits 0.
 
 ## restart-harnesses
 
@@ -3427,6 +3773,11 @@ systemctl --user list-timers throne-keep-going.timer
 ```bash
 npm test          # canonical — runs ONLY the throne's own tests
 ```
+
+The default run skips two agent-chosen groups: `npm run test:slow` runs the files
+listed in `test/slow-tests.json`, and `npm run test:containers` runs the files
+listed in `test/container-tests.json` (tests that start a podman or docker
+container).
 
 Runs the hermetic guard suite (name resolver, herdr-presence guard, keep-going
 send guard, startup/roster guards) via Node's built-in runner, scoped to

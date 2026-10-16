@@ -14,10 +14,16 @@ and are never published. Generalising must not gut the lesson: keep the
 argument the example was making intact under the new domain.
 
 The backstop itself, `scripts/lint-private-refs.sh`, carries zero private
-strings of its own — it reads its pattern list from an external file outside
-the repo (`${THRONE_PRIVATE_REFS:-$HOME/.config/throne/private-refs.txt}`) so
-the guard is never itself an inventory of what it's hiding. No file present
-means the check skips green; a public clone stays green with no configuration.
+strings of its own. Every private term lives in one file, `publish-scrub.sed`,
+found at `${PUBLISH_SCRUB_FILE:-<throne checkout>/publish-scrub.sed}`. It is
+tracked in this private repository, not gitignored, and never copied into the
+public snapshot (it is on `NEVER_PUBLISHED_PATHS` in
+`scripts/publish-scrub-file.sh`). Its `# verify:` lines are the pattern list
+for three checks: publish's own verify step on the scrubbed snapshot, this
+lint on every tracked file publish could copy, and the skill-write guard on
+every `SKILL.md` write. To ban a new term, add a `# verify:` line there, and a
+rewrite rule when publishing must still pass. No file present means the lint
+skips green; a public clone stays green with no configuration.
 
 Before any real publish, run the `.claude/skills/publish/SKILL.md` procedure:
 it reads the staged, post-scrub snapshot's prose in full (not just the

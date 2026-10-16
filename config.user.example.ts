@@ -1,11 +1,14 @@
 // Template for `config.user.ts` — the throne's SINGLE local machine override
-// file, at the live throne root.
+// file, kept in the throne home's config folder:
+// `~/.throne/config/config.user.ts` (`$THRONE_DATA_HOME/config/config.user.ts`
+// when that override is set).
 //
-// Copy this file to `config.user.ts` next to it and edit. `config.user.ts` is
-// gitignored, so whatever you set here stays on this machine; the committed
-// tree keeps the generic defaults. With no `config.user.ts` present the
-// throne silently uses those defaults. Every campaign worktree resolves this
-// same live-root file, not a copy of its own.
+// Copy this file there and edit. A `config.user.ts` in the live throne
+// checkout, next to this template, is loaded instead when present (one stderr
+// line says so when it hides a home copy); it is gitignored and meant for
+// quick tests. With neither present the throne silently uses the committed
+// defaults. Every campaign worktree resolves the same file, not a copy of its
+// own.
 //
 // THREE INDEPENDENTLY OPTIONAL TOP-LEVEL SECTIONS: the persona/display fields
 // and `ntfy` below, plus `steering` and `identity`. Every field, in every
@@ -29,6 +32,7 @@
 // whatever you'd already customized in the other sections. Preserve, don't
 // replace.
 
+import type { AgentSettingsConfigOverride } from './src/agent-settings/agent-settings-user-config.ts';
 import type { PersonaConfigOverride } from './src/application-config.service.ts';
 import type { RecallConfig } from './src/relevance-classifier/recall-user-config.ts';
 import type { SteeringConfigOverride } from './src/steering-user-config.ts';
@@ -47,6 +51,7 @@ interface UserConfigFileOverride extends PersonaConfigOverride {
     readonly remotes?: Record<string, string>;
   };
   readonly recall?: Partial<RecallConfig>;
+  readonly agentSettings?: AgentSettingsConfigOverride;
   readonly editor?: string;
 }
 
@@ -241,6 +246,16 @@ const userConfig: UserConfigFileOverride = {
     // Memory directories shared by every project, read in addition to the
     // project's own memory directory (`throne memory-dir .`). Empty by default.
     globalMemoryDirectories: [],
+  },
+
+  agentSettings: {
+    checkEnabled: true,
+    colourByRole: {
+      Regent: 'red',
+      Stager: 'green',
+      Alpha: 'blue',
+      Shadow: 'purple',
+    },
   },
 };
 

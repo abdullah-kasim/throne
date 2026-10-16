@@ -1,9 +1,11 @@
 ---
 name: pr-merge
-description: 'This throne-only, STAGER-ONLY skill gets a stack of pull requests ready for merge the way the Lord prefers, and lands it only on his explicit order to merge: identify the whole stack from any one pull request in it, roll every upper pull request into the root, bring it up to date, prove the human scenario the Lord names on the rolled branch, and repromote it, leaving the root open and ready for merge. Only when his words explicitly order a merge ("merge it", "squash and merge", "land it") does the row then squash-merge the root on GitHub so the feature lands as one revertable commit. Nothing is merged in Forgejo: a pull request staged there merges on GitHub, and after an actual merge its Forgejo pull request is closed with a comment saying so. Invoked by /pr-merge <pull request url>, or when the Lord says "roll up this stack", "merge this stack", "land these PRs", "roll all PRs stacked on N into it", or "squash and merge N once scenario M passes". It asks the Lord two things (which pull request, the criteria that allow the merge), never whether it may merge, and then files one queue row; only the Lord orders a merge.'
-version: 1.2.0
+description: 'This throne-only, STAGER-ONLY skill gets a stack of pull requests ready for merge the way the Lord prefers, and lands it only on his explicit order to merge: identify the whole stack from any one pull request in it, roll every upper pull request into the root, bring it up to date, prove the human scenario the Lord names on the rolled branch, and repromote it, leaving the root open and ready for merge. Only when his words explicitly order a merge ("merge it", "squash and merge", "land it") does the row then squash-merge the root on GitHub so the feature lands as one revertable commit, after answering every automated reviewer's finding on the final head; a person's comment posted during the run stops the merge. Nothing is merged in Forgejo: a pull request staged there merges on GitHub, and after an actual merge its Forgejo pull request is closed with a comment saying so. Invoked by /pr-merge <pull request url>, or when the Lord says "roll up this stack", "merge this stack", "land these PRs", "roll all PRs stacked on N into it", or "squash and merge N once scenario M passes". It asks the Lord two things (which pull request, the criteria that allow the merge), never whether it may merge, and then files one queue row; only the Lord orders a merge.'
+version: 1.3.0
 user-invocable: true
 ---
+
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension pr-merge` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
 
 # Land a stack of pull requests by rolling it up
 
@@ -79,7 +81,7 @@ explicit order to merge ("merge it", "squash and merge", "land it"), the row
 gets the pull request ready (roll up, update, prove, repromote) and does not
 merge; the root stays open, ready for merge. The Stager does not ask whether
 it may merge. With an explicit order to merge, quoted under `RULINGS:`, the
-row does both: every ready step, then the **Merge** step.
+row does both: every ready step, then the **Answer** and **Merge** steps.
 
 When the Lord already said both in the order that invoked this skill
 ("roll everything on N into it, make sure scenario 4 of M works, if it works
@@ -121,66 +123,121 @@ The body carries this shape, filled in from the script's output:
   changes; otherwise the last proof stands.
 - **Ready**: after Prove, when the root has a Forgejo twin, repromote it
   with `/pr-promote` so both sides carry the final state; a root with no
-  Forgejo twin skips this. Without an explicit merge order in the RULINGS,
-  the row ends here: the root stays open, ready for merge, and REPORT.md
-  records "ready for merge" plus the head sha.
+  Forgejo twin skips this. The repromote checks the GitHub body it wrote for
+  image and video links that point at the Forgejo host, which do not load on
+  GitHub, and refuses while one remains. A refusal means the body was copied
+  and the root is not ready: run the one repair command the refusal names,
+  repeat the repromote, and go on only when it succeeds and
+  `throne forge check-media-links <root url>` exits 0. Without an explicit
+  merge order in the RULINGS, the row ends here: the root stays open, ready
+  for merge, and REPORT.md records "ready for merge" plus the head sha. It
+  answers nothing: it reads the root's reviews and comments as **Answer**
+  does, and lists the automated findings and people's comments on the final
+  head in REPORT.md for the Lord.
+- **Answer**: runs only when the RULINGS quote an explicit merge order,
+  after **Ready** and before **Merge**. It opens with the person check: a
+  review, review comment or conversation comment on the root by a person,
+  created after the row launched, stops the merge (**Stop**). A person is
+  any account GitHub does not report as automated, the operator's own
+  account included. The row's own posts never count; they are matched by the
+  comment ids the row recorded when posting them, not by author. So from its
+  first step the row keeps its launch time and the id of every comment it
+  posts in the Alpha's data directory. The window is the whole run, from the
+  row launching until the merge command runs: the check runs again
+  immediately before the merge command in **Merge**, and that last check
+  closes the window, so a post that lands while CI or a reviewer is being
+  waited on still stops the merge. A person's comment from before the launch
+  does not stop the merge; it is only listed. Then read every review, review
+  comment and conversation comment on the root
+  (`<gh> api repos/<o>/<r>/issues/<n>/comments`,
+  `<gh> api repos/<o>/<r>/pulls/<n>/comments`,
+  `<gh> api repos/<o>/<r>/pulls/<n>/reviews`) and keep only those by
+  automated reviewers, the accounts GitHub reports with `user.type == "Bot"`
+  or a login ending in `[bot]`, that are about the head being merged or were
+  posted after it was pushed. A person's review or comment is never answered
+  or acted on by this step. An automated reviewer known to run on every
+  push, because it reviewed an earlier push of this pull request or an
+  operator's private extension of this skill names it, that has not yet
+  reviewed the final head is waited for with a Monitor until-loop, as
+  **Update** waits for CI, bounded at 30 minutes by default; if it never
+  arrives, REPORT.md says so. Each automated finding is then either fixed or
+  answered. A fix goes in its own commit through **Update** and **Fail**,
+  exactly as a red check does, and the reviews are read again for the new
+  head. An answer is a `pr comment` on the root that quotes or links the
+  finding and, when the finding is rejected, carries the evidence: which
+  test, which engines, what was observed. When the reviewer documents its
+  own reply form, the answer uses that form; an operator's private extension
+  of this skill may supply those forms. Never merge over an automated
+  finding that has neither a fix nor an answer. REPORT.md carries a table of
+  every automated finding on the final head with its fate (fixed: the
+  commit; answered: the comment URL), and lists people's comments on the
+  final head with their URLs, unanswered.
 - **Merge**: runs only when the RULINGS quote an explicit merge order; it
-  comes after every ready step above. Every Expect observed and CI green on
-  the head → `<gh> pr merge <root> --squash --delete-branch=false`, then
-  read the pull request back and confirm `MERGED` and the squash commit on
-  the default branch. The merge method is always squash and is never asked
-  (Lord, 2026-10-06: "we always merge with squash merge FWIW"). When the
-  Lord's words authorize merging without review, recorded under `RULINGS:`,
-  the command is
-  `<gh> pr merge <root> --squash --admin --delete-branch=false`, and
-  `--admin` covers ONLY the missing-approval requirement. A failing required check is never bypassed: it is made to
-  pass through **Update** and **Fail**. The throne gh guard denies mutations
-  by default; the Lord's merge order authorizes `--bypass` on `pr merge`,
-  `pr close` (each rolled pull request, with its one comment naming the
-  merge commit), and `pr comment` on the root pull request, the last only
-  for the refusal comments this skill prescribes at a **Stop**, and nothing
-  else: no other comment, no review, no review request, no label, no body
-  edit. Without the no-review authorization, a refusal from branch
-  protection for a missing approval is NOT bypassed: comment the refusal on
-  the root, mark the campaign complete, report it. The comment is two or
-  three plain sentences: what landed on the branch (the merge commit, the CI
-  state), the exact refusal GitHub printed, and that nothing was forced (no
-  admin merge, no auto-merge, no protection change). Read it back after
-  posting and report its URL to the supervisor.
+  comes after every ready step above and after **Answer**. Immediately
+  before the merge command, run the person check from **Answer** again; a
+  hit is a **Stop**. Every Expect observed and CI green on the head →
+  `<gh> pr merge <root> --squash --delete-branch=false`, then read the pull
+  request back and confirm `MERGED` and the squash commit on the default
+  branch. The merge method is always squash and is never asked (Lord,
+  2026-10-06: "we always merge with squash merge FWIW"). When the Lord's
+  words authorize merging without review, recorded under `RULINGS:`, the
+  command is `<gh> pr merge <root> --squash --admin --delete-branch=false`,
+  and `--admin` covers ONLY the missing-approval requirement. A failing
+  required check is never bypassed: it is made to pass through **Update**
+  and **Fail**. The throne gh guard denies mutations by default; the Lord's
+  merge order authorizes `--bypass` on `pr merge`, `pr close` (each rolled
+  pull request, with its one comment naming the merge commit), and
+  `pr comment` on the root pull request, the last only for the refusal
+  comments this skill prescribes at a **Stop** and for replies to automated
+  review findings on the root, and nothing else: no review, no review
+  request, no label, no body edit. Without the no-review authorization, a
+  refusal from branch protection for a missing approval is NOT bypassed:
+  comment the refusal on the root, mark the campaign complete, report it.
+  The comment is two or three plain sentences: what landed on the branch
+  (the merge commit, the CI state), the exact refusal GitHub printed, and
+  that nothing was forced (no admin merge, no auto-merge, no protection
+  change). Read it back after posting and report its URL to the supervisor.
 - **Fail**: an Expect not observed, or a red CI check on the head →
   separate environment faults (stale image, held port, leftover container,
   lapsed cache, a stub not running) from bugs in the rolled code; correct
   the former and re-run; fix the latter on the root branch in its own
   commit with a test, push, wait for CI as **Update** says, re-run the
   failing step and every step after it, then go on to **Ready** and, on
-  an explicit merge order, **Merge**. An Expect or a check that still
-  fails after a genuine fix is a refusal no fix can clear: no merge, a
-  comment on the root naming the step, the output and the fix attempted,
-  campaign complete, supervisor told. The comment is two or
+  an explicit merge order, **Answer** and **Merge**. An Expect or a check
+  that still fails after a genuine fix is a refusal no fix can clear: no
+  merge, a comment on the root naming the step, the output and the fix
+  attempted, campaign complete, supervisor told. The comment is two or
   three plain sentences: what landed on the branch (the merge commit and
   the fix commit, the CI state), the failing step with its output and the
   fix attempted, and that nothing was forced (no admin merge, no
   auto-merge, no protection change). Read it back after posting and report
   its URL to the supervisor.
-- **Stop**: the row stops for only two things: a push to the root branch by
-  someone else, whose intent is unknown; and a refusal that no fix and no
-  granted bypass can clear. Each gets the refusal comment on the root (a
+- **Stop**: the row stops for only three reasons: a push to the root branch
+  by someone else, whose intent is unknown; a person's review or comment on
+  the root posted after the row launched, found by the person check in
+  **Answer**; and a refusal that no fix and no granted bypass can clear. A
+  foreign push and a refusal each get the refusal comment on the root (a
   foreign push in the **Merge** format, naming the foreign commit and its
   author in place of GitHub's refusal) and a report to the supervisor; the
-  Lord is never asked. Anything else keeps the row going until the root
-  merges, or, without a merge order, until it is ready for merge. A missing
-  human approval that `--admin` cannot clear, because branch protection
-  enforces approvals for admins too or the bypass list excludes the Lord, is
-  such a refusal, and it ends the row as done (Lord, 2026-10-07: "alphas
-  should not wait for PR approval if the repo doesnt allow human approval
-  bypass despite being authorized by me, just mark the work as done"): once
-  everything a fix can reach is done (branch up to date, CI green, criteria
-  proven, body accurate), post the refusal comment once in the **Merge**
-  format, leave the pull request open and ready for review, and mark the
-  campaign complete with REPORT.md recording "delivered, not merged: waiting
-  only on a human approval" plus the head sha. Never poll `reviewDecision`,
-  never wait, and never ask the Stager to file a row that watches for the
-  approval.
+  Lord is never asked. A person's comment gets no comment at all: the row
+  merges nothing, pushes nothing further, replies to no one, and marks the
+  campaign complete, with REPORT.md saying "not merged: a person commented
+  during the merge" and giving each comment's URL, author, time and first
+  lines; the supervisor is told, so the Regent tells the Lord. The Lord
+  decides; the row never asks him, and the Stager files any follow-up on his
+  word. Anything else keeps the row going until the root merges, or, without
+  a merge order, until it is ready for merge. A missing human approval that
+  `--admin` cannot clear, because branch protection enforces approvals for
+  admins too or the bypass list excludes the Lord, is such a refusal, and it
+  ends the row as done (Lord, 2026-10-07: "alphas should not wait for PR
+  approval if the repo doesnt allow human approval bypass despite being
+  authorized by me, just mark the work as done"): once everything a fix can
+  reach is done (branch up to date, CI green, criteria proven, body
+  accurate), post the refusal comment once in the **Merge** format, leave
+  the pull request open and ready for review, and mark the campaign complete
+  with REPORT.md recording "delivered, not merged: waiting only on a human
+  approval" plus the head sha. Never poll `reviewDecision`, never wait, and
+  never ask the Stager to file a row that watches for the approval.
 - **Identity**: commits in the target repository carry that repository's
   identity; `git var GIT_COMMITTER_IDENT` is checked before every commit,
   because the throne session injects another one.

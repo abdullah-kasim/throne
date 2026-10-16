@@ -1,5 +1,5 @@
 export const PULL_REQUEST_VIEW_FIELDS = "number,url,title,body,state,isDraft,headRefName,baseRefName";
-export const PULL_REQUEST_STATUS_FIELDS = "number,url,state,isDraft,headRefName,baseRefName,headRefOid,mergedAt,mergeCommit";
+export const PULL_REQUEST_STATUS_FIELDS = "number,url,state,isDraft,headRefName,baseRefName,headRefOid,mergedAt,mergeCommit,body";
 export const OPEN_PULL_REQUEST_LIST_FIELDS = "number,title,headRefName,url,files";
 export const DEFAULT_OPEN_PULL_REQUEST_LIMIT = 30;
 export const PULL_REQUEST_STATE = { open: "OPEN", closed: "CLOSED", merged: "MERGED" } as const;

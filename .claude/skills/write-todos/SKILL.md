@@ -1,9 +1,11 @@
 ---
 name: write-todos
 description: 'This skill should be used when a throne campaign Alpha plans an objective into a folder of executable todo files. Invoked by /write-todos (aliases: /create-todos, /make-todos, /plan-todos, /draft-todos), or when the tasking says "write todos", "create todos", "make todos", "plan this as todos", "draft todos for ...", "break this into todos", "generate a todo list", or "create a todo bundle". Runs ONLY inside the throne orchestrator and refuses elsewhere. Output is a `todo-<iso-timestamp>-<topic>/` folder of `NN_<task>.md` files under `~/.throne/data/<alpha-name>/` that the `/execute-todos` skill picks up later.'
-version: 0.16.0
+version: 0.17.0
 user-invocable: true
 ---
+
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension write-todos` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
 
 # Write a folder of todos
 
@@ -130,7 +132,21 @@ So when your slice adds or touches a test:
   coverage.
 - **Do NOT gate a slow test behind `THRONE_HEAVY_TESTS` and call it solved.**
   Gating relocates the cost; the test is still slow wherever it runs. Gating and
-  this law are complementary and neither substitutes for the other.
+  this law are complementary and neither substitutes for the other. This rule
+  binds the heavy group only.
+- **The slow and container groups are agent-chosen (Lord, 2026-10-15).** His
+  words on slow tests: *1. By default, do not run the slow tests - I think we
+  already did this, so let's add some more to the slow test list.* On container
+  tests: *we should isolate those away and disable them by default. Only an agent
+  can judge whether to run them.* A file listed in `test/slow-tests.json` (with
+  its measured seconds and why it is slow) is skipped by the default `npm test`
+  and runs with `npm run test:slow` or `THRONE_SLOW_TESTS=1`. A file that starts
+  a podman or docker container is listed in `test/container-tests.json` and runs
+  with `npm run test:containers` or `THRONE_CONTAINER_TESTS=1`; an agent runs that
+  group only on its judgment that the change reaches what those tests cover, and
+  records that decision in its execution log or report. For these two groups the
+  rule above and the shrinking manifest below are superseded by that ruling; the
+  heavy group keeps both. The law still binds every default run.
 - **ENFORCEMENT IS MANDATORY — `npm test` FAILS on a violation.** Not warns, not
   reports. The Lord's follow-up: *"npm test should fail if something ran for more
   than 10 seconds."* He was asked to reconsider on flakiness grounds and
@@ -139,7 +155,8 @@ So when your slice adds or touches a test:
   reasoning, and make the failure message name **both** the measured duration and
   the threshold.
 - **Existing slow tests are not grandfathered.** They bind under a manifest that
-  may only shrink.
+  may only shrink. For the slow and container groups this is superseded by the
+  Lord's 2026-10-15 ruling above; the heavy group keeps it.
 
 **Report, do not file.** If you find a slow test outside your slice's scope, name
 it in `REPORT.md` with its measured duration. Do not create a queue item for it —
@@ -377,11 +394,10 @@ nothing.
 
 ## Planning altitude — state semantics, leave mechanics to execution
 
-The governing design principle is the global
-`claude/agent_docs/coding_principles.md` section “Name the logic before
-implementing it”, available to throne workflows at
-`<live-throne>/agent_docs/coding_principles.md`. Apply it by reference here;
-do not duplicate or paraphrase that principle into a second doctrine.
+The governing design principle is
+`<live-throne>/agent_docs/coding_principles.md` section “Name the logic before
+implementing it”. Apply it by reference here; do not duplicate or paraphrase
+that principle into a second doctrine.
 
 For every non-trivial coding slice, the planner states the **semantic
  decisions, invariants, reuse obligations, required evidence, and observable
@@ -465,13 +481,15 @@ Planning must carry this audit into the overview, the relevant slice
 deliverables, the validator contract, and the report expectation so execution
 can re-check it after recon.
 
-Every bundle is bracketed by four auto-included bookends: `00_overview.md`
+Every bundle is bracketed by five auto-included bookends: `00_overview.md`
 (the north-star — read first, never executed), `99a_conform_<topic>.md` (the
 fresh conformance gate, which grades the candidate against what was literally
 asked for), `99b_verify_<topic>.md` (the fresh tests-and-lint gate, which fixes
 what it finds), and `99c_deliver_<topic>.md` (the fresh conflict-owning
-delivery Shadow). Ordinary slices live between `00` and `99a`; the three
-terminal Shadows run in `99a` → `99b` → `99c` order.
+delivery Shadow), and `99d_record_<topic>.md` (the step the Alpha performs
+itself after delivery, which records the outcome on the Lord's page).
+Ordinary slices live between `00` and `99a`; the three
+terminal Shadows run in `99a` → `99b` → `99c` order, and `99d` follows them.
 
 ## Proposed function contract map — a legible shape, never a mandate
 
@@ -549,16 +567,19 @@ forbids.
     ├── 98_ticket_<topic>.md           ← ticket-driven bundles only: does this match the TICKET?
     ├── 99a_conform_<topic>.md         ← fresh gate: does this do what was ASKED?
     ├── 99b_verify_<topic>.md          ← fresh tests-and-lint gate, fixes what fails
-    └── 99c_deliver_<topic>.md         ← fresh Shadow merges latest and delivers LAST
+    ├── 99c_deliver_<topic>.md         ← fresh Shadow merges latest and delivers LAST
+    └── 99d_record_<topic>.md          ← the Alpha itself records the outcome on the Lord's page
 ```
 
 - **Folder name**: literal `todo-` prefix + ISO-style timestamp + kebab-case topic. Get the timestamp with `date +%Y-%m-%d-%H%M`. Example: `todo-2026-05-08-1430-login-config-page/`.
 - **Topic**: 2–5 kebab-case words capturing the deliverable (`login-config-page`, `fix-cache-corruption`, `migrate-auth-middleware`). Don't repeat what the campaign name already implies.
-- **Sequence number**: zero-padded. `00`, `99a`, `99b`, and `99c` are reserved
+- **Sequence number**: zero-padded. `00`, `99a`, `99b`, `99c`, and `99d` are reserved
   bookends — `00_overview.md` is read-first context,
   `99a_conform_<topic>.md` grades the candidate against what was literally
   asked for, `99b_verify_<topic>.md` runs the tests and lint and fixes what
   fails, and `99c_deliver_<topic>.md` merges the latest target and delivers.
+  `99d_record_<topic>.md` is the Alpha's own step after delivery: it records
+  the outcome on the Lord's page.
   Slices take `01`–`98`; a perceptual bundle's `NNz_critique_<module>` gate
   shares its builder's number with a `z` suffix (see "Perceptual-quality
   bundles"). A ticket-driven bundle keeps `98` for `98_ticket_<topic>.md`
@@ -603,6 +624,7 @@ Output the **list of titles** in numerical order, bracketed by the two bookends:
 99a — Grade the candidate against what was literally asked for
 99b — Run the tests and lint, and fix what fails
 99c — Merge the latest target, then deliver and smoke-check it
+99d — Record the outcome on the Lord's page    ← the Alpha's own step, after delivery
 ```
 
 Annotate each executed entry (`01`–`98`, `99a`, `99b`, and `99c`) with a ≤6-word
@@ -612,7 +634,7 @@ planner does not rank or score slices. Spend the
 judgment on the CUT instead — whether each slice is genuinely independently
 testable, and whether its boundary is a real seam.
 
-`00`, `99a`, `99b`, and `99c` are non-negotiable — every new bundle ships with all four. A ticket-driven bundle also ships `98_ticket_<topic>.md` (see "The ticket-alignment todo"). Draft `00`'s "Done when:" checklist HERE, out loud, and confirm **every criterion maps to a numbered slice and every slice maps to a criterion**. That mapping IS the answer to "do these steps actually achieve the goal?" — and catching a gap now costs one line of text, not an execution re-run.
+`00`, `99a`, `99b`, `99c`, and `99d` are non-negotiable — every new bundle ships with all five. A ticket-driven bundle also ships `98_ticket_<topic>.md` (see "The ticket-alignment todo"). Draft `00`'s "Done when:" checklist HERE, out loud, and confirm **every criterion maps to a numbered slice and every slice maps to a criterion**. That mapping IS the answer to "do these steps actually achieve the goal?" — and catching a gap now costs one line of text, not an execution re-run.
 
 **COUNT YOUR DEPENDENCY CHAIN BEFORE YOU COMMIT TO IT (Lord, 2026-08-25).**
 Slice by independently-testable unit, not by sequential phase. The test is one
@@ -709,7 +731,10 @@ Once the breakdown is settled:
    HEAD is unchanged since that final check, inspects the resulting target
    diff/content, and runs meaningful delivered-feature smoke checks on the
    target.
-6. Report the folder path and the file list in your report upward. That
+7. Then write `99d_record_<topic>.md` (see "The record step" below) with
+   `deps: [99c]`. It is the bundle's last file and is not a gate: the Alpha
+   performs it itself, so `99c` stays the last todo a Shadow executes.
+8. Report the folder path and the file list in your report upward. That
    completion report to Regent must also state the exact planned real-E2E
    strategy: the actual system/components, the required runtime state, the
    trigger/action that will exercise the path, the observable final outcome,
@@ -795,6 +820,10 @@ mechanics, and call-graph shape to the executing Shadow after recon.>
   delivery gate, publishes the canonical reapability claim. Slice assignments
   receive the exact claim from `renderSliceAssignment`; do not duplicate its
   literal protocol in authored todo prose.
+- When you end a turn to wait on background work you started (a test or
+  suite run, a monitor, a queued container slot, a background agent), end
+  that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next ordinary
+  message clears it. Otherwise no-idling pages the Regent every minute.
 ```
 
 For slices (`01`–`98`), the `## Out of scope` and `## Deliverable` sections are non-negotiable, and `## Kill list` is non-negotiable whenever the slice supersedes existing code (omit it only when nothing is superseded — see "Code cleanup is mandatory"). Everything else is shaped by the slice's semantic contract — a cross-slice contract todo emphasizes externally fixed interfaces and invariants; an implement-the-page todo emphasizes observable UX states and validation evidence; a fix-the-bug todo emphasizes the failing reproduction, the shared decision, and the invariant being restored. (`00`, `99a`, `99b`, and `99c` follow their own templates below.)
@@ -1471,6 +1500,10 @@ the code is the thing that was requested.
 - When this bundle has a `98_ticket_<topic>.md`, FAIL unless that file carries
   `**Ticket alignment outcome:** PASS` on its own line.
 - Your branch carries no product commits. That is the expected shape.
+- When you end a turn to wait on background work you started (a test or
+  suite run, a monitor, a queued container slot, a background agent), end
+  that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next ordinary
+  message clears it. Otherwise no-idling pages the Regent every minute.
 ```
 
 ## Front-end bundles
@@ -1489,25 +1522,29 @@ The rule exists because passing tests and a correct DOM do not prove a UI
 looks right. On 2026-09-08 a link that met every Playwright assertion still
 sat one to two pixels below its neighbours, and the Lord had to notice,
 describe, and prescribe the fix. The throne-local `frontend-critic` skill is
-the measured review that catches that before he sees it; `99b` is where it
-runs for campaign work, because `99b` is the only moment the assembled UI
-exists to be looked at.
+the measured review that catches that before he sees it, and it also drives
+the state a change keeps through awkward orders (acting mid-request, leaving
+and coming back, returning from past the first page) and hunts the bugs its
+checklist misses. `99b` is where it runs for campaign work, because `99b` is
+the only moment the assembled UI exists to be looked at.
 
 ## The verify todo (`99b_verify_<topic>.md`)
 
 Always the second terminal executable todo and always a fresh real Shadow. It
 runs only after `99a` returns an explicit `**Conformance outcome:** PASS`, and
-does exactly one job: run the
-bundle's tests and lint/static analysis against the assembled candidate, fix
-whatever fails, and re-run until green. For a front-end bundle that job
-includes the `frontend-critic` review, and every defect it reports is a
-failure to fix; when the deliverable is a PR it also captures the change with
-`/pr-media` (screenshots, and every interaction the change touches recorded as
-a video, as `/pr-media`'s video rule requires) into
-`~/tmp/pr-media-<pr>/` for `99c`'s `## Screenshots` section. It is a fixing gate, not a verdict
-gate — it commits its own repairs on the campaign branch. In `no-git` mode it
-runs whatever checks are naturally applicable and records the rest as N/A with
-the classifier evidence.
+its job is to find what is broken in the assembled candidate and fix it: run
+the bundle's tests and lint/static analysis, fix whatever fails, and re-run
+until green; then hunt the whole diff for the bugs no test was written for,
+confirming each with a failing test (or, for UI behaviour, a recorded browser
+sequence) before fixing it. For a front-end bundle that job includes the
+`frontend-critic` review, and every defect it reports is a failure to fix;
+when the deliverable is a PR it also captures the change with `/pr-media`
+(screenshots, and every interaction the change touches recorded as
+a video, as `/pr-media`'s video rule requires) into `~/tmp/pr-media-<pr>/`
+for `99c`'s `## Screenshots` section. It is a fixing gate, not a verdict gate
+— it commits its own repairs on the campaign branch. In `no-git` mode it runs
+whatever checks are naturally applicable and records the rest as N/A with the
+classifier evidence.
 
 ```markdown
 ---
@@ -1524,8 +1561,55 @@ transcribing it.
 
 Fix every failure you find. A failing test, a lint violation, a type error, or a
 broken build is corrective work you do here and commit on the campaign branch —
-not a finding you hand back. Re-run the full set after each fix and finish on a
-clean run.
+not a finding you hand back.
+
+Run the checks small first, then big, in rising tiers A, B, C, D, so a fix
+never throws away a bigger run. Run each tier, fix and commit what it finds,
+and re-run it until it is green; only then start the next tier. Find each
+command from this repository's own scripts and runner at run time.
+
+1. **Tier A — the tests nearest the change.** With build, type/static
+   analysis, every linter and contract check, and the diff sweep: first the
+   test files the campaign added or changed; then the test files that test
+   the source files it touched, by the repository's own convention (a
+   same-name spec or test beside the file, or a test folder mirror); then the
+   test files a grep finds importing the touched files. Run them with the
+   runner's own file selection: `node --test <files>`, `jest <files>` or
+   `jest --findRelatedTests <files>`, `vitest related <files>`,
+   `go test ./pkg/...`, `pytest <files>`.
+2. **Tier B — the tests coverage says reach the change.** Run the suite once
+   with the runner's coverage on, or read the repository's recorded coverage
+   map, to learn which test files execute the changed lines; then run
+   exactly those (`jest --findRelatedTests` or `jest --coverage`,
+   `vitest related`, `node --test --experimental-test-coverage`,
+   `go test -coverprofile`, coverage.py). With no cheap way to map tests to
+   files, say so and skip to Tier C. Never fake the mapping.
+3. **Tier C — the full suite without slow tests.** The repository's default
+   test command; with no slow or fast split, the plain full suite. Run it
+   beside the base suite when the project compares against one. Fix and
+   commit what it finds, re-run Tier A, then run Tier C once more. Finish on
+   a clean Tier C run. Run the base suite with
+   `node scripts/shared-base-suite.mjs <base-directory>`. It may reuse a
+   finished base result another campaign saved for the same base; when it
+   prints `shared base result used`, write its key and path into this file.
+   The candidate suite is never cached: always run it fresh.
+4. **Tier D — slow tests and container tests, each only by your decision.**
+   Two separate opt-in choices, both off by default: the slow tier, and
+   container tests (a test that starts podman or docker is presumed slow).
+   Decide each from the assembled diff, and run a group only when the change
+   reaches what it covers. Record one line per decision, either way, with
+   its reason, for example `container tests: not run; the change is skill
+   text only`. When the repository does not separate its container tests,
+   say so and treat them as part of its slow or default tier. The heavy tier
+   is never part of this decision: it runs only on the Lord's direct order,
+   and you never choose it.
+
+Do not start a bigger tier beside a smaller one. A fix the smaller tier
+forces makes that bigger run worthless and costs a second one (Lord,
+2026-10-15: "1 small test and 1 big test beats 2 big tests.").
+
+Record, for each tier, the command, the files it selected, the exit code and
+the duration.
 
 **You own the fixing. Do not punt to the Alpha.** Reporting a failure upward and
 waiting for someone else to repair it is not an available move, and neither is a
@@ -1538,6 +1622,34 @@ For the suite command specifically, do not credit exit 0 alone: read
 truncated log, a signal death, or a completed run reporting `tests executed: 0`
 or `tests executed: unknown` is never a PASS, whatever the exit code says.
 
+## Bug hunt
+
+Once the tests and lint are green, read the whole assembled diff against the
+campaign base (`git diff <base>...HEAD`) as a reviewer who did not write it,
+not slice by slice, and ask how it breaks.
+
+- List every piece of state the diff adds or edits (variables kept across
+  calls, caches, cursors, history or URL state, stored rows, flags) and every
+  contract it changes (function signatures, request and response shapes,
+  limits shared with another component or service).
+- For each, follow every way it can change and try to break it: the order
+  of events, concurrency and late answers, empty and boundary values, a limit
+  that disagrees between two places, navigating away and back, an error
+  part-way through. For example, a bookshop's basket that caps a title at 10
+  copies while its checkout accepts 99 is a limit that disagrees.
+- Confirm each suspected bug with a failing test (or, for UI behaviour, a
+  recorded browser sequence) before you fix it. A suspicion you cannot
+  confirm is listed, not fixed.
+- Fix only what the diff added or edited. A bug in code the diff did not
+  touch goes under "Pre-existing, not fixed".
+- Report the list of state and contracts hunted, one line each: PASS, or the
+  confirmed bug with its test and fix commit. A hunt that found nothing still
+  lists what it examined.
+
+This hunt covers the whole diff. In a front-end bundle the critique below adds
+the critic's own front-end hunt; this one does not repeat the critic's
+checklist.
+
 <!-- Include the block below only when 00_overview.md stamps frontend: true. -->
 ## Front-end critique
 
@@ -1545,22 +1657,31 @@ This bundle changes a web UI. Rebuild and serve the assembled candidate,
 confirm the served bytes carry the change, then run the throne-local
 `/frontend-critic` skill against every surface the bundle touched, in every
 state it names (default, hover, focus, fallback), in Chromium only, as
-section 4 of that skill sets out. Each defect it reports (a baseline off by
-more than 0.5px, a shifted neighbour, a clipped or overlapping box, an
-undersized click target) is a failure you fix here and commit, exactly like a
-red test. Re-run the critic after each fix and finish on an empty report.
+section 4 of that skill sets out, including its interleave moves for kept
+state and its open bug hunt (sections 3d and 3e). Each defect it reports (a
+baseline off by more than 0.5px, a shifted neighbour, a clipped or overlapping
+box, an undersized click target, state lost or overwritten by a late answer)
+is a failure you fix here and commit, exactly like a red test. Re-run the
+critic after each fix and finish on an empty report.
 
 ## Deliverable
 
 - End with exactly one `**Verify outcome:** PASS` or `**Verify outcome:** FAIL`.
 - PASS requires a final clean run of every applicable command, cited with its
-  exit code and the suite's `tests executed: N` line, and for a front-end
-  bundle the critic's final empty report, naming Chromium.
+  exit code and the suite's `tests executed: N` line; each tier's command,
+  selected files, exit code and duration; the two Tier D decision lines; the
+  bug-hunt list of
+  state and contracts hunted, one line each, even when nothing was found; and
+  for a front-end bundle the critic's final empty report, naming Chromium.
 - FAIL only when repair is genuinely impossible for you — a requirement nobody
   wrote, two slices whose designs contradict, or an environment you cannot fix.
   Name that precise blocker; never forward a raw test or lint failure as one.
 - Fix and commit; do not merge, do not deliver, and do not touch the target
   branch.
+- When you end a turn to wait on background work you started (a test or
+  suite run, a monitor, a queued container slot, a background agent), end
+  that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next ordinary
+  message clears it. Otherwise no-idling pages the Regent every minute.
 ```
 
 ## The delivery todo (`99c_deliver_<topic>.md`)
@@ -1671,6 +1792,77 @@ recognisable as one.
 number, so it runs after every other ordinary slice and before `99a`, and it
 is not one of the three terminal gates the throne classifies by verb.
 
+## The record step (`99d_record_<topic>.md`)
+
+The bundle's last file. It is not a gate and no Shadow runs it: the Alpha
+performs it itself, after `99c` has passed, every release request is
+answered and `REPORT.md` is written, and before it reports DONE. `99c` stays
+the last todo a Shadow executes. `/execute-todos`
+"`99d` — record the outcome on the Lord's page" owns the procedure and its
+place in the order; the todo carries the campaign's own facts so the Alpha
+does not have to look them up. Write the objective code, the Alpha's name
+and the delivery target into the todo verbatim.
+
+```markdown
+---
+deps: [99c]
+---
+
+# 99d — Record the outcome of <feature> on the Lord's page
+
+Performed by the Alpha itself, after `99c` reports
+`**Delivery outcome:** PASS`, after every release request is answered, and
+after `REPORT.md` is written. No Shadow is spawned for this todo.
+
+1. `throne where-i-stand show`, read the page at the path it prints, and run
+   `throne where-i-stand lock --checksum <checksum> --ttl 5m` in the
+   background (the where-i-stand skill's step 4). While the lock lasts, edit
+   one entry at a time with the harness's edit tool, never the whole file.
+   Move the entry `### <objective code>` out of
+   `## In flight`: to `## On GitHub` when the work has a pull request on
+   GitHub, otherwise to `## Delivered, not on GitHub`. Start it with the
+   page's entry form from the where-i-stand skill's "Writing rules for the
+   page": its `- Links: …`, `- Kind: …` and `- Where it stands: …` lines.
+   Then one honest line on what is and is not verified. End it with who
+   wrote it and when.
+2. Correct every other entry about the same work: the same Forgejo or GitHub
+   pull request (a Forgejo pull request and its GitHub twin are the same
+   work), or, with no pull request, the same ticket and the same commit or
+   branch. When the entry carries only one of the two links, look up the
+   other with `throne forge status <pull request url> --json` (its
+   `mergeTarget`) and write both. Remove each such entry when this entry now
+   says everything it said, which is the default when its work was absorbed
+   or superseded; otherwise correct its `Where it stands:` and state lines
+   and add one line ``Superseded by `### <objective code>` on <date>``.
+3. Remove any `## Needs you` line this delivery settled.
+4. Stop the background lock and read its output. When it names a broken
+   heading, take the lock again and fix it. Then
+   `throne where-i-stand note "delivered <objective code>: <one line>"`.
+5. `throne check-where-i-stand --agent <alpha-name>` must pass. Do not edit
+   `REPORT.md` after this step: that would put the entry behind the report.
+
+## Out of scope
+
+- Any code change. A check that fails here for a reason other than a missing
+  entry, an entry still in `## In flight`, an entry that does not start with
+  its links line, or an older entry about the same work left uncorrected is
+  a defect to report, not something to work around.
+
+## Deliverable
+
+- The page holds `### <objective code>` outside `## In flight`, starting
+  with its links, kind and where-it-stands lines, and with the line on what
+  is not verified.
+- No other entry about the same work is left uncorrected: each is removed
+  or carries its ``Superseded by `### <objective code>` on <date>`` line.
+- `throne check-where-i-stand --agent <alpha-name>` passes; its output is in
+  this file's execution log and in the DONE message.
+```
+
+`99d_record_<topic>` keeps its role word as the gates do. No Shadow is named
+for it, so the throne's gate classification, which reads Shadow names, never
+meets it.
+
 ## What does NOT go in a todo
 
 - **Step-by-step recipes** ("first do X, then do Y, then …"). Give the executor the semantic contract and deliverable, not a procedure; recipes rot the moment surrounding code moves.
@@ -1740,4 +1932,4 @@ Without the verification command, the executor self-grades and the bar drifts. T
 
 ### Match the project's naming style
 
-Action-shaped titles, targets baked in: `Implement recipe page`, `Wire the release build into the pre-commit gate`, `Audit the orders table for a missing index`. No padding verbs (`Implement`, not `Go ahead and implement`). The user's "name user-facing actions" rule applies to todo titles too.
+Action-shaped titles, targets baked in: `Implement recipe page`, `Wire the release build into the pre-commit gate`, `Audit the orders table for a missing index`. No padding verbs (`Implement`, not `Go ahead and implement`). The "Naming user-facing actions" rule in `agent_docs/coding_principles.md` applies to todo titles too.

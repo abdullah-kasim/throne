@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { carryAnswersBack, type CarriedAnswers } from "./carry-answers-back.ts";
+import { crossHostMediaLinksIn } from "./cross-host-media-links.ts";
 import { ForgeRefusal } from "./forge-refusal.ts";
 import { gitOutput, runGitOrRefuse } from "./forgejo-repository.ts";
 import { titleWithoutGithubTwinMarker } from "./forgejo-pull-request-titles.ts";
@@ -10,12 +11,20 @@ import {
   githubCreateArguments,
   githubEditBodyArguments,
   githubPushArguments,
+  githubViewArguments,
   runGithub,
 } from "./github-pull-requests.ts";
+import { FORGE } from "./host-forge.ts";
 import { closeTwinMergedOnGithub, isMergedOnGithub } from "./merging-on-github.ts";
-import { downloadMediaForGithub, publishMediaOnGithub, refuseUnfinishedGithubBody } from "./promotion-media.ts";
+import {
+  downloadMediaForGithub,
+  finishingCommand,
+  placeholderNamesIn,
+  publishMediaOnGithub,
+  type PromotedPair,
+} from "./promotion-media.ts";
 import { textSafeForGithub } from "./github-bound-text.ts";
-import { GITHUB_PROGRAM } from "./pull-request-forge.ts";
+import { GITHUB_PROGRAM, githubProgramForHost } from "./pull-request-forge.ts";
 import { parsePullRequestTarget } from "./pull-request-forge.ts";
 import type { ForgeContext } from "./pull-request-operations.ts";
 import type { PullRequestView } from "./pull-request-shapes.ts";
@@ -68,6 +77,23 @@ async function openOnGithub(context: ForgeContext, view: PullRequestView, github
   const githubUrl = lastLineOf(await runGithubForTheLord(context, githubCreateArguments(request)));
   parsePullRequestTarget(githubUrl);
   return githubUrl;
+}
+
+async function refuseUnfinishedGithubBody(context: ForgeContext, pair: PromotedPair): Promise<void> {
+  const program = githubProgramForHost(new URL(pair.githubUrl).hostname);
+  const result = await runGithub(githubViewArguments(pair.githubUrl), { program, repo: context.repo, bypass: false }, context.dependencies);
+  if (result.exitCode !== 0) throw new ForgeRefusal(`reading ${pair.githubUrl} back after the media publish failed: ${result.stderr.trim()}`);
+  const body = (JSON.parse(result.stdout) as { body: string }).body;
+  const placeholders = placeholderNamesIn(body);
+  const forgejoMediaLinks = await crossHostMediaLinksIn(body, FORGE.github, pair.forgejoRootUrl, context.dependencies);
+  const remaining = [
+    ...(placeholders.length > 0 ? [`drop placeholders for ${placeholders.join(", ")}`] : []),
+    ...(forgejoMediaLinks.length > 0 ? [`media links to the Forgejo host (${forgejoMediaLinks.join(", ")})`] : []),
+  ];
+  if (remaining.length === 0) return;
+  throw new ForgeRefusal(
+    `${pair.githubUrl} still holds ${remaining.join(" and ")} after the media publish, so the promotion is not finished; run: ${finishingCommand(pair)}`,
+  );
 }
 
 export async function promotePullRequest(context: ForgeContext, targetText: string): Promise<Promotion> {

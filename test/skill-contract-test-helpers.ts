@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { promisify } from 'node:util';
 
 const SKILLS_DIRECTORY = resolve(import.meta.dirname, '..', '.claude/skills');
 
@@ -42,9 +44,40 @@ export function readMarkdownSection(source: string, heading: string): string {
   return lines.slice(start + 1, end).join('\n');
 }
 
+export function unwrap(text: string): string {
+  return text.replace(/\s*\n\s*/g, ' ');
+}
+
+export async function readSkillSource(name: string): Promise<string> {
+  return readFile(join(SKILLS_DIRECTORY, name, 'SKILL.md'), 'utf8');
+}
+
 export async function readSkill(name: string): Promise<string> {
-  const skill = await readFile(join(SKILLS_DIRECTORY, name, 'SKILL.md'), 'utf8');
-  return skill.replace(/\s*\n\s*/g, ' ');
+  return unwrap(await readSkillSource(name));
+}
+
+export const PULL_REQUEST_BODY_HEADING = '## Body — six sections, in this order';
+
+export async function readPullRequestDescriptionSkill(): Promise<string> {
+  return readFile(join(SKILLS_DIRECTORY, 'pr-description', 'SKILL.md'), 'utf8');
+}
+
+export async function readPullRequestBodySections(): Promise<string> {
+  const body = readMarkdownSection(await readPullRequestDescriptionSkill(), PULL_REQUEST_BODY_HEADING);
+  assert.notEqual(body, '', `pr-description has no "${PULL_REQUEST_BODY_HEADING}" section`);
+  return body;
+}
+
+export async function readPullRequestBodySubsection(heading: string): Promise<string> {
+  const section = readMarkdownSection(await readPullRequestBodySections(), heading);
+  assert.notEqual(section, '', `pr-description has no ${heading} subsection under its body sections`);
+  return section;
+}
+
+export async function readPullRequestReferenceExample(): Promise<string> {
+  const example = readMarkdownSection(await readPullRequestDescriptionSkill(), '## Reference example');
+  assert.notEqual(example, '', 'pr-description has no reference example');
+  return example;
 }
 
 export function readBullet(unwrappedSkill: string, opening: string): string {
@@ -103,4 +136,13 @@ export function shippedSkills(skillsDirectory: string): Set<string> {
       existsSync(join(skillsDirectory, name, 'SKILL.md')),
     ),
   );
+}
+
+export async function trackedShippedSkills(skillsDirectory: string): Promise<string[]> {
+  const { stdout: trackedSkillFiles } = await promisify(execFile)('git', ['ls-files', '--', '*/SKILL.md'], {
+    cwd: skillsDirectory,
+    encoding: 'utf8',
+  });
+  const trackedFolders = new Set(trackedSkillFiles.split('\n').map((path) => path.split('/')[0]));
+  return [...shippedSkills(skillsDirectory)].filter((name) => trackedFolders.has(name)).sort();
 }

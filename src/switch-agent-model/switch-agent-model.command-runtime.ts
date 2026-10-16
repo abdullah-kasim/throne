@@ -3,7 +3,7 @@ import { readFile, readdir, realpath } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { renderFrameworkEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 
 import {
@@ -255,7 +255,7 @@ function inspectionDeps(
 }
 
 export function realSwitchAgentModelCommandDeps(
-  dataDir: string = RUNTIME_DATA_DIR,
+  dataDir: string = THRONE_DATA_DIR,
 ): SwitchAgentModelCommandDeps {
   const nativeSessionDeps = {
     homedir: os.homedir,

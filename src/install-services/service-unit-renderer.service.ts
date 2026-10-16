@@ -16,6 +16,7 @@ import os from "node:os";
 import path from "node:path";
 import { THRONE_HERDR_SESSION } from "../herdr/herdr-client.ts";
 import { findRepoRoot } from "../shared-policy/runtime-throne-root.ts";
+import { throneLogsDirectory } from "../shared-policy/throne-home.ts";
 /**
  * Root of the throne project, resolved structurally from the module
  * location, NEVER from cwd — the startup hook fires from arbitrary working
@@ -68,6 +69,8 @@ export const HERDR_BIN_TOKEN = "{{HERDR_BIN}}";
  * install time — the mise install of the exact version pinned in mise.toml.
  */
 export const NODE_BIN_TOKEN = "{{NODE_BIN}}";
+
+export const THRONE_LOGS_TOKEN = "{{THRONE_LOGS}}";
 
 export const SERVICE_MANAGER_EXECUTABLES = {
   SYSTEMCTL: "systemctl",
@@ -323,11 +326,16 @@ export const REAL_SERVICE_UNIT_DEPS: ServiceUnitDeps = {
  * renders verbatim. Throws naming the first token still unresolved afterwards —
  * an unrendered `{{...}}` in a unit file is a broken service, never a warning.
  */
-export function renderUnitSource(source: string, tokens: UnitTokens): string {
+export function renderUnitSource(
+  source: string,
+  tokens: UnitTokens,
+  environment: NodeJS.ProcessEnv = process.env,
+): string {
   const substitutions: ReadonlyArray<readonly [string, string | null]> = [
     [THRONE_ROOT_TOKEN, tokens.throneRoot],
     [HERDR_BIN_TOKEN, tokens.herdrBin],
     [NODE_BIN_TOKEN, tokens.nodeBin ?? null],
+    [THRONE_LOGS_TOKEN, throneLogsDirectory(environment)],
   ];
   let rendered = source;
   for (const [token, value] of substitutions) {

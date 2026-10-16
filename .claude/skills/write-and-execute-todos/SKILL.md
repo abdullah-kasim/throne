@@ -1,9 +1,12 @@
 ---
 name: write-and-execute-todos
 description: This skill should be used when a throne campaign Alpha plans an objective into a todo bundle AND immediately runs it end-to-end in one shot — fully async, no human checkpoint between planning and execution. Invoked by /write-and-execute-todos (aliases: /plan-and-run-todos, /do-all-todos), or when the tasking says "plan and execute", "write todos and run them", "plan this then do it", "full auto todos", or "plan and ship it". Runs ONLY inside the throne orchestrator and refuses elsewhere. Chains /write-todos then /execute-todos on the just-created folder, deferring every question to the bundle's errata file instead of blocking.
-version: 0.13.0
+version: 0.14.0
 user-invocable: true
 ---
+
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension write-and-execute-todos` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 > ## NO PROCESS DEVIATION. THE GATE CHAIN IS NOT OPTIONAL.
 >
 > **The Lord's order of 2026-08-14**, after three campaigns skipped the chain in
@@ -67,7 +70,21 @@ So when your slice adds or touches a test:
   coverage.
 - **Do NOT gate a slow test behind `THRONE_HEAVY_TESTS` and call it solved.**
   Gating relocates the cost; the test is still slow wherever it runs. Gating and
-  this law are complementary and neither substitutes for the other.
+  this law are complementary and neither substitutes for the other. This rule
+  binds the heavy group only.
+- **The slow and container groups are agent-chosen (Lord, 2026-10-15).** His
+  words on slow tests: *1. By default, do not run the slow tests - I think we
+  already did this, so let's add some more to the slow test list.* On container
+  tests: *we should isolate those away and disable them by default. Only an agent
+  can judge whether to run them.* A file listed in `test/slow-tests.json` (with
+  its measured seconds and why it is slow) is skipped by the default `npm test`
+  and runs with `npm run test:slow` or `THRONE_SLOW_TESTS=1`. A file that starts
+  a podman or docker container is listed in `test/container-tests.json` and runs
+  with `npm run test:containers` or `THRONE_CONTAINER_TESTS=1`; an agent runs that
+  group only on its judgment that the change reaches what those tests cover, and
+  records that decision in its execution log or report. For these two groups the
+  rule above and the shrinking manifest below are superseded by that ruling; the
+  heavy group keeps both. The law still binds every default run.
 - **ENFORCEMENT IS MANDATORY — `npm test` FAILS on a violation.** Not warns, not
   reports. The Lord's follow-up: *"npm test should fail if something ran for more
   than 10 seconds."* He was asked to reconsider on flakiness grounds and
@@ -76,7 +93,8 @@ So when your slice adds or touches a test:
   reasoning, and make the failure message name **both** the measured duration and
   the threshold.
 - **Existing slow tests are not grandfathered.** They bind under a manifest that
-  may only shrink.
+  may only shrink. For the slow and container groups this is superseded by the
+  Lord's 2026-10-15 ruling above; the heavy group keeps it.
 
 **Report, do not file.** If you find a slow test outside your slice's scope, name
 it in `REPORT.md` with its measured duration. Do not create a queue item for it —
@@ -417,6 +435,34 @@ both the executing Shadow and the terminal gates to it. This chain sequences
 those two and states no freeze rule of its own, so there is no third copy to
 drift.
 
+## The Lord's page — when an Alpha writes it
+
+The Lord reads one page, `where-i-stand.md` under the throne data home, to
+see what he is working on. Only agents write it: `throne where-i-stand show`
+for the page's path and checksum, `lock --checksum <checksum> --ttl 5m` run
+in the background while you edit one entry at a time with your harness's
+edit tool, stopping the lock when done, and `note "<one line>"` for events.
+`/where-i-stand` holds that flow in its step 4, the frame and the writing
+rules, including the entry form every entry starts with. Your campaign's
+entry is `### <objective code>`, written in that form. You write it at four
+moments:
+
+- **At launch**, before planning: move the entry to `## In flight`, creating
+  it there when the row was filed without one, and add a note.
+- **When you block on something only the Lord can settle**: put an entry
+  under `## Needs you` with the question in one sentence, and add a note.
+  This is a statement on the page, never a question put to him; your
+  supervisor still hears the blocker the usual way.
+- **When you unblock**: remove that `## Needs you` entry and add a note.
+- **At delivery**: the `99d` record step, owned by `execute-todos`
+  "`99d` — record the outcome on the Lord's page".
+
+Only the delivery write is enforced:
+`throne check-where-i-stand --agent <your-name>` must pass before you report
+DONE, and `complete-agent` refuses your completion while it does not. The
+other three are duties nothing checks, so nothing but you keeps the page
+true while the work runs.
+
 ## Protocol
 
 1. **Plan — async, straight through.** Invoke `write-todos` and follow it, with
@@ -485,7 +531,9 @@ drift.
    absorb loop is bounded by the target going quiet; the separate PX2 tripwire in
    `execute-todos` rule 6 caps a merge that will not land
    at two rounds and hands a needed third round to the Alpha's own plain git plus a
-   process-defect finding. The Alpha executes none of the terminal todos.
+   process-defect finding. The Alpha executes none of the three gate todos;
+   the `99d` record step after them is its own (`execute-todos`,
+   "`99d` — record the outcome on the Lord's page").
    `execute-todos` owns the final route, including quota/usage changes to model
    or harness, and records the request, final route, reason, and admission
    evidence. The chain passes no `--effort` and no bypass flags for terminal
@@ -527,6 +575,9 @@ drift.
    subsequent successful `99c` mode-specific terminal outcome, write `$THRONE_DATA/$ALPHA/REPORT.md`
    FIRST — before the chat summary — exactly as `execute-todos`' Final report
    shape mandates; only after it lands do you report upward.
+   Between the two comes the `99d` record step `execute-todos` owns: write
+   your entry on the Lord's page and pass
+   `throne check-where-i-stand --agent <your-name>`.
    Before that `REPORT.md`, when your launch situation brief has a "Deferred
    rows waiting on this objective" section, send its release requests and
    wait for each reply, as `execute-todos`' "After the PASS" step under `99c`

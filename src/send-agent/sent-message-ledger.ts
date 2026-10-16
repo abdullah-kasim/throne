@@ -1,6 +1,6 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 
 const LEDGER_FILE_NAME = "sent-messages.jsonl";
 
@@ -16,7 +16,7 @@ export interface SentMessageLedgerEntry {
 
 export function sentMessageLedgerPath(
   senderName: string,
-  baseDir: string = RUNTIME_DATA_DIR,
+  baseDir: string = THRONE_DATA_DIR,
 ): string {
   return path.join(baseDir, senderName, LEDGER_FILE_NAME);
 }
@@ -30,7 +30,7 @@ export function sentMessageLedgerPath(
  */
 export async function appendSentMessageLedgerEntry(
   entry: SentMessageLedgerEntry,
-  baseDir: string = RUNTIME_DATA_DIR,
+  baseDir: string = THRONE_DATA_DIR,
 ): Promise<void> {
   const filePath = sentMessageLedgerPath(entry.senderName, baseDir);
   await mkdir(path.dirname(filePath), { recursive: true });

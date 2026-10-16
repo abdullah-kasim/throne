@@ -4,7 +4,7 @@ import {
   createJevBackend,
   type JevBackendDependencies,
 } from './jev-backend.ts';
-import { jevDataHomeOfThisMachine } from './jev-data-home.ts';
+import { throneHomeOfThisMachine } from '../shared-policy/throne-home.ts';
 import {
   PRODUCTION_JEV_SWITCH_DEPENDENCIES,
   readJevSwitch,
@@ -26,7 +26,7 @@ export const PRODUCTION_BACKEND_CHOICE_DEPENDENCIES: BackendChoiceDependencies =
   jevSwitch: PRODUCTION_JEV_SWITCH_DEPENDENCIES,
   jevBackend: PRODUCTION_JEV_DEPENDENCIES,
   get jevDataHome() {
-    return jevDataHomeOfThisMachine();
+    return throneHomeOfThisMachine();
   },
   writeStderr: (text) => process.stderr.write(text),
 };

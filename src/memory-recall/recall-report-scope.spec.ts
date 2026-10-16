@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -43,6 +44,8 @@ interface ScopePrompt {
   readonly fromAWorktreeSinceReapedIn?: Repository;
   readonly otherRepositoriesAnswered?: readonly { readonly repository: Repository; readonly listed: boolean }[];
 }
+
+const MEMORIES_WRITTEN_BEFORE_EVERY_PROMPT_AT = new Date('2026-09-30T00:00:00.000Z');
 
 const REAPED_AGENT_NAME = 'shadow-tailoring-01';
 
@@ -118,7 +121,10 @@ async function reportOnScopedDigs(prompts: readonly ScopePrompt[]): Promise<stri
   for (const directory of [...REPOSITORIES, 'global']) mkdirSync(path.join(memories, directory), { recursive: true });
   mkdirSync(sessionDirectory, { recursive: true });
   mkdirSync(dataDirectory);
-  for (const [memory, text] of Object.entries(MEMORY_TEXTS)) writeFileSync(path.join(memories, memory), text);
+  for (const [memory, text] of Object.entries(MEMORY_TEXTS)) {
+    writeFileSync(path.join(memories, memory), text);
+    await utimes(path.join(memories, memory), MEMORIES_WRITTEN_BEFORE_EVERY_PROMPT_AT, MEMORIES_WRITTEN_BEFORE_EVERY_PROMPT_AT);
+  }
   for (const prompt of prompts) {
     if (prompt.fromAWorktreeSinceReapedIn === undefined) continue;
     const reapedLedger = path.join(agentLedgerDirectory, '.reaped', REAPED_AGENT_NAME);

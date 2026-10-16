@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
+import { resolveThroneHome } from "../shared-policy/throne-home.ts";
 
 /**
  * The throne half of omp delivery. Writes a request the throne's omp
@@ -70,7 +71,7 @@ export function ompDeliveryDirectory(
   const configured = environment[OMP_DELIVERY_DIR_ENV]?.trim();
   return configured && configured !== ""
     ? path.resolve(configured)
-    : path.join(home, ".throne", "data", ".runtime", "omp-delivery");
+    : path.join(resolveThroneHome(environment, home), "data", ".runtime", "omp-delivery");
 }
 
 export type OmpDeliveryOutcome =

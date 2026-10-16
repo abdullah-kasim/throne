@@ -23,10 +23,15 @@ import {
   readSupervisors,
 } from './idle-family-evidence-assembly.ts';
 import { findReapabilityProtocolViolations } from './reapability-protocol.ts';
+import { withWhatEachAgentWaitsOn } from './background-wait.ts';
 import { readClaimedButRefusedAgentNames } from '../autoreap/refusal-evidence.ts';
 import { ConfirmedObservationTracker } from './confirmed-observation.ts';
 import { confirmNoLiveChildrenAlphaNames } from './fully-idle-family-confirmation.ts';
-import { buildNoIdlingMessage, buildUntaskedAgentsMessage } from './message.ts';
+import {
+  buildNoIdlingMessage,
+  buildUntaskedAgentsMessage,
+  familiesWithNoMemberWaitingOnBackgroundWork,
+} from './message.ts';
 import {
   countStillBlockedSweeps,
   notifyClearedDependencyWakes,
@@ -41,7 +46,7 @@ import {
   recoverStrandedSpawns,
 } from './notify-stale-tabs.ts';
 import { notifyRegentOfUnnamedAgents } from './notify-unnamed-agents.ts';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
 import { noteExcludedFamilies } from './excluded-family-observations.ts';
 import { notifyRegentOfDeferredRows } from './deferred-row-belt.ts';
@@ -100,6 +105,7 @@ async function notifyRegentOfUntaskedAgents(
     roster,
     readSpawnSpec: (name) => deps.readSpawnSpec(name, dataDir),
     hasFutureScheduledDelivery: deps.hasFutureScheduledDelivery,
+    readPane: (name) => readMemberPane(name, deps),
     now: deps.now ?? Date.now,
   });
   if (untasked.length === 0) {
@@ -138,16 +144,20 @@ async function notifyRegentOfUntaskedAgents(
   }
 }
 
+function readMemberPane(member: string, deps: NoIdlingDependencies): Promise<string> {
+  return deps.readAgent(member, {
+    source: 'recent',
+    lines: NO_IDLING_MARKER_READ_LINES,
+    timeoutMilliseconds: NO_IDLING_AGENT_READ_TIMEOUT_MS,
+  });
+}
+
 async function readMemberPaneTag(
   member: string,
   deps: NoIdlingDependencies,
 ): Promise<LastMessageTagState> {
   try {
-    const output = await deps.readAgent(member, {
-      source: 'recent',
-      lines: NO_IDLING_MARKER_READ_LINES,
-      timeoutMilliseconds: NO_IDLING_AGENT_READ_TIMEOUT_MS,
-    });
+    const output = await readMemberPane(member, deps);
     // Live background work outranks the message-marker classification: herdr
     // reports a Claude pane idle whenever the model is not generating, so an
     // agent waiting on a background shell looks idle to the roster while it is
@@ -216,7 +226,7 @@ export async function runNoIdling(
     writeErr(deps, `no-idling: ${errText(error)}\n`);
     return 1;
   }
-  const dataDir = RUNTIME_DATA_DIR;
+  const dataDir = THRONE_DATA_DIR;
 
   let roster: AgentStatusesRosterEntry[];
   try {
@@ -348,13 +358,16 @@ export async function runNoIdling(
       .map(([name, read]) => [name, resolvedSupervisorName(read)] as const)
       .filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
-  const reapabilityProtocolViolations = findReapabilityProtocolViolations(
-    roster,
-    lastMessageTags,
-    idleByDesignChildren,
-    agentAgeMs,
-    readClaimedButRefusedAgentNames(),
-    resolvedSupervisorNames,
+  const reapabilityProtocolViolations = await withWhatEachAgentWaitsOn(
+    findReapabilityProtocolViolations(
+      roster,
+      lastMessageTags,
+      idleByDesignChildren,
+      agentAgeMs,
+      readClaimedButRefusedAgentNames(),
+      resolvedSupervisorNames,
+    ),
+    (name) => readMemberPane(name, deps),
   );
   if (completedAlphas.length > 0) {
     try {
@@ -440,11 +453,15 @@ export async function runNoIdling(
         composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
       },
     );
+    const notifiedIdleFamilies = familiesWithNoMemberWaitingOnBackgroundWork(
+      families,
+      reapabilityProtocolViolations,
+    );
     writeOut(
       deps,
       `no-idling: ${notifiedVerb} Regent about ${[
-        ...(families.length > 0
-          ? [`fully-idle Alpha(s) ${families.map((family) => family.alpha).join(', ')}`]
+        ...(notifiedIdleFamilies.length > 0
+          ? [`fully-idle Alpha(s) ${notifiedIdleFamilies.map((family) => family.alpha).join(', ')}`]
           : []),
         ...(reapabilityProtocolViolations.length > 0
           ? [`reapability protocol violation(s) ${reapabilityProtocolViolations.map(({ agent }) => agent).join(', ')}`]

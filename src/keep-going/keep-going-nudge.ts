@@ -4,6 +4,10 @@
 // fire — not who gets nudged or how the message is delivered.
 
 import type { FamilyRecoverySummary } from './keep-going-stalls.ts';
+import {
+  formatInFlightRowWithoutLiveAlpha,
+  type InFlightRowWithoutLiveAlpha,
+} from '../check-in-flight-rows/in-flight-rows-without-live-alpha.ts';
 import type {
   HerdrAgent,
   KeepGoingDependencies,
@@ -43,6 +47,28 @@ export function buildRegentNudgeText(
   now: () => Date,
   throttleBand: ThrottleBand,
   recoveryFamilies: readonly FamilyRecoverySummary[] = [],
+  inFlightRowsWithoutLiveAlpha: readonly InFlightRowWithoutLiveAlpha[] = [],
+): string {
+  return (
+    buildRecoveryNudgeText(now, throttleBand, recoveryFamilies) +
+    inFlightRowsWithoutLiveAlphaSection(inFlightRowsWithoutLiveAlpha)
+  );
+}
+
+function inFlightRowsWithoutLiveAlphaSection(
+  findings: readonly InFlightRowWithoutLiveAlpha[],
+): string {
+  if (findings.length === 0) return '';
+  return (
+    ` In-flight rows with no live Alpha: ${findings.map(formatInFlightRowWithoutLiveAlpha).join('; ')}. ` +
+    'Keep-going changed none of these rows and launched nothing. Inspect each one and fix its state; it is reported again on every tick until it is fixed.'
+  );
+}
+
+function buildRecoveryNudgeText(
+  now: () => Date,
+  throttleBand: ThrottleBand,
+  recoveryFamilies: readonly FamilyRecoverySummary[],
 ): string {
   const stamped = `[${formatMytTimestamp(now())} MYT] run render-queue, queue and dispatch more work as necessary, check for stalled agents and poke them, and continue any active work`;
   const throttled = throttleBand.advisory === ''

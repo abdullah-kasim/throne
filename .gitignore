@@ -48,6 +48,7 @@
 # clobbering another. Machine-specific, must never reach the committed tree.
 # Copy `config.user.example.ts` to create it.
 /config.user.ts
+/MOVED.txt
 
 # Machine-rendered Codex hook registration (the config.user.ts pattern): the
 # committed source is `.codex/hooks.json.template`; `install-services` renders

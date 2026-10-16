@@ -13,6 +13,10 @@ const SWEEP_RAN_LINE = /floor breach: live=0 floor=\d+/;
 const PROCESS_DEADLINE_MS = 90_000;
 
 const FAKE_HERDR_WITH_ONLY_A_REGENT_THAT_WAITS_FOR_RELEASE = `#!/bin/sh
+if [ "$1" = "--session" ] && [ "$2" = "throne-bot" ]; then
+  printf '%s\\n' '{"result":{"agents":[]}}'
+  exit 0
+fi
 touch "$FAKE_HERDR_ARRIVALS/$$"
 while [ ! -e "$FAKE_HERDR_RELEASE" ]; do sleep 0.05; done
 printf '%s\\n' '{"result":{"agents":[{"agent":"claude","name":"Regent","terminal_id":"fake-terminal","pane_id":"fake-pane","tab_id":"fake-tab","agent_status":"idle"}]}}'

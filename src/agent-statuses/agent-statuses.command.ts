@@ -2,6 +2,7 @@ import { Command as CommanderCommand } from 'commander';
 import { Inject } from '@nestjs/common';
 import { Command, CommandRunner } from 'nest-commander';
 import { getAgentStatusesRoster } from './agent-statuses-roster.ts';
+import { readAgentSpawnStillStarting } from './agent-statuses-registry.ts';
 import {
   describeAgentStatusesDesiredState,
   readAgentStatusesDesiredState,
@@ -19,10 +20,12 @@ const AGENT_STATUSES_HEADER: AgentStatusesRow = [
   'PANE',
 ];
 const EMPTY_AGENT_STATUS_CELL = '—';
+const STARTING_STATE_CELL = 'STARTING';
 
 export interface AgentStatusesCommandDependencies {
   readonly getAgentStatusesRoster: typeof getAgentStatusesRoster;
   readonly readAgentStatusesDesiredState: typeof readAgentStatusesDesiredState;
+  readonly readAgentSpawnStillStarting: (name: string) => Promise<boolean>;
 }
 
 export const AGENT_STATUSES_COMMAND_DEPENDENCIES = Symbol(
@@ -32,15 +35,17 @@ export const AGENT_STATUSES_COMMAND_DEPENDENCIES = Symbol(
 export const DEFAULT_AGENT_STATUSES_COMMAND_DEPENDENCIES: AgentStatusesCommandDependencies = {
   getAgentStatusesRoster,
   readAgentStatusesDesiredState,
+  readAgentSpawnStillStarting: (name) => readAgentSpawnStillStarting(name),
 };
 
 export function agentStatusesRow(
   entry: AgentStatusesRosterEntry,
+  spawnStillStarting: boolean,
 ): AgentStatusesRow {
   return [
     entry.focused ? `${entry.name} *` : entry.name,
     entry.role ?? EMPTY_AGENT_STATUS_CELL,
-    entry.lifecycle.toUpperCase(),
+    spawnStillStarting ? STARTING_STATE_CELL : entry.lifecycle.toUpperCase(),
     entry.liveStatus ?? EMPTY_AGENT_STATUS_CELL,
     entry.cwd ?? EMPTY_AGENT_STATUS_CELL,
     entry.paneId ?? EMPTY_AGENT_STATUS_CELL,
@@ -98,9 +103,15 @@ export class AgentStatusesCommand extends CommandRunner {
       return;
     }
 
-    process.stdout.write(
-      `${renderAgentStatusesTable(roster.map(agentStatusesRow))}\n`,
+    const rows = await Promise.all(
+      roster.map(async (entry) =>
+        agentStatusesRow(
+          entry,
+          await this.dependencies.readAgentSpawnStillStarting(entry.name),
+        ),
+      ),
     );
+    process.stdout.write(`${renderAgentStatusesTable(rows)}\n`);
     process.exitCode = 0;
   }
 }

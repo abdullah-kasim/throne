@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 
 export const ALPHA_AUTOSCALE_SPAWN_INTERVAL_MS = 0;
 
@@ -20,7 +20,7 @@ export type AlphaAutoscaleCooldownStatus =
   | { readonly elapsed: false; readonly reason: string };
 
 export function alphaAutoscaleSpawnStatePath(
-  dataDir: string = RUNTIME_DATA_DIR,
+  dataDir: string = THRONE_DATA_DIR,
 ): string {
   return path.join(dataDir, "regent", "alpha-autoscale-last-spawn.json");
 }

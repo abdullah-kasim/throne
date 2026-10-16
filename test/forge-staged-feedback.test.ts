@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { afterEach, before, beforeEach, test } from "node:test";
+import { beforeEach, test } from "node:test";
 import { githubTwinIn, stagingSyncIn } from "../src/forge/staging-records.ts";
 import { git } from "./git-repo-test-fixture.ts";
 import { FAKE_GITHUB_REPOSITORY, type FakeGithubComment, type FakeGithubThread } from "./forge-fake-github.ts";
@@ -14,9 +14,11 @@ import {
   forgeJson,
   openForgejoPullRequestWithMedia,
   promote,
-  startStagingHost,
+  stagingDependencies,
+  startStagingHostForEachTest,
   type StagingHost,
 } from "./forge-staging-test-support.ts";
+import { runForgeCapturing } from "./forge-test-support.ts";
 import { installPinnedNode } from "./pinned-node.support.ts";
 
 interface FeedbackItem {
@@ -63,15 +65,10 @@ const thread = (id: string, line: number | null, originalLine: number, comments:
   comments,
 });
 
-before(async () => {
-  await import("../src/forge/forge.command.ts");
-});
-
-beforeEach(async () => {
-  host = await startStagingHost("forge-staged-");
-  forgejoUrl = await openForgejoPullRequestWithMedia(host);
-  githubUrl = (await promote(host, forgejoUrl)).githubUrl;
-  const state = await host.github.read();
+const stagingHostForThisTest = startStagingHostForEachTest("forge-staged-", async (prepared) => {
+  forgejoUrl = await openForgejoPullRequestWithMedia(prepared);
+  githubUrl = (await promote(prepared, forgejoUrl)).githubUrl;
+  const state = await prepared.github.read();
   const pull = state.pullRequests[0]!;
   pull.threads = [
     thread("THREAD_ON_LINE_TWO", 2, 2, [comment(201, "pastry-reviewer", "The second line should say which oven.", 1)]),
@@ -84,11 +81,11 @@ beforeEach(async () => {
     comment(303, "review-bot[bot]", "Finding: the pickup date is parsed without a time zone. (latest report)", 6),
   ];
   pull.reviews = [{ ...comment(401, "head-baker", "Two queries here could be one.", 7), state: "COMMENTED" }];
-  await host.github.write(state);
+  await prepared.github.write(state);
 });
 
-afterEach(async () => {
-  await host.remove();
+beforeEach(() => {
+  host = stagingHostForThisTest();
 });
 
 async function feedback(target: string): Promise<FeedbackItem[]> {
@@ -142,6 +139,26 @@ test("addressing feedback on a staged pull request mirrors every unresolved GitH
   assert.match(bot.body, /review-bot\[bot\]\*\* on GitHub:\n\n> Finding: the pickup date/);
   assert.equal(host.forgejo.comments.some((entry) => entry.body.includes("first report")), false);
   assert.equal(host.forgejo.comments.some((entry) => entry.body.includes("Typo in the first line")), false);
+});
+
+test("mirroring review feedback reports a GitHub media link in a mirrored comment without failing the mirror", async () => {
+  const screenshotUrl = "https://github.com/user-attachments/assets/4b6d8f0a-0000-4c2e-9a1b-3d5f7e9c1b2a";
+  const state = await host.github.read();
+  state.pullRequests[0]!.issueComments.push(comment(304, "pastry-reviewer", `The button overlaps the total:\n\n![overlap](${screenshotUrl})`, 8));
+  await host.github.write(state);
+
+  const mirror = await runForgeCapturing(["mirror-feedback", githubUrl], stagingDependencies, host.checkout.repo);
+
+  const found = { link: screenshotUrl, githubCommentUrl: `${githubUrl}#issuecomment-304` };
+  const printed = JSON.parse(mirror.stdout) as { mirrored: string[]; mediaLinksInMirroredComments: unknown[] };
+  assert.equal(mirror.exitCode, 0, mirror.stderr);
+  assert.equal(printed.mirrored.length, 6);
+  assert.deepEqual(printed.mediaLinksInMirroredComments, [found]);
+  assert.equal(
+    mirror.stderr,
+    `a mirrored review comment holds the GitHub media link ${found.link}, which does not load in Forgejo; see it on GitHub at ${found.githubCommentUrl}\n`,
+  );
+  assert.ok(host.forgejo.comments.some((entry) => entry.body.includes(`> ![overlap](${screenshotUrl})`)));
 });
 
 test("an inline comment whose line is gone is mirrored as a conversation comment naming the file and line", async () => {

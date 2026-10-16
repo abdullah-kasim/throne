@@ -8,7 +8,7 @@
 
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 
 /** The durable marker read/write surface, for injecting a fake in tests. */
 export interface EligibilityDepthShortfallMarkerStore {
@@ -21,7 +21,7 @@ interface EligibilityDepthShortfallMarkerFile {
 }
 
 export function eligibilityDepthShortfallMarkerPath(
-  dataDir: string = RUNTIME_DATA_DIR,
+  dataDir: string = THRONE_DATA_DIR,
 ): string {
   return path.join(dataDir, "keep-going-eligibility-depth-shortfall-marker.json");
 }

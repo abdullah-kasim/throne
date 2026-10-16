@@ -15,7 +15,7 @@ import {
 } from "./scratch-throne-state.fixture.ts";
 
 const leakGuardPath = path.join(process.cwd(), "scripts/scratch-throne-state-leak-guard.mjs");
-const postGuardRunnerPath = path.join(process.cwd(), "scripts/run-suite-post-guards.mjs");
+const postGuardRunnerPath = path.join(process.cwd(), "scripts/run-suite-guarded-tests.mjs");
 
 test("isolated durable throne state opens real Regent and message queues without changing ambient queue rows", async () => {
   const before = readAmbientQueueRowCounts();

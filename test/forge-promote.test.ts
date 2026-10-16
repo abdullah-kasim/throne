@@ -2,35 +2,29 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, before, beforeEach, test } from "node:test";
-import type { ForgeDependencies, ProcessResult } from "../src/forge/forge-dependencies.ts";
+import { beforeEach, test } from "node:test";
+import type { ProcessResult } from "../src/forge/forge-dependencies.ts";
 import { PUBLISH_SCRIPT_PATH } from "../src/forge/promotion-media.ts";
 import { stagingMetadataCommentBody } from "../src/forge/staging-metadata.ts";
 import { git } from "./git-repo-test-fixture.ts";
 import { FAKE_GITHUB_REPOSITORY } from "./forge-fake-github.ts";
 import { runForgeCapturing } from "./forge-test-support.ts";
 import {
+  dependenciesWithPublish,
   forge,
   openForgejoDraftPullRequest,
   openForgejoPullRequestWithMedia,
   promote,
   stagingDependencies,
-  startStagingHost,
+  startStagingHostForEachTest,
   type StagingHost,
 } from "./forge-staging-test-support.ts";
 
+const stagingHostForThisTest = startStagingHostForEachTest("forge-promote-");
 let host: StagingHost;
 
-before(async () => {
-  await import("../src/forge/forge.command.ts");
-});
-
 beforeEach(async () => {
-  host = await startStagingHost("forge-promote-");
-});
-
-afterEach(async () => {
-  await host.remove();
+  host = stagingHostForThisTest();
 });
 
 function anchoredUrlsIn(body: string): Map<string, string> {
@@ -39,13 +33,6 @@ function anchoredUrlsIn(body: string): Map<string, string> {
     urls.set(match[1]!, /https:\/\/\S*user-attachments\S*?(?=[)\s])/.exec(match[2]!)?.[0] ?? "");
   }
   return urls;
-}
-
-function dependenciesWithPublish(publish: () => Promise<ProcessResult>): ForgeDependencies {
-  return {
-    ...stagingDependencies,
-    runProcess: (file, args, options) => (args[0] === PUBLISH_SCRIPT_PATH ? publish() : stagingDependencies.runProcess(file, args, options)),
-  };
 }
 
 const PUBLISH_THAT_UPLOADS_NOTHING = async (): Promise<ProcessResult> => ({ exitCode: 0, stdout: "", stderr: "" });
@@ -174,7 +161,7 @@ test("a promote whose media publish leaves drop placeholders on GitHub fails and
   assert.match(message, /still holds drop placeholders for diagram\.png, 01-feature-page\.png, 02-feature-click\.mp4 after the media publish/);
 });
 
-test("a promote that leaves a Forgejo link in the GitHub body fails", async () => {
+test("a promote that leaves a media link to the Forgejo host in the GitHub body fails and names the promote command that finishes it", async () => {
   const forgejoUrl = await openForgejoPullRequestWithMedia(host);
   const publishThatLinksForgejo = async (): Promise<ProcessResult> => {
     const state = await host.github.read();
@@ -186,8 +173,12 @@ test("a promote that leaves a Forgejo link in the GitHub body fails", async () =
 
   const message = await refusedPromotion(forgejoUrl, publishThatLinksForgejo);
 
-  assert.match(message, new RegExp(`still holds links to the Forgejo host ${new URL(host.forgejo.rootUrl).hostname} after the media publish`));
-  assert.doesNotMatch(message, /drop placeholders/);
+  const forgejoMediaLinks = ["diagram.png", "01-feature-page.png", "02-feature-click.mp4"].map((name) => `${host.forgejo.rootUrl}/attachments/${name}`);
+  const githubUrl = (await host.github.read()).pullRequests[0]!.url;
+  assert.equal(
+    message,
+    `forge promote: ${githubUrl} still holds media links to the Forgejo host (${forgejoMediaLinks.join(", ")}) after the media publish, so the promotion is not finished; run: throne forge promote ${forgejoUrl}\n`,
+  );
 });
 
 test("a promote whose GitHub Enterprise upload needs a sign-in says so and names the one command that finishes it", async () => {

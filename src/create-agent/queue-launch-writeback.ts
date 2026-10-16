@@ -1,4 +1,7 @@
+import { agentRegistrationExists } from "../agentdata/spawn-data-contracts.ts";
 import { TREE_BASE_DATA } from "../agentdata/tree-base-data.service.ts";
+import { sameAgentName } from "../herdr/herdr-identity-contracts.ts";
+import { listAgents } from "../herdr/herdr-runtime.service.ts";
 import { recordAgentLaunchOnQueueItem } from "../regent-queue/regent-queue-lifecycle.ts";
 import {
   openRegentQueueStore,
@@ -10,6 +13,34 @@ export interface QueueLaunchWritebackDeps {
   openStore?: () => RegentQueueStore;
   readTreeBase?: typeof TREE_BASE_DATA.read;
   writeStdout?: (text: string) => void;
+  listAgents?: typeof listAgents;
+  ledgerBaseDir?: string;
+}
+
+async function reasonAgentCannotTakeTheRow(
+  name: string,
+  deps: Pick<QueueLaunchWritebackDeps, "listAgents" | "ledgerBaseDir">,
+): Promise<string | undefined> {
+  if (!(await agentRegistrationExists(name, deps.ledgerBaseDir))) {
+    return "its ledger is gone, so it was reaped during its own launch";
+  }
+  if (await herdrNoLongerListsTheAgent(name, deps)) {
+    return "it is no longer registered in herdr, so it was reaped during its own launch";
+  }
+  return undefined;
+}
+
+async function herdrNoLongerListsTheAgent(
+  name: string,
+  deps: Pick<QueueLaunchWritebackDeps, "listAgents">,
+): Promise<boolean> {
+  let agents;
+  try {
+    agents = await (deps.listAgents ?? listAgents)();
+  } catch {
+    return false;
+  }
+  return !agents.some((agent) => sameAgentName(agent.name, name));
 }
 
 /**
@@ -36,6 +67,13 @@ export async function writeQueueLaunchLinkage(
   const writeStdout = deps.writeStdout ?? ((text: string) => process.stdout.write(text));
   let store: RegentQueueStore | undefined;
   try {
+    const refusal = await reasonAgentCannotTakeTheRow(name, deps);
+    if (refusal !== undefined) {
+      writeStdout(
+        `create-agent: queue linkage not recorded for "${name}" — ${refusal}.\n`,
+      );
+      return;
+    }
     const tree = await readTreeBase(name);
     store = openStore();
     const outcome = recordAgentLaunchOnQueueItem(store, {

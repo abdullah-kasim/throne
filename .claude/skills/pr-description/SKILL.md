@@ -5,6 +5,8 @@ version: 1.0.0
 user-invocable: true
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension pr-description` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # PR descriptions
 
 A PR body is read by a reviewer who did not watch the work and by someone
@@ -40,7 +42,7 @@ No period, no scope prefix like `feat:` unless the repo already uses it,
 no "WIP", no agent or tool names, and no `[GH-...]` marker: on Forgejo,
 `throne forge` adds that itself (see "Creating the PR").
 
-## Body — five sections, in this order
+## Body — six sections, in this order
 
 When the work traces to a ticket, the body opens with one line before
 `## What`, so a reader lands on the ticket from the top of the PR and the
@@ -78,12 +80,76 @@ happens to rows written before it: whether a schema or migration is
 involved, and how missing fields render. Verify it in the code, not
 from memory.
 
+### `## Sequence`
+
+Directly after `## How` and before `## Screenshots`. It holds a diagram
+of the change's runtime flow, so a reviewer sees who calls whom before
+reading the prose.
+
+The section's content is wrapped in a collapsible spoiler that starts
+open: `<details open><summary>Sequence diagram</summary>`, a blank line,
+the diagram, a blank line, `</details>`. It is the one spoiler in the
+body that starts open, and it must: Forgejo 16 draws each Mermaid
+diagram into a frame and sets the frame's height once, when the page
+loads. Inside a closed spoiler that height is 0, and opening the spoiler
+later does not measure it again, so the reader sees the Before and After
+labels with empty space under them and no error (seen 2026-10-15 on a
+staged pull request: both frames 0px under a closed spoiler, 297px and
+295px once the body said `open`; closing and reopening kept them). The reader
+can still fold it away. The `## Sequence` heading itself stays outside
+the wrapper and unchanged. The other wrapping and blank-line rules are
+the ones the `## Agents` section states.
+
+The diagram is a fenced `mermaid` code block holding a
+`sequenceDiagram`, written from the code and never from memory: open
+each caller and each callee on this branch and copy the names from
+there. It is Mermaid because the forge draws it from the Markdown
+itself, with nothing to upload.
+
+- **Participants are the things that talk at runtime:** a browser, a
+  route, a service, a store, another system. Never files.
+- **Every arrow is a real call or message, labelled with its real
+  name:** the function, route, event or query a reader can search the
+  code for.
+- **A change to an existing flow gets two diagrams, before and after,**
+  each in its own fenced block inside the one spoiler, under a bold
+  **Before** line and a bold **After** line.
+- **At most about eight participants and twenty arrows.** Above that,
+  split by scenario, one diagram per scenario.
+- **No caption that restates the `## How` bullets.** A line above a
+  diagram only names its scenario.
+
+**Leave the section out, with no heading and no placeholder,** when the
+change has no runtime flow between at least two participants:
+documentation, configuration, a rename, a pure refactor that changes no
+call, a single function's internals.
+
+Forgejo 16 and github.com draw a Mermaid block inside `<details open>`;
+each was seen on a rendered pull request page. Forgejo 16 draws nothing
+visible for one inside a closed `<details>` (above). GitHub
+Enterprise 3.20 is unverified: one such host's own HTML for an issue
+body hands the block to its diagram viewer the way github.com does, but
+the drawn diagram was not seen there. `throne forge render-markdown`
+does not settle this on GitHub, because the Markdown API answers a
+highlighted code block where the pull request page draws the diagram.
+Check a new host on a rendered pull request page.
+
+On a host that shows the raw code block instead, render the diagram to
+an image for that host and publish it through `/pr-media`, inside the
+same spoiler, where the code block would be. PlantUML is the renderer
+for that image, used only when it is installed: `plantuml -tsvg`, then
+convert the SVG to a PNG for upload.
+
 ### `## Screenshots` (UI changes only)
 
 One capture per place the change is visible, and every interaction the
 change touches recorded as a video, as the `pr-media` skill's video rule
 requires. Capture and hand over with the `pr-media` skill: the user uploads the files by hand, the body carries `<!-- drop
 <file> here -->` placeholders, and media is never committed to git.
+Every pair's before is the repository's default branch (`trunk`,
+`main`), in every round and for a stacked PR too, never a pull request
+branch (the `pr-media` skill's before rule); a caption or a sentence above the table that says
+otherwise is wrong.
 
 By default the section's content is wrapped in a collapsible spoiler:
 `<details><summary>Screenshots</summary>`, a blank line, the captures, a
@@ -186,7 +252,7 @@ scripts/deploy --dry-run --target staging
   different there: which element is new, what it links to, what appears
   when it is clicked. One step per place the change shows, or one step
   listing every place when they are alike ("You can now view the status
-  for record A and record B at `http://localhost:4321/records/1` and
+  for record A and record B at `http://localhost:8080/records/1` and
   `/records/2` respectively. The Status column is now clickable and links
   to each record's history. Clicking an entry also shows its timestamp in
   the header").
@@ -200,7 +266,7 @@ scripts/deploy --dry-run --target staging
   320x720 is too small to be representative and should be avoided. Where
   the PR is about narrow layouts, the phone step is a scenario of its
   own, and the desktop step proves nothing moved there.
-- **Never assume the reviewer's machine is yours.** Assume only a Mac.
+- **Never assume the reviewer's machine is yours.** Assume only the platforms the repository's README supports.
   Anything that varies per machine (an environment name, a hostname, a
   port, a path) is set once as a shell variable in **Before you start**, in a
   fenced block the reviewer pastes into the terminal they will use
@@ -471,6 +537,27 @@ Ticket: [ABC-540](https://issues.example.test/browse/ABC-540)
 - Reuses the existing manifest-validation and target-resolution code paths so a dry run and a real run agree on scope.
 - Refuses early with a clear message when the target environment does not exist or credentials are missing, the same as a real deploy would.
 
+## Sequence
+
+<details open>
+<summary>Sequence diagram</summary>
+
+```mermaid
+sequenceDiagram
+    participant Operator
+    participant Deploy as Deploy command
+    participant Manifest as Manifest store
+    participant Staging as Staging environment
+    Operator->>Deploy: scripts/deploy --dry-run --target staging
+    Deploy->>Manifest: readManifest()
+    Manifest-->>Deploy: manifest
+    Deploy->>Staging: fetchCurrentState("staging")
+    Staging-->>Deploy: current state
+    Deploy-->>Operator: would deploy 3 changed files to staging (no changes applied)
+```
+
+</details>
+
 ## Testing
 
 <details>
@@ -640,8 +727,8 @@ create` fails with "Head sha can't be blank" otherwise. On Forgejo,
 `push-branch` first makes the repository's Forgejo copy when it has none.
 
 ```bash
-throne forge push-branch --branch <branch> --base <default-branch>
-throne forge pr create [--draft] --base <default-branch> --head <branch> \
+throne forge push-branch --branch <branch> --base <base-branch>
+throne forge pr create [--draft] --base <base-branch> --head <branch> \
   --title "<title>" --body-file <path-to-body.md>
 ```
 

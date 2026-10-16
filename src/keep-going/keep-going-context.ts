@@ -6,6 +6,7 @@
 
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import type { FamilyRecoverySummary, StallEvidence } from './keep-going-stalls.ts';
+import type { InFlightRowWithoutLiveAlpha } from '../check-in-flight-rows/in-flight-rows-without-live-alpha.ts';
 import type { SubmitToAgentOptions } from '../herdr/herdr-send.types.ts';
 import type {
   RegentFenceAction,
@@ -75,6 +76,7 @@ export interface KeepGoingDependencies {
     dataDir?: string,
   ) => Promise<StallEvidence>;
   resolveHeartbeatRoot?: () => Promise<string>;
+  readInFlightRowsWithoutLiveAlpha?: () => Promise<readonly InFlightRowWithoutLiveAlpha[]>;
   /**
    * Decides whether the live Regent is wedged and should be fenced. Reads
    * the kill switch itself and no-ops without touching disk when it is off

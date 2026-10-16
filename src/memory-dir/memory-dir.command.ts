@@ -1,9 +1,12 @@
 import type { Command as CommanderCommand } from 'commander';
 import { Command, CommandRunner } from 'nest-commander';
 import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { THRONE_HOME } from '../shared-policy/throne-home.ts';
 import { renderEntranceRefusal } from '../shared-policy/entrance-refusal.ts';
 import {
   resolveMemoryDir,
+  THRONE_MEMORIES_DIRNAME,
   type MemoryResolution,
   type MemoryResolverDeps,
 } from './memory-dir-resolver.ts';
@@ -23,7 +26,7 @@ export const USAGE =
   'DIR is required: name the repository the memory is ABOUT, which is not always the one\n' +
   'you are standing in; pass . when it is.\n' +
   'Precedence: an in-tree agent_docs/MEMORY, then a memory directive in the project AGENTS.md/CLAUDE.md,\n' +
-  'then a `memory-dir` executable on PATH, then the throne-native ~/.throne/memories/<slug>.\n' +
+  `then a \`memory-dir\` executable on PATH, then the throne-native ${path.join(THRONE_HOME, THRONE_MEMORIES_DIRNAME)}/<slug>.\n` +
   '--json prints {mode, path, repoRoot, evidence, warning?}; --create also mkdir -p\'s the directory.\n';
 
 const PRODUCTION_DEPENDENCIES: MemoryDirDependencies = {

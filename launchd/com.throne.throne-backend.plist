@@ -37,7 +37,7 @@ KEYS SHIPPED BELOW
                     {{NODE_BIN}} the watcher runs on. --path is RELATIVE on purpose
                     (nest-cli rejects an absolute tsconfig path; see the
                     linux unit), which WorkingDirectory below makes safe.
-                    Output goes to ~/Library/Logs/throne/ for want of a
+                    Output goes to ~/.throne/logs/ ($THRONE_DATA_HOME/logs/ when set) for want of a
                     journal; StandardOutPath does not expand ~, hence the
                     redirect inside the shell.
   WorkingDirectory  the rendered throne root. launchd.plist(5): "This optional
@@ -52,6 +52,12 @@ KEYS SHIPPED BELOW
   ThrottleInterval  launchd.plist(5): "by default, jobs will not be spawned
                     more than once every 10 seconds." 10 is that documented
                     default; the linux unit's RestartSec=3 is not reproduced.
+  ProcessType       launchd.plist(5): "If left unspecified, the system will
+                    apply light resource limits to the job, throttling its
+                    CPU usage and I/O bandwidth." and "Interactive jobs run
+                    with the same resource limitations as apps, that is to
+                    say, none." Every process the hosted workers spawn
+                    is a descendant of this job and inherits its limits.
   EnvironmentVariables
                     THRONE_ALPHA_AUTOSCALE_ENABLED=1 — THE AUTOSCALER IS
                     PERMANENTLY ARMED (the Lord's order of 2026-09-02). The
@@ -77,7 +83,7 @@ mac is restarted by an operator, not by launchd.
 	<array>
 		<string>/bin/bash</string>
 		<string>-lc</string>
-		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{NODE_BIN}} {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --exec {{NODE_BIN}} --path tsconfig.build.json &gt;&gt; "$HOME/Library/Logs/throne/throne-backend.log" 2&gt;&amp;1</string>
+		<string>mkdir -p "{{THRONE_LOGS}}" &amp;&amp; exec {{NODE_BIN}} {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --exec {{NODE_BIN}} --path tsconfig.build.json &gt;&gt; "{{THRONE_LOGS}}/throne-backend.log" 2&gt;&amp;1</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>{{THRONE_ROOT}}</string>
@@ -92,5 +98,7 @@ mac is restarted by an operator, not by launchd.
 	<true/>
 	<key>ThrottleInterval</key>
 	<integer>10</integer>
+	<key>ProcessType</key>
+	<string>Interactive</string>
 </dict>
 </plist>

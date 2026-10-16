@@ -189,8 +189,10 @@ export async function submitToAgentUnkeyed(
   const name = recipientName(agent);
   if (options.forceImmediate === true) {
     const immediatePayload = submittedPayload(senderName, prompt, options);
-    await deps.sendText(agent.paneId, immediatePayload);
-    await deps.pressEnter(agent.paneId);
+    await deps.withRecipientPaneLock(agent.paneId, async () => {
+      await deps.sendText(agent.paneId, immediatePayload);
+      await deps.pressEnter(agent.paneId);
+    });
     return immediatePayload;
   }
   const harness = supportedComposerHarness(agent.agent);

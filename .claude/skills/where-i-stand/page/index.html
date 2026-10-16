@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where I stand</title>
+<style>
+:root { color-scheme: light dark; --page: #f6f7f9; --card: #fff; --text: #1f2328; --muted: #59636e; --line: #d0d7de; --link: #0969da; --code: #eff1f3; --needs-you-card: #fff8c5; --needs-you-line: #9a6700; --problem: #a40e26; }
+@media (prefers-color-scheme: dark) {
+  :root { --page: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #9198a1; --line: #3d444d; --link: #4493f8; --code: #262c36; --needs-you-card: #2a2206; --needs-you-line: #d29922; --problem: #ff7b72; }
+}
+body { margin: 0; padding: 24px; font: 16px/1.6 system-ui, sans-serif; background: var(--page); color: var(--text); overflow-wrap: anywhere; }
+header, main { max-width: 760px; margin: 0 auto; }
+main { margin-top: 16px; }
+h1 { font-size: 22px; line-height: 1.3; margin: 0 0 4px; }
+header p { margin: 0; font-size: 14px; color: var(--muted); }
+header #fetch-problem { color: var(--problem); font-weight: 600; }
+section { --card-padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: var(--card-padding); margin: 0 0 16px; }
+section.needs-you { background: var(--needs-you-card); border-color: var(--needs-you-line); border-left-width: 6px; padding-left: calc(var(--card-padding) - 5px); }
+section > :first-child { margin-top: 0; }
+section > :last-child { margin-bottom: 0; }
+h2 { font-size: 18px; line-height: 1.3; margin: 0 0 8px; }
+h3 { font: 600 16px/1.4 ui-monospace, monospace; margin: 16px 0 4px; }
+h4, h5, h6 { font-size: 15px; margin: 12px 0 4px; }
+p, ul, ol, blockquote, pre { margin: 0 0 8px; }
+ul, ol { padding-left: 22px; }
+li > ul, li > ol, li > p { margin-bottom: 0; }
+a { color: var(--link); padding: 3px 0; }
+code { font: 14px/1.4 ui-monospace, monospace; background: var(--code); border-radius: 4px; padding: 1px 4px; }
+pre { background: var(--code); border-radius: 6px; padding: 12px; white-space: pre-wrap; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 3px solid var(--line); padding-left: 12px; color: var(--muted); }
+hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+#work h3 { font: 600 15px/1.4 system-ui, sans-serif; }
+#work .problem { color: var(--problem); font-weight: 600; }
+#work table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 15px; }
+#work th, #work td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-top: 1px solid var(--line); }
+#work th { font-size: 14px; color: var(--muted); border-top: 0; }
+#work th:first-child { width: 28%; }
+#work td > div { margin-bottom: 4px; }
+#work .missing { color: var(--muted); }
+#work .kind { font-weight: 600; }
+@media (max-width: 600px) {
+  body { padding: 16px; }
+  section { --card-padding: 12px; }
+  #work thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  #work table, #work tbody, #work tr, #work td { display: block; width: auto; }
+  #work tr { border-top: 1px solid var(--line); padding: 8px 0; }
+  #work td { border: 0; padding: 4px 0; }
+  #work td::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
+}
+</style>
+<header>
+<h1>Where I stand</h1>
+<p id="file-time">Fetching the file.</p>
+<p id="fetch-problem" role="status"></p>
+</header>
+<main>
+<section id="work">
+<h2>Your work</h2>
+<p id="records-time">Fetching the pull request records.</p>
+<div id="work-details"></div>
+</section>
+<div id="page-content"></div>
+</main>
+<script>
+const markdownFileName = 'where-i-stand.md';
+const recordsFileName = 'where-i-stand-prs.json';
+const pageFileExtension = '.html';
+const refreshIntervalMilliseconds = 60000;
+const needsYouHeading = 'Needs you';
+const webProtocols = ['http:', 'https:'];
+const workColumns = ['Links', 'What sort of work', 'Where it stands'];
+const missingLinkWords = { forgejo: 'no Forgejo copy', github: 'not on GitHub yet', ticket: 'no ticket' };
+const noPullRequestWords = 'no pull request';
+const kindNotStatedWords = 'kind not stated';
+const linkSeparator = ' · ';
+const kindTitleSeparator = ' — ';
+
+const fencePattern = /^\s{0,3}(```+|~~~+)/;
+const headingPattern = /^\s{0,3}(#{1,6})\s+(.*)$/;
+const rulePattern = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
+const quotePattern = /^\s{0,3}>\s?(.*)$/;
+const listItemPattern = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+const inlinePattern = /(`+)(.+?)\1|\[([^\]]+)\]\(([^)\s]+)\)|\*\*(?!\s)(.+?)\*\*|\*(?!\s)(.+?)\*|<(https?:\/\/[^\s>]+)>|(https?:\/\/[^\s<>]*[^\s<>.,;:!?)'"])|\\([!-\/:-@[-`{-~])/;
+
+const entryLinePattern = /^\s*[-*+]\s+(Links|Kind|Where it stands):\s*(.*)$/;
+const linkPartPattern = /^(Forgejo|GitHub|Ticket)\s+(.*)$/;
+
+const pageContent = document.getElementById('page-content');
+const fileTime = document.getElementById('file-time');
+const fetchProblem = document.getElementById('fetch-problem');
+const recordsTime = document.getElementById('records-time');
+const workDetails = document.getElementById('work-details');
+let shownMarkdown = null;
+let shownRecordsText = null;
+let shownRecords = null;
+let refreshesStarted = 0;
+
+function element(tagName, children = []) {
+  const created = document.createElement(tagName);
+  created.append(...children);
+  return created;
+}
+
+function linkOpensWebOrRelativeTarget(target) {
+  try {
+    return webProtocols.includes(new URL(target, document.baseURI).protocol);
+  } catch {
+    return false;
+  }
+}
+
+function renderLink(children, target, markdownSource) {
+  if (!linkOpensWebOrRelativeTarget(target)) return markdownSource;
+  const link = element('a', children);
+  link.setAttribute('href', target);
+  link.setAttribute('rel', 'noreferrer');
+  return link;
+}
+
+function renderInlineMatch(match) {
+  const [markdownSource, , code, linkText, linkTarget, strong, emphasis, bracketedAddress, bareAddress, escapedCharacter] = match;
+  if (code !== undefined) return element('code', [code.trim()]);
+  if (linkText !== undefined) return renderLink(renderInline(linkText), linkTarget, markdownSource);
+  if (strong !== undefined) return element('strong', renderInline(strong));
+  if (emphasis !== undefined) return element('em', renderInline(emphasis));
+  if (bracketedAddress !== undefined) return renderLink([bracketedAddress], bracketedAddress, markdownSource);
+  if (bareAddress !== undefined) return renderLink([bareAddress], bareAddress, markdownSource);
+  return escapedCharacter;
+}
+
+function renderInline(text) {
+  const nodes = [];
+  let remaining = text;
+  while (remaining !== '') {
+    const match = inlinePattern.exec(remaining);
+    if (match === null) {
+      nodes.push(remaining);
+      break;
+    }
+    if (match.index > 0) nodes.push(remaining.slice(0, match.index));
+    nodes.push(renderInlineMatch(match));
+    remaining = remaining.slice(match.index + match[0].length);
+  }
+  return nodes;
+}
+
+function indentWidth(line) {
+  return line.length - line.trimStart().length;
+}
+
+function readFencedCode(lines, start) {
+  const fence = fencePattern.exec(lines[start])[1];
+  let end = start + 1;
+  while (end < lines.length && !lines[end].trim().startsWith(fence)) end += 1;
+  const code = lines.slice(start + 1, end).join('\n');
+  return { block: element('pre', [element('code', [code])]), next: end + 1 };
+}
+
+function readHeading(lines, start) {
+  const [, hashes, text] = headingPattern.exec(lines[start]);
+  return { block: element(`h${hashes.length}`, renderInline(text.trim())), next: start + 1 };
+}
+
+function readRule(lines, start) {
+  return { block: element('hr'), next: start + 1 };
+}
+
+function readQuote(lines, start) {
+  const quoted = [];
+  let end = start;
+  while (end < lines.length && quotePattern.test(lines[end])) {
+    quoted.push(quotePattern.exec(lines[end])[1]);
+    end += 1;
+  }
+  return { block: element('blockquote', renderBlocks(quoted)), next: end };
+}
+
+function readList(lines, start) {
+  const [, listIndent, firstMarker] = listItemPattern.exec(lines[start]);
+  const firstNumber = Number.parseInt(firstMarker, 10);
+  const list = element(Number.isNaN(firstNumber) ? 'ul' : 'ol');
+  if (!Number.isNaN(firstNumber)) list.setAttribute('start', String(firstNumber));
+  let position = start;
+  while (position < lines.length) {
+    const item = listItemPattern.exec(lines[position]);
+    if (item === null || item[1].length !== listIndent.length) break;
+    let end = position + 1;
+    while (end < lines.length && lines[end].trim() !== '' && indentWidth(lines[end]) > listIndent.length) end += 1;
+    list.append(element('li', [...renderInline(item[3]), ...renderBlocks(lines.slice(position + 1, end))]));
+    position = end;
+  }
+  return { block: list, next: position };
+}
+
+const blockReaders = [
+  { opens: fencePattern, read: readFencedCode },
+  { opens: headingPattern, read: readHeading },
+  { opens: rulePattern, read: readRule },
+  { opens: quotePattern, read: readQuote },
+  { opens: listItemPattern, read: readList },
+];
+
+function blockReaderFor(line) {
+  return blockReaders.find(({ opens }) => opens.test(line))?.read;
+}
+
+function readParagraph(lines, start) {
+  let end = start + 1;
+  while (end < lines.length && lines[end].trim() !== '' && blockReaderFor(lines[end]) === undefined) end += 1;
+  const children = lines
+    .slice(start, end)
+    .flatMap((line, index) => [...(index === 0 ? [] : [element('br')]), ...renderInline(line.trim())]);
+  return { block: element('p', children), next: end };
+}
+
+function renderBlocks(lines) {
+  const blocks = [];
+  let position = 0;
+  while (position < lines.length) {
+    if (lines[position].trim() === '') {
+      position += 1;
+      continue;
+    }
+    const read = blockReaderFor(lines[position]) ?? readParagraph;
+    const { block, next } = read(lines, position);
+    blocks.push(block);
+    position = next;
+  }
+  return blocks;
+}
+
+function groupIntoSections(blocks) {
+  const sections = [];
+  for (const block of blocks) {
+    const opensSection = block.tagName === 'H2';
+    if (opensSection || sections.length === 0) sections.push(element('section'));
+    if (opensSection && block.textContent.trim() === needsYouHeading) sections.at(-1).classList.add('needs-you');
+    sections.at(-1).append(block);
+  }
+  return sections;
+}
+
+function webAddress(text) {
+  try {
+    const address = new URL(text.replace(/^<(.*)>$/, '$1'));
+    return webProtocols.includes(address.protocol) ? address.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function readLinksLine(linksLine) {
+  const parts = linksLine.split(linkSeparator).map((part) => part.trim());
+  const links = { forgejo: '', github: '', ticket: '', withoutPullRequest: null };
+  if (parts[0] === noPullRequestWords) links.withoutPullRequest = linkPartPattern.test(parts[1] ?? '') ? '' : parts[1] ?? '';
+  for (const part of parts) {
+    const linkPart = linkPartPattern.exec(part);
+    if (linkPart !== null) links[linkPart[1].toLowerCase()] = linkPart[2].trim();
+  }
+  return links;
+}
+
+function describeEntry({ sectionHeading, identity, lines }) {
+  const [kind, ...titleParts] = (lines.Kind ?? '').split(kindTitleSeparator);
+  return {
+    sectionHeading,
+    identity,
+    links: readLinksLine(lines.Links ?? ''),
+    kind: kind.trim(),
+    title: titleParts.join(kindTitleSeparator).trim(),
+    whereItStands: lines['Where it stands'] ?? '',
+  };
+}
+
+function readEntries(markdown) {
+  const entries = [];
+  let sectionHeading = '';
+  for (const line of markdown.split(/\r?\n/)) {
+    const heading = headingPattern.exec(line);
+    if (heading !== null && heading[1].length === 2) sectionHeading = heading[2].trim();
+    if (heading !== null && heading[1].length === 3) entries.push({ sectionHeading, identity: heading[2].trim(), lines: {} });
+    const entryLine = entryLinePattern.exec(line);
+    const entry = entries.at(-1);
+    if (entryLine !== null && entry !== undefined && entry.lines[entryLine[1]] === undefined) entry.lines[entryLine[1]] = entryLine[2].trim();
+  }
+  return entries.map(describeEntry);
+}
+
+function pullRequestAddresses(...addresses) {
+  return addresses.map((address) => webAddress(address ?? '')).filter((address) => address !== null);
+}
+
+function entryNamesRecord(entry, record) {
+  const recordAddresses = pullRequestAddresses(record.forgejo?.url, record.github?.url);
+  return pullRequestAddresses(entry.links.forgejo, entry.links.github).some((address) => recordAddresses.includes(address));
+}
+
+function linkItem(label, value, missingWords) {
+  const address = webAddress(value ?? '');
+  if (address !== null) return element('div', [renderLink([label], address, label)]);
+  const words = element('div', [value || missingWords]);
+  if (!value || value === missingWords) words.classList.add('missing');
+  return words;
+}
+
+function numberedLabel(label, number) {
+  return number === undefined || number === null ? label : `${label} #${number}`;
+}
+
+function ticketItem(ticketAddress, ticketId) {
+  return linkItem(ticketId ? `Ticket ${ticketId}` : 'Ticket', ticketAddress || ticketId, missingLinkWords.ticket);
+}
+
+function recordSummary(record) {
+  const parts = [
+    record.group,
+    record.forgejo && `Forgejo ${record.forgejo.state ?? ''}`.trim(),
+    record.github ? `GitHub ${record.github.state ?? ''}`.trim() : 'Forgejo only',
+    record.head_commits,
+  ];
+  return [...new Set(parts.filter(Boolean))].join('; ');
+}
+
+function rowFromRecord(record, entry) {
+  const ticketAddress = record.ticket_url || webAddress(entry?.links.ticket ?? '') || '';
+  return {
+    links: [
+      linkItem(numberedLabel('Forgejo', record.forgejo?.number), record.forgejo?.url, missingLinkWords.forgejo),
+      linkItem(numberedLabel('GitHub', record.github?.number), record.github?.url, missingLinkWords.github),
+      ticketAddress || record.ticket ? ticketItem(ticketAddress, record.ticket) : ticketItem(entry?.links.ticket, ''),
+    ],
+    kind: entry?.kind || record.kind || kindNotStatedWords,
+    title: record.title || entry?.title || '',
+    whereItStands: [recordSummary(record), entry?.whereItStands ?? ''],
+  };
+}
+
+function rowFromEntry(entry) {
+  const { links } = entry;
+  const pullRequestLinks =
+    links.withoutPullRequest === null
+      ? [linkItem('Forgejo', links.forgejo, missingLinkWords.forgejo), linkItem('GitHub', links.github, missingLinkWords.github)]
+      : [element('div', [noPullRequestWords]), element('div', renderInline(links.withoutPullRequest))];
+  return {
+    links: [...pullRequestLinks, ticketItem(links.ticket, '')],
+    kind: entry.kind || kindNotStatedWords,
+    title: entry.title || entry.identity,
+    whereItStands: [entry.sectionHeading, entry.whereItStands],
+  };
+}
+
+function workRows(records, entries) {
+  const recordsWithEntries = (records?.rows ?? []).map((record) => ({
+    record,
+    entry: entries.find((entry) => entryNamesRecord(entry, record)),
+  }));
+  const mergedEntries = recordsWithEntries.map(({ entry }) => entry);
+  const ownEntries = entries.filter((entry) => !mergedEntries.includes(entry));
+  const isNeedsYouEntry = (entry) => entry.sectionHeading === needsYouHeading;
+  return [
+    ...ownEntries.filter(isNeedsYouEntry).map(rowFromEntry),
+    ...recordsWithEntries.map(({ record, entry }) => rowFromRecord(record, entry)),
+    ...ownEntries.filter((entry) => !isNeedsYouEntry(entry)).map(rowFromEntry),
+  ];
+}
+
+function tableCell(column, children) {
+  const cell = element('td', children);
+  cell.setAttribute('data-label', column);
+  return cell;
+}
+
+function renderWorkRow(row) {
+  const kind = element('div', [row.kind]);
+  kind.classList.add('kind');
+  const [linksColumn, kindColumn, whereColumn] = workColumns;
+  return element('tr', [
+    tableCell(linksColumn, row.links),
+    tableCell(kindColumn, [kind, ...(row.title ? [element('div', [row.title])] : [])]),
+    tableCell(whereColumn, row.whereItStands.filter(Boolean).map((words) => element('div', [words]))),
+  ]);
+}
+
+function renderWorkTable(rows) {
+  if (rows.length === 0) return element('p', ['No pull requests or agent entries to show.']);
+  const head = element('thead', [element('tr', workColumns.map((column) => element('th', [column])))]);
+  return element('table', [head, element('tbody', rows.map(renderWorkRow))]);
+}
+
+function renderProblems(problems) {
+  if (problems.length === 0) return [];
+  const list = element('ul', problems.map((problem) => element('li', [`Could not read: ${problem}`])));
+  list.classList.add('problem');
+  return [list];
+}
+
+function renderChanges(changes) {
+  if (changes.length === 0) return [];
+  return [element('h3', ['Changed since the last refresh']), element('ul', changes.map((change) => element('li', renderInline(change))))];
+}
+
+function renderWork(records, markdown) {
+  return [
+    ...renderProblems(records?.problems ?? []),
+    ...renderChanges(records?.changes ?? []),
+    renderWorkTable(workRows(records, readEntries(markdown ?? ''))),
+  ];
+}
+
+function describeAge(time) {
+  const minutes = Math.round((Date.now() - time.getTime()) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
+function describeReadTime(records) {
+  const readAt = new Date(records.read_at);
+  if (Number.isNaN(readAt.getTime())) return 'The pull request records did not say when they were read.';
+  return `Pull requests read ${describeTime(readAt)}, ${describeAge(readAt)}.`;
+}
+
+function describeRecordsTime(records, recordsFetched) {
+  if (recordsFetched) return describeReadTime(records);
+  const problem = `Could not fetch the pull request records at ${describeTime(new Date())}.`;
+  return records === null ? problem : `${problem} Showing what was last fetched. ${describeReadTime(records)}`;
+}
+
+function addressNamesFolderWithoutTrailingSlash(pageAddress) {
+  return !pageAddress.pathname.endsWith('/') && !pageAddress.pathname.endsWith(pageFileExtension);
+}
+
+function folderThePageWasServedFrom() {
+  const pageAddress = new URL(document.baseURI);
+  const folderPath = addressNamesFolderWithoutTrailingSlash(pageAddress) ? `${pageAddress.pathname}/` : '.';
+  return new URL(folderPath, pageAddress);
+}
+
+async function fetchFileBesideThePage(fileName) {
+  const fileAddress = new URL(fileName, folderThePageWasServedFrom()).href;
+  const response = await fetch(fileAddress, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`the server answered ${response.status}`);
+  return { text: await response.text(), lastModified: response.headers.get('Last-Modified') };
+}
+
+function showPage(markdown, recordsText, records) {
+  if (markdown === shownMarkdown && recordsText === shownRecordsText) return;
+  const scrollPosition = window.scrollY;
+  workDetails.replaceChildren(...renderWork(records, markdown));
+  if (markdown !== shownMarkdown) pageContent.replaceChildren(...groupIntoSections(renderBlocks((markdown ?? '').split(/\r?\n/))));
+  window.scrollTo(0, scrollPosition);
+  shownMarkdown = markdown;
+  shownRecordsText = recordsText;
+  shownRecords = records;
+}
+
+function describeTime(time) {
+  return time.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function showFileTime(lastModified) {
+  fileTime.textContent =
+    lastModified === null
+      ? 'The file did not say when it was last modified.'
+      : `File last modified ${describeTime(new Date(lastModified))}`;
+}
+
+function showFetchProblem() {
+  const whatIsShown = shownMarkdown === null ? 'Nothing has been fetched yet.' : 'Showing what was last fetched.';
+  if (shownMarkdown === null) fileTime.textContent = '';
+  fetchProblem.textContent = `Could not fetch the file at ${describeTime(new Date())}. ${whatIsShown}`;
+}
+
+async function refreshPage() {
+  const refreshNumber = (refreshesStarted += 1);
+  const [markdownFetch, recordsFetch] = await Promise.allSettled([
+    fetchFileBesideThePage(markdownFileName),
+    fetchFileBesideThePage(recordsFileName).then(({ text }) => ({ text, records: JSON.parse(text) })),
+  ]);
+  if (refreshNumber !== refreshesStarted) return;
+  const recordsFetched = recordsFetch.status === 'fulfilled';
+  const { text: recordsText, records } = recordsFetched ? recordsFetch.value : { text: shownRecordsText, records: shownRecords };
+  const markdown = markdownFetch.value?.text ?? shownMarkdown;
+  showPage(markdown, recordsText, records);
+  recordsTime.textContent = describeRecordsTime(records, recordsFetched);
+  if (markdownFetch.status === 'rejected') return showFetchProblem();
+  fetchProblem.textContent = '';
+  showFileTime(markdownFetch.value.lastModified);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshPage();
+});
+setInterval(refreshPage, refreshIntervalMilliseconds);
+refreshPage();
+</script>
+</html>

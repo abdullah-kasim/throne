@@ -14,6 +14,7 @@ export type ReapabilityProtocolViolationReason =
 export interface ReapabilityProtocolViolation {
   readonly agent: string;
   readonly reason: ReapabilityProtocolViolationReason;
+  readonly backgroundWork?: string;
 }
 
 /** Project applicable idle agents onto protocol violations using shared tags. */

@@ -1,9 +1,11 @@
 ---
 name: amendment
 description: 'This throne-only skill records the Lord''s amendment to a queue row with `throne amendment`, which numbers it, stores it beside the row, and tells the row''s in-flight Alpha and the Regent. Use it whenever the Lord changes, adds to, or corrects work that is already filed, including "amend that", "tell the campaign", "also make it do X", "change the ruling", or a mid-flight correction to a queued objective. Only a Stager or the Regent may run it, and only with the Lord''s own words.'
-version: 1.0.0
+version: 1.1.0
 user-invocable: true
 ---
+
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension amendment` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
 
 # Amend a filed queue row
 
@@ -58,6 +60,19 @@ in `00_overview.md` (in `verify.md` for a sliceless campaign). Pushing and
 landing are refused while that number is below the row's highest amendment:
 the push guard and `merge-git-tree` both run
 `throne check-queue-amendments-reconciled --agent <alpha>`.
+
+## Correct the Lord's page when the amendment changes what the row is
+
+The row's entry on the Lord's page (`### <code>` in `where-i-stand.md`)
+says in its `Kind:` and `Where it stands:` lines what the work is. When the
+amendment changes that, correct the entry in the same sitting, keeping the
+page's entry form: `throne where-i-stand show`, read the page at the path it
+prints, run `throne where-i-stand lock --checksum <checksum> --ttl 5m` in
+the background, edit that entry alone with your harness's edit tool, stop
+the lock and read its output, then
+`throne where-i-stand note "amended <code>: <what changed>"`. An amendment
+that leaves those lines true needs no edit. `/where-i-stand` holds the
+page's writing rules and step 4 there gives the lock in full.
 
 ## Check before you run it
 

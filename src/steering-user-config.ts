@@ -36,11 +36,10 @@ import {
   describeValue,
   isPlainObject,
 } from './shared-policy/config-value-shape.ts';
-import { resolveLiveThroneRoot } from './throne-root-resolution.ts';
 import {
   STEERING_SECTION_FIELDS,
   loadUserConfigFile,
-  userConfigPath,
+  resolveUserConfigPath,
 } from './user-config-loader.ts';
 
 export const PLAN_PRESET_NAMES = [
@@ -195,12 +194,6 @@ export const DEFAULT_STEERING_CONFIG: SteeringConfig = {
   macLoadPerCoreAtCapacity: 5,
   roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3 },
 };
-
-/** Delegates to the merged file's path (`user-config-loader.ts`) — steering no
- *  longer owns a path of its own, it reads a section of the shared file. */
-export function steeringUserConfigPath(liveThroneRoot: string): string {
-  return userConfigPath(liveThroneRoot);
-}
 
 /** The steering section's accepted keys: `user-config-loader.ts`'s list,
  *  imported rather than restated, so the outer gate and this validator can
@@ -583,7 +576,7 @@ export async function loadSteeringConfig(
   configPath?: string,
 ): Promise<SteeringConfig> {
   const resolvedPath =
-    configPath ?? steeringUserConfigPath(await resolveLiveThroneRoot());
+    configPath ?? (await resolveUserConfigPath());
   const userConfigFile = await loadUserConfigFile(resolvedPath);
   if (userConfigFile === undefined) return DEFAULT_STEERING_CONFIG;
   const merged = mergeSteeringConfig(

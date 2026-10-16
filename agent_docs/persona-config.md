@@ -53,15 +53,17 @@ at their defaults).
 
 - The committed defaults in `src/application-config.service.ts` always exist. A fresh clone
   with no override file speaks the generic Lord/Regent/Alpha/Shadow court.
-- An optional `config.user.ts` at the LIVE THRONE ROOT supplies a partial
-  override, `export default`-ing an object matching `PersonaConfigOverride`.
-  Copy `config.user.example.ts` (at the throne root) to `config.user.ts` and
-  edit it to create one.
-- `config.user.ts` is gitignored (`/config.user.ts` in `throne/.gitignore`), so
-  local flavour never lands in git. It is resolved from the live throne root
-  (the same `resolveLiveThroneRoot` git primitive `steering-user-config.ts`
-  uses), not from the running checkout's own directory — a campaign worktree
-  observes the same effective persona config as the live root.
+- An optional `config.user.ts` supplies a partial override, `export
+  default`-ing an object matching `PersonaConfigOverride`. It lives in
+  `~/.throne/config/`, and a copy in the live throne checkout wins when
+  present (AGENTS.md "Where the throne keeps things"). Copy
+  `config.user.example.ts` (at the throne root) there and edit it to create one.
+- Neither copy lands in git: the checkout copy is gitignored
+  (`/config.user.ts` in `throne/.gitignore`). Both are resolved through
+  `userConfigPath` from the live throne root (the same `resolveLiveThroneRoot`
+  git primitive `steering-user-config.ts` uses), not from the running
+  checkout's own directory — a campaign worktree observes the same effective
+  persona config as the live root.
 - An absent `config.user.ts` is silent and produces the defaults unchanged. An
   invalid one — a non-object default export, an unknown top-level or
   `tierTitles` key, a non-string value, an empty/whitespace-only string, or an

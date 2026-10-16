@@ -2,15 +2,11 @@ import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { loadPersonaConfig } from '../application-config.service.ts';
 import { canonicalizeIdentityRole } from '../shared-policy/identity-role-casing.ts';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
-import { RUNTIME_THRONE_ROOT } from '../shared-policy/runtime-throne-root.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
+import { readSpawnSpec } from '../agentdata/spawn-data-contracts.ts';
+import { isSpawnStillStarting } from '../agentdata/spawn-starting.ts';
 
-export const AGENT_STATUSES_DATA_DIRECTORY = RUNTIME_DATA_DIR;
-
-export const AGENT_STATUSES_PERSONA_CONFIG_PATH = path.resolve(
-  RUNTIME_THRONE_ROOT,
-  'config.user.ts',
-);
+export const AGENT_STATUSES_DATA_DIRECTORY = THRONE_DATA_DIR;
 
 const ROLE_LINE_PREFIX = '- **Role:** ';
 
@@ -170,7 +166,15 @@ export async function readAgentStatusRole(
  * present-but-invalid one throws naming the file and field.
  */
 export async function loadAgentStatusesRegentTitle(
-  configPath: string = AGENT_STATUSES_PERSONA_CONFIG_PATH,
+  configPath?: string,
 ): Promise<string> {
   return (await loadPersonaConfig(configPath)).tierTitles.regent;
+}
+
+export async function readAgentSpawnStillStarting(
+  name: string,
+  dataDirectory: string = AGENT_STATUSES_DATA_DIRECTORY,
+  nowMs: () => number = Date.now,
+): Promise<boolean> {
+  return isSpawnStillStarting(await readSpawnSpec(name, dataDirectory), nowMs());
 }

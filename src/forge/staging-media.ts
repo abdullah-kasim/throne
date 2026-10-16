@@ -1,3 +1,4 @@
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import { ForgeRefusal } from "./forge-refusal.ts";
 import type { GithubProgram } from "./pull-request-forge.ts";
@@ -11,13 +12,13 @@ import {
   type MediaMovedToFolder,
 } from "./promotion-media.ts";
 
-const GITHUB_HOSTED_MEDIA_URL = /https:\/\/(?:github\.com\/user-attachments\/assets|(?:private-)?user-images\.githubusercontent\.com)\/[^\s"'()<>]+/g;
+const GITHUB_HOSTED_MEDIA_URL = /https:\/\/(?:[^\s"'()<>/]+\/user-attachments\/assets|(?:private-)?user-images\.githubusercontent\.com)\/[^\s"'()<>]+/g;
 const STILLS_ONLY_REASON = "the GitHub pull request being staged holds no video";
 const IMAGE_EXTENSION = ".png";
 const VIDEO_EXTENSION = ".mp4";
 const DOWNLOAD_TO_FILE_SCRIPT = '"$0" api "$1" > "$2"';
 
-function githubHostedMediaUrlsIn(body: string): string[] {
+export function githubHostedMediaUrlsIn(body: string): string[] {
   return [...new Set(body.match(GITHUB_HOSTED_MEDIA_URL) ?? [])];
 }
 
@@ -35,9 +36,11 @@ async function githubMediaEmbed(body: string, url: string): Promise<MediaEmbed> 
   return { marker: url, urlPattern: escapeRegExp(url), name: await fileNameForMediaAt(body, url) };
 }
 
-async function downloadFromGithub(context: ForgeContext, program: GithubProgram, url: string, file: string): Promise<void> {
+async function downloadedFromGithub(context: ForgeContext, program: GithubProgram, url: string, file: string): Promise<boolean> {
   const result = await context.dependencies.runProcess("sh", ["-c", DOWNLOAD_TO_FILE_SCRIPT, program, url, file], { cwd: context.repo });
-  if (result.exitCode !== 0) throw new ForgeRefusal(`downloading ${url} from GitHub failed: ${result.stderr.trim()}`);
+  if (result.exitCode === 0) return true;
+  await rm(file, { force: true });
+  return false;
 }
 
 export async function downloadMediaForForgejo(
@@ -51,7 +54,7 @@ export async function downloadMediaForForgejo(
   for (const url of githubHostedMediaUrlsIn(body)) {
     const placed = bodyWithPlaceholder(rewritten, await githubMediaEmbed(body, url));
     if ((await mediaKindOf(placed.fileName)) === undefined) continue;
-    await downloadFromGithub(context, program, url, path.join(folder, placed.fileName));
+    if (!(await downloadedFromGithub(context, program, url, path.join(folder, placed.fileName)))) continue;
     rewritten = placed.body;
     fileNames.push(placed.fileName);
   }

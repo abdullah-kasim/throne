@@ -5,9 +5,7 @@ import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 import type { ProcessResult } from "./forge-dependencies.ts";
 import { ForgeRefusal } from "./forge-refusal.ts";
 import { issueApiPath } from "./forgejo-pull-requests.ts";
-import { forgejoHostNamesIn } from "./github-bound-text.ts";
-import { githubViewArguments, runGithub } from "./github-pull-requests.ts";
-import { githubProgramForHost, parsePullRequestTarget } from "./pull-request-forge.ts";
+import { parsePullRequestTarget } from "./pull-request-forge.ts";
 import type { ForgeContext } from "./pull-request-operations.ts";
 import type { ForgejoPullRequest } from "./staged-pair.ts";
 
@@ -61,19 +59,24 @@ function placeholderFor(fileName: string): string {
   return `${PLACEHOLDER_OPENING}${fileName}${PLACEHOLDER_CLOSING}`;
 }
 
-function placeholderNamesIn(body: string): string[] {
+export function placeholderNamesIn(body: string): string[] {
   return [...body.matchAll(PLACEHOLDER_PATTERN)].map((match) => match[1]!);
 }
 
-function finishingCommand(pair: PromotedPair): string {
+export function finishingCommand(pair: PromotedPair): string {
   return `throne forge promote ${pair.forgejoUrl}`;
 }
 
+function mediaEmbedShapesOf(url: string): string[] {
+  return [`!\\[[^\\]]*\\]\\(${url}\\)`, `<video[^>]*src="${url}"[^>]*>[\\s\\S]*?</video>`, `<img[^>]*src="${url}"[^>]*>`];
+}
+
+export function isEmbeddedAsMedia(body: string, url: string): boolean {
+  return new RegExp(mediaEmbedShapesOf(escapeRegExp(url)).join("|")).test(body);
+}
+
 function embedsOf(url: string): RegExp {
-  return new RegExp(
-    [`!\\[[^\\]]*\\]\\(${url}\\)`, `<video[^>]*src="${url}"[^>]*>[\\s\\S]*?</video>`, `<img[^>]*src="${url}"[^>]*>`, url].join("|"),
-    "g",
-  );
+  return new RegExp([...mediaEmbedShapesOf(url), url].join("|"), "g");
 }
 
 function anchorPairHolding(body: string, marker: string): { readonly text: string; readonly name: string } | undefined {
@@ -158,22 +161,5 @@ export async function publishMediaOnGithub(
   }
   throw new ForgeRefusal(
     `re-hosting the media on ${pair.githubUrl} through pr-media publish failed, so its body still holds drop placeholders; run: ${finishingCommand(pair)}: ${result.stderr.trim()}`,
-  );
-}
-
-export async function refuseUnfinishedGithubBody(context: ForgeContext, pair: PromotedPair): Promise<void> {
-  const program = githubProgramForHost(new URL(pair.githubUrl).hostname);
-  const result = await runGithub(githubViewArguments(pair.githubUrl), { program, repo: context.repo, bypass: false }, context.dependencies);
-  if (result.exitCode !== 0) throw new ForgeRefusal(`reading ${pair.githubUrl} back after the media publish failed: ${result.stderr.trim()}`);
-  const body = (JSON.parse(result.stdout) as { body: string }).body;
-  const placeholders = placeholderNamesIn(body);
-  const forgejoHostNames = await forgejoHostNamesIn(body, pair.forgejoRootUrl, context.dependencies);
-  const remaining = [
-    ...(placeholders.length > 0 ? [`drop placeholders for ${placeholders.join(", ")}`] : []),
-    ...(forgejoHostNames.length > 0 ? [`links to the Forgejo host ${forgejoHostNames.join(", ")}`] : []),
-  ];
-  if (remaining.length === 0) return;
-  throw new ForgeRefusal(
-    `${pair.githubUrl} still holds ${remaining.join(" and ")} after the media publish, so the promotion is not finished; run: ${finishingCommand(pair)}`,
   );
 }

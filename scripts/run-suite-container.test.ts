@@ -15,7 +15,7 @@ test("applyTenSecondLawGate fails an ordinary run whose captured output reports 
   const violationLines = [];
 
   const result = applyTenSecondLawGate(0, suiteOutput, {
-    isHeavyTier: false,
+    isExempt: false,
     writeViolation: (line) => violationLines.push(line),
   });
 
@@ -30,7 +30,7 @@ test("applyTenSecondLawGate leaves an ordinary run's status untouched when no it
   const violationLines = [];
 
   const result = applyTenSecondLawGate(0, suiteOutput, {
-    isHeavyTier: false,
+    isExempt: false,
     writeViolation: (line) => violationLines.push(line),
   });
 
@@ -43,7 +43,7 @@ test("applyTenSecondLawGate does not evaluate at all for the heavy tier, even wh
   const violationLines = [];
 
   const result = applyTenSecondLawGate(0, suiteOutput, {
-    isHeavyTier: true,
+    isExempt: true,
     writeViolation: (line) => violationLines.push(line),
   });
 

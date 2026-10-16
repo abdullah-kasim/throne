@@ -1,5 +1,6 @@
 export const FORGE_OPERATIONS = {
   status: { takesTarget: true, valueOptions: ["--repo"], required: [], flags: ["--json"] },
+  "check-media-links": { takesTarget: true, valueOptions: ["--repo"], required: [], flags: ["--json"] },
   open: { takesTarget: true, flagInsteadOfTarget: "--cleanup", valueOptions: ["--repo", "--editor"], required: [], flags: ["--print", "--cleanup"] },
   "ensure-repository": { takesTarget: false, valueOptions: ["--base", "--repo"], required: [], flags: [] },
   "push-branch": { takesTarget: false, valueOptions: ["--branch", "--base", "--repo"], required: ["--branch"], flags: [] },
@@ -53,6 +54,7 @@ export interface ForgeInvocation {
 export const FORGE_USAGE = [
   "Usage: throne forge <operation> ...",
   "  status <number|url|branch> [--repo <path>] [--json]",
+  "  check-media-links <pull request url> [--repo <path>] [--json]",
   "  open <number|url|branch> [--repo <path>] [--editor <cmd>] [--print]",
   "  open --cleanup [--repo <path>]",
   "  ensure-repository [--base <branch>] [--repo <path>]",

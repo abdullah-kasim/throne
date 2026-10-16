@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { throneConfigDirectory } from './throne-home.ts';
 
 export const FEATURE_FLAG_NAMES = {
   SEND_AGENT_FILE_BACKED_PAYLOADS: 'send-agent-file-backed-payloads',
@@ -19,10 +20,10 @@ export const DEFAULT_FEATURE_FLAGS: ThroneFeatureFlags = {
 };
 
 export function featureFlagsPath(
-  xdgConfigHome: string | undefined = process.env.XDG_CONFIG_HOME,
+  environment: NodeJS.ProcessEnv = process.env,
   homeDirectory: string = os.homedir(),
 ): string {
-  return path.join(xdgConfigHome ?? path.join(homeDirectory, '.config'), 'throne', 'features.json');
+  return path.join(throneConfigDirectory(environment, homeDirectory), 'features.json');
 }
 
 function isAcceptedFeatureFlagName(name: string): boolean {

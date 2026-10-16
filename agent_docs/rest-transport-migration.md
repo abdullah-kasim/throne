@@ -11,7 +11,7 @@ retiring the in-process path.
 
 - **Socket path.** `resolveTransportSocketPath()`
   (`src/transport/transport-wire-contract.ts`) resolves to
-  `RUNTIME_DATA_HOME/state/throne-backend.sock` — a filesystem AF_UNIX path,
+  `THRONE_HOME/state/throne-backend.sock` — a filesystem AF_UNIX path,
   never a TCP port.
 - **CLI flags.** `--transport rest` opts a migrated command into the REST
   path; the default (flag absent) is `local`, i.e. the untouched in-process

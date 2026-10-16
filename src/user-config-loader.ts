@@ -1,5 +1,5 @@
-// Shared parse+validate for the merged `config.user.ts` override file at the
-// live throne root. Persona (`application-config.service.ts`) and steering
+// Shared parse+validate for the merged `config.user.ts` override file.
+// Persona (`application-config.service.ts`) and steering
 // (`steering-user-config.ts`) both resolve their section through this one
 // module instead of independently dynamic-`import()`-ing the file, so an
 // unknown top-level key is rejected across the FULL known key set no matter
@@ -20,6 +20,7 @@
 // home — never silently read, never auto-merged.
 
 import { existsSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { inspect } from 'node:util';
@@ -27,6 +28,7 @@ import {
   describeValue,
   isPlainObject,
 } from './shared-policy/config-value-shape.ts';
+import { throneConfigDirectory } from './shared-policy/throne-home.ts';
 import { resolveLiveThroneRoot } from './throne-root-resolution.ts';
 
 export const PERSONA_SECTION_FIELDS = [
@@ -84,6 +86,8 @@ export const RECALL_SECTION_FIELDS = [
   'jevTokensPerHour',
 ] as const;
 
+export const AGENT_SETTINGS_SECTION_FIELDS = ['checkEnabled', 'colourByRole'] as const;
+
 export const EDITOR_FIELD = 'editor';
 
 const TOP_LEVEL_FIELDS = [
@@ -92,6 +96,7 @@ const TOP_LEVEL_FIELDS = [
   'steering',
   'identity',
   'recall',
+  'agentSettings',
 ] as const;
 
 /** The merged file's default export, split into its three independently
@@ -104,19 +109,70 @@ export interface UserConfigFile {
   readonly steering: Readonly<Record<string, unknown>>;
   readonly identity: Readonly<Record<string, unknown>>;
   readonly recall: Readonly<Record<string, unknown>>;
+  readonly agentSettings: Readonly<Record<string, unknown>>;
   readonly editor: string | undefined;
 }
 
-/** Where the merged override lives: `<live-throne-root>/config.user.ts`. */
-export function userConfigPath(liveThroneRoot: string): string {
-  return path.join(liveThroneRoot, 'config.user.ts');
+const USER_CONFIG_FILE_NAME = 'config.user.ts';
+
+export function checkoutUserConfigPath(liveThroneRoot: string): string {
+  return path.join(liveThroneRoot, USER_CONFIG_FILE_NAME);
 }
 
-/** Where the retired, pre-merge steering-only override used to live:
- *  `<live-throne-root>/src/config.user.ts`. Its continued presence is the
- *  loud-refusal trigger, never a silently-honoured second source of truth. */
+export function homeUserConfigPath(environment?: NodeJS.ProcessEnv): string {
+  return path.join(throneConfigDirectory(environment), USER_CONFIG_FILE_NAME);
+}
+
+const MODULE_PACKAGE_FILE_NAME = 'package.json';
+
+const MODULE_PACKAGE_TEXT = '{ "type": "module" }\n';
+
+export async function writeHomeConfigModulePackageIfMissing(
+  environment?: NodeJS.ProcessEnv,
+): Promise<void> {
+  const configDirectory = throneConfigDirectory(environment);
+  await mkdir(configDirectory, { recursive: true });
+  await writeFile(path.join(configDirectory, MODULE_PACKAGE_FILE_NAME), MODULE_PACKAGE_TEXT, {
+    flag: 'wx',
+  }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code !== 'EEXIST') throw error;
+  });
+}
+
+export function userConfigPath(
+  liveThroneRoot: string,
+  environment?: NodeJS.ProcessEnv,
+): string {
+  const checkoutCopy = checkoutUserConfigPath(liveThroneRoot);
+  return existsSync(checkoutCopy) ? checkoutCopy : homeUserConfigPath(environment);
+}
+
 export function legacySteeringConfigPath(liveThroneRoot: string): string {
-  return path.join(liveThroneRoot, 'src', 'config.user.ts');
+  return path.join(liveThroneRoot, 'src', USER_CONFIG_FILE_NAME);
+}
+
+let checkoutCopyAnnounced = false;
+
+function announceIgnoredHomeCopyOnce(checkoutCopy: string, homeCopy: string): void {
+  if (checkoutCopyAnnounced) return;
+  checkoutCopyAnnounced = true;
+  process.stderr.write(
+    `config: loaded the checkout copy "${checkoutCopy}"; the throne home copy "${homeCopy}" is ignored\n`,
+  );
+}
+
+export async function resolveUserConfigPath(): Promise<string> {
+  const liveThroneRoot = await resolveLiveThroneRoot();
+  const configPath = userConfigPath(liveThroneRoot);
+  const legacyPath = legacySteeringConfigPath(liveThroneRoot);
+  if (existsSync(legacyPath)) {
+    throw legacySteeringMigrationError(legacyPath, configPath);
+  }
+  const homeCopy = homeUserConfigPath();
+  if (configPath !== homeCopy && existsSync(homeCopy)) {
+    announceIgnoredHomeCopyOnce(configPath, homeCopy);
+  }
+  return configPath;
 }
 
 function invalidUserConfig(
@@ -182,15 +238,6 @@ function legacySteeringMigrationError(
   );
 }
 
-/**
- * Imports and validates the merged `config.user.ts` override, or returns
- * `undefined` when it is absent. `configPath`, when passed, is used verbatim
- * (the test/fixture contract, mirroring `loadSteeringConfig`); otherwise it
- * resolves against the live throne root. Throws loudly — naming the file and
- * the offending field — on an unimportable file, an unknown top-level key, an
- * unknown nested key within `steering`/`identity`, or a still-present legacy
- * `src/config.user.ts` alongside it.
- */
 export async function loadUserConfigFile(
   configPath?: string,
   // Node's ESM loader caches by resolved URL and never observes a file
@@ -200,14 +247,7 @@ export async function loadUserConfigFile(
   // to force re-parsing instead of silently serving the stale cached module.
   cacheBustToken?: string,
 ): Promise<UserConfigFile | undefined> {
-  const resolvedPath =
-    configPath ?? userConfigPath(await resolveLiveThroneRoot());
-  const liveThroneRoot = path.dirname(resolvedPath);
-  const legacyPath = legacySteeringConfigPath(liveThroneRoot);
-  if (existsSync(legacyPath)) {
-    throw legacySteeringMigrationError(legacyPath, resolvedPath);
-  }
-
+  const resolvedPath = configPath ?? (await resolveUserConfigPath());
   if (!existsSync(resolvedPath)) return undefined;
 
   let userModule: { default?: unknown };
@@ -266,6 +306,12 @@ export async function loadUserConfigFile(
     RECALL_SECTION_FIELDS,
     resolvedPath,
   );
+  const agentSettings = extractSection(
+    value,
+    'agentSettings',
+    AGENT_SETTINGS_SECTION_FIELDS,
+    resolvedPath,
+  );
   const editor = value[EDITOR_FIELD];
   if (editor !== undefined && typeof editor !== 'string') {
     throw invalidUserConfig(
@@ -279,5 +325,5 @@ export async function loadUserConfigFile(
     if (field in value) persona[field] = value[field];
   }
 
-  return { persona, steering, identity, recall, editor };
+  return { persona, steering, identity, recall, agentSettings, editor };
 }

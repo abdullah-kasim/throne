@@ -9,10 +9,14 @@ import {
 import {
   classifyBlockedTransition,
   BLOCKED_TRANSITION_VERDICTS,
+  OWN_BACKGROUND_RUN_WAITS,
+  ownBackgroundRunWait,
+  type OwnBackgroundRunWait,
 } from './classify-blocked-transition.ts';
 import {
   buildBlockedAgentPagingMessage,
   buildNamelessBlockPagingMessage,
+  buildNoBackgroundRunPagingMessage,
 } from './blocked-agent-paging-message.ts';
 import { detectInteractivePrompt } from '../pane-prompts/detect-interactive-prompt.ts';
 import type { BlockedAgentPagingDependencies } from './blocked-agent-paging-dependencies.types.ts';
@@ -20,10 +24,9 @@ import { decideConfirmation } from '../no-idling/confirmed-observation.ts';
 import { AGENT_LIFECYCLE_STATES } from '../agent-statuses/agent-statuses.types.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import { sameAgentName } from '../herdr/herdr-identity-contracts.ts';
-import { isAlphaRole, isIdleStatus, NO_IDLING_REGENT_NAME } from '../no-idling/idle-family.ts';
+import { isAlphaRole, isIdleStatus } from '../no-idling/idle-family.ts';
 import { DELAY_BEFORE_TELLING_THE_REGENT_MS } from '../no-idling/dependency-cleared-wake.ts';
-import { NO_IDLING_SUBMIT_TIMEOUT_MS } from '../no-idling/no-idling-run.ts';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import { getAgentStatusesRoster } from '../agent-statuses/agent-statuses-roster.ts';
 import {
   readAgentSupervisor,
@@ -43,14 +46,12 @@ import {
 } from '../no-idling/idle-family.ts';
 import {
   appendBlockedPageLedgerEntry,
-  blockedPageEscalationState,
-  BLOCKED_PAGE_ESCALATION_BOUND,
   hasBlockedPageCredit,
   readBlockedPageLedger,
 } from './blocked-agent-escalation-ledger.ts';
+import { pageRegentWithinEscalationBound, submitPageToRegent } from './blocked-agent-regent-page.ts';
 
 export const BLOCKED_AGENT_PAGING_HOSTED_WORKER_NAME = 'blocked-agent-paging';
-const BLOCKED_AGENT_PAGING_SENDER = '';
 /** How long a genuine `blocked` transition waits for a fresh confirming
  *  re-check before it is allowed to page -- long enough for a mid-exit
  *  Shadow to land its verdict and be reaped. */
@@ -133,18 +134,6 @@ function readBlockedConfirmationSample(
   };
 }
 
-export async function submitPageToRegent(
-  message: string,
-  pageKey: string,
-  deps: Pick<BlockedAgentPagingDependencies, 'resolveAgent' | 'submitToAgent'>,
-): Promise<void> {
-  const regent = await deps.resolveAgent(NO_IDLING_REGENT_NAME);
-  await deps.submitToAgent(regent, BLOCKED_AGENT_PAGING_SENDER, message, {
-    key: pageKey,
-    composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
-  });
-}
-
 async function pageRegentForStuckBlock(
   agentName: string,
   event: PaneAgentStatusChangedEvent,
@@ -168,61 +157,87 @@ async function pageRegentForStuckBlock(
   );
 }
 
-async function pageRegentWithinEscalationBound(
-  agentName: string,
-  pageKey: string,
-  buildMessage: () => Promise<string>,
-  deps: BlockedAgentPagingDependencies,
-): Promise<void> {
-  const priorState = blockedPageEscalationState(agentName, await deps.readEscalationLedger());
-  if (priorState.pageCount >= BLOCKED_PAGE_ESCALATION_BOUND) {
-    if (!priorState.lordNotified) {
-      await notifyLordOfBoundedBlockedEscalation(agentName, priorState.pageCount, deps);
-    }
-    return;
-  }
-  await submitPageToRegent(await buildMessage(), pageKey, deps);
-  const observedAt = new Date(deps.now?.() ?? Date.now()).toISOString();
-  const entriesAfterEnqueue = await deps.readEscalationLedger();
-  if (!hasBlockedPageCredit(agentName, pageKey, entriesAfterEnqueue)) {
-    await deps.appendEscalationLedger({ agentName, observedAt, kind: 'page-enqueued', pageKey });
-  }
-  const state = blockedPageEscalationState(agentName, await deps.readEscalationLedger());
-  if (state.pageCount >= BLOCKED_PAGE_ESCALATION_BOUND && !state.lordNotified) {
-    await notifyLordOfBoundedBlockedEscalation(agentName, state.pageCount, deps, observedAt);
-  }
+interface PagingPaneRead {
+  readonly blockedTag: LastMessageTagState;
+  readonly ownBackgroundRun: OwnBackgroundRunWait | undefined;
 }
 
-async function notifyLordOfBoundedBlockedEscalation(
-  agentName: string,
-  pageCount: number,
-  deps: BlockedAgentPagingDependencies,
-  observedAt = new Date(deps.now?.() ?? Date.now()).toISOString(),
-): Promise<void> {
-  const delivered = await deps.notifyLord(
-    `${agentName} remains blocked after ${pageCount} Regent pages; inspect the durable blocked-agent paging ledger.`,
-  );
-  if (delivered) {
-    await deps.appendEscalationLedger({ agentName, observedAt, kind: 'lord-notified' });
-  }
-}
-
-async function readBlockedTagForPaging(
+async function readPaneTagAndWait(
   agentName: string,
   deps: BlockedAgentPagingDependencies,
-): Promise<LastMessageTagState | undefined> {
-  try {
-    return await resolveBlockedTag(
+): Promise<PagingPaneRead> {
+  const output = await deps.readAgent(agentName);
+  return {
+    blockedTag: await resolveBlockedTag(
       agentName,
-      async () => classifyLastMessageTags(lastMessageBlock(await deps.readAgent(agentName))),
+      async () => classifyLastMessageTags(lastMessageBlock(output)),
       deps.blockedMarkerLedger,
-    );
+    ),
+    ownBackgroundRun: ownBackgroundRunWait(output),
+  };
+}
+
+async function readPaneForPaging(
+  agentName: string,
+  deps: BlockedAgentPagingDependencies,
+): Promise<PagingPaneRead | undefined> {
+  try {
+    return await readPaneTagAndWait(agentName, deps);
   } catch (error) {
     (deps.stderr ?? ((text: string) => process.stderr.write(text)))(
       `blocked-agent-paging: could not read ${agentName} to look for a blocked marker: ${errText(error)}\n`,
     );
     return undefined;
   }
+}
+
+async function readOwnBackgroundRunWait(
+  agentName: string,
+  deps: BlockedAgentPagingDependencies,
+): Promise<OwnBackgroundRunWait | undefined> {
+  try {
+    return (await readPaneTagAndWait(agentName, deps)).ownBackgroundRun;
+  } catch {
+    return undefined;
+  }
+}
+
+async function pageRegentOnceForNoBackgroundRun(
+  agentName: string,
+  roster: readonly AgentStatusesRosterEntry[],
+  paneId: string,
+  deps: BlockedAgentPagingDependencies,
+): Promise<void> {
+  const marker = await deps.blockedMarkerLedger.readBlockedMarker(agentName);
+  const pageKey = `blocked-agent-paging:no-background-run:${agentName}:${marker?.blockedAt ?? ''}`;
+  if (hasBlockedPageCredit(agentName, pageKey, await deps.readEscalationLedger())) {
+    return;
+  }
+  const cwd = roster.find((entry) => sameAgentName(entry.name, agentName))?.cwd;
+  await submitPageToRegent(buildNoBackgroundRunPagingMessage({ agentName, cwd, paneId }), pageKey, deps);
+  await deps.appendEscalationLedger({
+    agentName,
+    observedAt: new Date(deps.now?.() ?? Date.now()).toISOString(),
+    kind: 'page-enqueued',
+    pageKey,
+  });
+}
+
+async function pageRegentUnlessWaitingOnItsOwnRun(
+  agentName: string,
+  wait: OwnBackgroundRunWait | undefined,
+  event: PaneAgentStatusChangedEvent,
+  roster: readonly AgentStatusesRosterEntry[],
+  deps: BlockedAgentPagingDependencies,
+): Promise<void> {
+  if (wait === OWN_BACKGROUND_RUN_WAITS.RUNNING) {
+    return;
+  }
+  if (wait === OWN_BACKGROUND_RUN_WAITS.NONE_RUNNING) {
+    await pageRegentOnceForNoBackgroundRun(agentName, roster, event.paneId, deps);
+    return;
+  }
+  await pageRegentForStuckBlock(agentName, event, roster, deps);
 }
 
 function namelessBlockPageKey(agentName: string, blockedAt: string): string {
@@ -245,8 +260,13 @@ async function pageRegentForNamelessBlock(
   if (Number.isNaN(blockedForMilliseconds) || blockedForMilliseconds < DELAY_BEFORE_TELLING_THE_REGENT_MS) {
     return;
   }
-  const blockedTag = await readBlockedTagForPaging(entry.name, deps);
-  if (blockedTag?.kind !== 'blocked' || blockedTag.blockedBy.length > 0) {
+  const pane = await readPaneForPaging(entry.name, deps);
+  if (
+    pane === undefined ||
+    pane.blockedTag.kind !== 'blocked' ||
+    pane.blockedTag.blockedBy.length > 0 ||
+    pane.ownBackgroundRun !== undefined
+  ) {
     return;
   }
   const pageKey = namelessBlockPageKey(entry.name, marker.blockedAt);
@@ -264,8 +284,8 @@ async function pageRegentForNamelessBlock(
 export async function reconcileBlockedAgentPages(
   deps: BlockedAgentPagingDependencies,
 ): Promise<void> {
-  const roster = await deps.getRoster(RUNTIME_DATA_DIR);
-  const supervisors = await buildSupervisorMap(roster, RUNTIME_DATA_DIR, deps.readAgentSupervisor);
+  const roster = await deps.getRoster(THRONE_DATA_DIR);
+  const supervisors = await buildSupervisorMap(roster, THRONE_DATA_DIR, deps.readAgentSupervisor);
   for (const entry of roster) {
     if (
       entry.lifecycle !== AGENT_LIFECYCLE_STATES.LIVE ||
@@ -278,14 +298,19 @@ export async function reconcileBlockedAgentPages(
       await pageRegentForNamelessBlock(entry, entry.paneId, deps);
       continue;
     }
-    if (entry.liveStatus !== 'blocked') {
-      const blockedTag = await readBlockedTagForPaging(entry.name, deps);
-      if (blockedTag?.kind !== 'blocked') {
+    let wait: OwnBackgroundRunWait | undefined;
+    if (entry.liveStatus === 'blocked') {
+      wait = await readOwnBackgroundRunWait(entry.name, deps);
+    } else {
+      const pane = await readPaneForPaging(entry.name, deps);
+      if (pane?.blockedTag.kind !== 'blocked') {
         continue;
       }
+      wait = pane.ownBackgroundRun;
     }
-    await pageRegentForStuckBlock(
+    await pageRegentUnlessWaitingOnItsOwnRun(
       entry.name,
+      wait,
       { paneId: entry.paneId, workspaceId: '', agentStatus: 'blocked', agent: '', displayAgent: '', title: null, stateLabels: {} },
       roster,
       deps,
@@ -319,7 +344,7 @@ export async function handlePaneAgentStatusChangedEvent(
   }
   knownBlockedPaneIds.add(event.paneId);
 
-  const dataDir = RUNTIME_DATA_DIR;
+  const dataDir = THRONE_DATA_DIR;
   const roster = await deps.getRoster(dataDir);
   const agentName = resolveAgentNameForPane(event.paneId, roster);
   if (agentName === null) {
@@ -347,7 +372,13 @@ export async function handlePaneAgentStatusChangedEvent(
   if (!confirmed) {
     return;
   }
-  await pageRegentForStuckBlock(agentName, event, confirmationRoster, deps);
+  await pageRegentUnlessWaitingOnItsOwnRun(
+    agentName,
+    await readOwnBackgroundRunWait(agentName, deps),
+    event,
+    confirmationRoster,
+    deps,
+  );
 }
 
 export const REAL_BLOCKED_AGENT_PAGING_DEPENDENCIES: BlockedAgentPagingDependencies = {

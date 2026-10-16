@@ -41,6 +41,7 @@ export interface CompleteAgentDependencies {
    *  it does state. Falls back to allowing reap when omitted (e.g. in
    *  older/simplified callers), matching `hasDeliveryCommit`'s convention. */
   checkEvidenceRequirement?: (name: string) => Promise<SliceEvidenceResult>;
+  refuseCompletionWithoutPageRecord?: (name: string) => Promise<string | undefined>;
 }
 
 interface Parsed {
@@ -116,6 +117,16 @@ function reportRuntimeModelMismatch(
   if (mismatch !== undefined) dependencies.writeStderr(`complete-agent: ${mismatch}\n`);
 }
 
+async function isRefusedForMissingPageRecord(
+  name: string,
+  dependencies: CompleteAgentDependencies,
+): Promise<boolean> {
+  const refusal = await dependencies.refuseCompletionWithoutPageRecord?.(name);
+  if (refusal === undefined) return false;
+  dependencies.writeStderr(`complete-agent: ${refusal}\n`);
+  return true;
+}
+
 /** Applies the stated-evidence gate, then reaps and announces readiness only
  *  when it holds — every existing reap path funnels through here so no call
  *  site can bypass the check. */
@@ -130,6 +141,7 @@ async function reapWithEvidenceGate(
     dependencies.writeStderr(evidenceUnmetMessage(name, evidenceResult));
     return 1;
   }
+  if (await isRefusedForMissingPageRecord(name, dependencies)) return 1;
   announceReady();
   return dependencies.reap(name, REAP_REASON.COMPLETED);
 }
@@ -337,6 +349,10 @@ export async function runCompleteAgent(
     if (evidenceResult !== undefined && !evidenceResult.ok) {
       failures++;
       dependencies.writeStderr(evidenceUnmetMessage(entry.name, evidenceResult));
+      continue;
+    }
+    if (await isRefusedForMissingPageRecord(entry.name, dependencies)) {
+      failures++;
       continue;
     }
     if (verdictOnlyProven.has(entry.name)) {

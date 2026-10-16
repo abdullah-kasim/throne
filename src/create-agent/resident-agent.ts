@@ -1,3 +1,4 @@
+import { sessionNameAtLaunch } from "../agent-settings/agent-settings-decision.ts";
 import { buildCustomLaunchArgv, buildLaunchArgv } from "../harness-routing/harness.ts";
 import {
   AgentStartIndeterminateError,
@@ -12,11 +13,12 @@ import {
   type SpawnTaskingOutcome,
   type StageResult,
 } from "./create.types.ts";
-import { stderrWriter, stdoutWriter } from "./command-context.ts";
+import { currentIsoTime, stderrWriter, stdoutWriter } from "./command-context.ts";
 import {
   createAgentIdentity,
   createAgentOpeningPrompts,
   persistNewAgentRecord,
+  type AgentOpeningPrompts,
 } from "./agent-record.ts";
 import {
   prepareCodexLaunchTrust,
@@ -81,6 +83,11 @@ function launchArgv(request: PolicyResolution): string[] {
         harness: request.launchHarness,
         model: request.launchModel,
         effort: request.launchEffort,
+        sessionName: sessionNameAtLaunch(
+          request.name,
+          request.role,
+          request.launchHarness,
+        ),
       });
 }
 
@@ -219,6 +226,35 @@ export async function runResidentAgent(
   ) {
     return 1;
   }
+  try {
+    return await launchRegisteredAgent(request, deps, argv, spawnedTabLabel, prompts);
+  } finally {
+    await recordSpawnFinished(request, deps);
+  }
+}
+
+async function recordSpawnFinished(
+  request: PolicyResolution,
+  deps: CreateAgentDeps,
+): Promise<void> {
+  try {
+    await deps.markSpawnFinished?.(request.name, currentIsoTime(deps));
+  } catch (error) {
+    stderrWriter(deps)(
+      `create-agent: could not record that the spawn of "${request.name}" finished ` +
+        `(${error instanceof Error ? error.message : String(error)}); ` +
+        `agent-statuses shows it as starting until its spawn record ages out.\n`,
+    );
+  }
+}
+
+async function launchRegisteredAgent(
+  request: PolicyResolution,
+  deps: CreateAgentDeps,
+  argv: string[],
+  spawnedTabLabel: string | undefined,
+  prompts: AgentOpeningPrompts,
+): Promise<number> {
   await installOperatorSkill(request, deps);
   const start = await startOrResumeAgent(request, deps, argv, spawnedTabLabel);
   if (!start.ok) {

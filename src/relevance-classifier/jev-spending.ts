@@ -1,6 +1,6 @@
 import { readJevSpend, type JevLimits, type JevSpend } from './jev-budget.ts';
 import { readJevUsageLines } from './jev-usage-log.ts';
-import { jevDataHomeOfThisMachine } from './jev-data-home.ts';
+import { throneHomeOfThisMachine } from '../shared-policy/throne-home.ts';
 import { jevLimitsOf, type RecallConfig } from './recall-user-config.ts';
 
 export interface JevSpending {
@@ -26,7 +26,7 @@ export async function readJevSpending(dataHome: string, limits: JevLimits, now: 
 }
 
 export function readJevSpendingOnThisMachine(config: RecallConfig): Promise<JevSpending> {
-  return readJevSpending(jevDataHomeOfThisMachine(), jevLimitsOf(config), new Date());
+  return readJevSpending(throneHomeOfThisMachine(), jevLimitsOf(config), new Date());
 }
 
 function tokenCount(tokens: number): string {

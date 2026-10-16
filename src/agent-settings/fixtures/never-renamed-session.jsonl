@@ -1,0 +1,11 @@
+{"type":"agent-color","agentColor":"green","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"type":"mode","mode":"normal","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"type":"permission-mode","permissionMode":"default","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"How much flour do twelve sourdough loaves need?"},"uuid":"00000000-0000-4000-8000-000000000001","timestamp":"2026-01-05T09:01:00.000Z","cwd":"/home/baker/recipe-app","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"parentUuid":"00000000-0000-4000-8000-000000000001","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Twelve loaves need six kilograms of flour."}]},"uuid":"00000000-0000-4000-8000-000000000002","timestamp":"2026-01-05T09:02:30.000Z","cwd":"/home/baker/recipe-app","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"type":"ai-title","aiTitle":"Scale a sourdough recipe","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"type":"agent-color","agentColor":"green","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"parentUuid":null,"isSidechain":false,"type":"user","message":{"role":"user","content":"And how much salt?"},"uuid":"00000000-0000-4000-8000-000000000003","timestamp":"2026-01-05T09:03:00.000Z","cwd":"/home/baker/recipe-app","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"parentUuid":"00000000-0000-4000-8000-000000000003","isSidechain":false,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"One hundred and twenty grams of salt."}]},"uuid":"00000000-0000-4000-8000-000000000004","timestamp":"2026-01-05T09:04:30.000Z","cwd":"/home/baker/recipe-app","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"type":"ai-title","aiTitle":"Scale a sourdough recipe","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}
+{"type":"agent-color","agentColor":"green","sessionId":"5d2c1f0e-7a4b-4c3d-9e8f-0a1b2c3d4e5f"}

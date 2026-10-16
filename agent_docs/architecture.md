@@ -463,8 +463,9 @@ takes a `projectDir`, but always an already-resolved one passed down from
 **project dir** (`--repo`, default: the throne's own), resolved to its git root
 via `git rev-parse --show-toplevel`. The subpath — the project dir's path
 relative to its git root, realpath-normalized so a caller-passed `/home/...`
-path and git's canonical `/var/home/...` root (a symlink on this box) don't
-yield a garbage `../../..` relative path — is `''` for a root-project repo
+path and git's canonical root (which differs when `/home` is a symlink, as on
+image-based distros that keep homes under `/var/home`) don't yield a garbage
+`../../..` relative path — is `''` for a root-project repo
 (tree == worktree root) or e.g. `'throne'` for a subdir-project like the
 throne's own (nests the project dir under the tree). The tree is placed under
 the **throne-owned** `~/.throne/worktrees/<repo-basename>/<name>` —
@@ -553,7 +554,7 @@ the preflighted ref and restores the clean worktree when practical, while the
 live ledger remains unarchived for retry.
 
 `reap-agent <name> --reason abandoned --archive-abandoned-unmerged` is the
-deliberate opposite branch disposition, and the supported replacement for FPC's
+deliberate opposite branch disposition, and the supported replacement for the
 historical manual provenance rename. `--archive-abandoned-unmerged` requires
 `--reason abandoned`, while `--reason abandoned` alone runs ordinary teardown;
 `--force` remains only the liveness/live-child override. This path still requires exact, readable,
@@ -701,7 +702,7 @@ SessionStart hook on launch, from a location chosen to be committable:
   rule as the service units; `--throne-root` moves the substituted path). The
   rendered file is gitignored because Codex reads it IN PLACE — at both the cwd
   level and the git root, merged — so scoping it to `throne/` fires only for
-  throne sessions and composes with the machine-local `~/.codex/hooks.json` axi
+  throne sessions and composes with any machine-local `~/.codex/hooks.json`
   hooks. Codex trust-gates the file by a content hash, so it prompts once to
   trust it, and again only when the rendered bytes change.
 
@@ -808,6 +809,23 @@ live, missing, stay-down or unknown:
 
 The worker never runs startup reconciliation, and the SessionStart hook never
 raises the Stager. A tick still running when the next one fires is skipped.
+
+The backend's `agent-settings` hosted worker
+(`src/agent-settings/agent-settings.hosted-worker.ts`) runs every five minutes
+and keeps each agent's pane matching its record. One tick
+(`runAgentSettingsTick` in `src/agent-settings/agent-settings-tick.ts`) reads
+the shared status roster once and, per agent, joins four parts that know
+nothing of each other: the decision of what colour and session name an agent
+should carry (`agent-settings-decision.ts`), the read of what it carries now
+from its Claude Code transcript (`claude-session-settings.ts`), the typing of
+one raw `/color` or `/rename` into an idle, empty textbox under the recipient
+pane lock (`harness-command-typing.ts`), and the revival of a harness whose tab
+outlived it (`agent-revival.ts`). The herdr tab name is the truth and is never
+changed. The Regent and the Stager stay with `court-liveness`; this worker
+reports them and leaves them. Ticks run one at a time, whether the timer or
+`agent-settings-tick` started them, and a tick still running when the next one
+fires is skipped. `agent_docs/commands.md` (`agent-settings-tick`) holds the
+colour table, the limits and the switch.
 
 Every signal the autoscale family reads is dual-platform (the Lord's order of
 2026-09-02: "all of the signals need to support both linux and mac"). The

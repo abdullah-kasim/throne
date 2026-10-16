@@ -1,11 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { isDeepStrictEqual } from "node:util";
 import { access } from "node:fs/promises";
 import type { CapabilityEvidence } from "../harness-routing/policy/capabilities.ts";
 import type { ModelPair } from "../config.ts";
-export const DEFAULT_DATA_DIR = RUNTIME_DATA_DIR;
+export const DEFAULT_DATA_DIR = THRONE_DATA_DIR;
 export async function fileExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
@@ -64,6 +64,7 @@ export interface SpawnSpec {
   // the whole family happened to go idle at once. `find-untasked-agents`
   // flags this per-agent instead of waiting on that coincidence.
   tasked_at?: string | null;
+  spawn_finished_at?: string | null;
   // Token-lane load balancer evidence (dark behind `THRONE_TOKEN_BALANCE_ENABLED`
   // and the operator disable setting; see `src/token-balance/` and
   // `src/create-agent/lane-inheritance.ts`). `token_balance_lane` is the
@@ -196,6 +197,9 @@ function isSpawnSpec(value: unknown): value is SpawnSpec {
     (record.tasked_at === undefined ||
       record.tasked_at === null ||
       typeof record.tasked_at === "string") &&
+    (record.spawn_finished_at === undefined ||
+      record.spawn_finished_at === null ||
+      typeof record.spawn_finished_at === "string") &&
     (record.deliverable_shape === undefined ||
       record.deliverable_shape === "verdict-only") &&
     (record.shadowless === undefined || record.shadowless === true) &&
@@ -262,4 +266,16 @@ export async function markAgentTasked(
     return;
   }
   await writeSpawnSpec(name, { ...spec, tasked_at: taskedAtIso }, baseDir);
+}
+
+export async function markSpawnFinished(
+  name: string,
+  finishedAtIso: string,
+  baseDir = DEFAULT_DATA_DIR,
+): Promise<void> {
+  const spec = await readSpawnSpec(name, baseDir);
+  if (spec === null || spec.spawn_finished_at !== null) {
+    return;
+  }
+  await writeSpawnSpec(name, { ...spec, spawn_finished_at: finishedAtIso }, baseDir);
 }

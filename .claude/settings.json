@@ -11,6 +11,30 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'for cli in \"$HOME/.local/bin/throne-cli\" \"$HOME/bin/throne-cli\"; do [ -x \"$cli\" ] && { \"$cli\" skill-extension --hook 2>/dev/null; exit 0; }; done; command -v throne-cli >/dev/null 2>&1 && { throne-cli skill-extension --hook 2>/dev/null; exit 0; }; \"${CLAUDE_PROJECT_DIR:-$PWD}/bin/throne-cli\" skill-extension --hook 2>/dev/null; exit 0'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptExpansion": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'for cli in \"$HOME/.local/bin/throne-cli\" \"$HOME/bin/throne-cli\"; do [ -x \"$cli\" ] && { \"$cli\" skill-extension --hook 2>/dev/null; exit 0; }; done; command -v throne-cli >/dev/null 2>&1 && { throne-cli skill-extension --hook 2>/dev/null; exit 0; }; \"${CLAUDE_PROJECT_DIR:-$PWD}/bin/throne-cli\" skill-extension --hook 2>/dev/null; exit 0'",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

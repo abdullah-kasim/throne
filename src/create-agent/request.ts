@@ -355,7 +355,7 @@ export async function prepareCreateAgentRequest(
         `live inside it, and reap-agent's parentage check cannot see the ` +
         (oneShot
           ? `overlap (see reap-agent/occupancy.ts). Point --cwd at this probe's ` +
-            `own scratch directory instead (outside ~/.throne/worktrees), or ` +
+            `own scratch directory instead (outside ${worktreesHome()}), or ` +
             `spawn it its own tree:\n`
           : `overlap (see reap-agent/occupancy.ts). Spawn the tree under the ` +
             `derived name, then repoint --cwd at it:\n`) +

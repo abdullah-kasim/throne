@@ -317,8 +317,8 @@ export async function repairRecipientByExactTabLabel(
   const persistedSpawnLabel = await deps.readSpawnedTabLabel(registeredName);
   const tabs = (await deps.listTabs()).filter(
     (tab) =>
-      tab.label === name ||
-      resolvePersonaTabLabelToCanonical(tab.label, persistedSpawnLabel, deps.roleWordUnion) === name,
+      sameAgentName(tab.label, name) ||
+      sameAgentName(resolvePersonaTabLabelToCanonical(tab.label, persistedSpawnLabel, deps.roleWordUnion), name),
   );
   if (tabs.length === 0) return undefined;
   if (tabs.length > 1)

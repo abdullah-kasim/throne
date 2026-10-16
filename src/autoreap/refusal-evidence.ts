@@ -1,8 +1,8 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 
-const EVIDENCE_DIR = path.join(RUNTIME_DATA_DIR, 'autoreap');
+const EVIDENCE_DIR = path.join(THRONE_DATA_DIR, 'autoreap');
 const EVIDENCE_PATH = path.join(EVIDENCE_DIR, 'claimed-but-refused.json');
 
 interface RefusalEvidence {

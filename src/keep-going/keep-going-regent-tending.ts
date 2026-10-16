@@ -7,6 +7,10 @@ import {
   aggregateFamilyRecovery,
   type FamilyRecoverySummary,
 } from './keep-going-stalls.ts';
+import {
+  formatInFlightRowWithoutLiveAlpha,
+  type InFlightRowWithoutLiveAlpha,
+} from '../check-in-flight-rows/in-flight-rows-without-live-alpha.ts';
 import type {
   DesiredState,
   HerdrAgent,
@@ -23,7 +27,7 @@ import {
 } from './keep-going-context.ts';
 import { evaluateLiveRegentThrottle } from './keep-going-nudge.ts';
 import { readRegentHeartbeatNudgeEnabledInUserConfig } from './regent-heartbeat-nudge-switch.ts';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import { isRegentFencingKillSwitchOn } from '../regent-fencing/regent-fencing-kill-switch.ts';
 import {
   decideRegentFenceAction,
@@ -44,6 +48,7 @@ export type SendKeepGoingNudge = (
   deps: KeepGoingDependencies,
   throttleBand?: ThrottleBand,
   recoveryFamilies?: readonly FamilyRecoverySummary[],
+  inFlightRowsWithoutLiveAlpha?: readonly InFlightRowWithoutLiveAlpha[],
 ) => Promise<void>;
 
 /**
@@ -90,7 +95,7 @@ async function detectStalledAlphaRecovery(
   const evidence = await deps.readStallEvidence!(
     roster,
     deps.now().getTime(),
-    RUNTIME_DATA_DIR,
+    THRONE_DATA_DIR,
   );
   const families = aggregateFamilyRecovery(evidence);
   for (const family of families) {
@@ -100,6 +105,19 @@ async function detectStalledAlphaRecovery(
     writeOut(deps, 'keep-going: no stalled families detected.\n');
   }
   return families;
+}
+
+async function detectInFlightRowsWithoutLiveAlpha(
+  deps: KeepGoingDependencies,
+): Promise<readonly InFlightRowWithoutLiveAlpha[]> {
+  const findings = (await deps.readInFlightRowsWithoutLiveAlpha?.()) ?? [];
+  for (const finding of findings) {
+    writeOut(
+      deps,
+      `keep-going: reported in-flight row with no live Alpha to Regent: ${formatInFlightRowWithoutLiveAlpha(finding)}.\n`,
+    );
+  }
+  return findings;
 }
 
 /**
@@ -168,10 +186,21 @@ export async function tendRegent(
         `keep-going: stalled Alpha detection failed (${errText(err)}); continuing Regent heartbeat\n`,
       );
     }
+    let inFlightRowsWithoutLiveAlpha: readonly InFlightRowWithoutLiveAlpha[] = [];
+    try {
+      inFlightRowsWithoutLiveAlpha = await detectInFlightRowsWithoutLiveAlpha(deps);
+    } catch (err) {
+      writeErr(
+        deps,
+        `keep-going: in-flight row check failed (${errText(err)}); continuing Regent heartbeat\n`,
+      );
+    }
     const heartbeatNudgeEnabled = await (
       deps.isRegentHeartbeatNudgeEnabled ?? readRegentHeartbeatNudgeEnabledInUserConfig
     )();
-    if (!heartbeatNudgeEnabled && recoveryFamilies.length === 0) {
+    const hasNewsForRegent =
+      recoveryFamilies.length > 0 || inFlightRowsWithoutLiveAlpha.length > 0;
+    if (!heartbeatNudgeEnabled && !hasNewsForRegent) {
       writeOut(
         deps,
         'keep-going: Regent is live and the heartbeat nudge is off (steering.regentHeartbeatNudgeEnabled) — nothing sent.\n',
@@ -189,7 +218,7 @@ export async function tendRegent(
       );
       return 0;
     }
-    await sendNudge(regent, deps, throttle.band, recoveryFamilies);
+    await sendNudge(regent, deps, throttle.band, recoveryFamilies, inFlightRowsWithoutLiveAlpha);
     writeOut(deps, `keep-going: nudged Regent (throttle band ${throttle.band.name}).\n`);
     return 0;
   }

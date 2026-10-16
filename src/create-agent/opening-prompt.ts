@@ -2,6 +2,8 @@ import { OpeningPromptDeliveryError } from '../herdr/herdr-errors.ts';
 import { waitForAgentRegistration } from '../herdr/herdr-agent-registration-wait.ts';
 import type { HerdrAgent } from '../herdr/herdr-inventory.service.ts';
 import { openMessageQueueStore } from '../message-queue/message-queue.store.ts';
+import { TERMINAL_WORK_ITEM_STATES } from '../message-queue/message-queue-work-item-state.ts';
+import { HARNESS_READY_WAIT_AT_SPAWN_MILLISECONDS } from '../agent-settings/agent-settings-at-spawn.ts';
 import {
   buildMessageDeliveryWorkItemPayload,
   enqueueMessageDelivery,
@@ -56,6 +58,66 @@ async function recordAgentTaskedAtSpawn(
   }
 }
 
+function launchesClaudeCode(request: PolicyResolution): boolean {
+  return runtimeHarness(request.launchHarness) === HARNESS_NAMES.CLAUDE;
+}
+
+export const OPENING_PROMPT_QUEUE_POLL_MILLISECONDS = 500;
+export const OPENING_PROMPT_IS_STILL_QUEUED =
+  "the opening prompt had not left the delivery queue, so nothing was typed in front of it";
+
+function openQueueStoreOf(deps: CreateAgentDeps) {
+  return (deps.openMessageQueueStore ?? (() => openMessageQueueStore()))();
+}
+
+function openingPromptHasLeftTheQueue(
+  deps: CreateAgentDeps,
+  promptWorkItemId: number,
+): boolean {
+  const store = openQueueStoreOf(deps);
+  try {
+    const workItem = store.readWorkItem(promptWorkItemId);
+    return workItem === undefined || TERMINAL_WORK_ITEM_STATES.has(workItem.state);
+  } finally {
+    store.close();
+  }
+}
+
+async function openingPromptLeavesTheQueueInTime(
+  deps: CreateAgentDeps,
+  promptWorkItemId: number,
+): Promise<boolean> {
+  const pollsAllowed =
+    HARNESS_READY_WAIT_AT_SPAWN_MILLISECONDS / OPENING_PROMPT_QUEUE_POLL_MILLISECONDS;
+  for (let poll = 0; poll < pollsAllowed; poll += 1) {
+    if (openingPromptHasLeftTheQueue(deps, promptWorkItemId)) return true;
+    await deps.sleep(OPENING_PROMPT_QUEUE_POLL_MILLISECONDS);
+  }
+  return openingPromptHasLeftTheQueue(deps, promptWorkItemId);
+}
+
+async function correctSettingsAfterTheOpeningPrompt(
+  agent: HerdrAgent,
+  request: PolicyResolution,
+  deps: CreateAgentDeps,
+  promptWorkItemId: number,
+): Promise<void> {
+  if (!launchesClaudeCode(request)) {
+    return;
+  }
+  try {
+    if (!(await openingPromptLeavesTheQueueInTime(deps, promptWorkItemId))) {
+      throw new Error(OPENING_PROMPT_IS_STILL_QUEUED);
+    }
+    await deps.correctSettingsRightAfterSpawn?.(agent, request.name);
+  } catch (error) {
+    stderrWriter(deps)(
+      `create-agent: the colour and name of "${request.name}" were not corrected at spawn ` +
+        `and are left for the next agent-settings check: ${errorText(error)}\n`,
+    );
+  }
+}
+
 function openingPromptDeliveryFlags() {
   return {
     omitSenderAttribution: true,
@@ -68,16 +130,15 @@ async function enqueueOpeningPromptViaSqlite(
   request: PolicyResolution,
   deps: CreateAgentDeps,
   prompt: string,
-): Promise<void> {
-  const openStore = deps.openMessageQueueStore ?? (() => openMessageQueueStore());
-  const store = openStore();
+): Promise<number> {
+  const store = openQueueStoreOf(deps);
   try {
     const recipientName = agent.name ?? request.name;
     const idempotencyKey = deriveDefaultMessageDeliveryIdempotencyKey(
       { recipientName, senderName: request.name, prompt },
       (deps.enqueueTimestampMs ?? Date.now)(),
     );
-    enqueueMessageDelivery(
+    return enqueueMessageDelivery(
       store,
       buildMessageDeliveryWorkItemPayload({
         recipientName,
@@ -88,7 +149,7 @@ async function enqueueOpeningPromptViaSqlite(
         clearRecipientBlockedOnDelivery: false,
         ...openingPromptDeliveryFlags(),
       }),
-    );
+    ).id;
   } catch (error) {
     throw new OpeningPromptDeliveryError(
       request.name,
@@ -99,16 +160,6 @@ async function enqueueOpeningPromptViaSqlite(
   } finally {
     store.close();
   }
-}
-
-
-async function enqueueOpeningPromptDelivery(
-  agent: HerdrAgent,
-  request: PolicyResolution,
-  deps: CreateAgentDeps,
-  prompt: string,
-): Promise<void> {
-  return enqueueOpeningPromptViaSqlite(agent, request, deps, prompt);
 }
 
 /**
@@ -148,7 +199,7 @@ async function confirmOpeningPromptTasking(
   if (!requestCarriesGenuineTask(request)) {
     return undefined;
   }
-  if (runtimeHarness(request.launchHarness) !== HARNESS_NAMES.CLAUDE) {
+  if (!launchesClaudeCode(request)) {
     return undefined;
   }
   const confirm = deps.confirmSpawnTasking ?? awaitSpawnTaskingConfirmation;
@@ -167,9 +218,15 @@ export async function deliverAgentOpeningPrompt(
   const writeStderr = stderrWriter(deps);
   try {
     const agent = await waitForAgentRegistration(request.name, deps);
-    await enqueueOpeningPromptDelivery(agent, request, deps, openingPrompt);
+    const promptWorkItemId = await enqueueOpeningPromptViaSqlite(
+      agent,
+      request,
+      deps,
+      openingPrompt,
+    );
     await recordAgentTaskedAtSpawn(request, deps);
     const confirmation = await confirmOpeningPromptTasking(request, deps);
+    await correctSettingsAfterTheOpeningPrompt(agent, request, deps, promptWorkItemId);
     return {
       delivered: true,
       outcome: deriveSpawnTaskingOutcome(true, confirmation),

@@ -206,6 +206,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `reconcile-queue` | missing argument | PASS | Executable evidence: `src/command-entry-steering-batch-b.spec.ts` — `queue command entrance refusals state WHY, no bypass, HUMAN ROUTE, status, and no effect`. |
 | `reconcile-queue` | invalid value | PASS | Executable evidence: `src/command-entry-steering-batch-b.spec.ts` — `queue command entrance refusals state WHY, no bypass, HUMAN ROUTE, status, and no effect`. |
 | `reconcile-queue`                | policy refusal   | N/A     | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; operational or mutation policy occurs only after argument admission.                                                                                                                                       |
+| `check-in-flight-rows` | unknown flag | N/A | No command-local argument parser or entrance policy gate exists; `allowUnknownOptions: true` and `allowExcessArgs: true` are explicit. Runtime reads are after dispatch. |
+| `check-in-flight-rows` | missing argument | N/A | No positional arguments are declared. |
+| `check-in-flight-rows` | invalid value | N/A | No value-bearing entrance option exists. |
+| `check-in-flight-rows` | policy refusal | N/A | No command-entry policy refusal exists; the command only reads the queue store, the agent roster and spawn records. |
 | `stage-launch-brief` | unknown flag | N/A | Its parser deliberately treats every `--name value` pair as a launch-brief field, so no unknown-flag set exists. |
 | `stage-launch-brief` | missing argument | PASS | Executable evidence: `src/stage-launch-brief/stage-launch-brief-runtime.test.ts` — `stage-launch-brief missing and invalid input refuse before persistence with steering`. |
 | `stage-launch-brief` | invalid value | PASS | Executable evidence: `src/stage-launch-brief/stage-launch-brief-runtime.test.ts` — `stage-launch-brief missing and invalid input refuse before persistence with steering`. |
@@ -278,6 +282,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `memory-dir` | missing argument | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `a missing DIR is a steered exit 2 that names the omission, never a silent cwd`. |
 | `memory-dir` | invalid value | PASS | Executable evidence: `test/memory-dir-command.test.ts` — `a resolver failure is a steered exit 2 with the cause`. |
 | `memory-dir` | policy refusal | N/A | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; resolution has no policy gate. |
+| `skill-extension` | unknown flag | PASS | Executable evidence: `src/skill-extension/skill-extension.spec.ts` — `an unknown flag or a missing skill name is refused with the usage`. |
+| `skill-extension` | missing argument | PASS | Executable evidence: `src/skill-extension/skill-extension.spec.ts` — `an unknown flag or a missing skill name is refused with the usage`. |
+| `skill-extension` | invalid value | PASS | Executable evidence: `src/skill-extension/skill-extension.spec.ts` — `a skill name that would reach outside the extensions folder is refused`. |
+| `skill-extension` | policy refusal | N/A | Read-only lookup with no entrance policy gate. |
 | `recall` | unknown flag | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `an unknown flag is a steered exit 2`. |
 | `recall` | missing argument | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `recall without task text is refused with the usage`. A hand call with neither `--directory` nor `--memory-dir` is refused naming both flags and the current directory. |
 | `recall` | invalid value | PASS | Executable evidence: `src/memory-recall/recall-scope.spec.ts` — `a hand recall whose --directory has no findable memory directory is refused naming it`. A `--directory` whose memory directory cannot be resolved is refused naming that directory, never dropped to the global memory directories. |
@@ -314,6 +322,14 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `work-log` | missing argument | PASS | Executable evidence: `src/work-log/work-log.test.ts` — `work-log refuses an unknown flag, a missing --since or a since value that is not an ISO date before reading anything`. |
 | `work-log` | invalid value | PASS | Executable evidence: `src/work-log/work-log.test.ts` — `work-log refuses an unknown flag, a missing --since or a since value that is not an ISO date before reading anything`. |
 | `work-log` | policy refusal | N/A | Command-local parser/runtime inspection proves no separate command-entry policy refusal exists for this mode; the command only reads. |
+| `where-i-stand` | unknown flag | PASS | Executable evidence: `src/where-i-stand/where-i-stand.spec.ts` — `where-i-stand refuses an unknown action, an unknown flag or a missing argument before touching the page`. |
+| `where-i-stand` | missing argument | PASS | Executable evidence: `src/where-i-stand/where-i-stand.spec.ts` — `where-i-stand refuses an unknown action, an unknown flag or a missing argument before touching the page`. |
+| `where-i-stand` | invalid value | PASS | Executable evidence: `src/where-i-stand/where-i-stand.spec.ts` — `where-i-stand refuses an unknown action, an unknown flag or a missing argument before touching the page`. |
+| `where-i-stand` | policy refusal | PASS | Executable evidence: `src/where-i-stand/where-i-stand.spec.ts` — `a caller with no agent identity cannot write the page`. |
+| `check-where-i-stand` | unknown flag | PASS | Executable evidence: `src/where-i-stand/check-where-i-stand.spec.ts` — `check-where-i-stand refuses an unknown flag, a missing agent name or an empty one before reading anything`. |
+| `check-where-i-stand` | missing argument | PASS | Executable evidence: `src/where-i-stand/check-where-i-stand.spec.ts` — `check-where-i-stand refuses an unknown flag, a missing agent name or an empty one before reading anything`. |
+| `check-where-i-stand` | invalid value | PASS | Executable evidence: `src/where-i-stand/check-where-i-stand.spec.ts` — `check-where-i-stand refuses an unknown flag, a missing agent name or an empty one before reading anything`. |
+| `check-where-i-stand` | policy refusal | N/A | Read-only verdict with no entrance policy gate; its refusal of completion is the product, reported by exit code 66. |
 | `consume-fence-handoff-on-start` | unknown flag | PASS | Executable evidence: `src/command-registry-coverage/framework-entrance-steering.test.ts` — `consume-fence-handoff-on-start real Nest invocation steers an unknown flag before effects`. |
 | `consume-fence-handoff-on-start` | missing argument | N/A | The command has no positional or value input domain; its record path is an internal configuration seam. |
 | `consume-fence-handoff-on-start` | invalid value | N/A | The command has no positional or value input domain; its record path is an internal configuration seam. |

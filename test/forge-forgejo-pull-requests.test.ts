@@ -1,34 +1,26 @@
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, test } from "node:test";
+import { beforeEach, test } from "node:test";
 import { git } from "./git-repo-test-fixture.ts";
-import { FAKE_FORGEJO_ADMIN, startFakeForgejo, type FakeForgejo } from "./forge-fake-forgejo.ts";
+import { FAKE_FORGEJO_ADMIN, type FakeForgejo } from "./forge-fake-forgejo.ts";
 import {
   forgeDependenciesWithFakeGithub,
-  repositoryWithOriginAndFeatureBranch,
   runForgeCapturing,
+  startForgejoWithCheckoutForEachTest,
   TEST_FORGEJO_TOKEN,
-  useFreshForgejoStateDirectory,
+  type CheckoutWithOrigin,
   type ForgejoStateDirectory,
 } from "./forge-test-support.ts";
 
+const forgejoWithCheckout = startForgejoWithCheckoutForEachTest("forge-forgejo-");
 let state: ForgejoStateDirectory;
-let checkout: Awaited<ReturnType<typeof repositoryWithOriginAndFeatureBranch>>;
+let checkout: CheckoutWithOrigin;
 let forgejo: FakeForgejo;
 const dependencies = forgeDependenciesWithFakeGithub();
 
-beforeEach(async () => {
-  state = await useFreshForgejoStateDirectory();
-  checkout = await repositoryWithOriginAndFeatureBranch("forge-forgejo-");
-  forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
-  await state.installForgejo(forgejo.rootUrl);
-});
-
-afterEach(async () => {
-  await forgejo.close();
-  await checkout.remove();
-  await state.remove();
+beforeEach(() => {
+  ({ state, checkout, forgejo } = forgejoWithCheckout());
 });
 
 async function writeFileInRepo(name: string, text: string | Uint8Array): Promise<string> {

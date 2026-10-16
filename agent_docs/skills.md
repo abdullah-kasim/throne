@@ -5,11 +5,10 @@ live throne at runtime yet still be discovered globally, or be intentionally
 scoped to the throne for discovery as well.
 
 `update-harnesses` is throne-locally discovered from
-`throne/.claude/skills/update-harnesses` (moved there from the global
-`claude/agent_docs/skills` tree on 2026-09-02, by the Lord's order): its whole
+`throne/.claude/skills/update-harnesses` (moved there from a global
+skills tree on 2026-09-02, by the Lord's order): its whole
 subject is throne-managed harness artifacts, it requires a live throne root, and
-global discovery only surfaced it where it could never run. Codex no longer sees
-it through the tracked `codex/.agents/skills` link. The skill checks, updates, or rolls back throne-managed
+global discovery only surfaced it where it could never run. The skill checks, updates, or rolls back throne-managed
 Claude Code and Codex CLI artifacts. Its deterministic
 script stages and probes each harness in isolation and has no live Herdr
 operation. See `throne/.claude/skills/update-harnesses/SKILL.md` for the operator flow and evidence contract.
@@ -25,16 +24,19 @@ invoke it.
 - **`gap-analysis-model`** — orchestrates a multi-model gap-analysis campaign
   (two clean-room nested campaigns → stronger-model distillation) across
   harnesses/models using throne worktrees and agents. Its durable product is
-  published outside the throne, in the global `claude/agent_docs/Claude/` and
-  `claude/agent_docs/GPT/` family directories.
+  published outside the throne, in per-model-family guidance directories
+  (`Claude/`, `GPT/`) that each harness's global instructions read.
 
 `frontend-critic` is throne-locally discovered at
 `throne/.claude/skills/frontend-critic/` (the Lord's order, 2026-09-09: most
 of his coding runs through the throne, so the review lives where the work
-does). It is the measured visual review of a web UI change: render the
+does). It is the measured visual and state review of a web UI change: render the
 served build, measure the changed element against its neighbours with
 `getBoundingClientRect()`, check every state in Chromium only (section 4 of
-the skill), and report each defect with its cause and fix. It binds every role:
+the skill), act mid-request, away-and-back and past the first page on every
+piece of state the change keeps (section 3d), hunt for the bugs the
+checklist misses (section 3e), and report each defect with its cause and
+fix. It binds every role:
 `write-todos` stamps `frontend: true` on bundles whose slices touch CSS,
 markup, or component paths and puts the critique block into `99b`, so the
 verify gate runs it for campaign work; a Stager or a no-alpha session runs it
@@ -55,11 +57,26 @@ permanently armed in both service templates since 2026-09-02 (the Lord's
 order), so the operator pause moved to config. The worker re-reads the file
 every tick; no restart in either direction.
 
+`where-i-stand` is throne-locally discovered at
+`throne/.claude/skills/where-i-stand/`. It answers with the link to the
+Lord's page, the one agent-written file `where-i-stand.md` under the throne
+data home shown below a table of his pull requests, corrects it
+in the background from the forges, the queue and the live agents, and keeps
+its tailnet copy up. Any role may run it, and it carries the writing rules
+for every agent that edits the page. Its forge reader, `where_i_stand.py`,
+sits beside it with its own tests
+(`python3 .claude/skills/where-i-stand/test_where_i_stand.py`) and takes
+hosts and tokens from the user's own configuration, never from this
+repository. Serving the page uses the machine's own `tailnet-preview` skill,
+which `.claude/skill-dependencies.tsv` records as `global`.
+
 Skills intentionally scoped to the throne for discovery too live under
 `throne/.claude/skills/`, alongside the todo skills: Claude Code discovers that
 directory natively from a throne cwd, live root and worktree alike. The
 launcher additionally exposes any `agent_docs_local/project-skills/.claude/skills/`
 the launch repo carries — a per-repo convention the throne itself does not use.
+Every skill there, and every new one, must open with the operator-extension
+step described in `agent_docs/skill-extensions.md`.
 
 `agent_docs/global-decoupling.md` records which of the throne's remaining
 out-of-throne references are deliberate and which are full-sever material.
@@ -72,7 +89,8 @@ every spawn (`bin/agent-launcher-lib.sh`, `--add-dir "$throne_root"`), so an
 Alpha or Shadow in a target-repository worktree sees them too.
 
 - **`pr-description`** is the house style for every PR body: `## What`, `## Why`,
-  `## How`, an optional `## Screenshots`, and a `## Testing` walkthrough of
+  `## How`, a hidden `## Sequence` diagram of the change's runtime flow, an
+  optional `## Screenshots`, and a `## Testing` walkthrough of
   numbered steps written for a reviewer who is not an engineer and did not watch
   the work, closed by a mandatory **Not tested** alert, then a hidden
   `## Agents` section with the setup steps an AI agent follows to stand the

@@ -7,18 +7,13 @@ user-invocable: true
 
 # Review loop
 
-Generalizes the live `alpha-rfl-review-fix-loop` instance
-(`~/.throne/data/alpha-rfl-review-fix-loop/todo-20260808T163538Z-review-fix-loop/00_overview.md`)
-into a reusable throne skill. Every mechanism below is traced to that ledger
-or to the Regent's live rulings in
-`~/.throne/data/regent/brief-2026-08-09-review-loop-skill.md` — this skill
-invents no second design.
+Generalizes an earlier live review-fix-loop campaign (RFL below) into a
+reusable throne skill. Every mechanism below is traced to that campaign or to
+the Regent's live rulings on it; this skill invents no second design.
 
 **Throne-locally discovered, throne-only at runtime.** Discovered natively
-from a throne cwd (`throne/.claude/skills/`), per the cross-harness carve-out
-in the operator's global instructions, §"Cross-harness skills" — this directory is
-project-scoped, outside `sync-global-agent-skills`'s managed topology, and
-must not be "fixed" back into the canonical global tree. Invoke this skill
+from a throne cwd (`throne/.claude/skills/`); it is project-scoped and must
+not be moved into a global skills tree. Invoke this skill
 only as a registered Alpha in the authoritative live throne; a Shadow must
 not invoke it, because the loop is itself a campaign-Alpha-level
 orchestration role that requests spawns from the Regent.
@@ -32,8 +27,8 @@ once" for the exact shell function (`throne_from`, `registered_campaign_repo_fro
 `registered_alpha_from`, the `$THRONE`/`$THRONE_DATA`/`$CAMPAIGN_REPO`
 fast-path-then-Regent-fallback resolution). Run it before touching anything
 below; every later step uses its `$THRONE` value and always invokes
-`"$THRONE/bin/throne-cli" ...` absolutely, never a worktree's relative copy (per
-`77db50353`, an agent must never `cd` into the live root to reach the CLI).
+`"$THRONE/bin/throne-cli" ...` absolutely, never a worktree's relative copy (an
+agent must never `cd` into the live root to reach the CLI).
 
 ## Input contract
 
@@ -259,10 +254,10 @@ always empty.
 
 ## Out of scope
 
-This skill does not migrate `alpha-rfl-review-fix-loop` onto itself, and
-does not touch RFL's ledger or brief. It does not touch
-`src/no-idling/`, `send-agent`, or `keep-going` — SAKEY owns that surface;
-report a collision to the Regent rather than working around it.
+This skill does not migrate the RFL campaign onto itself, and does not
+touch RFL's ledger or brief. It does not touch `src/no-idling/`,
+`send-agent`, or `keep-going` — another campaign owns that surface; report a
+collision to the Regent rather than working around it.
 
 
 throne_from() {

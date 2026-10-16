@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFile, rm } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { errorText } from '../shared-policy/error-text.ts';
+import { THRONE_HOME } from '../shared-policy/throne-home.ts';
 
-export const FILE_BACKED_PAYLOAD_DIR = join(homedir(), '.throne', 'payloads');
+export const FILE_BACKED_PAYLOAD_DIR = join(THRONE_HOME, 'payloads');
 
 export interface PayloadConsumptionDeps {
   readFile: typeof readFile;

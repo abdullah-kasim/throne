@@ -44,6 +44,7 @@ import {
   recordFiledModelHintAuthorizations,
 } from "../create-agent/filed-model-hint-authorization.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { herdrAgentNameRefusal } from "../herdr/herdr-identity.service.ts";
 import {
   defaultAlphaName,
@@ -242,7 +243,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
         `BUILT IN — for throne agents that is the live throne checkout ` +
         `itself — and carry the subject's absolute path in the body as data ` +
         `(the proven kir510b/kir220b/kir120b pattern). Creating a temporary ` +
-        `blank repo under the agent's own storage (e.g. ~/.throne/data/` +
+        `blank repo under the agent's own storage (e.g. ${THRONE_DATA_DIR}/` +
         `<agent>/) is also allowed, but note the Alpha's worktree is forked ` +
         `from the repo you name, so a blank repo yields a worktree without ` +
         `throne tooling.`,

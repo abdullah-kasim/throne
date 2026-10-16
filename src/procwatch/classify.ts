@@ -27,7 +27,7 @@ export interface OwnershipInputs {
 
 /**
  * The Lord's reap-safety classification, by cwd: work directories under
- * `~/repos/*`, `~/dotfiles`, and `~/.throne/worktrees/` are the reap-safe
+ * `~/repos/*`, `~/dotfiles`, and the throne worktrees folder are the reap-safe
  * class; everything else is report-and-investigate. This function is only
  * ever reached for processes that already survived the never-touch filter
  * (`never-touch.ts`) -- calling it first would classify `throne-backend`

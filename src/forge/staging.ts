@@ -1,10 +1,16 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { mirrorFeedbackToTwin } from "./feedback-mirror.ts";
+import { crossHostMediaLinksIn } from "./cross-host-media-links.ts";
+import { mirroredCommentMediaLinkWarnings, mirrorFeedbackToTwin, type MediaLinkInMirroredComment } from "./feedback-mirror.ts";
 import { ForgeRefusal, messageOf } from "./forge-refusal.ts";
 import type { ForgejoApi } from "./forgejo-api.ts";
-import { createForgejoPullRequest, forgejoPullRequestAddressOf, nameGithubTwinInForgejoTitle } from "./forgejo-pull-requests.ts";
+import {
+  createForgejoPullRequest,
+  forgejoPullRequestAddressOf,
+  nameGithubTwinInForgejoTitle,
+  viewForgejoPullRequest,
+} from "./forgejo-pull-requests.ts";
 import { githubViewArguments, runGithub } from "./github-pull-requests.ts";
 import { FORGE } from "./host-forge.ts";
 import {
@@ -26,6 +32,7 @@ export interface Staging {
   readonly githubUrl: string;
   readonly twinUrl: string;
   readonly created: boolean;
+  readonly mediaLinksInMirroredComments: readonly MediaLinkInMirroredComment[];
 }
 
 interface GithubPullRequestToStage {
@@ -108,15 +115,30 @@ async function openStagedTwin(context: ForgeContext, pullRequest: GithubPullRequ
   }
 }
 
+async function refuseUnfinishedForgejoBody(
+  context: ForgeContext,
+  twinUrl: string,
+  api: ForgejoApi,
+  mediaLinksInMirroredComments: readonly MediaLinkInMirroredComment[],
+): Promise<void> {
+  const twin = await viewForgejoPullRequest(context.repo, parsePullRequestTarget(twinUrl), api, context.dependencies);
+  const githubMediaLinks = await crossHostMediaLinksIn(twin.body, FORGE.forgejo, api.rootUrl, context.dependencies);
+  if (githubMediaLinks.length === 0) return;
+  const unfinishedBody = `${twinUrl} still holds GitHub media links, which do not load in Forgejo (${githubMediaLinks.join(", ")}), so the staging is not finished; run: /pr-media publish ${twinUrl}`;
+  throw new ForgeRefusal([unfinishedBody, mirroredCommentMediaLinkWarnings(mediaLinksInMirroredComments)].join("\n").trimEnd());
+}
+
 export async function stageGithubPullRequest(context: ForgeContext, targetText: string): Promise<Staging> {
   const pullRequest = await githubPullRequestToStage(context, targetText);
   const api = await openForgejoApiOnThisHost(context.dependencies);
   const stagedTwinUrl = await forgejoTwinUrlOfGithubPullRequest(pullRequest.target, api);
   if (stagedTwinUrl !== undefined) {
     await recordGithubTwinOn(context, stagedTwinUrl, pullRequest.url, {}, api);
-    return { githubUrl: pullRequest.url, twinUrl: stagedTwinUrl, created: false };
+    await refuseUnfinishedForgejoBody(context, stagedTwinUrl, api, []);
+    return { githubUrl: pullRequest.url, twinUrl: stagedTwinUrl, created: false, mediaLinksInMirroredComments: [] };
   }
   const twinUrl = await openStagedTwin(context, pullRequest, api);
-  await mirrorFeedbackToTwin(context, pullRequest.url);
-  return { githubUrl: pullRequest.url, twinUrl, created: true };
+  const { mediaLinksInMirroredComments } = await mirrorFeedbackToTwin(context, pullRequest.url);
+  await refuseUnfinishedForgejoBody(context, twinUrl, api, mediaLinksInMirroredComments);
+  return { githubUrl: pullRequest.url, twinUrl, created: true, mediaLinksInMirroredComments };
 }

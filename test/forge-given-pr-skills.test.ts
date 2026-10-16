@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, beforeEach, test } from "node:test";
+import { beforeEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { startFakeForgejo, type FakeForgejo } from "./forge-fake-forgejo.ts";
+import type { FakeForgejo } from "./forge-fake-forgejo.ts";
 import {
   forgeDependenciesWithFakeGithub,
-  repositoryWithOriginAndFeatureBranch,
   runForgeCapturing,
-  TEST_FORGEJO_TOKEN,
-  useFreshForgejoStateDirectory,
-  type ForgejoStateDirectory,
+  startForgejoWithCheckoutForEachTest,
+  type CheckoutWithOrigin,
 } from "./forge-test-support.ts";
 
 type RunSeam = (args: readonly string[]) => Promise<string>;
@@ -34,8 +32,8 @@ const SKILLS_DIRECTORY = path.join(path.dirname(fileURLToPath(import.meta.url)),
 const stackScript = (await import(path.join(SKILLS_DIRECTORY, "pr-merge", "stack.mjs"))) as StackScript;
 const pendingReviewScript = (await import(path.join(SKILLS_DIRECTORY, "pr-review", "pending-review.mjs"))) as PendingReviewScript;
 
-let state: ForgejoStateDirectory;
-let checkout: Awaited<ReturnType<typeof repositoryWithOriginAndFeatureBranch>>;
+const forgejoWithCheckout = startForgejoWithCheckoutForEachTest("forge-given-pr-");
+let checkout: CheckoutWithOrigin;
 let forgejo: FakeForgejo;
 const REVIEWED_GITHUB_PULL_REQUEST_URL = "https://github.com/shop-owner/storefront/pull/42";
 const REVIEWED_HEAD_SHA = "4f2c9e1ab07d55e3";
@@ -51,22 +49,14 @@ const dependencies = forgeDependenciesWithFakeGithub(() => ({
     headRefOid: REVIEWED_HEAD_SHA,
     mergedAt: null,
     mergeCommit: null,
+    body: "Guards the checkout against an empty basket.",
   }),
   stderr: "",
 }));
 
-beforeEach(async () => {
+beforeEach(() => {
   dependencies.githubCalls.length = 0;
-  state = await useFreshForgejoStateDirectory();
-  checkout = await repositoryWithOriginAndFeatureBranch("forge-given-pr-");
-  forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
-  await state.installForgejo(forgejo.rootUrl);
-});
-
-afterEach(async () => {
-  await forgejo.close();
-  await checkout.remove();
-  await state.remove();
+  ({ checkout, forgejo } = forgejoWithCheckout());
 });
 
 const runSeamInProcess: RunSeam = async (args) => {

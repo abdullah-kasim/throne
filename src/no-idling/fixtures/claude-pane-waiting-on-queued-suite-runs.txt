@@ -1,0 +1,14 @@
+⏺ Both suite runs (candidate and base) are still queued for a
+  container slot. I'll pick up again when they report.
+
+✻ Sautéed for 6m 57s · done 4:36 PM · 4 shells, 1 monitor still
+  running
+
+❯ /color purple
+  ⎿  Session color set to: purple
+
+─────────────────────────────── shadow-onescrub-99a-conform-r2 ─
+❯
+────────────────────────────────────────────────────────────────
+  Opus 5.5 · effort:medium · ~/.throne/worktrees/throne/shado…
+  ⏵⏵ bypass permissions on · gh auth login for PR status · 4 s

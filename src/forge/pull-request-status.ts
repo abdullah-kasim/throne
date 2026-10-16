@@ -1,9 +1,10 @@
+import { crossHostMediaLinksOfPair, type CrossHostMediaLinks, type PairBodies } from "./cross-host-media-links.ts";
 import { ForgeRefusal } from "./forge-refusal.ts";
 import type { ForgejoApi } from "./forgejo-api.ts";
 import { findForgejoPullRequestAddress, forgejoAddressOfUrl, readForgejoPullRequestIfFound, type ForgejoPullRequestAddress } from "./forgejo-pull-requests.ts";
 import { gitOutput } from "./forgejo-repository.ts";
 import { githubViewArguments, runGithub } from "./github-pull-requests.ts";
-import { decideHostForge, FORGE, type HostForgeDecision } from "./host-forge.ts";
+import { decideHostForge, FORGE, type Forge, type HostForgeDecision } from "./host-forge.ts";
 import { githubProgramOfUrl, mergeTargetOf, type MergeTarget } from "./merging-on-github.ts";
 import {
   decideForgeHoldingPullRequest,
@@ -18,8 +19,6 @@ import {
 import { openForgejoApiOnThisHost, type ForgeContext } from "./pull-request-operations.ts";
 import { PULL_REQUEST_STATE, PULL_REQUEST_STATUS_FIELDS } from "./pull-request-shapes.ts";
 import { githubTwinOf } from "./staged-pair.ts";
-
-type Forge = (typeof FORGE)[keyof typeof FORGE];
 
 export const TARGET_KIND = { githubUrl: "github-url", forgejoUrl: "forgejo-url", number: "number", branch: "branch" } as const;
 export type TargetKind = (typeof TARGET_KIND)[keyof typeof TARGET_KIND];
@@ -58,6 +57,7 @@ export interface PullRequestStatus {
   readonly publishTo: Forge;
   readonly mergeTarget: MergeTarget | null;
   readonly mergeTargetRefusal: string | null;
+  readonly crossHostMediaLinks: CrossHostMediaLinks;
 }
 
 interface GithubPullRequestJson {
@@ -70,6 +70,12 @@ interface GithubPullRequestJson {
   readonly headRefOid: string;
   readonly mergedAt?: string | null;
   readonly mergeCommit?: { readonly oid: string } | null;
+  readonly body: string;
+}
+
+interface SideRead<Side> {
+  readonly side: Side;
+  readonly body: string;
 }
 
 interface FoundSides {
@@ -77,9 +83,10 @@ interface FoundSides {
   readonly how: string;
   readonly forgejo: ForgejoSide | null;
   readonly github: GithubSide | null;
+  readonly bodies: PairBodies;
 }
 
-type GithubRead = { readonly found: true; readonly side: GithubSide } | { readonly found: false; readonly reason: string };
+type GithubRead = ({ readonly found: true } & SideRead<GithubSide>) | { readonly found: false; readonly reason: string };
 
 const ORIGIN_HOST_PATTERN = /^(?:[a-z+]+:\/\/)?(?:[^@/]+@)?([^/:]+)[/:]/;
 
@@ -119,13 +126,14 @@ async function readGithubSide(context: ForgeContext, targetText: string, program
   const invocation = { program, repo: context.repo, bypass: false };
   const result = await runGithub(githubViewArguments(targetText, PULL_REQUEST_STATUS_FIELDS), invocation, context.dependencies);
   if (result.exitCode !== 0) return { found: false, reason: `${program} could not read ${targetText}: ${result.stderr.trim()}` };
-  return { found: true, side: githubSideOf(JSON.parse(result.stdout) as GithubPullRequestJson) };
+  const pullRequest = JSON.parse(result.stdout) as GithubPullRequestJson;
+  return { found: true, side: githubSideOf(pullRequest), body: pullRequest.body };
 }
 
-async function readForgejoSide(address: ForgejoPullRequestAddress, api: ForgejoApi): Promise<ForgejoSide | null> {
+async function readForgejoSide(address: ForgejoPullRequestAddress, api: ForgejoApi): Promise<SideRead<ForgejoSide> | null> {
   const view = await readForgejoPullRequestIfFound(address, api);
   if (view === undefined) return null;
-  return {
+  const side = {
     url: view.url,
     number: view.number,
     state: view.state,
@@ -134,17 +142,32 @@ async function readForgejoSide(address: ForgejoPullRequestAddress, api: ForgejoA
     head: view.headRefName,
     headSha: view.headSha,
   };
+  return { side, body: view.body };
 }
 
-async function githubTwinOfForgejoSide(context: ForgeContext, forgejo: ForgejoSide, address: ForgejoPullRequestAddress, api: ForgejoApi): Promise<GithubSide | null> {
+function sidesRead(resolvedOn: Forge, forgejo: SideRead<ForgejoSide> | null, github: SideRead<GithubSide> | null): Omit<FoundSides, "how"> {
+  return {
+    resolvedOn,
+    forgejo: forgejo?.side ?? null,
+    github: github?.side ?? null,
+    bodies: { forgejo: forgejo?.body ?? null, github: github?.body ?? null },
+  };
+}
+
+async function githubTwinOfForgejoSide(
+  context: ForgeContext,
+  forgejo: ForgejoSide,
+  address: ForgejoPullRequestAddress,
+  api: ForgejoApi,
+): Promise<SideRead<GithubSide> | null> {
   const githubUrl = await githubTwinOf({ api, address, url: forgejo.url });
   if (githubUrl === undefined) return null;
   const read = await readGithubSide(context, githubUrl, githubProgramOfUrl(githubUrl));
   if (!read.found) throw new ForgeRefusal(`${forgejo.url} links the GitHub pull request ${githubUrl}, but ${read.reason}`);
-  return read.side;
+  return read;
 }
 
-async function forgejoTwinOfGithubSide(context: ForgeContext, github: GithubSide, host: HostForgeDecision): Promise<ForgejoSide | null> {
+async function forgejoTwinOfGithubSide(context: ForgeContext, github: GithubSide, host: HostForgeDecision): Promise<SideRead<ForgejoSide> | null> {
   if (host.forge === FORGE.github) return null;
   const api = await openForgejoApiOnThisHost(context.dependencies);
   const twinUrl = await forgejoTwinUrlOfGithubPullRequest(parsePullRequestTarget(github.url) as PullRequestUrlTarget, api);
@@ -160,13 +183,13 @@ async function originGithubProgram(context: ForgeContext): Promise<GithubProgram
 async function sidesFromForgejo(context: ForgeContext, address: ForgejoPullRequestAddress, api: ForgejoApi): Promise<Omit<FoundSides, "how"> | undefined> {
   const forgejo = await readForgejoSide(address, api);
   if (forgejo === null) return undefined;
-  return { resolvedOn: FORGE.forgejo, forgejo, github: await githubTwinOfForgejoSide(context, forgejo, address, api) };
+  return sidesRead(FORGE.forgejo, forgejo, await githubTwinOfForgejoSide(context, forgejo.side, address, api));
 }
 
 async function sidesFromGithub(context: ForgeContext, targetText: string, program: GithubProgram, host: HostForgeDecision): Promise<Omit<FoundSides, "how"> | string> {
   const read = await readGithubSide(context, targetText, program);
   if (!read.found) return read.reason;
-  return { resolvedOn: FORGE.github, github: read.side, forgejo: await forgejoTwinOfGithubSide(context, read.side, host) };
+  return sidesRead(FORGE.github, await forgejoTwinOfGithubSide(context, read.side, host), read);
 }
 
 async function sidesOfForgejoUrl(context: ForgeContext, target: PullRequestUrlTarget): Promise<FoundSides> {
@@ -219,6 +242,7 @@ export async function pullRequestStatus(context: ForgeContext, targetText: strin
     inSync: inSyncOf(forgejo, github),
     publishTo: publishToOf(kind, stage, forgejo),
     ...mergeTargetOf(github?.url ?? null, forgejo?.url ?? null),
+    crossHostMediaLinks: await crossHostMediaLinksOfPair(sides.bodies, host.url, context.dependencies),
   };
 }
 

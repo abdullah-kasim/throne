@@ -20,6 +20,11 @@ import { refuseForOccupiedTree } from "./occupancy.ts";
 import { verifyNoStrandedTree } from "./strand.ts";
 import { executeTeardown } from "./teardown.ts";
 import {
+  writeSuccessfulOutcome,
+  writeUnreleasedRowOutcome,
+} from "./successful-outcome.ts";
+import { refuseReapOfStartingSpawn } from "./starting-spawn-guard.ts";
+import {
   appendLaunchLedgerStatus,
   type LaunchTerminalStatus,
 } from "../alpha-launch-queue/launch-ledger.ts";
@@ -31,6 +36,7 @@ import {
   requireLiveReapabilityClaim,
 } from "./reapability-claim.ts";
 import {
+  campaignRowIsExpected,
   readQueueLinkage,
   resolveQueueReapEvidence,
 } from "./queue-reap-writeback.ts";
@@ -191,6 +197,7 @@ async function cascadeLiveChildren(
         name: childName,
         force: true,
         bypassMarker: request.bypassMarker,
+        spawnProcessGone: request.spawnProcessGone,
         reason: "force",
         archiveAbandonedUnmerged: false,
       },
@@ -206,52 +213,6 @@ async function cascadeLiveChildren(
     }
   }
   return true;
-}
-
-function writeSuccessfulOutcome(
-  request: ReapRequest,
-  actions: string[],
-  rosterKnown: boolean,
-  abandonedDisposition:
-    | {
-        ref: string;
-        tip: string;
-      }
-    | undefined,
-): number {
-  if (actions.length === 0) {
-    const note = rosterKnown ? "" : " (roster unreachable)";
-    process.stdout.write(
-      `reap-agent: "${request.name}" is already gone — nothing to reap${note}.\n`,
-    );
-    return 0;
-  }
-  if (abandonedDisposition !== undefined) {
-    // The teardown mechanism is identical whether the branch was genuinely
-    // abandoned-unmerged (--reason abandoned --archive-abandoned-unmerged) or
-    // whether it failed the ancestry guard on a --force reap carrying some
-    // other reason (e.g. a transplant campaign whose content already landed
-    // via history rewrite). Only the label may differ — the timing row
-    // already records the caller's actual `request.reason` untouched.
-    const label =
-      request.reason === REAP_REASON.ABANDONED
-        ? "ABANDONED-UNMERGED"
-        : "UNMERGED-RETAINED";
-    const explanation =
-      request.reason === REAP_REASON.ABANDONED
-        ? "The branch was not merged or deleted, and its retained ref blocks exact-name reuse.\n"
-        : "The branch's commits are not reachable from the target (commonly a " +
-          "history-rewrite transplant whose content already landed) so it was " +
-          "retained rather than merged or deleted; its retained ref blocks " +
-          "exact-name reuse.\n";
-    process.stdout.write(
-      `${label} "${request.name}": retained ${abandonedDisposition.ref} at ` +
-        `${abandonedDisposition.tip}; ${actions.join("; ")}. ${explanation}`,
-    );
-    return 0;
-  }
-  process.stdout.write(`Reaped "${request.name}": ${actions.join("; ")}.\n`);
-  return 0;
 }
 
 /**
@@ -334,6 +295,10 @@ export async function reapAgent(
     return 1;
   }
   visited.add(request.name);
+
+  if (await refuseReapOfStartingSpawn(request, deps)) {
+    return 1;
+  }
 
   // A queue-linked agent's row moves only on `completed`, `abandoned`, or
   // `force`; `scratch` is a deliberate no-op for the row. That silent no-op is
@@ -477,6 +442,11 @@ export async function reapAgent(
     deps.resolveQueueReapEvidence ?? resolveQueueReapEvidence
   )(request.name, request.reason);
   const launchLedgerStatus = await resolveLaunchLedgerStatus(request, deps);
+  const rowIsExpected = await campaignRowIsExpected(
+    request.name,
+    request.reason,
+    deps,
+  );
 
   try {
     const outcome = await executeTeardown(
@@ -492,14 +462,19 @@ export async function reapAgent(
     if (outcome.status === "refused") {
       return 1;
     }
-    await deps.writeQueueReapOutcome?.(request.name, request.reason, {
-      evidenceResolvedBeforeTeardown: queueReapEvidence,
-    });
+    const rowRelease = await deps.writeQueueReapOutcome?.(
+      request.name,
+      request.reason,
+      { evidenceResolvedBeforeTeardown: queueReapEvidence },
+    );
     await recordLaunchLedgerStatus(request, launchLedgerStatus, deps);
     if (!(await verifyNoStrandedTree(request.name, outcome.spawnCwd, deps))) {
       return 1;
     }
     writeNonLiveChildren(request.name, children.nonLive);
+    if (rowIsExpected && rowRelease?.released === false) {
+      return writeUnreleasedRowOutcome(request, outcome.actions, rowRelease.reason);
+    }
     return writeSuccessfulOutcome(
       request,
       outcome.actions,

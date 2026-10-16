@@ -132,6 +132,7 @@ export interface HarnessRequest {
   model: string;
   /** Portable effort score, 1–6 (MODEL_POLICY's scale). */
   effort: number;
+  sessionName?: string;
 }
 
 /**
@@ -377,6 +378,12 @@ function launcherExecutable(family: LauncherFamily): string {
   return throneLauncherPath(family);
 }
 
+const SESSION_NAME_FLAG = '--name';
+
+function sessionNameArguments(sessionName: string | undefined): string[] {
+  return sessionName === undefined ? [] : [SESSION_NAME_FLAG, sessionName];
+}
+
 export function buildLaunchArgv(request: HarnessRequest): string[] {
   const model = resolveModel(request.harness, request.model);
   const launcher = launcherExecutable(launcherFamily(request.harness, model));
@@ -393,6 +400,7 @@ export function buildLaunchArgv(request: HarnessRequest): string[] {
       launchModel,
       '--effort',
       effortToken(request.harness, request.effort),
+      ...sessionNameArguments(request.sessionName),
     ];
   }
   if (runtimeHarness(request.harness) === HARNESS_NAMES.OPENCODE) {

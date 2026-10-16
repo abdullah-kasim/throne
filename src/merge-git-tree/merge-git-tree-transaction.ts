@@ -7,7 +7,7 @@ import {
   openRegentQueueStore,
   resolveRegentQueueDatabasePath,
 } from "../regent-queue/regent-queue.store.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 
 export const TARGET_DELIVERY_LOCK_TTL_MS = 60_000;
 
@@ -22,7 +22,7 @@ export async function withTargetDeliveryLock<T>(
   const key = createHash("sha256").update(canonicalTarget).digest("hex");
   const release = await acquireAtomicMkdirLock({
     lockPath: path.join(
-      dataDir ?? RUNTIME_DATA_DIR,
+      dataDir ?? THRONE_DATA_DIR,
       ".runtime",
       "target-delivery-locks",
       `${key}.lock`,
@@ -68,7 +68,7 @@ export async function markDeliveryValidationRequired(
   const spawn = await readSpawnSpec(name, dataDir);
   if (spawn?.objective_code === undefined) return;
   const store = openRegentQueueStore(
-    resolveRegentQueueDatabasePath(dataDir ?? RUNTIME_DATA_DIR),
+    resolveRegentQueueDatabasePath(dataDir ?? THRONE_DATA_DIR),
   );
   try {
     store.markValidationRequired(spawn.objective_code);

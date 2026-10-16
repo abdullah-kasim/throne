@@ -130,6 +130,7 @@ async function runNestCommandStack(
     readAgentStatusesDesiredState: async () => scenario.desiredState,
     getAgentStatusesRoster: async () =>
       nestAgentStatusesParityRoster(scenario),
+    readAgentSpawnStillStarting: async () => false,
   };
   class AgentStatusesParityModule {}
   Module({
@@ -174,6 +175,7 @@ async function runAgentStatusesProgrammatically(
     readAgentStatusesDesiredState: async () => scenario.desiredState,
     getAgentStatusesRoster: async () =>
       nestAgentStatusesParityRoster(scenario),
+    readAgentSpawnStillStarting: async () => false,
   };
   const command = route === 'nest-programmatic'
     ? new AgentStatusesCommand(dependencies)

@@ -42,7 +42,7 @@ This applies everywhere: production code, scripts, tests, CLIs, migrations, infr
 
 ## Verify user-visible behavior end to end
 
-For every user-visible feature or regression fix, exercise the affected journey through the real application stack before declaring the work complete. Use the global `$e2e-testing` skill for browser workflows.
+For every user-visible feature or regression fix, exercise the affected journey through the real application stack before declaring the work complete. Use the project's browser end-to-end tooling (for example the `agent-browser` CLI) for browser workflows.
 
 - Prefer the project’s existing E2E suite. When none exists, perform the journey with `agent-browser` in a named session (`--session <name>`).
 - Verify observable behavior, not implementation details or values manufactured by test setup.
@@ -53,15 +53,15 @@ For every user-visible feature or regression fix, exercise the affected journey 
 
 **Accessible by construction.** Every interactive element a change adds or edits is reachable by keyboard with a visible focus state, carries an accessible name that says what it does (visible text, `aria-label`, or visually hidden text), keeps text contrast at 4.5:1 and click targets at 24px or larger, and conveys state by more than colour alone. Screen readers and keyboards are users, not edge cases; a control they cannot reach is a control that does not exist. The `frontend-critic` skill audits this for the changed surfaces only: accessibility debt the change did not touch is reported, never silently fixed, so a slice stays the size it was planned.
 
-Behaviour is half of user-visible. When a change touches CSS, markup, or component rendering, its appearance is verified with the throne-local `/frontend-critic` skill: render the served build, measure the changed element against its neighbours, check every state in Chromium, and fix until the report is empty. In a campaign this runs inside the `99b` verify gate of every bundle stamped `frontend: true`; a Stager or a no-alpha session runs it directly before calling the change done. A green suite is the floor; the Lord noticing a one-pixel offset is a failure of this step, not a review comment.
+Behaviour is half of user-visible. When a change touches CSS, markup, or component rendering, its appearance is verified with the throne-local `/frontend-critic` skill: render the served build, measure the changed element against its neighbours, check every state in Chromium, act mid-request and away-and-back on every piece of state the change keeps, hunt for the bugs the checklist misses, and fix until the report is empty. In a campaign this runs inside the `99b` verify gate of every bundle stamped `frontend: true`; a Stager or a no-alpha session runs it directly before calling the change done. A green suite is the floor; the Lord noticing a one-pixel offset is a failure of this step, not a review comment.
 
 ## Functions should do one thing (SRP)
 
 Don't merge two distinct operations into a single function just because they often appear together. Each function should have a single responsibility.
 
-**Bad:** `checkDeployOrSchedulePoll()` — checks status AND secretly schedules a poll retry, then returns a status code that doesn't clearly communicate what happened. The caller sees logic "suddenly end" with no visible action taken on one of the branches.
+**Bad:** `checkExportOrSchedulePoll()` — checks status AND secretly schedules a poll retry, then returns a status code that doesn't clearly communicate what happened. The caller sees logic "suddenly end" with no visible action taken on one of the branches.
 
-**Good:** Split into `checkMetadataDeployStatus()` (returns status) and `scheduleMetadataDeployPoll()` (schedules the retry). The caller explicitly handles each status and the control flow is readable.
+**Good:** Split into `checkInvoiceExportStatus()` (returns status) and `scheduleInvoiceExportPoll()` (schedules the retry). The caller explicitly handles each status and the control flow is readable.
 
 The test: if the function name has "And" or "Or" connecting two verbs, it's probably doing too much. `startEngine()` is fine because it's one conceptual operation even if it has internal steps. But `checkStatusAndScheduleRetry()` is two operations that the caller should control.
 
@@ -99,7 +99,7 @@ Generated artifacts follow their own generation contract, but they are not a loo
 
 ## Naming source-level identifiers (crates, modules, types)
 
-The "Self-documenting code" rules above cover functions and variables. Coarse-grain identifiers — crate names, module names, file/folder names, type names — need extra care: they're harder to rename later (more callers, more workspace plumbing) and they shape how the next reader frames the whole subsystem. The target-in-the-name rule from "Naming user-facing actions" (see global `CLAUDE.md`) applies here too, plus four extensions:
+The "Self-documenting code" rules above cover functions and variables. Coarse-grain identifiers — crate names, module names, file/folder names, type names — need extra care: they're harder to rename later (more callers, more workspace plumbing) and they shape how the next reader frames the whole subsystem. The target-in-the-name rule from "Naming user-facing actions" (below) applies here too, plus four extensions:
 
 - **Plain English over domain-theory jargon.** If a competent engineer without a CS-theory background has to pause and look the word up, pick a different word. `oracle` (test-theory term for the verdict component) → `verifier`. `factory` over `provider` when it just constructs. The bar isn't "is this technically correct?" — it's "will the next reader recognise it on first pass?".
 
@@ -133,13 +133,13 @@ This is the "no surprises" diagnostic applied to the tree: the layout should mat
 
 Write functions as contracts: defined inputs, defined outputs. The function signature IS the contract — a caller should know exactly what they're getting back without reading the implementation.
 
-**Use enums/types for return values, not magic strings.** If a function can return one of a known set of outcomes, define an enum. Strings are not contracts — they're accidents waiting to happen. `MetadataDeployStatus.PENDING` is a contract; `'PENDING'` is a string that someone will eventually typo.
+**Use enums/types for return values, not magic strings.** If a function can return one of a known set of outcomes, define an enum. Strings are not contracts — they're accidents waiting to happen. `InvoiceExportStatus.PENDING` is a contract; `'PENDING'` is a string that someone will eventually typo.
 
 **No semantic magic strings or magic variables—not even once.** When a value carries domain meaning (an identity, role, state, protocol token, path, timeout, feature flag, or comparison rule), name it once at the authoritative boundary and reuse that constant, type, or function everywhere. “It is only used here” is not an exception: the first inline spelling is how a second drifting spelling becomes possible. Normalize and compare domain values through one named function; never scatter raw `.toLowerCase()`, literal sentinels, or locally reconstructed constants across callers.
 
 **Functions produce values, callers make decisions.** A function that checks status should RETURN the status. The caller decides what to do with it. Don't bury decision-making inside a function that's supposed to be answering a question — that's coupling disguised as convenience.
 
-**Bad:** `getDataKitDeployStatus()` returns a status string AND logs AND queries AND handles exceptions internally, then the caller also has branching logic that partially duplicates the internal error handling.
+**Bad:** `getInvoiceExportStatus()` returns a status string AND logs AND queries AND handles exceptions internally, then the caller also has branching logic that partially duplicates the internal error handling.
 
 **Good:** Query function returns a typed result. Caller handles each case explicitly. The query function's contract is: "give me the status or null" — nothing more.
 

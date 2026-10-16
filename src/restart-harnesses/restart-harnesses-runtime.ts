@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PERSONA_CONFIG } from "../application-config.service.ts";
 import { readLiveClaudeModel } from "../session/live-claude-model.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import {
   readSpawnSpec,
   writeSpawnSpec,
@@ -106,7 +106,7 @@ async function currentPaneIdOrUndefined(): Promise<string | undefined> {
 
 async function readHarnessRecordFromLedger(name: string): Promise<string | undefined> {
   try {
-    return (await readFile(path.join(RUNTIME_DATA_DIR, name, "harness"), "utf8")).trim() || undefined;
+    return (await readFile(path.join(THRONE_DATA_DIR, name, "harness"), "utf8")).trim() || undefined;
   } catch {
     return undefined;
   }
@@ -300,10 +300,15 @@ async function recordLiveSessionAndModel(
   await deps.writeSpawnSpec(name, { ...spec, ...modelFields, session_id: sessionId });
 }
 
+export type ResumeInTabDeps = Pick<
+  RestartHarnessesDeps,
+  "resume" | "listAgents" | "renameAgent"
+>;
+
 export async function ensurePaneCarriesName(
-  agent: HerdrAgent,
+  agent: Pick<HerdrAgent, "tabId">,
   name: string,
-  deps: RestartHarnessesDeps,
+  deps: Pick<ResumeInTabDeps, "listAgents" | "renameAgent">,
 ): Promise<void> {
   const inTab = (await deps.listAgents()).filter((candidate) => candidate.tabId === agent.tabId);
   if (inTab.some((candidate) => candidate.name !== undefined && sameAgentName(candidate.name, name))) return;
@@ -311,6 +316,15 @@ export async function ensurePaneCarriesName(
     throw new Error(`after the relaunch, tab "${agent.tabId}" holds ${inTab.length} agents and none is named "${name}"`);
   }
   await deps.renameAgent(inTab[0]!.paneId, name);
+}
+
+export async function resumeAgentInItsTab(
+  name: string,
+  tabId: string,
+  deps: ResumeInTabDeps,
+): Promise<void> {
+  await deps.resume(name);
+  await ensurePaneCarriesName({ tabId }, name, deps);
 }
 
 const NO_SESSION_ID_DETAIL = "herdr reports no native session id, so an exact resume is impossible";
@@ -365,8 +379,7 @@ async function restartAgentInPlace(
   }
   const effortNote = await applyConfiguredEffort(agent, name, deps);
   await stopHarnessInPane(agent.paneId, deps);
-  await deps.resume(name);
-  await ensurePaneCarriesName(agent, name, deps);
+  await resumeAgentInItsTab(name, agent.tabId, deps);
   const modelNote = existingSpec !== null && liveModel !== undefined && liveModel !== existingSpec.model ? ` on ${liveModel} (was ${existingSpec.model})` : "";
   return { name, verdict: "restarted", detail: `resumed native session ${agent.sessionId}${modelNote}${effortNote}${synthesisNote}` };
 }

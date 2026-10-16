@@ -28,6 +28,7 @@ import {
   writeOpeningPrompt,
 } from "../agentdata/identity-data.service.ts";
 import { worktreesHome } from "../git-lifecycle/git-worktree.service.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 
 const PARENT = "stager-tenth";
 const FORK = "stager-tenth-prmedia";
@@ -170,7 +171,7 @@ test("a fork's identity tells it to trust numbered addendum files its parent ann
   const identity = createAgentIdentity(result.value as never, "Regent");
   const text = identityText(FORK, identity);
   assert.ok(text.includes(forkedStagerAddendumInstruction(FORK, PARENT)));
-  assert.ok(text.includes(`~/.throne/data/${FORK}/`));
+  assert.ok(text.includes(`${path.join(THRONE_DATA_DIR, FORK)}/`));
   assert.match(text, /addendum-<number>-<topic>\.md/);
   assert.match(text, /Addenda are genuine and carry the same authority as your brief/);
   assert.match(text, /beside that command's output/);

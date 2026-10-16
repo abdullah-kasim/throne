@@ -1,4 +1,4 @@
-import { runHerdrInSession, type HerdrProcessBoundary } from './herdr-client.ts';
+import { runHerdrInSession, writeToPaneHoldingItsLock, type HerdrProcessBoundary } from './herdr-client.ts';
 
 export function sendTextInSession(
   sessionName: string,
@@ -6,11 +6,9 @@ export function sendTextInSession(
   text: string,
   processBoundary?: HerdrProcessBoundary,
 ): Promise<void> {
-  return runHerdrInSession(
-    sessionName,
-    ['pane', 'send-text', target, text],
-    processBoundary,
-  ).then(() => undefined);
+  return writeToPaneHoldingItsLock(target, () =>
+    runHerdrInSession(sessionName, ['pane', 'send-text', target, text], processBoundary),
+  );
 }
 
 export function pressEnterInSession(
@@ -18,11 +16,9 @@ export function pressEnterInSession(
   pane: string,
   processBoundary?: HerdrProcessBoundary,
 ): Promise<void> {
-  return runHerdrInSession(
-    sessionName,
-    ['pane', 'send-keys', pane, 'Enter'],
-    processBoundary,
-  ).then(() => undefined);
+  return writeToPaneHoldingItsLock(pane, () =>
+    runHerdrInSession(sessionName, ['pane', 'send-keys', pane, 'Enter'], processBoundary),
+  );
 }
 
 export function pressPaneKeyInSession(
@@ -31,9 +27,7 @@ export function pressPaneKeyInSession(
   key: string,
   processBoundary?: HerdrProcessBoundary,
 ): Promise<void> {
-  return runHerdrInSession(
-    sessionName,
-    ['pane', 'send-keys', pane, key],
-    processBoundary,
-  ).then(() => undefined);
+  return writeToPaneHoldingItsLock(pane, () =>
+    runHerdrInSession(sessionName, ['pane', 'send-keys', pane, key], processBoundary),
+  );
 }

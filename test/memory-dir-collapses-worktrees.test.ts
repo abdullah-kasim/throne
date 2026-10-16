@@ -24,6 +24,7 @@ function depsWithHome(homeDirectory: string) {
     ...PRODUCTION_MEMORY_RESOLVER_DEPS,
     findExecutable: async () => undefined,
     homeDir: () => homeDirectory,
+    throneHome: () => path.join(homeDirectory, '.throne'),
   };
 }
 
@@ -81,7 +82,7 @@ test('real git: worktree and subdirectory share the main checkout memory; non-gi
   const plain = await mkdtemp(path.join(tmpdir(), 'throne-memory-dir-plain-'));
   scratch.push(plain);
 
-  const expected = throneNativeMemoryDir(home, home, main);
+  const expected = throneNativeMemoryDir(path.join(home, '.throne'), home, main);
   for (const dir of [main, feature, nested]) {
     const resolution = await resolveMemoryDir(dir, deps);
     assert.equal(resolution.mode, 'throne-native', dir);
@@ -91,5 +92,5 @@ test('real git: worktree and subdirectory share the main checkout memory; non-gi
 
   const plainResolution = await resolveMemoryDir(plain, deps);
   assert.equal(plainResolution.repoRoot, await realpath(plain));
-  assert.equal(plainResolution.path, throneNativeMemoryDir(home, home, await realpath(plain)));
+  assert.equal(plainResolution.path, throneNativeMemoryDir(path.join(home, '.throne'), home, await realpath(plain)));
 });

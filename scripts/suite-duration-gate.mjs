@@ -48,23 +48,25 @@ export function formatTenSecondLawViolationLine(violation) {
   return `run-suite-container: ten-second law violation: "${violation.name}" ran for ${violation.durationMs}ms, exceeding the ${violation.thresholdMs}ms (ten second) threshold\n`;
 }
 
+const TEN_SECOND_LAW_VIOLATION_LINE = /^run-suite-container: ten-second law violation: "(.+)" ran for [\d.]+ms, exceeding /gm;
+
+export function parseTenSecondLawViolationNames(suiteOutput) {
+  return [...suiteOutput.matchAll(TEN_SECOND_LAW_VIOLATION_LINE)].map((match) => match[1]);
+}
+
 /**
  * Forces a dedicated nonzero exit status onto an otherwise-passing `status`
  * when the captured suite output reports any item over the ten-second
  * bound — mirroring how run-suite-container.mjs's own
  * `suiteExitedCleanWithoutRunningTests` already forces a nonzero outcome
- * for a different failure class. The law binds the ordinary suite command
- * only: `isHeavyTier` (THRONE_HEAVY_TESTS, set by test:heavy's own npm
- * script) suppresses the check entirely, leaving test:heavy's own
- * --test-timeout=600000 as the bound for its legitimately long real-infra
- * items.
+ * for a different failure class.
  */
 export function applyTenSecondLawGate(
   status,
   suiteOutput,
-  { isHeavyTier, writeViolation },
+  { isExempt, writeViolation },
 ) {
-  if (isHeavyTier) return status;
+  if (isExempt) return status;
   const violations = findTenSecondLawViolations(
     parseTestItemDurationsMs(suiteOutput),
   );

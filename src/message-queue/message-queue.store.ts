@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { RUNTIME_DATA_HOME } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_HOME } from "../shared-policy/throne-home.ts";
 import {
   acknowledgeDeliveryFailureNotice,
   countAllUnacknowledgedDeliveryFailureNotices,
@@ -39,7 +39,7 @@ import { recordWorkItemOutcome } from "./work-item-outcome.store.ts";
 export const MESSAGE_QUEUE_DATABASE_FILE_NAME = "message-queue.sqlite3";
 
 export function resolveMessageQueueDatabasePath(
-  dataHome: string = RUNTIME_DATA_HOME,
+  dataHome: string = THRONE_HOME,
 ): string {
   return path.join(dataHome, MESSAGE_QUEUE_DATABASE_FILE_NAME);
 }

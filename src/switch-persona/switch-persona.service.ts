@@ -28,14 +28,17 @@ import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import {
   loadValidatedPersonaOverride,
   mergePersonaConfig,
-  personaUserConfigPath,
   ROLEPLAY_PRESET_NAMES,
   ROLEPLAY_PRESETS,
   type PersonaConfig,
   type RoleplayPresetName,
 } from "../application-config.service.ts";
-import { resolveLiveThroneRoot } from "../throne-root-resolution.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import {
+  homeUserConfigPath,
+  resolveUserConfigPath,
+  writeHomeConfigModulePackageIfMissing,
+} from "../user-config-loader.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { listRegisteredAgentNames } from "../agent-statuses/agent-statuses-registry.ts";
 import { resolveAgent } from "../herdr/herdr-runtime.service.ts";
 import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
@@ -115,7 +118,10 @@ async function productionBroadcastDeps(): Promise<
 export function productionSwitchPersonaDeps(): SwitchPersonaDeps {
   return {
     readFileIfExists: readFileIfExistsReal,
-    writeFileText: (path, text) => writeFile(path, text, "utf8"),
+    writeFileText: async (filePath, text) => {
+      if (filePath === homeUserConfigPath()) await writeHomeConfigModulePackageIfMissing();
+      await writeFile(filePath, text, "utf8");
+    },
     now: () => new Date(),
     broadcast: async (presetName, config) =>
       broadcastPersonaSwitch(
@@ -124,7 +130,7 @@ export function productionSwitchPersonaDeps(): SwitchPersonaDeps {
         await productionBroadcastDeps(),
       ),
     syncSymlinks: (config) =>
-      syncPersonaLedgerSymlinks(RUNTIME_DATA_DIR, config),
+      syncPersonaLedgerSymlinks(THRONE_DATA_DIR, config),
     out: (text) => process.stdout.write(text),
     err: (text) => process.stderr.write(text),
   };
@@ -204,11 +210,11 @@ const SPAWN_TIME_NOTE =
 
 async function resolveConfigPath(deps: SwitchPersonaDeps): Promise<string> {
   if (deps.configPath) return deps.configPath;
-  return personaUserConfigPath(await resolveLiveThroneRoot());
+  return resolveUserConfigPath();
 }
 
 function resolveHistoryPath(deps: SwitchPersonaDeps): string {
-  return deps.historyPath ?? personaHistoryPath(RUNTIME_DATA_DIR);
+  return deps.historyPath ?? personaHistoryPath(THRONE_DATA_DIR);
 }
 
 async function showCurrent(

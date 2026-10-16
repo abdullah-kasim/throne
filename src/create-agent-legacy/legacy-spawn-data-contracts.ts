@@ -1,9 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { isDeepStrictEqual } from "node:util";
 import { access } from "node:fs/promises";
-export const DEFAULT_DATA_DIR = RUNTIME_DATA_DIR;
+export const DEFAULT_DATA_DIR = THRONE_DATA_DIR;
 export async function fileExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);

@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { statSync } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { throneBrowserProfilesDirectory } from '../../../src/shared-policy/throne-home.ts';
 
 export const COMMENT_BOX_SELECTOR = '#new_comment_field';
 export const COMMENT_FILE_INPUT_SELECTOR = '#fc-new_comment_field';
@@ -11,8 +11,8 @@ const UPLOAD_POLL_MILLISECONDS = 1000;
 const UPLOAD_BASE_WAIT_MILLISECONDS = 60000;
 const UPLOAD_WAIT_MILLISECONDS_PER_MEGABYTE = 2000;
 
-export function profileDirectoryFor(host, home = os.homedir()) {
-  return path.join(home, '.config', 'throne', 'agent-browser', host.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+export function profileDirectoryFor(host, environment = process.env) {
+  return path.join(throneBrowserProfilesDirectory(environment), host.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
 }
 
 export function gitProxyFor(host) {

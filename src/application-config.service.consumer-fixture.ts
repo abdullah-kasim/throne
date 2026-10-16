@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { TestContext } from 'node:test';
 import type { PersonaConfig } from './application-config.service.ts';
+import { checkoutUserConfigPath } from './user-config-loader.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -105,7 +106,7 @@ export async function fixtureLiveThroneRootCwd(
       '{ "type": "module" }\n',
     );
     await writeFile(
-      path.join(root, 'config.user.ts'),
+      checkoutUserConfigPath(root),
       userConfigSource,
     );
   }

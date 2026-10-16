@@ -1,0 +1,454 @@
+ℹ tests 2113
+ℹ suites 0
+ℹ pass 2086
+ℹ fail 24
+ℹ cancelled 0
+ℹ skipped 3
+ℹ todo 0
+ℹ duration_ms 595558.101107
+
+✖ failing tests:
+
+test at src/memory-recall/recall-report-scope.spec.ts:174:1
+✖ a dig that finds a relevant memory inside the searched scope counts as missed-and-found (103.77916ms)
+  AssertionError [ERR_ASSERTION]: MAIN: missed-and-found (Jev served nothing relevant, then a dig found a relevant memory in the memory directories Jev searched that Jev did not serve)
+      serve arm: 0.0 per 100 prompts (0 of 4 prompts)
+      shadow arm: 33.3 per 100 prompts (1 of 3 prompts)
+    The 1 most recent (at most 10):
+      - 2026-10-01T10:25:00.000Z shadow arm: "BEFORE_SCOPES_AT_HOME: fix the topic-oven problem" | Jev served: nothing | the dig found: OVEN.md
+        OVEN.md: candidacy unknown (logged before every answer was logged, so it was judged below 0.1 or never asked) | no ask
+      at TestContext.<anonymous> (file:///throne/src/memory-recall/recall-report-scope.spec.ts:176:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src/memory-recall/recall-report-scope.spec.ts:179:1
+✖ a dig that finds a relevant memory outside the searched scope is reported as an out-of-scope find and not as a miss (5.94332ms)
+  AssertionError [ERR_ASSERTION]: OUT OF SCOPE: a dig found a relevant memory outside the memory directories Jev searched (not counted as missed-and-found)
+      serve arm: 25.0 per 100 prompts (1 of 4 prompts); 1 of 1 first ran throne recall with that repository's scope; 0 of 1 had recall list that repository among the other repositories
+      shadow arm: 0.0 per 100 prompts (0 of 3 prompts); 0 of 0 first ran throne recall with that repository's scope; 0 of 0 had recall list that repository among the other repositories
+      at TestContext.<anonymous> (file:///throne/src/memory-recall/recall-report-scope.spec.ts:182:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src/memory-recall/recall-report-scope.spec.ts:188:1
+✖ the out-of-scope line counts how often the agent first called throne recall with that repository's scope (1.862925ms)
+  AssertionError [ERR_ASSERTION]: OUT OF SCOPE: a dig found a relevant memory outside the memory directories Jev searched (not counted as missed-and-found)
+      serve arm: 25.0 per 100 prompts (1 of 4 prompts); 1 of 1 first ran throne recall with that repository's scope; 0 of 1 had recall list that repository among the other repositories
+      shadow arm: 0.0 per 100 prompts (0 of 3 prompts); 0 of 0 first ran throne recall with that repository's scope; 0 of 0 had recall list that repository among the other repositories
+      at TestContext.<anonymous> (file:///throne/src/memory-recall/recall-report-scope.spec.ts:190:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src/memory-recall/recall-report-scope.spec.ts:192:1
+✖ the out-of-scope line counts the prompts whose out-of-scope find lay in a repository recall listed, and not one only asked about (0.147667ms)
+  AssertionError [ERR_ASSERTION]: OUT OF SCOPE: a dig found a relevant memory outside the memory directories Jev searched (not counted as missed-and-found)
+      serve arm: 25.0 per 100 prompts (1 of 4 prompts); 1 of 1 first ran throne recall with that repository's scope; 0 of 1 had recall list that repository among the other repositories
+      shadow arm: 0.0 per 100 prompts (0 of 3 prompts); 0 of 0 first ran throne recall with that repository's scope; 0 of 0 had recall list that repository among the other repositories
+      at TestContext.<anonymous> (file:///throne/src/memory-recall/recall-report-scope.spec.ts:194:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src/memory-recall/recall-report-scope.spec.ts:196:1
+✖ verdict calibration leaves out a dig whose relevant finds all lie outside the verdict's scope (1.474173ms)
+  AssertionError [ERR_ASSERTION]: BONUS: verdict calibration over prompts with a dig inside the verdict's scope (a dig whose relevant finds all lie outside it, or that followed a timed-out or errored hook run, is left out)
+    "no relevant memory" was right:
+      confidence 0.5-0.6: 2 of 3
+      confidence 0.9-1.0: 3 of 3
+    "memory likely exists" was right:
+      no prompt with a dig got this verdict
+    No confidence has "no relevant memory" right at least 95% of the time on at least 30 episodes yet (5 of 6 right over every confidence).
+      at TestContext.<anonymous> (file:///throne/src/memory-recall/recall-report-scope.spec.ts:198:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src/memory-recall/recall-report-scope.spec.ts:206:1
+✖ a ledger line recorded before scopes existed is read as the session's repository plus the global memories (0.251751ms)
+  AssertionError [ERR_ASSERTION]: MAIN: missed-and-found (Jev served nothing relevant, then a dig found a relevant memory in the memory directories Jev searched that Jev did not serve)
+      serve arm: 0.0 per 100 prompts (0 of 4 prompts)
+      shadow arm: 33.3 per 100 prompts (1 of 3 prompts)
+    The 1 most recent (at most 10):
+      - 2026-10-01T10:25:00.000Z shadow arm: "BEFORE_SCOPES_AT_HOME: fix the topic-oven problem" | Jev served: nothing | the dig found: OVEN.md
+        OVEN.md: candidacy unknown (logged before every answer was logged, so it was judged below 0.1 or never asked) | no ask
+      at TestContext.<anonymous> (file:///throne/src/memory-recall/recall-report-scope.spec.ts:209:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src/memory-recall/recall-report-scope.spec.ts:214:1
+✖ a ledger line recorded before scopes existed, from a worktree that has since been removed, is read as that worktree's repository plus the global memories (19.088883ms)
+  AssertionError [ERR_ASSERTION]: MAIN: missed-and-found (Jev served nothing relevant, then a dig found a relevant memory in the memory directories Jev searched that Jev did not serve)
+      serve arm: no prompts
+      shadow arm: 0.0 per 100 prompts (0 of 1 prompts)
+    The 0 most recent (at most 10):
+      at TestContext.<anonymous> (file:///throne/src/memory-recall/recall-report-scope.spec.ts:217:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at src/reap-agent/reapability-claim.spec.ts:111:1
+✖ a delivered commit no longer admits an Alpha that never published a claim (476.421389ms)
+  Error: Command failed: git commit -m seed
+  error: gpg failed to sign the data
+  fatal: failed to write commit object
+  
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:509:28)
+      at maybeClose (node:internal/child_process:1141:16)
+      at Socket.<anonymous> (node:internal/child_process:498:11)
+      at Socket.emit (node:events:509:28)
+      at Pipe.<anonymous> (node:net:355:12) {
+    code: 128,
+    killed: false,
+    signal: null,
+    cmd: 'git commit -m seed',
+    stdout: '',
+    stderr: 'error: gpg failed to sign the data\nfatal: failed to write commit object\n'
+  }
+
+test at src/reap-agent/reapability-claim.spec.ts:122:1
+✖ a written REPORT.md no longer admits a verdict-only Alpha that never published a claim (3.187724ms)
+  Error: Command failed: git commit -m seed
+  error: gpg failed to sign the data
+  fatal: failed to write commit object
+  
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:509:28)
+      at maybeClose (node:internal/child_process:1141:16)
+      at Socket.<anonymous> (node:internal/child_process:498:11)
+      at Socket.emit (node:events:509:28)
+      at Pipe.<anonymous> (node:net:355:12) {
+    code: 128,
+    killed: false,
+    signal: null,
+    cmd: 'git commit -m seed',
+    stdout: '',
+    stderr: 'error: gpg failed to sign the data\nfatal: failed to write commit object\n'
+  }
+
+test at src/reap-agent/reapability-claim.spec.ts:137:1
+✖ a no-delivery REPORT.md no longer admits a superseded Alpha that never published a claim (0.201209ms)
+  Error: Command failed: git commit -m seed
+  error: gpg failed to sign the data
+  fatal: failed to write commit object
+  
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:509:28)
+      at maybeClose (node:internal/child_process:1141:16)
+      at Socket.<anonymous> (node:internal/child_process:498:11)
+      at Socket.emit (node:events:509:28)
+      at Pipe.<anonymous> (node:net:355:12) {
+    code: 128,
+    killed: false,
+    signal: null,
+    cmd: 'git commit -m seed',
+    stdout: '',
+    stderr: 'error: gpg failed to sign the data\nfatal: failed to write commit object\n'
+  }
+
+test at src/reap-agent/reapability-claim.spec.ts:146:1
+✖ a verdict-only Shadow with no delivery commit and no published claim is still refused teardown (0.049209ms)
+  Error: Command failed: git commit -m seed
+  error: gpg failed to sign the data
+  fatal: failed to write commit object
+  
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:509:28)
+      at maybeClose (node:internal/child_process:1141:16)
+      at Socket.<anonymous> (node:internal/child_process:498:11)
+      at Socket.emit (node:events:509:28)
+      at Pipe.<anonymous> (node:net:355:12) {
+    code: 128,
+    killed: false,
+    signal: null,
+    cmd: 'git commit -m seed',
+    stdout: '',
+    stderr: 'error: gpg failed to sign the data\nfatal: failed to write commit object\n'
+  }
+
+test at src/reap-agent/reapability-claim.spec.ts:159:1
+✖ an Alpha still genuinely working, with no delivery evidence and no REPORT.md, is still refused teardown without a published claim (0.125334ms)
+  Error: Command failed: git commit -m seed
+  error: gpg failed to sign the data
+  fatal: failed to write commit object
+  
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:509:28)
+      at maybeClose (node:internal/child_process:1141:16)
+      at Socket.<anonymous> (node:internal/child_process:498:11)
+      at Socket.emit (node:events:509:28)
+      at Pipe.<anonymous> (node:net:355:12) {
+    code: 128,
+    killed: false,
+    signal: null,
+    cmd: 'git commit -m seed',
+    stdout: '',
+    stderr: 'error: gpg failed to sign the data\nfatal: failed to write commit object\n'
+  }
+
+test at test/a-feature-split-across-pull-requests-is-wired-by-the-pull-request-that-consumes-the-others.test.ts:53:1
+✖ a pull request stacked on another open one targets its parent's branch when its description is written (3.934643ms)
+  AssertionError [ERR_ASSERTION]: pr-description's create command does not fix the base to the default branch
+      at TestContext.<anonymous> (file:///throne/test/a-feature-split-across-pull-requests-is-wired-by-the-pull-request-that-consumes-the-others.test.ts:65:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/a-filed-model-hint-authorizes-its-campaign-without-a-regent-step.test.ts:50:5
+✖ a claude/opus hint lets the autoscaler pass both bypass flags for the Alpha and a derived gate Shadow (105.034ms)
+  Error: ENOENT: no such file or directory, open '/tmp/throne-filed-hint-f01Whc/regent/bypass-model-authorizations.json'
+      at readFileSync (node:fs:484:20)
+      at readRegistries (file:///throne/test/a-filed-model-hint-authorizes-its-campaign-without-a-regent-step.test.ts:45:35)
+      at TestContext.<anonymous> (file:///throne/test/a-filed-model-hint-authorizes-its-campaign-without-a-regent-step.test.ts:54:28)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/tmp/throne-filed-hint-f01Whc/regent/bypass-model-authorizations.json'
+  }
+
+test at test/absorb-git-tree-never-touches-ambient-dirt.test.ts:67:1
+✖ absorb-git-tree leaves a real absorb's ambient dirt in the checked-out shadow branch untouched (2274.190602ms)
+  Error: could not create commit: error: gpg failed to sign the data
+      at createParentedCommit (file:///throne/src/git-lifecycle/merge.ts:111:15)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async publishOnto (file:///throne/src/git-lifecycle/merge.ts:135:20)
+      at async absorbTargetIntoCandidate (file:///throne/src/git-lifecycle/absorb-and-stamp.ts:38:24)
+      at async absorbAndStamp (file:///throne/src/git-lifecycle/absorb-and-stamp.ts:147:20)
+      at async TestContext.<anonymous> (file:///throne/test/absorb-git-tree-never-touches-ambient-dirt.test.ts:89:20)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at test/absorb-git-tree-never-touches-ambient-dirt.test.ts:94:1
+✖ absorb-git-tree leaves an already-landed no-op's ambient dirt in the checked-out shadow branch untouched (1726.578082ms)
+  Error: absorbAndStamp(shadow): absorb landed, stamp missing — "main" is absorbed into alpha branch "alpha" at 91dd4fd1341b0798c8f3ac89a7fad45bdc90f726, but the completion stamp on "shadow" failed: could not create commit: error: gpg failed to sign the data. Nothing further was rolled back; re-run absorbAndStamp(shadow) — it will detect the already-landed absorb and complete only the stamp.
+      at absorbAndStamp (file:///throne/src/git-lifecycle/absorb-and-stamp.ts:181:19)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///throne/test/absorb-git-tree-never-touches-ambient-dirt.test.ts:112:20)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at test/autoscale-now-two-processes-share-one-sweep-lock.test.ts:115:1
+✖ two autoscale-now --local processes started at once run exactly one sweep; the other prints the skip line and exits 0 (3613.493968ms)
+  AssertionError [ERR_ASSERTION]: first exited 1
+  stdout:
+  
+  stderr:
+  (node:4567) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+  (Use `node --trace-deprecation ...` to show where the warning was created)
+  alpha-autoscale-tick: transport local: running the sweep in this process
+  autoscale-now entrance validation refused the invocation: agent name "Regent" exists in more than one registered herdr session (throne-suite-b414c141df86a12e, throne-bot); addressing it is ambiguous No bypass is available for this refusal. Ask your supervisor for an allowed alternative invocation.
+  
+  
+  1 !== 0
+  
+      at proveTwoSimultaneousSweepsRunExactlyOnce (file:///throne/test/autoscale-now-two-processes-share-one-sweep-lock.test.ts:104:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///throne/test/autoscale-now-two-processes-share-one-sweep-lock.test.ts:118:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/autoscale-now-two-processes-share-one-sweep-lock.test.ts:124:1
+✖ two autoscale-now processes over REST started at once run exactly one sweep inside the backend; the other prints the skip line and exits 0 (5486.010869ms)
+  AssertionError [ERR_ASSERTION]: first exited 1
+  stdout:
+  
+  stderr:
+  (node:4722) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+  (Use `node --trace-deprecation ...` to show where the warning was created)
+  alpha-autoscale-tick: transport rest: running the sweep inside throne-backend (--local runs it in this process instead)
+  agent name "Regent" exists in more than one registered herdr session (throne-suite-b414c141df86a12e, throne-bot); addressing it is ambiguous
+  
+  
+  1 !== 0
+  
+      at proveTwoSimultaneousSweepsRunExactlyOnce (file:///throne/test/autoscale-now-two-processes-share-one-sweep-lock.test.ts:104:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///throne/test/autoscale-now-two-processes-share-one-sweep-lock.test.ts:128:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/forge-pr-creating-skills.test.ts:136:1
+✖ the GitHub branch of every PR-creating skill keeps the gh commands it ran before (15.819742ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(prDescription.includes([
+  
+      at TestContext.<anonymous> (file:///throne/test/forge-pr-creating-skills.test.ts:144:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/merge-git-tree-noop-stamp-never-touches-ambient-dirt.test.ts:58:1
+✖ merge-git-tree's no-op stamp leaves the checked-out candidate branch's ambient dirt untouched (2325.011844ms)
+  Error: could not create commit: error: gpg failed to sign the data
+      at createParentedCommit (file:///throne/src/git-lifecycle/merge.ts:111:15)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async stampNoopDelivery (file:///throne/src/git-lifecycle/delivery.ts:313:20)
+      at async TestContext.<anonymous> (file:///throne/test/merge-git-tree-noop-stamp-never-touches-ambient-dirt.test.ts:75:23)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at test/switch-agent-model-admits-stagers.test.ts:22:1
+✖ a Stager is admitted by its identity role rather than a name prefix (13.950275ms)
+  AssertionError [ERR_ASSERTION]: active plan preset OpusOnly excludes the requested pair claude/fable for Stager agent "stager-fifth"; that role's allowed pool is: claude/opus. The requested pair will not be silently substituted. To use this pair anyway, pass --bypass-model with a durable authorization for this exact objective code and recipient in <throne data home>/regent/bypass-model-authorizations.json. Authorization comes from the Lord and is relayed by the Regent (a Regent recipient requires the Lord; an Alpha or Shadow recipient accepts the Lord or the Regent), and no agent may self-authorize. A Lord instruction naming a model for this campaign — for example "fable low end to end" — IS that authorization for its whole scope, so record it and proceed rather than asking again per spawn. A Shadow spawn that clears this gate typically still needs a SECOND, independent authorization — pass --bypass-usage with a durable authorization in <throne data home>/regent/bypass-usage-authorizations.json, a separate registry from the model one above. NEVER answer this refusal by silently accepting the pool default: that betrays an explicit model order without telling anyone
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///throne/test/switch-agent-model-admits-stagers.test.ts:33:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/switch-agent-model-admits-stagers.test.ts:38:1
+✖ the identity role is read case-insensitively, as identity.md casing drifts (1.813051ms)
+  AssertionError [ERR_ASSERTION]: active plan preset OpusOnly excludes the requested pair claude/fable for Stager agent "stager-second"; that role's allowed pool is: claude/opus. The requested pair will not be silently substituted. To use this pair anyway, pass --bypass-model with a durable authorization for this exact objective code and recipient in <throne data home>/regent/bypass-model-authorizations.json. Authorization comes from the Lord and is relayed by the Regent (a Regent recipient requires the Lord; an Alpha or Shadow recipient accepts the Lord or the Regent), and no agent may self-authorize. A Lord instruction naming a model for this campaign — for example "fable low end to end" — IS that authorization for its whole scope, so record it and proceed rather than asking again per spawn. A Shadow spawn that clears this gate typically still needs a SECOND, independent authorization — pass --bypass-usage with a durable authorization in <throne data home>/regent/bypass-usage-authorizations.json, a separate registry from the model one above. NEVER answer this refusal by silently accepting the pool default: that betrays an explicit model order without telling anyone
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///throne/test/switch-agent-model-admits-stagers.test.ts:47:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/switch-agent-model-admits-stagers.test.ts:49:1
+✖ a Stager needs no objective contract to be switched (0.615919ms)
+  AssertionError [ERR_ASSERTION]: active plan preset OpusOnly excludes the requested pair claude/fable for Stager agent "stager-fifth"; that role's allowed pool is: claude/opus. The requested pair will not be silently substituted. To use this pair anyway, pass --bypass-model with a durable authorization for this exact objective code and recipient in <throne data home>/regent/bypass-model-authorizations.json. Authorization comes from the Lord and is relayed by the Regent (a Regent recipient requires the Lord; an Alpha or Shadow recipient accepts the Lord or the Regent), and no agent may self-authorize. A Lord instruction naming a model for this campaign — for example "fable low end to end" — IS that authorization for its whole scope, so record it and proceed rather than asking again per spawn. A Shadow spawn that clears this gate typically still needs a SECOND, independent authorization — pass --bypass-usage with a durable authorization in <throne data home>/regent/bypass-usage-authorizations.json, a separate registry from the model one above. NEVER answer this refusal by silently accepting the pool default: that betrays an explicit model order without telling anyone
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///throne/test/switch-agent-model-admits-stagers.test.ts:58:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/throne-skills-doc-covers-every-skill.test.ts:12:1
+✖ every shipped skill is documented in docs/THRONE_SKILLS.md (257.67485ms)
+  AssertionError [ERR_ASSERTION]: skills missing from docs/THRONE_SKILLS.md: gauntlet, oneshot
+  + actual - expected
+  
+  + [
+  +   'gauntlet',
+  +   'oneshot'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///throne/test/throne-skills-doc-covers-every-skill.test.ts:15:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'gauntlet', 'oneshot' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

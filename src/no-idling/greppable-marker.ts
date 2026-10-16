@@ -38,3 +38,5 @@ export function parseBlockedByMarkers(text: string): readonly string[] {
   }
   return names;
 }
+
+export const OWN_BACKGROUND_RUN = 'own-background-run';

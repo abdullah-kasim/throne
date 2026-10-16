@@ -5,13 +5,18 @@ import {
   REAPABLE_MARKER_TASK_RESTART_REQUIRED,
   parseBlockedByMarkers,
   parseReapableMarkers,
+  OWN_BACKGROUND_RUN,
 } from './greppable-marker.ts';
 
 export type LastMessageTagState =
   | { readonly kind: 'reapable' }
   | { readonly kind: 'reapable-failed' }
   | { readonly kind: 'retired-reapable-marker' }
-  | { readonly kind: 'blocked'; readonly blockedBy: readonly string[] }
+  | {
+      readonly kind: 'blocked';
+      readonly blockedBy: readonly string[];
+      readonly waitsOnOwnBackgroundRun?: boolean;
+    }
   | { readonly kind: 'busy'; readonly running: string }
   | { readonly kind: 'unmarked' }
   | { readonly kind: 'unreadable' };
@@ -92,12 +97,50 @@ const AWAITING_AGENT_LINE =
   /✻[ \t]*(Waiting[ \t]+for[ \t]+\d+[ \t]+background[ \t]+agents?[ \t]+to[ \t]+finish)/i;
 const LIVE_TAIL_LINES = 15;
 
+const INDENTED_LINE = /^[ \t]+\S/;
+
+function isWrappedProgressContinuation(line: string): boolean {
+  return (
+    INDENTED_LINE.test(line) &&
+    !TURN_BOUNDARY_LINE.test(line) &&
+    !STATUS_FOOTER_LINE.test(line) &&
+    !PROGRESS_LINE.test(line)
+  );
+}
+
+function joinWrappedProgressLines(lines: readonly string[]): string[] {
+  const joined: string[] = [];
+  for (const line of lines) {
+    const previous = joined[joined.length - 1];
+    if (previous !== undefined && PROGRESS_LINE.test(previous) && isWrappedProgressContinuation(line)) {
+      joined[joined.length - 1] = `${previous} ${line.trim()}`;
+    } else {
+      joined.push(line);
+    }
+  }
+  return joined;
+}
+
 /** The live background work a pane reports, or undefined when it reports none. */
 export function liveBackgroundWork(output: string): string | undefined {
-  const tail = output.split('\n').slice(-LIVE_TAIL_LINES).join('\n');
+  const tail = joinWrappedProgressLines(output.split('\n').slice(-LIVE_TAIL_LINES)).join('\n');
   return (
     RUNNING_WORK_SUFFIX.exec(tail)?.[1] ?? AWAITING_AGENT_LINE.exec(tail)?.[1]
   );
+}
+
+const TAG_KINDS_DECLARED_BY_A_TASKED_AGENT: ReadonlySet<LastMessageTagState['kind']> = new Set([
+  'blocked',
+  'reapable',
+  'reapable-failed',
+]);
+
+function latestMessageDeclaresBlockedOrReapable(output: string): boolean {
+  return TAG_KINDS_DECLARED_BY_A_TASKED_AGENT.has(classifyLastMessageTags(lastMessageBlock(output)).kind);
+}
+
+export function paneShowsTheAgentHasActed(output: string): boolean {
+  return liveBackgroundWork(output) !== undefined || latestMessageDeclaresBlockedOrReapable(output);
 }
 
 /** Every assistant-turn message block found in `output`, oldest first. Each
@@ -205,7 +248,12 @@ export function classifyLastMessageTags(text: string): LastMessageTagState {
   const trimmed = text.trim();
   const standalone = standaloneSingleKeyObject(trimmed);
   if (standalone?.blocked === true || BLOCKED_MARKER_ANYWHERE_PATTERN.test(trimmed)) {
-    return { kind: 'blocked', blockedBy: parseBlockedByMarkers(text) };
+    const names = parseBlockedByMarkers(text);
+    return {
+      kind: 'blocked',
+      blockedBy: names.filter((name) => name !== OWN_BACKGROUND_RUN),
+      ...(names.includes(OWN_BACKGROUND_RUN) ? { waitsOnOwnBackgroundRun: true } : {}),
+    };
   }
   // Standalone reapable, the counterpart of the blocked marker:
   //   {"reapable":"completed"} {"reapable":"abandoned"}

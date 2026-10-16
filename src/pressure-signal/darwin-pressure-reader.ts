@@ -29,10 +29,6 @@
 //                                                    `memory_pressure` prints
 //             kern.memorystatus_vm_pressure_level  = 1 normal, 2 warn,
 //                                                    4 critical
-//           pressure = max(100 - free%, floor(level)), where warn pins the
-//           reading to AT_CAPACITY_THRESHOLD and critical to 100. So the
-//           kernel declaring warn refuses admission by itself, regardless of
-//           what the free percentage says, and a quiet free% cannot mask it.
 //
 //   io      macOS exposes NO stall telemetry -- `iostat` reports throughput,
 //           not waiting, and there is no D-state count. This term is graded
@@ -50,7 +46,6 @@
 import { cpus as osCpus } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import type { PsiReading } from './psi-pressure-reader.ts';
-import { AT_CAPACITY_THRESHOLD } from './classify-pressure.ts';
 
 const UNKNOWN: PsiReading = { state: 'unknown', avg10: null, avg60: null };
 
@@ -129,9 +124,8 @@ export function readSysctlValues(names: readonly string[]): string {
 export function memorystatusLevelFloor(level: number): number | null {
   switch (level) {
     case 1:
-      return 0; // normal
     case 2:
-      return AT_CAPACITY_THRESHOLD; // warn: the kernel itself says stop
+      return 0;
     case 4:
       return 100; // critical
     default:

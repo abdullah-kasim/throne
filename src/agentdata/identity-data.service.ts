@@ -5,6 +5,7 @@ import { PERSONA_CONFIG } from "../application-config.service.ts";
 import { canonicalizeIdentityRole } from "../shared-policy/identity-role-casing.ts";
 import { DEFAULT_DATA_DIR } from "./spawn-data-contracts.ts";
 import { containsSupervisionPollingLoop } from "./identity-polling.ts";
+import { BACKGROUND_WAIT_INSTRUCTION, CHILD_WAIT_INSTRUCTION } from "./waiting-instructions.ts";
 import { formatReapabilityClaim } from "../reap-agent/reapability-claim.ts";
 import {
   formatMemoryStandingInstruction,
@@ -50,8 +51,8 @@ export const SLICELESS_STANDING_INSTRUCTION =
   "You do NOT run /write-todos and you write no todo bundle, no ASSIGNMENT.md, no 99a/99b/99c files, and you spawn no Shadows. " +
   "The queue body is the spec of record: read it whole, read AGENTS.md and the target repo's own AGENTS/CLAUDE files, and work " +
   "directly in your spawned worktree and branch, following the \"Sliceless mode\" section of /execute-todos. Keep " +
-  "~/.throne/data/<your-name>/sliceless/<objective-code>/decisions.md (one line per closed fork) and, before your first push, write " +
-  "~/.throne/data/<your-name>/sliceless/<objective-code>/verify.md ending in both `**Conformance outcome:** PASS` and " +
+  `${DEFAULT_DATA_DIR}/<your-name>/sliceless/<objective-code>/decisions.md (one line per closed fork) and, before your first push, write ` +
+  `${DEFAULT_DATA_DIR}/<your-name>/sliceless/<objective-code>/verify.md ending in both \`**Conformance outcome:** PASS\` and ` +
   "`**Verify outcome:** PASS`; the git shim refuses your push to a named remote without them. If the work turns out not to be " +
   "single-seam, stop, write why to decisions.md, and tell the Regent `sliceless was authorized but the work needs a bundle`.";
 export const SHADOWED_LINE =
@@ -79,7 +80,7 @@ export const FORKED_STAGER_STANDING_INSTRUCTION =
 export const FORK_ADDENDUM_FILE_PATTERN = "addendum-<number>-<topic>.md";
 
 export function forkAddendumDirectory(forkName: string): string {
-  return `~/.throne/data/${forkName}/`;
+  return `${path.join(DEFAULT_DATA_DIR, forkName)}/`;
 }
 
 export function forkedStagerAddendumInstruction(
@@ -190,12 +191,7 @@ const ROLE_STANDING_INSTRUCTION: Record<string, string> = {
     `cross-repo ${PERSONA_CONFIG.campaignTitle}s: the bundle stays in the ${PERSONA_CONFIG.throneTitle.toLowerCase()} ledger even when the ` +
     "code lives elsewhere. Durable cross-session learnings go to the memory " +
     "directory named in your identity, not the ledger. " +
-    "When you end a turn idle because you are genuinely waiting on a specific " +
-    "child, publish `{\"blocked\":true}` together with one `__BLOCKED_BY_<name>__` " +
-    "token per child you are waiting on, in that same message -- naming the " +
-    "child(ren) lets the no-idling sweep detect when every one of them no " +
-    "longer resolves and wake you directly with a concrete message, instead " +
-    "of leaving you parked on a condition that already cleared. " +
+    `${CHILD_WAIT_INSTRUCTION} ${BACKGROUND_WAIT_INSTRUCTION} ` +
     "`reap-agent` will not tear you down without a live, recent, qualifying " +
     "JSON reapability claim -- this is a real precondition, not a formality, " +
     "and a finished campaign with a written REPORT.md is still refused " +
@@ -204,12 +200,7 @@ const ROLE_STANDING_INSTRUCTION: Record<string, string> = {
     "terminal delivery gate has PASSed, publish " +
     `\`${formatReapabilityClaim("completed")}\` as your latest message.`,
   Shadow:
-    "When you end a turn idle because you are genuinely waiting on a specific " +
-    "child, publish `{\"blocked\":true}` together with one `__BLOCKED_BY_<name>__` " +
-    "token per child you are waiting on, in that same message -- naming the " +
-    "child(ren) lets the no-idling sweep detect when every one of them no " +
-    "longer resolves and wake you directly with a concrete message, instead " +
-    "of leaving you parked on a condition that already cleared.",
+    `${CHILD_WAIT_INSTRUCTION} ${BACKGROUND_WAIT_INSTRUCTION}`,
   Stager:
     `Idle waiting on the ${PERSONA_CONFIG.addressTitle} is your NORMAL state, ` +
     "not a stall. You exist because the " +

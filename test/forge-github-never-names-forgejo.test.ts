@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, before, beforeEach, test } from "node:test";
+import { beforeEach, test } from "node:test";
 import { runForgeCapturing, TEST_TAILNET_ADDRESS } from "./forge-test-support.ts";
 import {
   answerFile,
@@ -11,7 +11,7 @@ import {
   openGithubPullRequestToStage,
   promote,
   stagingDependencies,
-  startStagingHost,
+  startStagingHostForEachTest,
   type StagingHost,
 } from "./forge-staging-test-support.ts";
 
@@ -19,18 +19,12 @@ const ANY_STAGING_RECORD = /<!-- (?:forgejo-twin|github-twin|github-feedback|for
 
 let host: StagingHost;
 let forgejoUrl: string;
-
-before(async () => {
-  await import("../src/forge/forge.command.ts");
+const stagingHostForThisTest = startStagingHostForEachTest("forge-github-unaware-", async (prepared) => {
+  forgejoUrl = await openForgejoPullRequestWithMedia(prepared);
 });
 
-beforeEach(async () => {
-  host = await startStagingHost("forge-github-unaware-");
-  forgejoUrl = await openForgejoPullRequestWithMedia(host);
-});
-
-afterEach(async () => {
-  await host.remove();
+beforeEach(() => {
+  host = stagingHostForThisTest();
 });
 
 async function everythingSentToGithub(): Promise<string> {

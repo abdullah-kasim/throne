@@ -23,6 +23,8 @@ import {
   throneLauncherPath,
   type Harness,
 } from "../harness-routing/harness.ts";
+import { sessionNameAtLaunch } from "../agent-settings/agent-settings-decision.ts";
+import { AGENT_ROLES } from "../agent-settings/agent-settings.types.ts";
 import {
   acquireResurrectLock,
   releaseResurrectLock,
@@ -53,7 +55,7 @@ import type {
   ResumeRegisteredAgentInRestoredTabDeps,
   StartOptions,
 } from "../herdr/herdr-create.contracts.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 import {
   REGENT_NAME,
@@ -62,7 +64,10 @@ import {
   RegentLivenessVerdict,
   classifyRegentLiveness,
 } from "./regent-liveness.ts";
-import { relaunchRegentInRestoredTab } from "./regent-restored-tab-launch.ts";
+import {
+  paneOfRegentTabStillRunningItsHarness,
+  relaunchRegentInRestoredTab,
+} from "./regent-restored-tab-launch.ts";
 import type { RegentLivenessClassification } from "./regent-liveness.ts";
 import { installHerdrOperatorSkill } from "../herdr/herdr-operator-skill.ts";
 import {
@@ -85,7 +90,7 @@ const REPO_ROOT = RUNTIME_THRONE_ROOT;
 
 /** Throne repo root, resolved from this file's location (`src/regentstate.ts`). */
 /** The Regent's durable state dir (gitignored) and its two marker files. */
-export const REGENT_DIR = path.join(RUNTIME_DATA_DIR, "regent");
+export const REGENT_DIR = path.join(THRONE_DATA_DIR, "regent");
 const DESIRED_STATE_BASENAME = "desired-state";
 const HARNESS_BASENAME = "harness";
 const ROUTE_BASENAME = "route.json";
@@ -150,17 +155,24 @@ export function configuredRegentLaunch(): RegentLaunch | undefined {
   );
 }
 
+const EFFORT_OF_A_RECORDED_ROUTE = 1;
+
 export function regentLaunchArgv(
   configured: RegentLaunch | undefined,
   recordedRoute: RegentRoute | undefined,
   recordedHarness: RegentHarness,
 ): string[] {
-  if (configured !== undefined) return buildLaunchArgv(configured);
-  if (recordedRoute !== undefined) {
+  const route = configured ?? recordedRoute;
+  if (route !== undefined) {
     return buildLaunchArgv({
-      harness: recordedRoute.harness,
-      model: recordedRoute.model,
-      effort: 1,
+      harness: route.harness,
+      model: route.model,
+      effort: configured?.effort ?? EFFORT_OF_A_RECORDED_ROUTE,
+      sessionName: sessionNameAtLaunch(
+        REGENT_NAME,
+        AGENT_ROLES.REGENT,
+        route.harness,
+      ),
     });
   }
   return [
@@ -413,6 +425,20 @@ export async function resurrectRegent(
           "herdr's Absent and resurrecting; if this recurs the window is " +
           "probably too small.\n",
       );
+    }
+    const unnamedRegentPane =
+      deps.restoredTab === undefined
+        ? null
+        : await paneOfRegentTabStillRunningItsHarness(deps.restoredTab);
+    if (unnamedRegentPane !== null) {
+      deps.writeStderr(
+        `resurrectRegent: the "${REGENT_TAB_LABEL}" tab's pane ${unnamedRegentPane} ` +
+          `still runs a harness that herdr does not report as "${REGENT_NAME}"; ` +
+          "not starting a second Regent. Its name is restored by the " +
+          "exact-tab-label repair when the pane can be verified; otherwise " +
+          `rename it by hand: herdr --session throne agent rename ${unnamedRegentPane} ${REGENT_TAB_LABEL}.\n`,
+      );
+      return;
     }
     // verdict is Absent or Uncertain — commit to spawning. Write the marker
     // BEFORE startAgent, still holding the lock, so any independent process

@@ -1,7 +1,14 @@
 import type { ReapReason } from "../agent-timings/reap-reason.ts";
+import {
+  IdentityLineReadStatus,
+  readAgentRole,
+} from "../agentdata/identity-data.service.ts";
+import { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import { findDeliveryCommitHash } from "../git-lifecycle/delivery-commit-proof.ts";
+import { isAlphaRole } from "../no-idling/idle-family.ts";
 import {
   findInFlightQueueItemByAgentName,
+  queueStatusForReapReason,
   recordAgentReapOutcomeOnQueueItem,
   type StatedQueueOutcome,
 } from "../regent-queue/regent-queue-lifecycle.ts";
@@ -78,6 +85,29 @@ export async function resolveQueueReapEvidence(
   };
 }
 
+export type QueueRowRelease =
+  | { readonly released: true }
+  | { readonly released: false; readonly reason: string };
+
+export interface QueueRowExpectationDeps {
+  readAgentRole?: typeof readAgentRole;
+  readSpawnSpec?: typeof readSpawnSpec;
+}
+
+export async function campaignRowIsExpected(
+  name: string,
+  reason: ReapReason,
+  deps: QueueRowExpectationDeps = {},
+): Promise<boolean> {
+  if (queueStatusForReapReason(reason) === undefined) return false;
+  const role = await (deps.readAgentRole ?? readAgentRole)(name);
+  if (role.status !== IdentityLineReadStatus.Found || !isAlphaRole(role.value)) {
+    return false;
+  }
+  const spec = await (deps.readSpawnSpec ?? readSpawnSpec)(name);
+  return (spec?.objective_code ?? "") !== "";
+}
+
 /**
  * `reap-agent`'s side of the shared queue lifecycle write-back
  * (`regent-queue-lifecycle.ts`): looks the queue item up by the agent name
@@ -91,14 +121,13 @@ export async function resolveQueueReapEvidence(
  * by `resolveQueueReapEvidence` and handed in via
  * `deps.evidenceResolvedBeforeTeardown`.
  * Never throws: any failure to match, open the store, or resolve the delivery
- * commit is logged to stdout and swallowed, so the write-back can never fail
- * the reap it rides along with.
+ * commit is logged to stdout and swallowed.
  */
 export async function writeQueueReapOutcome(
   name: string,
   reason: ReapReason,
   deps: QueueReapWritebackDeps = {},
-): Promise<void> {
+): Promise<QueueRowRelease> {
   const openStore = deps.openStore ?? openRegentQueueStore;
   const writeStdout = stdoutWriter(deps);
   let store: RegentQueueStore | undefined;
@@ -116,11 +145,15 @@ export async function writeQueueReapOutcome(
       writeStdout(
         `reap-agent: queue linkage not recorded for "${name}" — ${outcome.reason}.\n`,
       );
+      return { released: false, reason: outcome.reason };
     }
+    return { released: true };
   } catch (error) {
+    const failure = error instanceof Error ? error.message : String(error);
     writeStdout(
-      `reap-agent: queue linkage write-back failed for "${name}" (${error instanceof Error ? error.message : String(error)}) — reap proceeds unaffected.\n`,
+      `reap-agent: queue linkage write-back failed for "${name}" (${failure}) — reap proceeds unaffected.\n`,
     );
+    return { released: false, reason: `the queue write-back failed (${failure})` };
   } finally {
     store?.close();
   }

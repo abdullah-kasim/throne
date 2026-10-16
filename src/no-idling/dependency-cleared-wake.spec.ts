@@ -196,3 +196,21 @@ test('an Alpha still blocked on a reapable child on the next sweep is reported t
   assert.match(notice!.prompt, /Still blocked on children that are already finished/);
   assert.match(notice!.prompt, /shadow-wob-99b already published a reapable claim/);
 });
+
+test('an agent blocked on its own background run is never woken as if a child had finished', async () => {
+  const stillBlockedObservations = new Map<string, number>();
+  const callsNamingTheAgent = [];
+  for (let sweep = 0; sweep < 3; sweep += 1) {
+    const { dependencies, submitCalls } = deps({
+      getRoster: async () => [rosterEntry('alpha-oven', 'Alpha', 'idle')],
+      readAgent: async () =>
+        'Both suite runs are queued.\n{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)',
+      isRegisteredAgent: async () => false,
+      stillBlockedObservations,
+    });
+    await runNoIdling(dependencies, { notify: true });
+    callsNamingTheAgent.push(...submitCalls.filter((call) => call.prompt.includes('alpha-oven')));
+  }
+
+  assert.deepEqual(callsNamingTheAgent, []);
+});

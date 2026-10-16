@@ -7,6 +7,7 @@ import type {
 import type {
   agentRegistrationExists,
   markAgentTasked,
+  markSpawnFinished,
   readSpawnSpec,
   writeSpawnSpec,
 } from "../agentdata/spawn-data-contracts.ts";
@@ -17,6 +18,7 @@ import type {
   resumeRegisteredAgentInRestoredTab,
 } from "../herdr/herdr-create.service.ts";
 import type { closeAgentTab } from "../herdr/herdr-tab.service.ts";
+import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
 import type { resolveAgent } from "../herdr/herdr-runtime.service.ts";
 import type { startAgent } from "../herdr/herdr-creation-orchestration.ts";
 import type { MessageQueueStore } from "../message-queue/message-queue.store.ts";
@@ -164,6 +166,10 @@ export interface CreateAgentDeps {
   // inject a fast fake; production wiring defaults to the real bounded-wait
   // primitive.
   confirmSpawnTasking?: typeof awaitSpawnTaskingConfirmation;
+  correctSettingsRightAfterSpawn?: (
+    agent: HerdrAgent,
+    agentName: string,
+  ) => Promise<string>;
   resumeRegisteredAgentInRestoredTab: typeof resumeRegisteredAgentInRestoredTab;
   reconcileIndeterminateAgentStart?: typeof reconcileIndeterminateAgentStart;
   closeAgentTab: typeof closeAgentTab;
@@ -182,6 +188,7 @@ export interface CreateAgentDeps {
   readForkParentEvidence?: ReadForkParentEvidence;
   readForkBrief?: ReadForkBrief;
   markAgentTasked?: typeof markAgentTasked;
+  markSpawnFinished?: typeof markSpawnFinished;
   registrationExists: typeof agentRegistrationExists;
   removeRegistration: (name: string) => Promise<void>;
   getClaudeUsage: UsageReader;

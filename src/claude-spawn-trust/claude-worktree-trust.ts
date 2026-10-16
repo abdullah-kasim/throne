@@ -30,7 +30,7 @@
 // on `projects.<absolute path>.hasTrustDialogAccepted`. It creates a project
 // entry when it opens a directory but never sets that flag on its own: at the
 // time of this change `~/.claude.json` held 151 project entries, 84 of them
-// under `.throne/worktrees/`, and NONE of the 84 were trusted. So a spawn
+// under the throne worktrees folder, and NONE of the 84 were trusted. So a spawn
 // with no trust grant blocks on a modal nobody can see — a total court
 // outage, not a degradation. The seed was granting it; something still must.
 
@@ -44,6 +44,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { resolveThroneHome } from "../shared-policy/throne-home.ts";
 
 /** Bounded so a crashed writer's stale lock cannot wedge every future spawn:
  *  the lock is held for one small read-modify-write, so exceeding this means
@@ -175,8 +176,7 @@ function throneOwnedProjectPaths(
   // exists to prevent. Caught only by running this against a copy of a real
   // config; fixtures with internally consistent paths cannot express it.
   const worktreesRoot = `${path.join(
-    resolvedOrRaw(deps, deps.homedir()),
-    ".throne",
+    resolvedOrRaw(deps, resolveThroneHome(process.env, deps.homedir())),
     "worktrees",
   )}${path.sep}`;
   const owned = Object.keys(projects).filter((projectPath) =>

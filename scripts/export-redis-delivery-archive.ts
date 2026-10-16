@@ -1,19 +1,13 @@
 import { createReadStream, createWriteStream, promises as fs } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { THRONE_DATA_DIR } from "../src/shared-policy/throne-home.ts";
 
 const execFileAsync = promisify(execFile);
-const ARCHIVE_PATH = path.join(
-  process.env.HOME ?? homedir(),
-  ".throne",
-  "data",
-  "stats",
-  "redis-delivery-archive.jsonl",
-);
+const ARCHIVE_PATH = path.join(THRONE_DATA_DIR, "stats", "redis-delivery-archive.jsonl");
 const REDIS_CONTAINER = "throne-redis";
 const COMPLETED_KEY = "bull:throne-message-delivery:completed";
 const FAILED_KEY = "bull:throne-message-delivery:failed";

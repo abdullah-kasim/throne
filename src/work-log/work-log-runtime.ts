@@ -3,7 +3,7 @@ import { resolveRegentQueueDatabasePath } from "../regent-queue/regent-queue-dat
 import { openRegentQueueStore, type RegentQueueReadResult } from "../regent-queue/regent-queue.store.ts";
 import type { RegentQueueItemRow } from "../regent-queue/regent-queue-row.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { parseWorkLogArguments, WORK_LOG_USAGE, type WorkLogArguments } from "./work-log-arguments.ts";
 import { GITHUB_ACTION_LOG_FILE_NAME, readGithubActionsInWindow } from "./work-log-github-actions.ts";
 import { queueRowsInWindow } from "./work-log-queue-rows.ts";
@@ -26,7 +26,7 @@ export interface WorkLogDependencies {
 
 export const REAL_WORK_LOG_DEPENDENCIES: WorkLogDependencies = {
   queueDatabasePath: resolveRegentQueueDatabasePath(),
-  githubActionLogPath: path.join(RUNTIME_DATA_DIR, GITHUB_ACTION_LOG_FILE_NAME),
+  githubActionLogPath: path.join(THRONE_DATA_DIR, GITHUB_ACTION_LOG_FILE_NAME),
   now: () => new Date(),
   out: (message) => void process.stdout.write(message),
   err: (message) => void process.stderr.write(message),

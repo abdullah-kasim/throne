@@ -74,16 +74,29 @@ export function buildBlockedAgentPagingMessage(params: BlockedAgentPagingMessage
   );
 }
 
-export function buildNamelessBlockPagingMessage(params: {
+interface AgentPaneParams {
   readonly agentName: string;
   readonly cwd?: string;
   readonly paneId: string;
-}): string {
-  const context = renderContext({ ...params, title: null, stateLabels: {} });
+}
+
+function renderAgentPaneContext(params: AgentPaneParams): string {
+  return renderContext({ ...params, title: null, stateLabels: {} });
+}
+
+export function buildNamelessBlockPagingMessage(params: AgentPaneParams): string {
+  const context = renderAgentPaneContext(params);
   return (
     `${params.agentName} is blocked but names no child the sweep can read (${context}). ` +
     `Its {"blocked":true} carries no readable BLOCKED_BY_<name>, so nothing wakes it when its children finish -- ` +
     `read its pane, check what it is waiting on, and tell it directly.`
+  );
+}
+
+export function buildNoBackgroundRunPagingMessage(params: AgentPaneParams): string {
+  return (
+    `${params.agentName} is blocked: it says it waits on its own background run, but none is running ` +
+    `(${renderAgentPaneContext(params)}). The run finished or died -- read its pane and tell it directly.`
   );
 }
 

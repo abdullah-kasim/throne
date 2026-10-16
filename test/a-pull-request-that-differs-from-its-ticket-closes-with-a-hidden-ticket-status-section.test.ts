@@ -1,11 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { missingPhrases, readMarkdownSection } from "./skill-contract-test-helpers.ts";
+import {
+  missingPhrases,
+  readPullRequestBodySections,
+  readPullRequestBodySubsection as readBodySubsection,
+  readPullRequestDescriptionSkill,
+  readPullRequestReferenceExample as readReferenceExample,
+  unwrap,
+} from "./skill-contract-test-helpers.ts";
 
-const ROOT = path.resolve(import.meta.dirname, "..");
-const BODY_HEADING = "## Body — five sections, in this order";
 const AGENTS_HEADING = "### `## Agents`";
 const TICKET_STATUS_HEADING = "### `## Ticket Status` (only when the PR differs from its ticket)";
 const TICKET_STATUS_BLOCK = [
@@ -22,28 +25,8 @@ const TICKET_STATUS_BLOCK = [
   "</details>",
 ].join("\n");
 
-async function readPullRequestDescriptionSkill(): Promise<string> {
-  return readFile(path.join(ROOT, ".claude/skills/pr-description/SKILL.md"), "utf8");
-}
-
-function unwrap(text: string): string {
-  return text.replace(/\s*\n\s*/g, " ");
-}
-
-async function readBodySubsection(heading: string): Promise<string> {
-  const section = readMarkdownSection(readMarkdownSection(await readPullRequestDescriptionSkill(), BODY_HEADING), heading);
-  assert.notEqual(section, "", `pr-description has no ${heading} subsection under its body sections`);
-  return section;
-}
-
-async function readReferenceExample(): Promise<string> {
-  const example = readMarkdownSection(await readPullRequestDescriptionSkill(), "## Reference example");
-  assert.notEqual(example, "", "pr-description has no reference example");
-  return example;
-}
-
 test("a pull request that differs from its ticket closes with a hidden Ticket Status section after Agents", async () => {
-  const body = readMarkdownSection(await readPullRequestDescriptionSkill(), BODY_HEADING);
+  const body = await readPullRequestBodySections();
   assert.ok(body.indexOf(AGENTS_HEADING) !== -1, "pr-description has no Agents subsection");
   assert.ok(body.indexOf(AGENTS_HEADING) < body.indexOf(TICKET_STATUS_HEADING), "the Ticket Status subsection comes after Agents");
   const ticketStatus = unwrap(await readBodySubsection(TICKET_STATUS_HEADING));

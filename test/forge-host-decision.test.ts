@@ -3,34 +3,42 @@ import { writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
-import { afterEach, beforeEach, test } from "node:test";
+import { after, afterEach, before, beforeEach, test } from "node:test";
 import { openForgejoApi } from "../src/forge/forgejo-api.ts";
 import { writeStagingMetadataComment } from "../src/forge/staging-metadata.ts";
 import { git } from "./git-repo-test-fixture.ts";
 import { startFakeForgejo, type FakeForgejo } from "./forge-fake-forgejo.ts";
 import {
+  copyOfCheckoutForEachTest,
   forgeDependenciesWithFakeGithub,
-  repositoryWithOriginAndFeatureBranch,
   runForgeCapturing,
   TEST_FORGEJO_TOKEN,
   TEST_TAILNET_ADDRESS,
   useFreshForgejoStateDirectory,
+  type CheckoutWithOrigin,
   type ForgejoStateDirectory,
 } from "./forge-test-support.ts";
 
+const checkoutForThisTest = copyOfCheckoutForEachTest("forge-host-");
 let state: ForgejoStateDirectory;
-let checkout: Awaited<ReturnType<typeof repositoryWithOriginAndFeatureBranch>>;
-let forgejo: FakeForgejo | undefined;
+let checkout: CheckoutWithOrigin;
+let forgejo: FakeForgejo;
+
+before(async () => {
+  forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
+});
+
+after(async () => {
+  await forgejo.close();
+});
 
 beforeEach(async () => {
+  await forgejo.reset();
   state = await useFreshForgejoStateDirectory();
-  checkout = await repositoryWithOriginAndFeatureBranch("forge-host-");
+  checkout = checkoutForThisTest();
 });
 
 afterEach(async () => {
-  await forgejo?.close();
-  forgejo = undefined;
-  await checkout.remove();
   await state.remove();
 });
 
@@ -49,7 +57,6 @@ async function closedPortUrl(): Promise<string> {
 }
 
 test("a host with Forgejo installed and answering opens pull requests in Forgejo", async () => {
-  forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
   await state.installForgejo(forgejo.rootUrl);
   const dependencies = forgeDependenciesWithFakeGithub();
   const bodyFile = await writeBody("## Summary\n\nAdds the feature.\n");
@@ -134,7 +141,6 @@ test("an installed Forgejo that does not answer refuses instead of falling back 
 });
 
 test("a GitHub pull request URL stays on GitHub", async () => {
-  forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
   await state.installForgejo(forgejo.rootUrl);
   const dependencies = forgeDependenciesWithFakeGithub((call) => ({ exitCode: 0, stdout: `${JSON.stringify({ url: call.args[2], state: "OPEN" })}\n`, stderr: "" }));
   const githubUrl = "https://github.com/example/staging-demo/pull/5";
@@ -174,13 +180,12 @@ async function forgejoPullRequestStagedAs(githubUrl: string, dependencies: Retur
     checkout.repo,
   );
   assert.equal(created.exitCode, 0, created.stderr);
-  const api = await openForgejoApi(forgejo!.rootUrl, dependencies);
+  const api = await openForgejoApi(forgejo.rootUrl, dependencies);
   await writeStagingMetadataComment({ repository: { owner: "court-admin", name: "staging-demo" }, number: 1 }, githubUrl, {}, api);
   return created.stdout.trim();
 }
 
 test("status finds a staged GitHub pull request's Forgejo twin through the Forgejo metadata, from its files tab URL too", async () => {
-  forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
   await state.installForgejo(forgejo.rootUrl);
   const githubUrl = "https://github.com/example/staging-demo/pull/5645";
   const dependencies = forgeDependenciesWithFakeGithub(() => ({ exitCode: 0, stdout: `${JSON.stringify({ url: githubUrl, state: "OPEN" })}\n`, stderr: "" }));

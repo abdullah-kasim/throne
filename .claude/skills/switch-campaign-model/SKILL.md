@@ -3,6 +3,8 @@ name: switch-campaign-model
 description: This throne-only, STAGER-ONLY skill moves the whole campaign workflow — Alpha, ordinary Shadow, and the terminal ShadowSlice99 gates — onto one model by rewriting `steering` in the live throne's gitignored `config.user.ts`. Invoked by /switch-campaign-model [model] (default sonnet; `terra` = codex/gpt-5.6-terra), or when the Lord says "switch to sonnet for the whole alpha/shadow/99 workflow", "run every campaign role on <model>", "put the court on <model>", or "switch the campaign model". Only a registered Stager may run it; the Regent, an Alpha, or a Shadow must refuse and relay to a Stager.
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension switch-campaign-model` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Switch the campaign model (Stager only)
 
 The Lord's order of 2026-09-02 to `stager-floor` ("switch to sonnet for the

@@ -13,8 +13,8 @@
 // the semantics are unit-tested hermetically.
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import path from 'node:path';
+import { THRONE_HOME } from '../../shared-policy/throne-home.ts';
 import type { UsageWindow } from '../telemetry.types.ts';
 
 /** Shared TTL: reuse a cached read within this window without refetching. Safe
@@ -125,11 +125,8 @@ export async function cachedUsage<T extends CacheablePayload>(
   return live;
 }
 
-/** Real IO for a harness: cache file at ~/.throne/usage-cache/<harness>.json
- *  (mkdir -p on write; ~/.throne is the throne-owned home already used for
- *  worktrees). */
 export function realUsageCacheIo(harness: string): UsageCacheIo {
-  const dir = path.join(homedir(), '.throne', 'usage-cache');
+  const dir = path.join(THRONE_HOME, 'usage-cache');
   const file = path.join(dir, `${harness}.json`);
   return {
     now: () => Date.now(),

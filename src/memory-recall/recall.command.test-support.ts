@@ -90,7 +90,7 @@ export function harness(
   const otherRepositoryMemories = path.join(root, OTHER_REPOSITORY_SCOPE);
   const globalMemories = path.join(root, 'global-memories');
   const dataDirectory = path.join(root, 'data');
-  const jevDataHome = path.join(root, 'jev-data-home');
+  const jevDataHome = path.join(root, 'jev-home');
   const now = new Date('2026-09-21T00:00:00Z');
   mkdirSync(projectMemories);
   mkdirSync(otherRepositoryMemories);

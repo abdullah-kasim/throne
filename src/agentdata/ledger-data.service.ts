@@ -11,7 +11,7 @@ import {
   unlink,
 } from "node:fs/promises";
 import path from "node:path";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import type { CanonicalRole } from "../shared-policy/role-word-union.ts";
 import type { PersonaConfig } from "../application-config.service.ts";
 import { type SpawnSpec } from "./spawn-data-contracts.ts";
@@ -20,7 +20,7 @@ import { DELIVERY_EVIDENCE_DATA } from "./delivery-evidence-data.service.ts";
 
 const TASK_FILE_RE = /^\d+[_-].*\.md$/i;
 const BUNDLE_DIR_RE = /^todo[-_]/i;
-export const DEFAULT_DATA_DIR = RUNTIME_DATA_DIR;
+export const DEFAULT_DATA_DIR = THRONE_DATA_DIR;
 const TOOLS_RELATIVE_PATH = path.join("src", "tools.ts");
 export const REAPED_DIR_NAME = ".reaped";
 const COMPLETION_REPORT_FILE_NAME = "REPORT.md";
@@ -244,7 +244,7 @@ async function resolveSymlinkTargetDirName(
 }
 
 /**
- * Syncs `~/.throne/data/`'s persona addressing symlinks to the active preset:
+ * Syncs the throne data folder's persona addressing symlinks to the active preset:
  * for every LIVE (non-`.reaped/`) canonical `alpha-*`/`shadow-*` directory,
  * ensures a `<presetRoleWord>-<rest>` symlink exists pointing at it — except
  * when the preset's role word for that role is the canonical token itself

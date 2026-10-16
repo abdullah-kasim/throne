@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -10,6 +11,7 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
+import { resolveThroneHome } from './throne-home.ts';
 
 export const RECIPIENT_PANE_LOCK_DIRECTORY_ENV = 'THRONE_RECIPIENT_LOCK_DIR';
 const LOCK_HOLDER_EXIT_TIMEOUT_MS = 1_000;
@@ -54,6 +56,17 @@ export interface PendingRecipientPaneLockWait {
 }
 
 const pendingLongWaitStartedAtMsByPaneId = new Map<string, number>();
+const paneIdsHeldByThisTask = new AsyncLocalStorage<ReadonlySet<string>>();
+
+function thisTaskHoldsPane(paneId: string): boolean {
+  return paneIdsHeldByThisTask.getStore()?.has(paneId) === true;
+}
+
+function runHoldingPane<T>(paneId: string, action: () => Promise<T>): Promise<T> {
+  const held = new Set(paneIdsHeldByThisTask.getStore());
+  held.add(paneId);
+  return paneIdsHeldByThisTask.run(held, action);
+}
 
 /**
  * Non-blockingly reports every recipient-pane lock acquisition that has been
@@ -168,7 +181,7 @@ const REAL_DEPS: RecipientPaneLockDeps = {
 
 function lockDirectory(options: RecipientPaneLockOptions, deps: RecipientPaneLockDeps): string {
   return options.lockDirectory ?? deps.env[RECIPIENT_PANE_LOCK_DIRECTORY_ENV] ??
-    path.join(deps.homedir(), '.throne', 'locks', 'recipient-panes');
+    path.join(resolveThroneHome(deps.env, deps.homedir()), 'locks', 'recipient-panes');
 }
 
 export function recipientPaneLockFilename(paneId: string): string {
@@ -301,6 +314,7 @@ export class RecipientPaneLockService {
     options: RecipientPaneLockOptions = {},
     deps: RecipientPaneLockDeps = REAL_DEPS,
   ): Promise<T> {
+    if (thisTaskHoldsPane(paneId)) return action();
     const directory = lockDirectory(options, deps);
     let handle: FileHandle | undefined;
     let release: (() => Promise<void>) | undefined;
@@ -313,7 +327,7 @@ export class RecipientPaneLockService {
       await closeWithoutChangingOutcome(handle);
       handle = undefined;
       release = await acquirePathLockObservingLongWaits(paneId, targetPath, options, deps);
-      return await action();
+      return await runHoldingPane(paneId, action);
     } finally {
       try {
         await release?.();

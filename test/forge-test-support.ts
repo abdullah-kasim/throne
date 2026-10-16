@@ -101,7 +101,7 @@ function checkoutWithOrigin(repo: string, origin: string): CheckoutWithOrigin {
   };
 }
 
-async function copyOfCheckout(original: CheckoutWithOrigin, prefix: string): Promise<CheckoutWithOrigin> {
+export async function copyOfCheckout(original: CheckoutWithOrigin, prefix: string): Promise<CheckoutWithOrigin> {
   const repo = await mkdtemp(path.join(tmpdir(), prefix));
   const origin = path.join(await mkdtemp(path.join(tmpdir(), `${prefix}origin-`)), path.basename(original.origin));
   await cp(original.repo, repo, { recursive: true });
@@ -147,43 +147,61 @@ export async function runForgeCapturing(
   return { exitCode, stdout, stderr };
 }
 
-export interface ForgejoWithCheckout {
-  readonly checkout: CheckoutWithOrigin;
-  readonly forgejo: FakeForgejo;
-  scratchDirectory(prefix: string): Promise<string>;
-}
-
-export function startForgejoWithCheckoutForEachTest(prefix: string): () => ForgejoWithCheckout {
-  let state: ForgejoStateDirectory | undefined;
-  let current: ForgejoWithCheckout | undefined;
-  let scratchDirectories: string[] = [];
+export function copyOfCheckoutForEachTest(prefix: string): () => CheckoutWithOrigin {
   let original: CheckoutWithOrigin | undefined;
+  let current: CheckoutWithOrigin | undefined;
   before(async () => {
-    await import("../src/forge/forge.command.ts");
     original = await repositoryWithOriginAndFeatureBranch(prefix);
   });
   after(async () => {
     await original?.remove();
   });
   beforeEach(async () => {
-    state = await useFreshForgejoStateDirectory();
+    current = await copyOfCheckout(original!, prefix);
+  });
+  afterEach(async () => {
+    await current?.remove();
+  });
+  return () => current!;
+}
+
+export interface ForgejoWithCheckout {
+  readonly checkout: CheckoutWithOrigin;
+  readonly forgejo: FakeForgejo;
+  readonly state: ForgejoStateDirectory;
+  scratchDirectory(prefix: string): Promise<string>;
+}
+
+export function startForgejoWithCheckoutForEachTest(prefix: string): () => ForgejoWithCheckout {
+  const checkoutForThisTest = copyOfCheckoutForEachTest(prefix);
+  let current: ForgejoWithCheckout | undefined;
+  let scratchDirectories: string[] = [];
+  let forgejo: FakeForgejo | undefined;
+  before(async () => {
+    await import("../src/forge/forge.command.ts");
+    forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
+  });
+  after(async () => {
+    await forgejo?.close();
+  });
+  beforeEach(async () => {
+    await forgejo!.reset();
     scratchDirectories = [];
     current = {
-      checkout: await copyOfCheckout(original!, prefix),
-      forgejo: await startFakeForgejo(TEST_FORGEJO_TOKEN),
+      checkout: checkoutForThisTest(),
+      forgejo: forgejo!,
+      state: await useFreshForgejoStateDirectory(),
       async scratchDirectory(scratchPrefix) {
         const directory = await mkdtemp(path.join(tmpdir(), scratchPrefix));
         scratchDirectories.push(directory);
         return directory;
       },
     };
-    await state.installForgejo(current.forgejo.rootUrl);
+    await current.state.installForgejo(forgejo!.rootUrl);
   });
   afterEach(async () => {
-    await current?.forgejo.close();
-    await current?.checkout.remove();
     await Promise.all(scratchDirectories.map((directory) => rm(directory, { recursive: true, force: true })));
-    await state?.remove();
+    await current?.state.remove();
   });
   return () => current!;
 }

@@ -3,6 +3,8 @@ name: skill-writer
 description: Write, create, edit, port, move, copy, share, or "bring over" a SKILL.md file — under this throne's own .claude/skills, a global ~/.claude/skills or ~/.agents/skills tree, a dotfiles skills tree, or any other project's skills directory. Use whenever a skill is being authored or relocated, in this throne or anywhere else, so the result is generalized and scrubbed before it ships.
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension skill-writer` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Writing and moving skills
 
 A skill file outlives the session that wrote it and is often read by someone
@@ -53,8 +55,9 @@ count rather than asserting the result is clean:
 - Inside this throne: `./publish.sh --dry-run` against the staged content,
   and grep the content directly against every `# verify:` pattern in
   `publish-scrub.sed`.
-- Outside this throne: grep against
-  `${THRONE_PRIVATE_REFS:-$HOME/.config/throne/private-refs.txt}` when that
+- Outside this throne: grep against every `# verify:` pattern in the
+  throne checkout's `publish-scrub.sed`
+  (`${PUBLISH_SCRUB_FILE:-<throne checkout>/publish-scrub.sed}`) when that
   file exists.
 
 A narrative "looks clean" is not evidence. Print the number of hits; the
@@ -71,6 +74,26 @@ the author works on (a shop, a recipe app, a theme editor), even when a
 real incident is what taught the rule. State the rule the incident taught;
 do not retell the incident. Dates and the owner's own rulings may stay;
 the project nouns around them may not.
+
+## 3c. Operator-only steps of a throne skill go into its extension
+
+When authoring or porting a skill shipped under this throne's
+`.claude/skills/`, put every step that only this operator uses straight into
+the operator's extension for that skill, `<throne home>/skill-extensions/<skill>.md`,
+rather than into SKILL.md. The test is the same one the publish skill applies in
+its step (b): a general rule with a private example keeps the rule and gets
+an invented name; a step, tool, bot, reply format, host or habit that only
+this operator uses goes into the extension; a court hard rule, or a passage
+other skills depend on, stays in SKILL.md, generalised. Write the extension
+the way the publish skill's step (c) does, and check that
+`throne skill-extension <skill>` prints the step. Only throne skills have
+extensions; a skill anywhere else is generalized as in 2 and 3b.
+
+An invented example. Porting a bakery's generic deploy skill into this
+throne, the step "Run `oven-check` against every oven before you deploy"
+goes into `<throne home>/skill-extensions/deploy.md`, because only this
+bakery has `oven-check`; SKILL.md says "Run any checks your operator adds
+before you deploy."
 
 ## 4. Rule of doubt
 
@@ -100,14 +123,27 @@ compound forms, the way the file's existing lines do. Never remove or
 loosen an existing `# verify:` line, and never touch the file's `s#...#...#`
 rewrite rules — only add a new verify line.
 
-Outside this throne, there is no `publish-scrub.sed` to extend. Instead,
-append the removed term to
-`${THRONE_PRIVATE_REFS:-$HOME/.config/throne/private-refs.txt}` if that file
-exists, or name the exact line that belongs there if it does not.
+Outside this throne, the list to extend is still the throne checkout's
+`publish-scrub.sed` (`${PUBLISH_SCRUB_FILE:-<throne checkout>/publish-scrub.sed}`):
+it is the one list of private terms, and the skill-write guard reads its
+verify lines for every `SKILL.md` on the machine. Append the verify line
+there if that file exists, or name the exact line that belongs there if it
+does not.
 
 Prove the appended line actually gates something: run `./publish.sh
 --dry-run` against a tree that still contains the old term somewhere and
 confirm it refuses, citing the newly appended line as the reason.
+
+## Every throne skill opens with the operator-extension step
+
+Every skill shipped under this throne's `.claude/skills/` carries this
+paragraph as the first block after its frontmatter, word for word, with
+`<name>` replaced by the skill's own folder name. A test fails on any skill
+that lacks it or names another skill:
+
+```markdown
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension <name>` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+```
 
 ## Naming another skill from a throne skill
 

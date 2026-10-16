@@ -19,6 +19,7 @@ import {
   AutoscaleNowCommand,
 } from "../alpha-autoscale/alpha-autoscale-tick.command.ts";
 import { AutoscaleStatusCommand } from "../alpha-autoscale/autoscale-status.command.ts";
+import { AgentSettingsTickCommand } from "../agent-settings/agent-settings-tick.command.ts";
 import type { CommandRegistryEntry } from "./command-registry-entry.ts";
 
 export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
@@ -168,5 +169,13 @@ export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Show the autoscaler's state and what its next run would do, changing nothing: running or paused, next tick, free Alpha slots, pressure, cooldown, the queue in launch order, and a predicted verdict. Reads inside throne-backend over REST, falling back to this shell with a banner; --json for machines.",
+  },
+  {
+    name: "agent-settings-tick",
+    provider: AgentSettingsTickCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Check every agent's colour and session name once, now, and correct what differs: runs inside throne-backend over REST; --local runs it here; --dry-run changes nothing.",
   },
 ] as const;

@@ -74,7 +74,7 @@ export function exactLabelTabs(
   tabs: HerdrTab[],
   registeredAgentName: string,
 ): HerdrTab[] {
-  return tabs.filter((tab) => tab.label === registeredAgentName);
+  return tabs.filter((tab) => sameAgentName(tab.label, registeredAgentName));
 }
 
 type ExactRestoredPaneInspection =

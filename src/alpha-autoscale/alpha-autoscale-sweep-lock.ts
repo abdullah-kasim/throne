@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { link, mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { RUNTIME_DATA_HOME } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_HOME } from "../shared-policy/throne-home.ts";
 
 export const ALPHA_AUTOSCALE_SWEEP_LOCK_PATH = path.join(
-  RUNTIME_DATA_HOME,
+  THRONE_HOME,
   "locks",
   "alpha-autoscale.lock",
 );

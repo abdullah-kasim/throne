@@ -7,8 +7,7 @@ import {
   type PlanRole,
 } from "../config.ts";
 import { configuredRegentLaunch } from "../regent-state/regent-state.service.ts";
-import { steeringUserConfigPath } from "../steering-user-config.ts";
-import { resolveLiveThroneRoot } from "../throne-root-resolution.ts";
+import { resolveUserConfigPath } from "../user-config-loader.ts";
 
 const EFFORT_NAMES = ["", "low", "medium", "high", "xhigh", "max", "ultracode"];
 
@@ -47,7 +46,7 @@ export function renderResolvedSteering(configPath: string): string {
 }
 
 export async function run(): Promise<number> {
-  const configPath = steeringUserConfigPath(await resolveLiveThroneRoot());
+  const configPath = await resolveUserConfigPath();
   process.stdout.write(renderResolvedSteering(configPath));
   return 0;
 }

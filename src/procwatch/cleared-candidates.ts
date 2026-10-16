@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import { offenderKey } from './report-ledger.ts';
 import type { ProcessRecord } from './detect.ts';
 
@@ -17,7 +17,7 @@ import type { ProcessRecord } from './detect.ts';
  * process identity the report ledger uses, so a recycled pid is a new
  * process and gets a fresh look.
  */
-export function clearedCandidatesPath(dataDir: string = RUNTIME_DATA_DIR): string {
+export function clearedCandidatesPath(dataDir: string = THRONE_DATA_DIR): string {
   return path.join(dataDir, 'regent', 'procwatch-cleared-candidates.json');
 }
 

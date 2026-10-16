@@ -1,7 +1,10 @@
 import { agentStatusAcceptsInput } from '../herdr/herdr-inventory.service.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import { AGENT_MIN_AGE_MS, spawnedAtAgeMs } from './idle-family.ts';
+import { isSpawnStillStarting } from '../agentdata/spawn-starting.ts';
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
+import { paneShowsTheAgentHasActed } from './idle-pane-tag-classification.ts';
+import { backgroundWorkThePaneWaitsOn } from './background-wait.ts';
 
 /**
  * Closes the gap `findFullyIdleFamilies` cannot: that check only fires once
@@ -19,6 +22,7 @@ export interface UntaskedAgent {
   readonly name: string;
   readonly role: string;
   readonly ageMs: number;
+  readonly backgroundWork?: string;
 }
 
 export interface FindUntaskedAgentsEvidence {
@@ -26,10 +30,22 @@ export interface FindUntaskedAgentsEvidence {
   readonly readSpawnSpec: (name: string) => Promise<SpawnSpec | null>;
   /** A future scheduled assignment suppresses paging without changing tasked_at. */
   readonly hasFutureScheduledDelivery?: (name: string, nowMs: number) => Promise<boolean>;
+  readonly readPane?: (name: string) => Promise<string>;
   readonly now?: () => number;
 }
 
 const TASKED_ROLES = new Set(['Alpha', 'Shadow']);
+
+async function readPaneIfReadable(
+  evidence: FindUntaskedAgentsEvidence,
+  name: string,
+): Promise<string | undefined> {
+  try {
+    return await evidence.readPane?.(name);
+  } catch {
+    return undefined;
+  }
+}
 
 function isIdleAcceptingInput(entry: AgentStatusesRosterEntry): boolean {
   return (
@@ -70,10 +86,23 @@ export async function findUntaskedAgents(
     if (ageMs === undefined || ageMs < AGENT_MIN_AGE_MS) {
       continue;
     }
+    if (isSpawnStillStarting(spec, nowMs)) {
+      continue;
+    }
     if (await evidence.hasFutureScheduledDelivery?.(entry.name, nowMs)) {
       continue;
     }
-    untasked.push({ name: entry.name, role: entry.role, ageMs });
+    const pane = await readPaneIfReadable(evidence, entry.name);
+    if (pane !== undefined && paneShowsTheAgentHasActed(pane)) {
+      continue;
+    }
+    const backgroundWork = pane === undefined ? undefined : backgroundWorkThePaneWaitsOn(pane);
+    untasked.push({
+      name: entry.name,
+      role: entry.role,
+      ageMs,
+      ...(backgroundWork === undefined ? {} : { backgroundWork }),
+    });
   }
   return untasked.sort((left, right) => left.name.localeCompare(right.name));
 }

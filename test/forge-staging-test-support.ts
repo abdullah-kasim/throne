@@ -1,17 +1,22 @@
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { runForgeProcess, type ForgeDependencies } from "../src/forge/forge-dependencies.ts";
+import { after, afterEach, before, beforeEach } from "node:test";
+import { PRODUCTION_FORGE_DEPENDENCIES, runForgeProcess, type ForgeDependencies, type ProcessResult } from "../src/forge/forge-dependencies.ts";
+import { PUBLISH_SCRIPT_PATH } from "../src/forge/promotion-media.ts";
+import { installCommandsAnsweredInThisProcess } from "./commands-answered-in-this-process.ts";
 import { git } from "./git-repo-test-fixture.ts";
 import { FAKE_FORGEJO_ADMIN_PASSWORD, startFakeForgejo, type FakeForgejo } from "./forge-fake-forgejo.ts";
-import { FAKE_GITHUB_REPOSITORY, installFakeGithub, type FakeGithub, type FakeGithubPullRequest } from "./forge-fake-github.ts";
+import type { FakeForgejoSnapshot } from "./forge-fake-forgejo-snapshot.ts";
+import { FAKE_GITHUB_REPOSITORY, installFakeGithub, type FakeGithub, type FakeGithubPullRequest, type FakeGithubState } from "./forge-fake-github.ts";
 import {
+  copyOfCheckout,
   repositoryWithOriginAndFeatureBranch,
   runForgeCapturing,
   TEST_FORGEJO_TOKEN,
   TEST_TAILNET_ADDRESS,
   useFreshForgejoStateDirectory,
+  type CheckoutWithOrigin,
   type ForgejoStateDirectory,
 } from "./forge-test-support.ts";
 
@@ -19,10 +24,11 @@ export interface StagingHost {
   readonly state: ForgejoStateDirectory;
   readonly forgejo: FakeForgejo;
   readonly github: FakeGithub;
-  readonly checkout: Awaited<ReturnType<typeof repositoryWithOriginAndFeatureBranch>>;
+  readonly checkout: CheckoutWithOrigin;
   remove(): Promise<void>;
 }
 
+const PUBLIC_GITHUB_ORIGIN = "https://github.com";
 export const FEATURE_LINES = ["first line", "second line", "third line"];
 
 export const stagingDependencies: ForgeDependencies = {
@@ -31,15 +37,32 @@ export const stagingDependencies: ForgeDependencies = {
   readTailnetAddress: async () => TEST_TAILNET_ADDRESS,
 };
 
-export async function startStagingHost(prefix: string): Promise<StagingHost> {
-  const state = await useFreshForgejoStateDirectory();
-  const forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
-  await state.installForgejo(forgejo.rootUrl);
-  await writeFile(path.join(state.forgejoDirectory, "admin-password"), `${FAKE_FORGEJO_ADMIN_PASSWORD}\n`, { mode: 0o600 });
-  const github = await installFakeGithub();
+export function dependenciesWithPublish(publish: () => Promise<ProcessResult>): ForgeDependencies {
+  return {
+    ...stagingDependencies,
+    runProcess: (file, args, options) => (args[0] === PUBLISH_SCRIPT_PATH ? publish() : stagingDependencies.runProcess(file, args, options)),
+  };
+}
+
+async function checkoutWithFeatureLines(prefix: string): Promise<CheckoutWithOrigin> {
   const checkout = await repositoryWithOriginAndFeatureBranch(prefix);
   await writeFile(path.join(checkout.repo, "feature.txt"), `${FEATURE_LINES.join("\n")}\n`);
   await git(checkout.repo, ["commit", "--no-gpg-sign", "-q", "-am", "fill in the feature"]);
+  return checkout;
+}
+
+async function freshStateDirectoryFor(forgejo: FakeForgejo): Promise<ForgejoStateDirectory> {
+  const state = await useFreshForgejoStateDirectory();
+  await state.installForgejo(forgejo.rootUrl);
+  await writeFile(path.join(state.forgejoDirectory, "admin-password"), `${FAKE_FORGEJO_ADMIN_PASSWORD}\n`, { mode: 0o600 });
+  return state;
+}
+
+export async function startStagingHost(prefix: string): Promise<StagingHost> {
+  const forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
+  const state = await freshStateDirectoryFor(forgejo);
+  const github = await installFakeGithub();
+  const checkout = await checkoutWithFeatureLines(prefix);
   return {
     state,
     forgejo,
@@ -52,6 +75,47 @@ export async function startStagingHost(prefix: string): Promise<StagingHost> {
       await state.remove();
     },
   };
+}
+
+export function startStagingHostForEachTest(prefix: string, prepareOnce: (host: StagingHost) => Promise<void> = async () => {}): () => StagingHost {
+  let forgejo: FakeForgejo;
+  let github: FakeGithub;
+  let original: CheckoutWithOrigin;
+  let prepared: { readonly forgejo: FakeForgejoSnapshot; readonly github: FakeGithubState };
+  let current: StagingHost;
+  before(async () => {
+    await import("../src/forge/forge.command.ts");
+    forgejo = await startFakeForgejo(TEST_FORGEJO_TOKEN);
+    github = await installFakeGithub();
+    original = await checkoutWithFeatureLines(prefix);
+    const state = await freshStateDirectoryFor(forgejo);
+    await prepareOnce({ state, forgejo, github, checkout: original, remove: async () => {} });
+    await state.remove();
+    prepared = { forgejo: await forgejo.snapshot(), github: await github.read() };
+  });
+  after(async () => {
+    await forgejo.close();
+    await github.remove();
+    await original.remove();
+  });
+  beforeEach(async () => {
+    await forgejo.restore(prepared.forgejo);
+    await github.write(prepared.github);
+    const state = await freshStateDirectoryFor(forgejo);
+    const checkout = await copyOfCheckout(original, prefix);
+    current = {
+      state,
+      forgejo,
+      github,
+      checkout,
+      async remove() {
+        await checkout.remove();
+        await state.remove();
+      },
+    };
+  });
+  afterEach(() => current.remove());
+  return () => current;
 }
 
 export async function forge(host: StagingHost, args: readonly string[]): Promise<string> {
@@ -111,10 +175,14 @@ export async function answerFile(host: StagingHost, text: string): Promise<strin
   return writeInRepo(host, `answer-${Date.now()}-${Math.random().toString(16).slice(2)}.md`, text);
 }
 
-export async function openGithubPullRequestToStage(host: StagingHost, fields: Partial<FakeGithubPullRequest> = {}): Promise<string> {
+export async function openGithubPullRequestToStage(
+  host: StagingHost,
+  fields: Partial<FakeGithubPullRequest> = {},
+  githubOrigin: string = PUBLIC_GITHUB_ORIGIN,
+): Promise<string> {
   const state = await host.github.read();
   const number = 41 + state.pullRequests.length;
-  const url = `https://github.com/${FAKE_GITHUB_REPOSITORY}/pull/${number}`;
+  const url = `${githubOrigin}/${FAKE_GITHUB_REPOSITORY}/pull/${number}`;
   state.pullRequests.push({
     number,
     url,
@@ -132,33 +200,8 @@ export async function openGithubPullRequestToStage(host: StagingHost, fields: Pa
   return url;
 }
 
-const WORKTREE_ROOT = path.join(import.meta.dirname, "..");
-const FORGE_COMMAND_SCRIPT = [
-  "#!/bin/sh",
-  'FORGE_CALLER_DIRECTORY="$PWD"',
-  "export FORGE_CALLER_DIRECTORY",
-  `cd "${WORKTREE_ROOT}" || exit 1`,
-  `exec "${process.execPath}" --import ./test/register-typescript.mjs --input-type=module -e "` +
-    "const { runForge } = await import('./src/forge/forge.command.ts');" +
-    " process.exitCode = await runForge(process.argv.slice(2), undefined, {" +
-    " cwd: () => process.env.FORGE_CALLER_DIRECTORY," +
-    " writeStdout: (text) => process.stdout.write(text)," +
-    " writeStderr: (text) => process.stderr.write(text) });" +
-    '" -- "$@"',
-  "",
-].join("\n");
-
 export async function installForgeCommandOnPath(): Promise<{ remove(): Promise<void> }> {
-  const binDirectory = await mkdtemp(path.join(tmpdir(), "forge-command-"));
-  const commandPath = path.join(binDirectory, "throne");
-  await writeFile(commandPath, FORGE_COMMAND_SCRIPT);
-  await chmod(commandPath, 0o755);
-  const previousPath = process.env.PATH;
-  process.env.PATH = `${binDirectory}${path.delimiter}${previousPath ?? ""}`;
-  return {
-    async remove() {
-      process.env.PATH = previousPath;
-      await rm(binDirectory, { recursive: true, force: true });
-    },
-  };
+  return installCommandsAnsweredInThisProcess({
+    throne: (args, callerDirectory) => runForgeCapturing(args.slice(1), PRODUCTION_FORGE_DEPENDENCIES, callerDirectory),
+  });
 }

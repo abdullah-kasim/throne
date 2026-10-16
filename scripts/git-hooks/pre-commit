@@ -8,7 +8,7 @@
 # hook was rejected because every worktree and the live checkout share the
 # same git committer identity ("99a Rehearsal", a global user.name/
 # user.email) — there is no per-agent identity signal to gate on. A
-# cwd-under-~/.throne/worktrees/ check was rejected because it would have to
+# cwd-under-the-worktrees-folder check was rejected because it would have to
 # be threaded through every call site that might ever commit and is
 # trivially bypassed by anything not routed through that helper; a
 # pre-commit hook's own location already encodes "not a worktree" for free.
@@ -29,10 +29,10 @@ set -euo pipefail
 branch="$(git symbolic-ref --quiet --short HEAD || true)"
 
 if [ "$branch" = "main" ]; then
-  cat >&2 <<'EOF'
+  cat >&2 <<EOF
 refusing commit: current branch is "main" in what looks like the live throne
 checkout. Agents must do all coding in their own worktree under
-~/.throne/worktrees/, never commit directly onto main.
+${THRONE_DATA_HOME:-$HOME/.throne}/worktrees/, never commit directly onto main.
 
 If this is a deliberate, reviewed direct commit onto live main, use:
   git commit --no-verify

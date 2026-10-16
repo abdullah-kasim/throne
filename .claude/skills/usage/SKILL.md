@@ -3,6 +3,8 @@ name: usage
 description: Throne-only usage dashboard. Trigger when the Lord says “usage” or asks about quota, limits, burn rate, reset timing, or projected exhaustion. Reports current harness limits, remaining percentages, burn rates, reset times, and projected percentage at reset (including negative values) as a table.
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension usage` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Usage dashboard
 
 This skill is throne-only. Run from the live throne root; do not delegate.

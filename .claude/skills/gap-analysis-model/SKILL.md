@@ -5,6 +5,8 @@ version: 0.5.0
 user-invocable: true
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension gap-analysis-model` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Gap analysis model
 
 Run a controlled two-model comparison inside the throne. Each compared pair owns
@@ -159,11 +161,14 @@ This is the ONLY place the durable publication destination is defined. Every
 other section and template consumes `guidance_dir_for`; none hard-codes a
 guidance path.
 
+`GUIDANCE_SUBDIR` is the guidance directory, relative to the root of the
+repository that holds it, with family subdirectories `Claude` and `GPT`. It
+defaults to `agent_docs`, the repository's own agent-docs tree. An operator
+whose guidance lives elsewhere sets `GUIDANCE_SUBDIR` in their extension for
+this skill.
+
 ```bash
-# Repo-relative home of the global cross-harness agent-docs tree that both
-# harness families bootstrap from. Published (post-merge) at
-# "$HOME/.claude/../agent_docs", family subdirectories "Claude" and "GPT".
-GUIDANCE_SUBDIR="claude/agent_docs"
+GUIDANCE_SUBDIR="agent_docs"
 
 # Model FAMILY, not harness, selects the directory: guidance describes how a
 # model behaves, and the same family is reachable through more than one
@@ -183,17 +188,17 @@ guidance_dir_for() {
 }
 ```
 
-The base is the GLOBAL tree because the product characterizes models, not this
-repository: a Claude session and a Codex session must each reach their own
-family's guidance through the bootstrap ritual they already run. The two
-compared pairs may map to the same family directory; they always keep distinct
-`<harness>-<model>.md` filenames.
+The base is one shared guidance tree because the product characterizes models,
+not the compared task's repository: a Claude session and a Codex session must
+each reach their own family's guidance through the bootstrap ritual they
+already run. The two compared pairs may map to the same family directory; they
+always keep distinct `<harness>-<model>.md` filenames.
 
 The path is resolved against the DISTILLER's worktree root, not `$HOME`, and
 reaches the published location through `merge-git-tree`. Writing straight into
 the live checkout would break the same worktree discipline every other worker
 in the run obeys. Consequence: the distillation slice's worktree must be on the
-repository that owns the global `agent_docs` tree — spawn it with no `--repo`
+repository that holds `$GUIDANCE_SUBDIR` — spawn it with no `--repo`
 override even when the compared TASK targets another repository, and refuse to
 distil into a tree that has no `$GUIDANCE_SUBDIR` directory.
 
@@ -636,8 +641,8 @@ $THRONE_DATA/<alpha>/gaprun-<label>/
   <campaign-alpha>.log        # captured recent-output window, up to 2,000 lines
 
 # The published product, landed by merge-git-tree.
-~/.claude/../agent_docs/Claude/<harness>-<model>.md
-~/.claude/../agent_docs/GPT/<harness>-<model>.md
+<guidance repository>/$GUIDANCE_SUBDIR/Claude/<harness>-<model>.md
+<guidance repository>/$GUIDANCE_SUBDIR/GPT/<harness>-<model>.md
 ```
 
 The two campaign worklogs are equally required: they preserve each side's

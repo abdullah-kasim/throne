@@ -8,6 +8,7 @@ import {
   parseRestartHarnessesArguments,
   planRestarts,
   restartHarnesses,
+  resumeAgentInItsTab,
   run,
   type RestartHarnessesDeps,
 } from "../src/restart-harnesses/restart-harnesses-runtime.ts";
@@ -200,6 +201,16 @@ test("a relaunched pane that came back unnamed is renamed to the registered agen
   const outcomes = await restartHarnesses(ALL, deps);
   assert.equal(outcomes[0]!.verdict, "restarted");
   assert.deepEqual(recorder.renamed, [{ paneId: stager.paneId, name: "stager-b" }]);
+});
+
+test("the resume that follows a stop also serves a pane whose harness has already exited, with no process to stop", async () => {
+  const exited = agent({ name: "stager-b", paneId: "w1:pB" });
+  const { deps, recorder } = fakeDeps([], { afterRelaunch: [{ ...exited, name: undefined }] });
+  await deps.listAgents();
+  await resumeAgentInItsTab("stager-b", exited.tabId, deps);
+  assert.deepEqual(recorder.resumed, ["stager-b"]);
+  assert.deepEqual(recorder.renamed, [{ paneId: "w1:pB", name: "stager-b" }]);
+  assert.deepEqual(recorder.signals, []);
 });
 
 test("a pane switched to another model is resumed on that model, not the one it was spawned with", async () => {

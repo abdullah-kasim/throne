@@ -5,6 +5,11 @@
  * concurrent scheduled counterpart to race).
  */
 
+import {
+  TransportConnectionError,
+  type TransportClient,
+} from "./transport-client.ts";
+
 export interface ManualTriggerRouteResult {
   readonly exitCode: number;
   readonly stdout: string;
@@ -54,6 +59,42 @@ export async function runCapturedWork(
     captured.sinks.stderr(`${error instanceof Error ? error.message : String(error)}\n`);
     return { exitCode: 1, ...captured.read() };
   }
+}
+
+export interface ManualTriggerOverTransport {
+  readonly commandName: string;
+  readonly routePath: string;
+  readonly args: readonly string[];
+}
+
+export async function runManualTriggerOverTransport(
+  client: TransportClient,
+  trigger: ManualTriggerOverTransport,
+): Promise<number> {
+  let response: Awaited<ReturnType<TransportClient["request"]>>;
+  try {
+    response = await client.request(trigger.routePath, trigger.args);
+  } catch (error) {
+    if (error instanceof TransportConnectionError) {
+      process.stderr.write(
+        `${trigger.commandName}: throne-backend is unreachable over the transport (${error.message}). ` +
+          `Pass --local to run the in-process sweep instead.\n`,
+      );
+      return 1;
+    }
+    throw error;
+  }
+  if (!response.ok) {
+    process.stderr.write(
+      `${trigger.commandName}: ${response.error?.message ?? "transport request failed"}. ` +
+        `Pass --local to run the in-process sweep instead.\n`,
+    );
+    return 1;
+  }
+  const result = response.result as ManualTriggerRouteResult;
+  if (result.stdout.length > 0) process.stdout.write(result.stdout);
+  if (result.stderr.length > 0) process.stderr.write(result.stderr);
+  return result.exitCode;
 }
 
 /**

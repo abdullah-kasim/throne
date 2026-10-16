@@ -29,7 +29,7 @@ test("a ticket-driven queue row quotes the ticket verbatim, read fresh, in a TIC
   const rule = unwrap(await readTicketBlockRule());
   assert.deepEqual(
     missingPhrases(rule, [
-      "**Read the ticket fresh, now.** Use the Linear MCP (`get_issue`, then `list_comments`), or `ghe issue view <number> --comments`",
+      "**Read the ticket fresh, now**, with the tracker's own tool (for a GitHub issue, `gh issue view <number> --comments`).",
       "Never quote from a summary",
       "**Quote it verbatim under `TICKET:`:** the ticket's link, its description, every acceptance point, and every comment that changes the ask.",
       "**Number the quoted points T1, T2, …**",

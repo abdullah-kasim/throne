@@ -1,5 +1,6 @@
 export const HERDR_HELPER_JUSTIFICATIONS: Readonly<Record<string, string>> = {
   'herdr/herdr-claude.service.ts': 'Claude-specific pane interaction changes independently from generic Herdr lifecycle effects',
+  'herdr/herdr-claude-settings-dialog.ts': 'recognising and closing the settings dialog on the Regent pane changes independently from the composer wait that calls it',
   'herdr/herdr-opencode.service.ts': 'OpenCode-specific pane interaction changes independently from generic Herdr lifecycle effects',
   'herdr/herdr-send.helpers.ts': 'shared send transport helpers change independently from submission orchestration',
   'herdr/herdr-send-keyed-window.ts': 'keyed delivery-window ownership/takeover/outcome-fanout changes independently from the unkeyed submission transaction',

@@ -65,8 +65,8 @@ test('gh gets the host proxy for an enterprise host, and github.com is left alon
   assert.equal(publish.environmentForHost('git.example.test', { HTTPS_PROXY: 'http://own.example.test:1' }, readProxy).HTTPS_PROXY, 'http://own.example.test:1');
 });
 
-test('each host keeps its own saved profile directory', () => {
-  assert.equal(upload.profileDirectoryFor('Git.Example.Test', '/home/example'), '/home/example/.config/throne/agent-browser/git-example-test');
+test('each host keeps its own saved sign-in in the browser-profiles folder of the throne home', () => {
+  assert.equal(upload.profileDirectoryFor('Git.Example.Test', { THRONE_DATA_HOME: '/home/example/.throne' }), '/home/example/.throne/browser-profiles/git-example-test');
 });
 
 test('large files get a longer upload wait than small ones', () => {

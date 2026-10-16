@@ -146,6 +146,17 @@ test('every committed launchd source renders with the darwin token set and no le
   }
 });
 
+test('every install of the court gives its herdr server and its backend the launchd process type Interactive', async () => {
+  for (const agent of [LAUNCHD_AGENT_NAMES.THRONE_HERDR, LAUNCHD_AGENT_NAMES.THRONE_BACKEND]) {
+    const source = await readFile(path.join(LAUNCHD_SOURCE_DIR, agent.basename), 'utf8');
+    assert.match(
+      renderUnitSource(source, TOKENS),
+      /<key>ProcessType<\/key>\s*<string>Interactive<\/string>/,
+      `launchd/${agent.basename} does not declare the Interactive process type`,
+    );
+  }
+});
+
 function binaryNestStartsTheAppWith(renderedUnit: string): string | undefined {
   return /nest\.js start .*--exec (\S+)/.exec(renderedUnit)?.[1];
 }

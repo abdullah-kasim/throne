@@ -2,6 +2,7 @@ import { execFile, spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { Injectable } from '@nestjs/common';
+import { RecipientPaneLockService } from '../shared-policy/recipient-pane-lock.service.ts';
 
 export const OWNED_HERDR_CLIENT_RELEASE_TAG = 'v0.8.2';
 
@@ -128,6 +129,15 @@ export function isHerdrServerNotRunning(failure: unknown): boolean {
     failure instanceof NestHerdrCommandError &&
     failure.code === HERDR_SERVER_NOT_RUNNING_ERROR_CODE
   );
+}
+
+export const HERDR_PANE_NOT_FOUND_ERROR_CODE = 'pane_not_found';
+
+export function isHerdrPaneGone(failure: unknown): boolean {
+  if (failure instanceof NestHerdrCommandError) {
+    return failure.code === HERDR_PANE_NOT_FOUND_ERROR_CODE;
+  }
+  return failure instanceof Error && isHerdrPaneGone(failure.cause);
 }
 
 export async function listAgentsReadingStoppedSessionAsEmpty<Agent>(
@@ -323,16 +333,25 @@ export class HerdrClientService {
   }
 
   sendText(target: string, text: string): Promise<void> {
-    return this.run(['pane', 'send-text', target, text]).then(() => undefined);
+    return writeToPaneHoldingItsLock(target, () => this.run(['pane', 'send-text', target, text]));
   }
 
   pressEnter(pane: string): Promise<void> {
-    return this.run(['pane', 'send-keys', pane, 'Enter']).then(() => undefined);
+    return writeToPaneHoldingItsLock(pane, () => this.run(['pane', 'send-keys', pane, 'Enter']));
   }
 
   pressPaneKey(pane: string, key: string): Promise<void> {
-    return this.run(['pane', 'send-keys', pane, key]).then(() => undefined);
+    return writeToPaneHoldingItsLock(pane, () => this.run(['pane', 'send-keys', pane, key]));
   }
+}
+
+const PANE_LOCK = new RecipientPaneLockService();
+
+export async function writeToPaneHoldingItsLock(
+  paneId: string,
+  write: () => Promise<unknown>,
+): Promise<void> {
+  await PANE_LOCK.withRecipientPaneLock(paneId, write);
 }
 
 

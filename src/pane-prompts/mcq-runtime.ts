@@ -1,12 +1,13 @@
 import { IdentityLineReadStatus, readAgentRole, type IdentityLineRead } from '../agentdata/identity-data.service.ts';
 import { resolveCurrentAgentName } from '../herdr/herdr-session.service.ts';
 import { pressPaneKey } from '../herdr/herdr-client.ts';
+import { RecipientPaneLockService } from '../shared-policy/recipient-pane-lock.service.ts';
 import type { HerdrAgent } from '../herdr/herdr-identity-contracts.ts';
 import { readVisibleText, resolveAgent } from '../herdr/herdr-runtime.service.ts';
 import { isQueueFilerRoleName } from '../shared-policy/objective-contract.ts';
 import { canonicalRegentAuthority } from '../shared-policy/regent-authority.ts';
 import { submitToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
-import { submitPageToRegent } from '../blocked-paging/blocked-agent-paging.hosted-worker.ts';
+import { submitPageToRegent } from '../blocked-paging/blocked-agent-regent-page.ts';
 import { buildMcqTakeOverPagingMessage } from '../blocked-paging/blocked-agent-paging-message.ts';
 import {
   detectInteractivePrompt,
@@ -41,6 +42,7 @@ export interface McqDependencies {
   readonly resolveAgent: (name: string) => Promise<HerdrAgent>;
   readonly readPaneText: (paneId: string) => Promise<string>;
   readonly pressKey: (paneId: string, key: McqKey) => Promise<void>;
+  readonly withRecipientPaneLock: RecipientPaneLockService['withRecipientPaneLock'];
   readonly sleep: (milliseconds: number) => Promise<void>;
   readonly now: () => number;
   readonly pageRegent: (message: string, pageKey: string) => Promise<void>;
@@ -49,12 +51,15 @@ export interface McqDependencies {
   readonly err: (text: string) => void;
 }
 
+const RECIPIENT_PANE_LOCK = new RecipientPaneLockService();
+
 export const REAL_MCQ_DEPENDENCIES: McqDependencies = {
   currentAgentName: resolveCurrentAgentName,
   readRole: (name) => readAgentRole(name),
   resolveAgent: (name) => resolveAgent(name),
   readPaneText: readVisibleText,
   pressKey: (paneId, key) => pressPaneKey(paneId, key),
+  withRecipientPaneLock: RECIPIENT_PANE_LOCK.withRecipientPaneLock.bind(RECIPIENT_PANE_LOCK),
   sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   now: () => Date.now(),
   pageRegent: (message, pageKey) =>
@@ -322,10 +327,12 @@ export async function runMcq(args: readonly string[], deps: McqDependencies = RE
     deps.out(`${plannedKeys(first.prompt, parsed.action)}\n`);
     return McqExitCode.Done;
   }
-  const outcome =
-    parsed.action.kind === 'dismiss'
-      ? await dismissPrompt(target.paneId, first, deps)
-      : await answerPrompt(target.paneId, first, parsed.action.optionNumber, deps);
+  const action = parsed.action;
+  const outcome = await deps.withRecipientPaneLock(target.paneId, () =>
+    action.kind === 'dismiss'
+      ? dismissPrompt(target.paneId, first, deps)
+      : answerPrompt(target.paneId, first, action.optionNumber, deps),
+  );
   if (outcome.kind === 'take-over') {
     await deps.appendLedger(ledgerEntry(parsed, caller, target.paneId, first.prompt, MCQ_OUTCOMES.TAKE_OVER, outcome.reason, deps));
     await pageRegentToTakeOver(parsed, caller, target.paneId, outcome.reason, deps);

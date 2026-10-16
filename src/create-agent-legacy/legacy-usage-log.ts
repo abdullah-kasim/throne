@@ -12,30 +12,28 @@
 // sensor cadence while preventing an unexpectedly busy caller from growing the
 // local file forever.
 
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   mkdir,
-  open,
   readFile,
   rename,
   unlink,
   writeFile,
-  type FileHandle,
 } from "node:fs/promises";
 import path from "node:path";
+import { withExclusiveFileLock } from "../shared-policy/exclusive-file-lock.ts";
 import {
   contemporaneousWeeklyReset,
   isFableWeeklyReading,
 } from "../plan-usage-remaining/telemetry-core/weekly-reset.ts";
 import type { CacheablePayload } from "../plan-usage-remaining/telemetry-core/cache.ts";
 import type { UsageForecastSample } from "../plan-usage-remaining/telemetry-core/forecast.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 
 // Resolve the throne root from THIS module's location, not process.cwd(), so the
 // CLI and the in-process callers (create-agent's router, the FF keep-going hook)
 // all append to the one file regardless of where the process was launched.
-export const USAGE_LOG_DIR = path.join(RUNTIME_DATA_DIR, "stats", "usages");
+export const USAGE_LOG_DIR = path.join(THRONE_DATA_DIR, "stats", "usages");
 export const USAGE_LOG_FILE = path.join(USAGE_LOG_DIR, "usage-log.jsonl");
 export const USAGE_LOG_MAX_AGE_MS = 8 * 24 * 60 * 60_000;
 export const USAGE_LOG_MAX_ROWS = 4_096;
@@ -198,41 +196,12 @@ export function getBoundedForecastSamples(
     }));
 }
 
+const USAGE_LOG_LOCK_NAME = "usage log";
+
 interface UsageLogAppenderOptions {
   file?: string;
   now?: () => Date;
   flockExecutable?: string;
-}
-
-function acquireDescriptorLock(
-  descriptor: number,
-  flockExecutable: string,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(flockExecutable, ["--exclusive", "3"], {
-      stdio: ["ignore", "ignore", "pipe", descriptor],
-    });
-    let stderr = "";
-    child.stderr?.setEncoding("utf8");
-    child.stderr?.on("data", (chunk: string) => {
-      if (stderr.length < 64 * 1024) stderr += chunk;
-    });
-    child.once("error", reject);
-    child.once("close", (code, signal) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      const detail = stderr.trim();
-      reject(
-        new Error(
-          `${flockExecutable} could not acquire the usage log lock` +
-            `${signal === null ? ` (exit ${code ?? "unknown"})` : ` (${signal})`}` +
-            `${detail === "" ? "" : `: ${detail}`}`,
-        ),
-      );
-    });
-  });
 }
 
 async function readAbsentAsEmpty(file: string): Promise<string> {
@@ -241,17 +210,6 @@ async function readAbsentAsEmpty(file: string): Promise<string> {
   } catch (err) {
     if (isRecord(err) && err.code === "ENOENT") return "";
     throw err;
-  }
-}
-
-async function closeWithoutChangingOutcome(
-  handle: FileHandle | undefined,
-): Promise<void> {
-  if (handle === undefined) return;
-  try {
-    await handle.close();
-  } catch {
-    return;
   }
 }
 
@@ -271,30 +229,29 @@ export function realAppendUsageLog(
 ): (rows: UsageLogRow[]) => Promise<void> {
   const file = options.file ?? USAGE_LOG_FILE;
   const now = options.now ?? (() => new Date());
-  const flockExecutable = options.flockExecutable ?? "flock";
   return async (rows) => {
     if (rows.length === 0) return;
-    const directory = path.dirname(file);
-    const lockFile = `${file}.lock`;
     const temporaryFile = `${file}.${process.pid}.${randomUUID()}.tmp`;
-    let lockHandle: FileHandle | undefined;
+    await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
     try {
-      await mkdir(directory, { recursive: true, mode: 0o700 });
-      lockHandle = await open(lockFile, "a+", 0o600);
-      await lockHandle.chmod(0o600);
-      await acquireDescriptorLock(lockHandle.fd, flockExecutable);
-      const retained = boundUsageLogRows(
-        [...parseUsageLog(await readAbsentAsEmpty(file)), ...rows],
-        now(),
+      await withExclusiveFileLock(
+        `${file}.lock`,
+        USAGE_LOG_LOCK_NAME,
+        async () => {
+          const retained = boundUsageLogRows(
+            [...parseUsageLog(await readAbsentAsEmpty(file)), ...rows],
+            now(),
+          );
+          await writeFile(temporaryFile, serializeUsageLogRows(retained), {
+            encoding: "utf8",
+            mode: 0o600,
+          });
+          await rename(temporaryFile, file);
+        },
+        options.flockExecutable,
       );
-      await writeFile(temporaryFile, serializeUsageLogRows(retained), {
-        encoding: "utf8",
-        mode: 0o600,
-      });
-      await rename(temporaryFile, file);
     } finally {
       await unlinkWithoutChangingOutcome(temporaryFile);
-      await closeWithoutChangingOutcome(lockHandle);
     }
   };
 }

@@ -1,9 +1,11 @@
 ---
 name: autoscaler
-description: 'This throne-only, STAGER-ONLY skill pauses or resumes the whole court''s spawning by flipping `steering.autoscaleEnabled` in the live throne''s gitignored `config.user.ts`. Invoked by /autoscaler off | on | status, or when the Lord says "disable the autoscaler", "pause the throne", "stop spawning alphas", "stand the autoscaler down", "resume the autoscaler", or "is the autoscaler on?". Only a registered Stager may run it; the Regent, an Alpha, or a Shadow must refuse and relay to a Stager.'
+description: 'This throne-only, STAGER-ONLY skill pauses or resumes the whole court''s spawning by flipping `steering.autoscaleEnabled` in the throne''s `config.user.ts`. Invoked by /autoscaler off | on | status, or when the Lord says "disable the autoscaler", "pause the throne", "stop spawning alphas", "stand the autoscaler down", "resume the autoscaler", or "is the autoscaler on?". Only a registered Stager may run it; the Regent, an Alpha, or a Shadow must refuse and relay to a Stager.'
 version: 1.0.0
 user-invocable: true
 ---
+
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension autoscaler` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
 
 # Pause / resume the autoscaler (Stager only)
 
@@ -35,8 +37,10 @@ restart in either direction.
 1. Read `~/.throne/data/<your-name>/identity.md`. The `Role:` line must be
    `Stager`. Any other role REFUSES loudly and relays the request to a live
    Stager (`throne send-agent <stager> ...`). The Stager is the one role that
-   edits the live throne root's `config.user.ts`, the one copy the backend
-   reads; its own tree's copy is not that file.
+   edits the `config.user.ts` in force, the one copy the backend reads:
+   `~/.throne/config/config.user.ts`, or the live throne root's copy when that
+   exists (AGENTS.md "Where the throne keeps things"). A copy in its own tree
+   is not that file.
 2. Resolve the live throne root with the same throne-context guard the todo
    skills use. Outside the live throne, refuse.
 
@@ -50,8 +54,10 @@ restart in either direction.
 
 ## Procedure
 
-1. `cat <live-throne-root>/config.user.ts`. If absent, start from
-   `config.user.example.ts` — a file with ONLY a `steering` section is valid.
+1. `throne check-config` names the copy in force; `cat` it. If there is
+   none, start `~/.throne/config/config.user.ts` from
+   `config.user.example.ts`, with a `package.json` of `{ "type": "module" }`
+   beside it — a file with ONLY a `steering` section is valid.
 2. PRESERVE, DON'T REPLACE: keep every existing section and key
    (`addressTitle`, `ntfy`, `identity`, `roleplayPreset`,
    `activePlanPresetName`, `activeTargetEffort`, `customPlanPresets`,
@@ -80,6 +86,6 @@ restart in either direction.
    every five minutes until `on`, that live agents and the Regent are
    untouched, and that any launch-eligible queue rows simply wait.
 
-`config.user.ts` is gitignored: nothing to commit, no YOLO checkpoint to
+`config.user.ts` is never committed: nothing to commit, no YOLO checkpoint to
 advance. Never edit the service templates or `kill-switch.ts` to "pause"
 — the env switch stays armed by the Lord's order; this field is the pause.

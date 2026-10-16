@@ -29,6 +29,7 @@ and each table keeps its family's own order.
 | `alpha-autoscale-tick` | Run one Alpha autoscale sweep inside the backend under the cross-process sweep lock, or in this process with `--local`. |
 | `autoscale-now` | Check the queue and spawn now instead of waiting for the five-minute autoscale schedule; an alias of `alpha-autoscale-tick`. |
 | `autoscale-status` | Show the autoscaler's state and what its next run would do, changing nothing; deferred rows are listed as held, with what they wait on and since when. |
+| `agent-settings-tick` | Check every agent's colour and session name once, now, and correct what differs, inside the backend or in this process with `--local`; `--dry-run` changes nothing. |
 
 ## Agent orchestration
 
@@ -77,6 +78,7 @@ and each table keeps its family's own order.
 | `lint-queue-plan` | Check a consolidated plan body for the canonical section markers of the Stager checklist before it is filed launch-ready. |
 | `mark-queue-launch-eligible` | Mark an open queue objective launch-eligible with complete launch metadata. |
 | `reconcile-queue` | Refresh the queue's delivery evidence, or explicitly close work another campaign absorbed. |
+| `check-in-flight-rows` | List every in-flight queue row whose recorded Alpha is not live and not still starting, with that Alpha's state (DEAD, COMPLETE, reaped, never registered); exits 1 when any exist and changes nothing. |
 | `stage-launch-brief` | Stage, correct or expire an autoscale launch brief the Regent authorized. |
 | `migrate-queue-markdown` | Migrate the Regent's `QUEUE.md` and `QUEUE-ARCHIVE.md` content into the SQLite queue store, one way. |
 | `install-services` | Install the throne's hooks and services. |
@@ -98,9 +100,11 @@ and each table keeps its family's own order.
 | `token-balance` | Report the token-lane load balancer's verdict: which lane new balanced-role spawns should use, or why neither is usable. |
 | `campaign-evidence` | Generate campaign evidence. |
 | `sweep-tmp-scratch` | Sweep aged scratch directories nothing holds; a dry run by default. |
+| `migrate-home` | Move the old settings and browser sign-ins into the throne home once, backing up first; an item whose two copies differ is refused and its difference printed. `throne-startup` runs it with `--keep-old-copies`, which only copies and leaves the old files. |
 | `git-identity` | Print the git author identity from `config.user.ts` (`identity.name` and `identity.email`); exits 3 when it is unset. |
 | `forge` | Work with pull requests on this host's forge: which forge, the lazy Forgejo copy of a repository and keeping its branches in step with GitHub, pushing a branch, and creating, viewing, editing, listing, diffing and commenting on pull requests, merging them only on GitHub (never in Forgejo), attaching files and rendering markdown; opening a pull request in an editor from a reused or detached review worktree; staging an existing GitHub pull request in Forgejo; promoting a Forgejo pull request to GitHub, mirroring, listing and answering its review feedback in Forgejo, and closing it once its GitHub twin is merged. Forgejo when it is installed and answering, otherwise GitHub through `gh`. |
 | `memory-dir` | Print the durable cross-session memory directory for the project containing a directory, deferring to any memory convention already in force. |
+| `skill-extension` | Print the operator's own extension to a named skill, kept outside the repository in the throne home's `skill-extensions` folder, or nothing when there is none; `--list` names every extension present. |
 | `recall` | Print the recorded memories that apply to a task, most relevant first and capped in size, from the named repositories or memory directories plus the global memories; also serves the prompt-submit hook. |
 | `rank` | Rank files or input items by how likely each answers yes to a question, most likely first, so only the top few get opened; never prints item contents. |
 | `locate` | Print the files most likely to matter for a stated task, each ranked with a probability and a one-line reason. |
@@ -111,6 +115,8 @@ and each table keeps its family's own order.
 | `enable-throne` | Start the throne's systemd units; messages no agent. |
 | `render-queue` | Render the current state of the SQLite Regent queue store as readable markdown. |
 | `work-log` | List the queue rows completed or updated since a date, with each row's recorded outcome and the first sentence of its intent, and the GitHub actions the gh guard logged since that date; `--json` for one machine-readable object. |
+| `where-i-stand` | Show the Lord's where-i-stand page and its version, replace it from a file when the version still matches, or add one event to its Just happened list. Any agent may write; every write is locked, keeps the previous copy and is journaled. |
+| `check-where-i-stand` | Exit 0 when an Alpha's campaign recorded its outcome on the Lord's where-i-stand page after it delivered, and 66 with one sentence saying what to write when it has not; `complete-agent` refuses an Alpha on the same decision. |
 | `consume-fence-handoff-on-start` | Read and clear the current fence handoff record, so a freshly summoned Regent learns why its predecessor was fenced before it handles any pane message. |
 | `record-suite-hold` | Record that a campaign now holds full-suite access, so a fenced Regent's successor can learn who was mid-sequence. |
 | `record-suite-release` | Record that a campaign has released full-suite access. |

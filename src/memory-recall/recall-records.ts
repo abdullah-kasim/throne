@@ -9,8 +9,8 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import path from 'node:path';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import { YES, type BackendAnswer } from '../relevance-classifier/classifier.types.ts';
 import {
   SHADOW_ARM,
@@ -28,7 +28,7 @@ import type { RecallVerdict } from './recall-verdict.ts';
 import { isWorthServing, type MemoryDecision } from './select-memories.ts';
 
 export function productionRecallDataDirectory(): string {
-  return path.join(homedir(), '.throne', 'data', 'recall');
+  return path.join(THRONE_DATA_DIR, 'recall');
 }
 
 export function inputHash(text: string): string {

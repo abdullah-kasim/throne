@@ -1,10 +1,10 @@
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 
 export const BLOCKED_PAGE_ESCALATION_BOUND = 3;
 export const DEFAULT_BLOCKED_PAGE_LEDGER_PATH = path.join(
-  RUNTIME_DATA_DIR,
+  THRONE_DATA_DIR,
   'regent',
   'blocked-agent-page-ledger.jsonl',
 );

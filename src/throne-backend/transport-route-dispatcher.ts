@@ -31,6 +31,10 @@ import {
   AUTOSCALE_STATUS_ROUTE_PATH,
   createAutoscaleStatusRouteHandler,
 } from "../alpha-autoscale/autoscale-status-route.ts";
+import {
+  AGENT_SETTINGS_ROUTE_PATH,
+  handleAgentSettingsRoute,
+} from "../agent-settings/agent-settings-route.ts";
 
 export const TRANSPORT_ROUTE_DISPATCHER_WORKER_NAME = "transport-route-dispatcher";
 
@@ -66,6 +70,7 @@ export function buildProductionRouteHandlers(
     [NO_IDLING_ROUTE_PATH]: handleNoIdlingRoute,
     [ALPHA_AUTOSCALE_ROUTE_PATH]: handleAlphaAutoscaleRoute,
     [AUTOSCALE_STATUS_ROUTE_PATH]: createAutoscaleStatusRouteHandler(scheduler),
+    [AGENT_SETTINGS_ROUTE_PATH]: handleAgentSettingsRoute,
   };
 }
 

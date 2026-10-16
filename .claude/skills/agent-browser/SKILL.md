@@ -5,6 +5,8 @@ allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
 hidden: true
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension agent-browser` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # agent-browser
 
 Fast browser automation CLI for AI agents. Chrome/Chromium via CDP with accessibility-tree snapshots and compact `@eN` element refs.

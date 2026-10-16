@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { readGitStatus, runGit } from "../git-lifecycle/git-command.service.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
-import { RUNTIME_DATA_HOME } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_HOME } from "../shared-policy/throne-home.ts";
 import { resolveCourtCheckout, type CourtCheckout } from "./court-checkout.ts";
 import { formatFileLine } from "./file-line.ts";
 import { pairEntriesWithFindings, PushWaiverReason, readEntries, type WaivedFinding, type WaiverEntry } from "./push-waiver-entries.ts";
@@ -33,7 +33,7 @@ export interface PushWaiverDependencies {
 }
 
 export const REAL_PUSH_WAIVER_DEPENDENCIES: PushWaiverDependencies = {
-  dataHome: RUNTIME_DATA_HOME,
+  dataHome: THRONE_HOME,
   now: () => new Date(),
   out: (message) => void process.stdout.write(message),
   err: (message) => void process.stderr.write(message),

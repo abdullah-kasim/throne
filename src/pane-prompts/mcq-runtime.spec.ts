@@ -1,11 +1,19 @@
 import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
+import {
+  countInFlightRecipientPaneLocks,
+  RecipientPaneLockService,
+} from '../shared-policy/recipient-pane-lock.service.ts';
 import { IdentityLineReadStatus } from '../agentdata/identity-data.service.ts';
 import type { HerdrAgent } from '../herdr/herdr-identity-contracts.ts';
 import type { McqAnswerLedgerEntry } from './mcq-answer-ledger.ts';
 import { McqExitCode, runMcq, type McqDependencies } from './mcq-runtime.ts';
 
 const PANE_ID = 'w1:p9';
+const lockDirectory = await mkdtemp(path.join(tmpdir(), 'mcq-pane-lock-'));
 const CLEARED_SCREEN = '⏺ Running…\n\n❯ \n';
 
 function permissionScreen(selectedRow: number): string {
@@ -26,6 +34,7 @@ interface FakePaneBehaviour {
 interface FakeCourt {
   readonly deps: McqDependencies;
   readonly pressed: string[];
+  readonly paneLocksHeldAtEachPress: (number | null)[];
   readonly ledger: McqAnswerLedgerEntry[];
   readonly pages: string[];
   readonly stdout: string[];
@@ -50,6 +59,8 @@ function fakeCourt(
   let selectedRow = 1;
   let screen = options.initialScreen ?? permissionScreen(selectedRow);
   const pressed: string[] = [];
+  const paneLocksHeldAtEachPress: (number | null)[] = [];
+  const paneLock = new RecipientPaneLockService();
   const ledger: McqAnswerLedgerEntry[] = [];
   const pages: string[] = [];
   const stdout: string[] = [];
@@ -70,7 +81,10 @@ function fakeCourt(
     readRole: async () => ({ status: IdentityLineReadStatus.Found, value: options.role ?? 'Stager' }),
     resolveAgent: async () => agent,
     readPaneText: async () => screen,
+    withRecipientPaneLock: (paneId, action) =>
+      paneLock.withRecipientPaneLock(paneId, action, { lockDirectory }),
     pressKey: async (_pane, key) => {
+      paneLocksHeldAtEachPress.push(await countInFlightRecipientPaneLocks({ lockDirectory }));
       pressed.push(key);
       if (/^\d$/u.test(key)) {
         if (behaviour.digitSelectsAndSubmits) screen = CLEARED_SCREEN;
@@ -102,8 +116,15 @@ function fakeCourt(
     out: (text) => stdout.push(text),
     err: (text) => stderr.push(text),
   };
-  return { deps, pressed, ledger, pages, stdout, stderr };
+  return { deps, pressed, paneLocksHeldAtEachPress, ledger, pages, stdout, stderr };
 }
+
+test("answering another agent's prompt holds that agent's pane lock for every key it presses", async () => {
+  const court = fakeCourt({ behaviour: { digitSelectsAndSubmits: false } });
+  assert.equal(await runMcq(['--agent', 'shadow-x', '--answer', '2'], court.deps), McqExitCode.Done);
+  assert.deepEqual(court.pressed, ['2', 'down', 'enter']);
+  assert.deepEqual(court.paneLocksHeldAtEachPress, [1, 1, 1]);
+});
 
 test('a Stager answering 2 on a menu that submits on the digit presses only the digit and records the answer', async () => {
   const court = fakeCourt();

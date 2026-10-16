@@ -46,8 +46,7 @@ import {
   type NtfyUserConfig,
   validateNtfy,
 } from './shared-policy/ntfy-user-config.ts';
-import { resolveLiveThroneRoot } from './throne-root-resolution.ts';
-import { loadUserConfigFile, userConfigPath } from './user-config-loader.ts';
+import { loadUserConfigFile, resolveUserConfigPath } from './user-config-loader.ts';
 
 /** Display titles for the three agent tiers. */
 export interface PersonaTierTitles {
@@ -205,14 +204,6 @@ export function assertRoleWordRegistryIsInjective(
 }
 
 assertRoleWordRegistryIsInjective(ROLEPLAY_PRESETS);
-
-/** Where the optional user override lives: `<live-throne-root>/config.user.ts`.
- *  Delegates to the shared loader's path function — persona and steering
- *  resolve the same merged file, so there is exactly one place that spells
- *  its location. */
-export function personaUserConfigPath(liveThroneRoot: string): string {
-  return userConfigPath(liveThroneRoot);
-}
 
 const TOP_LEVEL_FIELDS = [
   'roleplayPreset',
@@ -446,7 +437,7 @@ export async function loadPersonaConfig(
   userConfigPath?: string,
 ): Promise<PersonaConfig> {
   const resolvedPath =
-    userConfigPath ?? personaUserConfigPath(await resolveLiveThroneRoot());
+    userConfigPath ?? (await resolveUserConfigPath());
   const override = await loadValidatedPersonaOverride(resolvedPath);
   if (override === undefined) return DEFAULT_PERSONA_CONFIG;
   return mergePersonaConfig(
@@ -464,7 +455,7 @@ export async function loadNtfyUserConfig(
   userConfigPath?: string,
 ): Promise<NtfyUserConfig> {
   const resolvedPath =
-    userConfigPath ?? personaUserConfigPath(await resolveLiveThroneRoot());
+    userConfigPath ?? (await resolveUserConfigPath());
   return (await loadValidatedPersonaOverride(resolvedPath))?.ntfy ?? {};
 }
 

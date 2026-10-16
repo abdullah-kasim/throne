@@ -59,13 +59,6 @@ RUN rm -rf .git \
     && git init --initial-branch=main \
     && git add --all \
     && git -c user.name="suite image" -c user.email="suite-image@localhost" commit --message="suite image source"
-# A handful of tests spawn real child processes against dist/, not the
-# TypeScript source (test/fixtures/assert-compiled-fixture-runner-exists.ts
-# fails them loudly rather than silently skipping if it's missing) — same
-# requirement `npm test` already has on the host, just never satisfied by
-# `npm test`'s own script. Baking it in at build time here, once, is cheaper
-# than making every containerized run rebuild it.
-RUN npm run build
 
 # No ENTRYPOINT/CMD: scripts/run-suite-container.mjs always supplies the full
 # suite command as the runtime's `run` trailing argv (e.g. `npm run test:no-lock`),

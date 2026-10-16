@@ -47,7 +47,7 @@
  *
  * **The primary signal is not tamper-proof or permission-enforced.** Every
  * agent runs as the same OS user with ordinary read/write access to its own
- * `~/.throne/data/<name>/spawn.json`, which is not git-tracked or otherwise
+ * `data/<name>/spawn.json`, which is not git-tracked or otherwise
  * append-only. A governed agent CAN edit it to set the field after spawn; doing
  * so is deliberate falsification of the agent's own ledger record, the same
  * category of trust violation as hand-editing a `REPORT.md` to fake evidence
@@ -59,7 +59,7 @@
  * Delete this name-keyed fallback (and the `isTerminalGateShadowName` OR
  * branch in `isNoopExemptFromWlsRefusal`) once no live or reapable agent's
  * `spawn.json` predates the `deliverable_shape` field — concretely: every
- * agent's `spawn.json` under `~/.throne/data` either already carries
+ * agent's `spawn.json` under the throne data folder either already carries
  * `deliverable_shape`, or was spawned before this change landed and has
  * since been reaped (so it no longer exists to fall back for). Until then,
  * the OR is the union of both permissive paths, so anything the name

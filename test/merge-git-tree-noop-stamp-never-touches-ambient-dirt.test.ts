@@ -14,8 +14,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 
-import { git, initRepo } from "./git-repo-test-fixture.ts";
+import { git, initRepo, turnOffCommitSigningThatTheEnvironmentTurnedOn } from "./git-repo-test-fixture.ts";
 import { stampNoopDelivery } from "../src/git-lifecycle/delivery.ts";
+
+turnOffCommitSigningThatTheEnvironmentTurnedOn();
 
 const scratchRoots: string[] = [];
 

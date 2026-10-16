@@ -1,6 +1,6 @@
 import { cp, lstat, mkdir, readlink, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { RUNTIME_DATA_DIR } from "./runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "./throne-home.ts";
 import { RUNTIME_THRONE_ROOT } from "./runtime-throne-root.ts";
 
 const STAGING_NAME = ".migration-staging";
@@ -31,7 +31,7 @@ export async function bootstrapRuntimeDataHome(
   options: RuntimeDataBootstrapOptions = {},
 ): Promise<MigrationResult> {
   const sourceRoot = options.sourceRoot ?? path.join(RUNTIME_THRONE_ROOT, "data");
-  const destinationRoot = options.destinationRoot ?? RUNTIME_DATA_DIR;
+  const destinationRoot = options.destinationRoot ?? THRONE_DATA_DIR;
   const complete = path.join(destinationRoot, COMPLETE_NAME);
   try {
     await lstat(complete);

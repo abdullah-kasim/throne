@@ -1,5 +1,10 @@
 import { sameAgentName } from '../herdr/herdr-identity-contracts.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
+import {
+  classifyLastMessageTags,
+  lastMessageBlock,
+  liveBackgroundWork,
+} from '../no-idling/idle-pane-tag-classification.ts';
 
 export const BLOCKED_TRANSITION_VERDICTS = {
   FINE: 'blocked-and-fine',
@@ -61,4 +66,21 @@ export function classifyBlockedTransition(
   return hasLiveChildren(agent, roster, supervisors)
     ? BLOCKED_TRANSITION_VERDICTS.FINE
     : BLOCKED_TRANSITION_VERDICTS.STUCK;
+}
+
+export const OWN_BACKGROUND_RUN_WAITS = {
+  RUNNING: 'running',
+  NONE_RUNNING: 'none-running',
+} as const;
+
+export type OwnBackgroundRunWait = (typeof OWN_BACKGROUND_RUN_WAITS)[keyof typeof OWN_BACKGROUND_RUN_WAITS];
+
+export function ownBackgroundRunWait(output: string): OwnBackgroundRunWait | undefined {
+  const tag = classifyLastMessageTags(lastMessageBlock(output));
+  if (tag.kind !== 'blocked' || tag.waitsOnOwnBackgroundRun !== true) {
+    return undefined;
+  }
+  return liveBackgroundWork(output) === undefined
+    ? OWN_BACKGROUND_RUN_WAITS.NONE_RUNNING
+    : OWN_BACKGROUND_RUN_WAITS.RUNNING;
 }

@@ -46,6 +46,7 @@ export interface MemoryResolverDeps {
   /** Symlink-resolved absolute path (`pwd -P` semantics). */
   realpath(candidate: string): Promise<string>;
   homeDir(): string;
+  throneHome(): string;
 }
 
 /** A target repo's own in-tree memory tree. The throne itself no longer has
@@ -71,10 +72,7 @@ export const PROJECT_MEMORY_DIRECTIVE_TOKENS = [
 /** The operator's personal memory tool, when the machine has one. */
 export const EXTERNAL_MEMORY_EXECUTABLE = 'memory-dir';
 
-/** Throne-owned, machine-local fallback root — throne state, so it lives
- *  under `~/.throne/` like worktrees and locks, never under the operator's
- *  personal `~/.memories/`. */
-export const THRONE_MEMORIES_DIRNAME = path.join('.throne', 'memories');
+export const THRONE_MEMORIES_DIRNAME = 'memories';
 
 function isInsideDirectory(directory: string, candidate: string): boolean {
   return candidate.startsWith(`${directory}${path.sep}`);
@@ -88,11 +86,11 @@ export function memorySlug(physicalHomeDir: string, repoRoot: string): string {
 }
 
 export function throneNativeMemoryDir(
-  homeDir: string,
+  throneHome: string,
   physicalHomeDir: string,
   repoRoot: string,
 ): string {
-  return path.join(homeDir, THRONE_MEMORIES_DIRNAME, memorySlug(physicalHomeDir, repoRoot));
+  return path.join(throneHome, THRONE_MEMORIES_DIRNAME, memorySlug(physicalHomeDir, repoRoot));
 }
 
 async function resolveRepoRoot(
@@ -171,8 +169,11 @@ export async function resolveMemoryDir(
 
   const directive = await findProjectDirective(root, deps);
   const external = await deps.findExecutable(EXTERNAL_MEMORY_EXECUTABLE);
-  const homeDir = deps.homeDir();
-  const nativeDir = throneNativeMemoryDir(homeDir, await deps.realpath(homeDir), root);
+  const nativeDir = throneNativeMemoryDir(
+    deps.throneHome(),
+    await deps.realpath(deps.homeDir()),
+    root,
+  );
 
   if (directive !== undefined) {
     const evidence = `${directive.file}:${directive.line}`;

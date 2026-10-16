@@ -1,0 +1,108 @@
+  
+[0m[38;2;153;153;153m⏺ Compacted while idle, before the prompt cache expired[0m
+[0m[38;2;177;185;249m▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔[0m
+   [0m[1m[38;2;177;185;249mSettings [0m Status   Config  [0m[1m[38;2;0;0;0m[48;2;177;185;249m Usage   [0mStats
+
+   [0m[1mSession[0m
+  
+   [0m[38;2;153;153;153mTotal cost:            $1.00[0m
+   [0m[38;2;153;153;153mTotal duration (API):  1m 0s[0m
+   [0m[38;2;153;153;153mTotal duration (wall): 1h 0m 0s[0m
+   [0m[38;2;153;153;153mTotal code changes:    0 lines added, 0 lines removed[0m
+   [0m[38;2;153;153;153mUsage by model:[0m
+   [0m[38;2;153;153;153m       example-small:  1 input, 1 output, 0 cache read, 0 cache write ($0.00)[0m
+   [0m[38;2;153;153;153m       example-large:  1 input, 1 output, 0 cache read, 0 cache write ($1.00)[0m
+   [0m[38;2;153;153;153mPrompt cache (main):   1 requests · 100% of input tokens from cache · no misses · cold — idle 1h 0m 0s, next turn [0m
+   [0m[38;2;153;153;153mre-caches the compacted prompt[0m
+  
+   [0m[1mCurrent session[0m
+   [0m[38;2;177;185;249m[48;2;80;83;112m                                                  [0m 0% used
+   [0m[38;2;153;153;153mResets 1am (UTC)[0m
+  
+   [0m[1mCurrent week (all models)[0m
+   [0m[38;2;177;185;249m[48;2;80;83;112m                                                  [0m 0% used
+   [0m[38;2;153;153;153mResets Jan 1 at 1am (UTC)[0m
+  
+   [0m[1mCurrent week (Example)[0m
+   [0m[38;2;177;185;249m[48;2;80;83;112m                                                   [0m0% used
+   [0m[38;2;153;153;153mResets Jan 1 at 1am (UTC)[0m
+
+   [0m[1mWhat's contributing to your limits usage?[0m
+   [0m[38;2;153;153;153mApproximate, based on local sessions on this machine — does not include other devices or claude.ai[0m
+
+   [0m[38;2;153;153;153mLast 24h · these are independent characteristics of your usage, not a breakdown[0m
+
+   1% of your usage was while 4+ sessions ran in parallel
+    [0m[38;2;153;153;153mAll sessions share one limit. If you don't need them all at once, queueing uses[0m
+    [0m[38;2;153;153;153mit more evenly.[0m
+
+   1% of your usage was at >150k context
+    [0m[38;2;153;153;153mLonger sessions are more expensive even when cached. /compact mid-task, /clear [0m
+    [0m[38;2;153;153;153mwhen switching to new tasks.[0m
+
+   1% of your usage came from sessions active for 8+ hours
+    [0m[38;2;153;153;153mThese are often background/loop sessions. Continuous usage can add up quickly [0m
+    [0m[38;2;153;153;153mso make sure it is intentional.[0m
+  
+   Skills                  [0m[38;2;153;153;153m% of usage[0m
+   [0m[38;2;153;153;153m/example-one                    1%[0m
+   [0m[38;2;153;153;153m/example-two                    1%[0m
+   [0m[38;2;153;153;153m/example-three                  1%[0m
+   [0m[38;2;153;153;153m/example-four                   1%[0m
+
+   [0m[38;2;153;153;153md to day · w to week[0m
+
+   [0m[1mUsage credits[0m
+   [0m[38;2;177;185;249m[48;2;80;83;112m                                                   [0m0% used
+   [0m[38;2;153;153;153m$0.00 / $1.00 spent · Resets Jan 1 (UTC)[0m
+
+   [0m[38;2;153;153;153mEsc to cancel[0m
+
+
+
+
+
+  
+
+
+  
+
+  
+
+  
+  
+
+   
+ 
+    
+
+ 
+   
+    
+
+  
+
+  
+
+ 
+
+  
+  
+
+ 
+    
+  
+
+
+
+  
+   
+
+
+
+
+
+
+  
+                                           
+ 

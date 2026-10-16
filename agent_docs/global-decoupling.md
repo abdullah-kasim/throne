@@ -1,26 +1,26 @@
 # Global decoupling — what still ties the throne to the machine's Claude setup
 
-The throne used to be unrunnable without three external props: the stowed
-`agent-launchers` package in `~/bin`, the canonical global skills tree (which
-held the throne's own model vocabulary and its runtime-only gap-analysis
-skill), and the global `~/.claude/CLAUDE.md` preamble. Two of the three are
-gone. This document inventories what is left, says which threads are kept on
-purpose, and describes — without executing it — what a full sever would take.
+The throne used to be unrunnable without three props kept outside the
+repository in the operator's own setup: launcher scripts installed on `PATH`, a
+global skills tree (which held the throne's own model vocabulary and its
+runtime-only gap-analysis skill), and the global `~/.claude/CLAUDE.md`
+preamble. Two of the three are gone. This document inventories what is left,
+says which threads are kept on purpose, and describes — without executing it — what a full sever would take.
 
 Every row cites the evidence that produced it. The inventory is the output of a
 `git grep` sweep of the whole `throne/` tree on 2026-07-21 for out-of-throne
 resolvers: `~/parent repository`, `$HOME/parent repository`, `<home>/parent repository`,
 `~/.claude`, `~/.codex`, `~/bin`, `bin-override`, `agent-launchers`,
 `claudey`/`codexy`/`claudey-all`, `CLIProxyAPI`, `../../`, `homedir()`, and
-`$HOME`. Ordinary `grep` on this box is a gitignore-respecting `ugrep` wrapper
-that silently hides tracked-but-ignored paths such as `throne/.claude/`, so
-`git grep` is the only sweep that sees the whole tree — repeat it that way.
+`$HOME`. A gitignore-aware `grep` silently skips tracked-but-ignored paths
+such as `throne/.claude/`, so repeat the sweep with `git grep`, which sees the
+whole tree.
 
 ## 1. Severed
 
 | Coupling | Where it landed |
 | --- | --- |
-| Spawn launchers no longer need the stowed `~/bin` copies | `throne/bin/claudey`, `throne/bin/codexy`, `throne/bin/agent-launcher-lib.sh`, `throne/bin/launcher-bash-guard.sh` (commit `f4b9dfa`); contract in `throne/agent_docs/launchers.md:1` |
+| Spawn launchers no longer need copies installed outside the throne | `throne/bin/claudey`, `throne/bin/codexy`, `throne/bin/agent-launcher-lib.sh`, `throne/bin/launcher-bash-guard.sh` (commit `f4b9dfa`); contract in `throne/agent_docs/launchers.md:1` |
 | The model vocabulary left the global skills tree | `throne/agent_docs/MODEL_POLICY.md` (commit `2100e54`); read by `throne/test/model-policy.test.ts:22`; cited by the Nest harness-routing capability domain, `throne/.claude/skills/write-todos/SKILL.md:33`, and `throne/.claude/skills/execute-todos/SKILL.md:454` |
 | The gap-analysis skill left the global skills tree | `throne/.claude/skills/gap-analysis-model/` (commit `97115c3`); described at `throne/agent_docs/skills.md:7` and `throne/.claude/skills/gap-analysis-model/SKILL.md:15` |
 | The `pr-description`, `pr-media` and `agent-browser` skills moved into the throne (2026-09-14, by the Lord's order) | `throne/.claude/skills/{pr-description,pr-media,agent-browser}/`; `install.sh` installs the `agent-browser` CLI (unpinned) and its browser; `throne/test/vendored-review-skills.test.ts` holds the contract; described at `throne/agent_docs/skills.md`. Removed from the global tree the same day so discovery sees one copy. |
@@ -31,7 +31,6 @@ that silently hides tracked-but-ignored paths such as `throne/.claude/`, so
 
 Consequence already accepted in writing: skills under `throne/.claude/skills/`
 are invisible to native Codex agents, which discover only the canonical tree.
-See the dated Cross-harness section of the repo-root `CLAUDE.md`.
 
 **The spawn path consumes them.** `throneLauncherPath` in
 `throne/src/harness.ts` is the single resolver; `buildLaunchArgv` and the Regent
@@ -53,16 +52,16 @@ remaining rows keep their numbers.)
 | # | Coupling | Evidence | Why it stays |
 | --- | --- | --- | --- |
 | K1 | `claudey-all` (Claude-harness GPT via CLIProxyAPI) is not ported and stays `PATH`-resolved | `throne/src/harness.ts:203` (`buildLaunchArgv`'s `'claudey-all'` branch), `throne/src/list-harnesses-and-models/list-harnesses-and-models.command.ts`, `throne/src/create-agent/create-agent.command.ts`, `throne/agent_docs/architecture.md:258`, `throne/agent_docs/MODEL_POLICY.md:35`, `throne/AGENTS.md:90` | It serves exact stored legacy registrations, explicit standalone/manual calls, and whichever fresh GPT launches the live `ACTIVE_GPT_HARNESS_POLICY_NAME` currently routes through the Claude harness. Inspect `list-harnesses-and-models` for the current selection. It is Linux-only by nature (it needs the local CLIProxyAPI service), so porting it would still drag a platform-specific path through the throne. |
-| K2 | Yolo checkpoint backups live under `$HOME/.claude/.claude_repo_backups/` | `throne/bin/agent-launcher-lib.sh:137` | The recovery helpers in the shells hash the repo root the same way and read the same location. Moving it under the throne would orphan every existing backup and break recovery from outside a throne session. |
-| K3 | The yolo override dir defaults to `$HOME/bin-override` | `throne/bin/agent-launcher-lib.sh:15` | It is the machine's highest-priority `PATH` dir. The launchers must know it in order to *skip* it when resolving the real `claude`/`codex` binary — without that guard the shims recurse. It is already overridable via `YOLO_OVERRIDE_DIR`. |
-| K4 | `$HOME/parent repository/claude/agent_docs/skills` is added to `--add-dir`, but only when it exists | `throne/bin/agent-launcher-lib.sh:186`, documented `throne/agent_docs/launchers.md:119-122` | Conditional by construction: a machine without the surrounding parent tree simply omits the argument. A convenience, not a dependency. |
+| K2 | Yolo checkpoint backups live under `$HOME/.claude/.claude_repo_backups/` | `throne/bin/agent-launcher-lib.sh:137` | Recovery helpers outside a throne session can hash the repo root the same way and read the same location. Moving it under the throne would orphan every existing backup and break recovery from outside a throne session. |
+| K3 | The optional yolo override dir defaults to `$HOME/bin-override` | `throne/bin/agent-launcher-lib.sh:15` | When it exists it sits first on `PATH` and holds yolo-mode shims. The launchers must know it in order to *skip* it when resolving the real `claude`/`codex` binary — without that guard the shims recurse. It is already overridable via `YOLO_OVERRIDE_DIR`. |
+| K4 | The global skills tree that `$HOME/.claude/skills` links into is added to `--add-dir`, but only when the link exists | `throne/bin/agent-launcher-lib.sh:192`, documented `throne/agent_docs/launchers.md:146-149` | Conditional by construction: a machine without that tree simply omits the argument. A convenience, not a dependency. |
 | K5 | `herdr` is always resolved through the repository-owned pinned release and named `throne` session | `throne/src/install-services/herdr-release.service.ts`, `throne/src/herdr/herdr-client.ts`, `throne/src/herdr.ts` | There is no PATH or default-session fallback. |
 | K6 | Host credential and config readers: `~/.claude/.credentials.json`, `~/.codex/auth.json`, `~/.codex/config.toml` | `throne/src/plan-usage-remaining/plan-usage-remaining.command.ts`, `throne/src/codex-usage-remaining/codex-usage-remaining.command.ts`, `throne/src/codex-trust/codex-trust.service.ts` | These *are* the provider state. The throne reads them (and, for credentials, never writes them). There is no throne-local substitute for a machine's login. |
 | K7 | Machine-local state roots under `~/.throne/` — worktrees, recipient-pane locks, usage cache | `throne/src/gittree.ts:55`, `throne/src/shared-policy/recipient-pane-lock.service.ts`, `throne/src/usagecache.ts:132` | Deliberately outside the repo so transient agent state never lands in git. Already seam-overridable (`THRONE_WORKTREES_HOME`, injected `homedir`). |
 | K9 | The launcher wires a per-repo `agent_docs_local/project-skills/.claude/skills` symlink to that repo's `.agents/skills` | `throne/bin/agent-launcher-lib.sh:166` | This is the generic per-repo skill convention the launcher provides to *any* repo it launches in, not a throne dependency. The throne itself has no such directory. |
 | K10 | Phone notifications post to a host ntfy server | `throne/src/notify-lord/notification.service.ts:8` | A LAN service, unrelated to the Claude setup; the operator contract is `throne/agent_docs/ntfy-phone-notifications.md`. |
 | K11 | The throne's service units are installed into the directories the host's own service manager reads: `$XDG_CONFIG_HOME/systemd/user` (falling back to `~/.config/systemd/user`) on linux, `~/Library/LaunchAgents` on mac. They land as rendered REAL files, not symlinks — `install-services` writes the whole set, `ensure-heartbeat` the keep-going pair, both through the same core | `throne/src/install-services/service-unit-renderer.service.ts`, constants `USER_UNIT_DIR` and `LAUNCH_AGENTS_DIR`; the Nest-owned command boundaries in `throne/src/` and the shared `installUnitFiles(` core | Those are where `systemctl --user` and launchd themselves look, so the throne has no local alternative location either would ever read. Host-integration by design, not a Claude-setup dependency. |
-| K12 | The gap-analysis skill publishes its durable capability guidance into the global `claude/agent_docs/Claude/` and `claude/agent_docs/GPT/` family directories | `throne/.claude/skills/gap-analysis-model/SKILL.md` (the guidance output configuration point, `GUIDANCE_SUBDIR`); consumed by `claude/.claude/CLAUDE.md` (Step 2b) and `codex/.codex/AGENTS.md` (Model Capability Guidance) | The product characterizes MODELS, not the throne. It is only useful where a Claude or Codex session already bootstraps, and both harness families must reach their own family's file through the discovery ritual they already run. A throne-local copy would be undiscoverable by the agents it exists to instruct. The path is repo-relative and resolved against the distiller's own worktree, so it still lands through `merge-git-tree` rather than writing into the live checkout. |
+| K12 | The gap-analysis skill publishes its durable capability guidance into a configurable directory outside the throne, split into `Claude/` and `GPT/` family directories | `throne/.claude/skills/gap-analysis-model/SKILL.md` (the guidance output configuration point, `GUIDANCE_SUBDIR`); consumed by each harness's own global instructions (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`) | The product characterizes MODELS, not the throne. It is only useful where a Claude or Codex session already bootstraps, and both harness families must reach their own family's file through the discovery ritual they already run. A throne-local copy would be undiscoverable by the agents it exists to instruct. The path is repo-relative and resolved against the distiller's own worktree, so it still lands through `merge-git-tree` rather than writing into the live checkout. |
 
 ## 3. Full-sever material
 
@@ -73,7 +72,7 @@ Severed table.) Each row says what cutting it would concretely take.
 | # | Coupling | Evidence | What severing it takes |
 | --- | --- | --- | --- |
 | F1 | Every dispatched worker is told to read the global agent instructions — `~/.claude/CLAUDE.md` for Claude, `~/.codex/AGENTS.md` for Codex | `throne/.claude/skills/execute-todos/SKILL.md:423` | A throne-local preamble that restates what the throne actually needs from those files (terminal naming, commit conventions, communication style, the clipboard-staging rule, scratch-file staging), plus rewriting that reading-list bullet to point at it. That covers the *mandate* only. The Claude harness separately auto-loads `~/.claude/CLAUDE.md` at session start, but that auto-load **is** preventable from the throne's own launcher — measured, with its cost, in §4 item 4. The roleplay-persona thread of this coupling is already severed: the persona previously supplied only by the global `~/.claude/CLAUDE.md` now seeds from the throne's own `src/application-config.service.ts` (default config, optionally overridden by a local `config.user.ts`), so cutting the global file no longer loses it. |
-| F3 | ~~The Claude launch hook that arms the throne lives outside the throne, in the operator's user-level settings~~ — **SEVERED 2026-08-09.** The throne now registers its own `SessionStart` hook in the tracked project file `.claude/settings.json` (re-included in `.gitignore` for exactly this), invoking `"${CLAUDE_PROJECT_DIR:-$PWD}/bin/throne-cli" throne-startup` so no machine path is committed. The user-level entry was removed in the same change, so the hook is registered once, not twice. Arming is now project-scoped — an effective no-change, since `throne-startup` already no-ops outside the throne root. The operator's remaining user-level `SessionStart` entry belongs to herdr's own Claude integration (`~/.claude/hooks/herdr-agent-state.sh`, `HERDR_INTEGRATION_ID=claude`), which herdr installs and overwrites on every reinstall — it is not the throne's to carry. | `.claude/settings.json`, `.gitignore` | Severed. |
+| F3 | ~~The Claude launch hook that arms the throne lives outside the throne, in the operator's user-level settings~~ — **SEVERED 2026-08-09.** The throne now registers its own `SessionStart` hook in the tracked project file `.claude/settings.json` (re-included in `.gitignore` for exactly this), invoking `"${CLAUDE_PROJECT_DIR:-$PWD}/bin/throne-cli" throne-startup` so no machine path is committed. The user-level entry was removed in the same change, so the hook is registered once, not twice. Arming is now project-scoped — an effective no-change, since `throne-startup` already no-ops outside the throne root. herdr's own Claude integration installs its own user-level `SessionStart` hook and overwrites it on every reinstall; it is not the throne's to carry. | `.claude/settings.json`, `.gitignore` | Severed. |
 | F4 | ~~The suite's copy-drift check reads a global project-report skill~~ — **SEVERED 2026-08-09.** That dispatch contract was project-specific and never belonged in the throne: its dispatch doc and grader test were removed by the Lord's order, and the repository's history was rewritten so neither ever existed here. Nothing in the suite reads a global skill any more. | — | Severed. |
 **Negative findings worth recording** (a sweep result is evidence too):
 
@@ -93,12 +92,9 @@ Severed table.) Each row says what cutting it would concretely take.
   to repoint.
 - No file under `throne/` still names the old canonical locations of the model
   policy or the gap-analysis skill.
-- The historical bundle folders `throne/todo-2026-07-16-*/` and
-  `throne/todo-2026-07-17-*/` contain six files with global paths in their
-  frozen prose (e.g.
-  `throne/todo-2026-07-17-0110-reap-strand-guard/01_reap_agent_loud_strand_detection.md:4`).
-  They are archived records of what was true when they ran; they resolve
-  nothing at runtime and are deliberately left alone.
+- Historical todo bundle folders, which do not ship, contain global paths in
+  their frozen prose. They are archived records of what was true when they
+  ran; they resolve nothing at runtime and are deliberately left alone.
 
 ## 4. What a full sever would take
 
@@ -146,7 +142,7 @@ stays); F1 and F3 remain open:
    — see F3's row). Two costs, one of them easy to miss. First, the target
    file is ignored today, so it has to be re-included in `throne/.gitignore`
    before it can be tracked at all — F3's row quotes the evidence and the
-   negation shape that works. Second, the stow package's entry has to go,
+   negation shape that works. Second, the user-level settings entry has to go,
    otherwise both files register the hook (whether Claude Code would then run
    it once or twice was not measured), and arming becomes project-scoped:
    the user-level file arms every session
@@ -157,7 +153,7 @@ stays); F1 and F3 remain open:
    uses; behavior of other launch modes was not measured and is not
    claimed.)
    Doing this moves the one piece of throne configuration this document
-   finds in the stow package; it does not deny the portability F1 would buy
+   finds in user-level settings; it does not deny the portability F1 would buy
    (F2's share is already bought).
 
 Risks a full sever carries:

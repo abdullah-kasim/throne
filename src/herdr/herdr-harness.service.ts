@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { HerdrClientService } from './herdr-client.ts';
 import {
   claudeTextboxClearance,
   waitForStableClaudeResidentRepresentation,
@@ -18,16 +17,6 @@ import {
 /** Nest boundary for harness-specific Herdr interaction behavior. */
 @Injectable()
 export class HerdrHarnessService {
-  private readonly client: HerdrClientService;
-
-  constructor(client: HerdrClientService) {
-    this.client = client;
-  }
-
-  sendText(target: string, text: string): Promise<void> {
-    return this.client.sendText(target, text);
-  }
-
   readonly claudeTextboxClearance = claudeTextboxClearance;
   readonly codexTextboxClearance = codexTextboxClearance;
   readonly opencodeTextboxClearance = opencodeTextboxClearance;

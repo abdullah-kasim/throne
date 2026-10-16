@@ -352,7 +352,7 @@ else
     # this is a check, not a start: confirm the herdr server is up under the
     # host's service manager and say so either way. A unit that is installed
     # and enabled yet not running is an operator's call (journalctl /
-    # ~/Library/Logs/throne will say why), never something to force here.
+    # ${THRONE_DATA_HOME:-$HOME/.throne}/logs will say why), never something to force here.
     if [ "$os_kernel" = "Linux" ]; then
         if systemctl --user is-active --quiet throne-herdr.service 2>/dev/null; then
             ok "throne-herdr.service is running (never restarted here: a restart drops live panes)"
@@ -538,7 +538,7 @@ else
                 warn "$regent_name launch failed after ${waited}s: $resurrection_reason"
                 dump_retained_pane "$resurrection_reason"
             elif [ "$regent_live" != "live" ]; then
-                warn "no live $regent_name after ${waited}s; inspect the throne-backend log (linux: journalctl --user -u throne-backend; macOS: ~/Library/Logs/throne/throne-backend.log)"
+                warn "no live $regent_name after ${waited}s; inspect the throne-backend log (linux: journalctl --user -u throne-backend; macOS: ${THRONE_DATA_HOME:-$HOME/.throne}/logs/throne-backend.log)"
             else
                 did "$regent_name is live (after ${waited}s)"
                 install_order="install.sh just stood up this throne on $(hostname) and resurrected you as its ${regent_title}. Run the /throne-startup skill now (.claude/skills/throne-startup, step 0 is the boot checklist: read AGENTS.md, consume-fence-handoff-on-start, render-queue, confirm a live Stager via agent-statuses, reconcile in-flight work, dispatch queued objectives). Report outcomes to the ${lord_title}; never put questions to him."
@@ -615,7 +615,7 @@ cat <<EOF
     and the Stager.
     linux: systemctl --user status throne-herdr throne-backend ntfy
     macOS: launchctl print gui/\$(id -u)/com.throne.throne-herdr
-           logs under ~/Library/Logs/throne/
+           logs under ${THRONE_DATA_HOME:-$HOME/.throne}/logs/
 
     Re-run ./install.sh after any git pull; it is idempotent.
     Remove everything with ./uninstall.sh.

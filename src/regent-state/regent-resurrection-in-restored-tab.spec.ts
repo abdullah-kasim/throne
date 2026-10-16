@@ -21,6 +21,7 @@ const RECORDED_SESSION_ID = "0f6f2a51-7c1e-4d0b-9a55-3f1f5f0c2b9e";
 const RESTORED_TAB_ID = "tab-regent";
 const RESTORED_PANE_ID = "pane-regent";
 const RESUME_FLAG = "--resume";
+const SESSION_NAME_FLAG = "--name";
 
 interface PaneLaunch {
   name: string;
@@ -39,6 +40,7 @@ interface CourtShape {
   tabLabels: string[];
   recordedSessionId?: string;
   recordedSessionCanBeResumed?: boolean;
+  regentPaneStillRunsItsHarness?: boolean;
 }
 
 async function regentDirWithSpawnRecord(
@@ -81,7 +83,10 @@ async function courtAfterReboot(shape: CourtShape): Promise<FakeCourt> {
     listNameOwners: async () => [],
     getPaneProcessInfo: async (paneId) => ({
       paneId,
-      foregroundProcesses: [{ name: "bash", argv: ["-bash"] }],
+      foregroundProcesses:
+        shape.regentPaneStillRunsItsHarness === true && paneId === RESTORED_PANE_ID
+          ? [{ name: "claude", argv: ["claude"] }]
+          : [{ name: "bash", argv: ["-bash"] }],
     }),
     renameAgent: async () => {},
     startInTab: async (name: string, paneId: string, opts: StartOptions) => {
@@ -186,4 +191,68 @@ test("a resurrected Regent starts a fresh session in its restored tab when the r
     assert.deepEqual(court.openingPromptRecipients, [REGENT_NAME]);
   }
   assert.equal(neverRecorded.paneLaunches.length, 1);
+});
+
+test("the Regent is launched already carrying its session name", async () => {
+  const startedFresh = await courtAfterReboot({
+    tabLabels: [REGENT_TAB_LABEL],
+  });
+  startedFresh.deps.configuredRegentLaunch = () => ({
+    harness: "claude",
+    model: "opus",
+    effort: 3,
+  });
+  const resumed = await courtAfterReboot({
+    tabLabels: [REGENT_TAB_LABEL],
+    recordedSessionId: RECORDED_SESSION_ID,
+  });
+
+  await resurrectRegent(startedFresh.deps);
+  await resurrectRegent(resumed.deps);
+
+  for (const court of [startedFresh, resumed]) {
+    assert.equal(court.paneLaunches.length, 1);
+    const launchArguments = court.paneLaunches[0]!.argv;
+    const flagAt = launchArguments.indexOf(SESSION_NAME_FLAG);
+    assert.notEqual(flagAt, -1);
+    assert.equal(flagAt, launchArguments.lastIndexOf(SESSION_NAME_FLAG));
+    assert.equal(launchArguments[flagAt + 1], REGENT_TAB_LABEL);
+  }
+  assert.equal(startedFresh.paneLaunches[0]!.argv.includes(RESUME_FLAG), false);
+  assert.deepEqual(resumed.paneLaunches[0]!.argv.slice(-2), [
+    RESUME_FLAG,
+    RECORDED_SESSION_ID,
+  ]);
+});
+
+test("a Regent tab labelled in either case is found and reused", async () => {
+  const court = await courtAfterReboot({
+    tabLabels: [REGENT_NAME],
+    recordedSessionId: RECORDED_SESSION_ID,
+  });
+
+  await resurrectRegent(court.deps);
+
+  assert.deepEqual(court.newTabNames, []);
+  assert.equal(court.paneLaunches.length, 1);
+  assert.equal(court.paneLaunches[0]!.paneId, RESTORED_PANE_ID);
+});
+
+test("a Regent tab whose harness is still running but lost its name gets no second Regent", async () => {
+  const stderr: string[] = [];
+  for (const label of [REGENT_TAB_LABEL, REGENT_NAME]) {
+    const court = await courtAfterReboot({
+      tabLabels: [label, "stager-floor"],
+      recordedSessionId: RECORDED_SESSION_ID,
+      regentPaneStillRunsItsHarness: true,
+    });
+    court.deps.writeStderr = (text) => stderr.push(text);
+
+    await resurrectRegent(court.deps);
+
+    assert.deepEqual(court.newTabNames, []);
+    assert.deepEqual(court.paneLaunches, []);
+    assert.deepEqual(court.openingPromptRecipients, []);
+  }
+  assert.equal(stderr.filter((line) => line.includes(RESTORED_PANE_ID)).length, 2);
 });

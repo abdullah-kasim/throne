@@ -85,11 +85,11 @@ test('memory pressure is 100 minus the kernel free percentage when memorystatus 
   assert.equal(reading.avg60, 15);
 });
 
-test('the kernel declaring memory WARN pins the reading to the at-capacity threshold', () => {
-  // A generous free percentage cannot mask the kernel's own pressure verdict.
-  const reading = parseDarwinMemoryPressure('60\n2\n');
+test('the kernel declaring memory WARN still reads as the memory in use, so it does not refuse work by itself', () => {
+  const reading = parseDarwinMemoryPressure('51\n2\n');
   assert.equal(reading.state, 'ok');
-  assert.equal(reading.avg10, AT_CAPACITY_THRESHOLD);
+  assert.equal(reading.avg10, 49);
+  assert.equal(reading.avg60, 49);
   const verdict = classifyPressure(
     { state: 'ok', avg10: 5, avg60: 5 },
     reading,
@@ -97,7 +97,7 @@ test('the kernel declaring memory WARN pins the reading to the at-capacity thres
     readDarwinIoPressure(),
     loadGradedAgainstItsOwnLimit(5),
   );
-  assert.equal(verdict.verdict, 'at-capacity');
+  assert.notEqual(verdict.verdict, 'at-capacity');
 });
 
 test('the kernel declaring memory CRITICAL reads as 100', () => {
@@ -224,9 +224,9 @@ test('the per-core limit scales with the number of cores on a smaller Mac', () =
 });
 
 test('a Mac under its load limit is still refused when memory or cpu reaches the at-capacity threshold', () => {
-  const memoryWarn = classifyPressure(
+  const memoryAtThreshold = classifyPressure(
     MEASURED_MAC_CPU,
-    parseDarwinMemoryPressure('60\n2\n'),
+    parseDarwinMemoryPressure('20\n2\n'),
     { state: 'ok', load1: 16, cpuCount: 16 },
     readDarwinIoPressure(),
     loadGradedAgainstItsOwnLimit(5),
@@ -238,6 +238,6 @@ test('a Mac under its load limit is still refused when memory or cpu reaches the
     readDarwinIoPressure(),
     loadGradedAgainstItsOwnLimit(5),
   );
-  assert.equal(memoryWarn.verdict, 'at-capacity');
+  assert.equal(memoryAtThreshold.verdict, 'at-capacity');
   assert.equal(cpuSaturated.verdict, 'at-capacity');
 });

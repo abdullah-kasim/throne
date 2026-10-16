@@ -34,7 +34,7 @@ import {
   MODEL_ALLOWLIST_FILE_NAME,
   modelAllowlistOwner,
 } from "./model-allowlist.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import path from "node:path";
 import {
   resolveObjectiveCodeQueueGate,
@@ -174,7 +174,7 @@ export async function resolveSpawnPolicy(
         allowlistPoolSource = {
           label: `campaign model allowlist for "${allowlistOwnerName}"`,
           hint: path.join(
-            RUNTIME_DATA_DIR,
+            THRONE_DATA_DIR,
             allowlistOwnerName,
             MODEL_ALLOWLIST_FILE_NAME,
           ),

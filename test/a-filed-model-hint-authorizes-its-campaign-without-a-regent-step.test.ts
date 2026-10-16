@@ -55,7 +55,15 @@ function readRegistries(dataDir: string) {
   };
 }
 
-for (const model of ["opus", "fable"]) {
+const CLAUDE_MODELS_OUTSIDE_THE_ALPHA_POOL = ["opus", "fable", "sonnet"].filter(
+  (model) => !planRolePool("Alpha").some((pair) => pair.harness === "claude" && pair.model === model),
+);
+
+test("at least one claude model lies outside the Alpha pool to hint", () => {
+  assert.notEqual(CLAUDE_MODELS_OUTSIDE_THE_ALPHA_POOL.length, 0);
+});
+
+for (const model of CLAUDE_MODELS_OUTSIDE_THE_ALPHA_POOL) {
   test(`a claude/${model} hint lets the autoscaler pass both bypass flags for the Alpha and a derived gate Shadow`, async () => {
     const dataDir = scratchDirectory();
     const objectiveCode = `hint${model}`;

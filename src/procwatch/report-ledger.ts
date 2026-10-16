@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import type { ProcessRecord } from './detect.ts';
 
 /** How long an already-reported offender stays silent before it is named
@@ -19,7 +19,7 @@ export interface ReportLedgerEntry {
 
 export type ReportLedger = Record<string, ReportLedgerEntry>;
 
-export function procwatchLedgerPath(dataDir: string = RUNTIME_DATA_DIR): string {
+export function procwatchLedgerPath(dataDir: string = THRONE_DATA_DIR): string {
   return path.join(dataDir, 'regent', 'procwatch-reports.json');
 }
 

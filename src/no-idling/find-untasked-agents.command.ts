@@ -13,7 +13,7 @@
 
 import { Command as CommanderCommand } from 'commander';
 import { Command, CommandRunner } from 'nest-commander';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import { getAgentStatusesRoster } from '../agent-statuses/agent-statuses-roster.ts';
 import { readSpawnSpec } from '../agentdata/spawn-data-contracts.ts';
 import {
@@ -30,7 +30,7 @@ export interface FindUntaskedAgentsDependencies {
 
 export const REAL_FIND_UNTASKED_AGENTS_DEPENDENCIES: FindUntaskedAgentsDependencies = {
   getRoster: () => getAgentStatusesRoster(),
-  readSpawnSpec: (name) => readSpawnSpec(name, RUNTIME_DATA_DIR),
+  readSpawnSpec: (name) => readSpawnSpec(name, THRONE_DATA_DIR),
 };
 
 function formatUntaskedAgent(agent: UntaskedAgent): string {

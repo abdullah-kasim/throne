@@ -3,9 +3,9 @@ import { access, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { resolveThroneHome } from '../shared-policy/throne-home.ts';
 import { jevBudgetDirectory } from './jev-budget.ts';
-import { THRONE_HOME_DIRECTORY_NAME } from './jev-data-home.ts';
-import { jevPathsOfARunWithEnvironment, jevPathsOfThisRun } from './jev-data-home.test-support.ts';
+import { jevPathsOfARunWithEnvironment, jevPathsOfThisRun } from './jev-budget-home.test-support.ts';
 import { jevUsageLogPath } from './jev-usage-log.ts';
 
 async function exists(filePath: string): Promise<boolean> {
@@ -18,7 +18,7 @@ async function exists(filePath: string): Promise<boolean> {
 }
 
 test('a run with HOME and THRONE_DATA_HOME pointed at a scratch directory draws down the live budget, not a fresh one', async () => {
-  const scratch = await mkdtemp(path.join(tmpdir(), 'jev-data-home-'));
+  const scratch = await mkdtemp(path.join(tmpdir(), 'jev-budget-home-'));
   try {
     const redirected = await jevPathsOfARunWithEnvironment({
       ...process.env,
@@ -30,7 +30,7 @@ test('a run with HOME and THRONE_DATA_HOME pointed at a scratch directory draws 
     for (const resolvedPath of [redirected.budgetDirectory ?? '', redirected.usageLog ?? '']) {
       assert.ok(!resolvedPath.startsWith(scratch), resolvedPath);
     }
-    for (const dataHomeTheEnvironmentNames of [scratch, path.join(scratch, THRONE_HOME_DIRECTORY_NAME)]) {
+    for (const dataHomeTheEnvironmentNames of [scratch, resolveThroneHome({}, scratch)]) {
       for (const jevPath of [jevBudgetDirectory(dataHomeTheEnvironmentNames), jevUsageLogPath(dataHomeTheEnvironmentNames)]) {
         assert.equal(await exists(jevPath), false, jevPath);
       }

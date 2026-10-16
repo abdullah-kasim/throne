@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { parseArgs } from "node:util";
 import { readAgentTimingsRaw } from "../src/agent-timings/agent-timing-log.ts";
 import { resolveRegentQueueDatabasePath } from "../src/regent-queue/regent-queue-database.ts";
-import { RUNTIME_DATA_DIR } from "../src/shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../src/shared-policy/throne-home.ts";
 
 export const LEGACY_PROVENANCE_BASENAME = "tree-base.cancelled-unmerged.json";
 export const PROVENANCE_BASENAME = "tree-base.abandoned-unmerged.json";
@@ -180,7 +180,7 @@ function defaultBackupDir(dataRoot: string): string {
 async function main(): Promise<void> {
   const { values } = parseArgs({
     options: {
-      "data-root": { type: "string", default: RUNTIME_DATA_DIR },
+      "data-root": { type: "string", default: THRONE_DATA_DIR },
       "backup-dir": { type: "string" },
       apply: { type: "boolean", default: false },
     },

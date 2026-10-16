@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { RUNTIME_DATA_HOME_ENV, resolveRuntimeDataHome } from "../src/shared-policy/runtime-data-home.ts";
+import { THRONE_HOME_ENV, resolveThroneHome } from "../src/shared-policy/throne-home.ts";
 import {
   REGENT_QUEUE_DATABASE_FILE_NAME,
   resolveRegentQueueDatabasePath,
@@ -30,7 +30,7 @@ export async function createScratchThroneState(): Promise<ScratchThroneState> {
   await mkdir(scratchRoot, { recursive: true });
   const dataHome = await mkdtemp(path.join(scratchRoot, SCRATCH_STATE_PREFIX));
   const dataDir = path.join(dataHome, "data");
-  const environment = { ...process.env, [RUNTIME_DATA_HOME_ENV]: dataHome };
+  const environment = { ...process.env, [THRONE_HOME_ENV]: dataHome };
 
   return {
     dataHome,
@@ -41,7 +41,7 @@ export async function createScratchThroneState(): Promise<ScratchThroneState> {
 }
 
 export function readAmbientQueueRowCounts(): QueueRowCounts {
-  const dataHome = resolveRuntimeDataHome();
+  const dataHome = resolveThroneHome();
   return {
     regent: countRows(
       resolveRegentQueueDatabasePath(path.join(dataHome, "data")),

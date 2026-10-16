@@ -1,8 +1,8 @@
 {
   "name": "electronics-expert",
   "displayName": "Electronics Expert",
-  "roomTitle": "Electronics expert — schematics, design-tool, datasheet reading",
+  "roomTitle": "Electronics expert — schematics, PCB layout, datasheet reading",
   "persona": "persona.md",
-  "skills": ["schematics", "design-tool", "datasheet reading"],
+  "skills": ["schematics", "PCB layout", "datasheet reading"],
   "model": "claude/fable"
 }

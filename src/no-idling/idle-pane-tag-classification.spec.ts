@@ -2,11 +2,14 @@
 // no-idling sweep can check that child's existence mechanically.
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { test } from 'node:test';
 
 import {
   classifyLastMessageTags,
   lastMessageBlock,
+  liveBackgroundWork,
   readReapabilityClaimStatus,
 } from './idle-pane-tag-classification.ts';
 
@@ -44,4 +47,42 @@ test('an agent still printing {"reapable":"cancelled"} is read as abandoned', ()
   assert.equal(readReapabilityClaimStatus(standalone), 'abandoned');
   assert.equal(readReapabilityClaimStatus(insideProse), 'abandoned');
   assert.deepEqual(classifyLastMessageTags(standalone), { kind: 'reapable' });
+});
+
+const PANE_SHOWING_QUEUED_SUITE_RUNS = await readFile(
+  path.join(import.meta.dirname, 'fixtures', 'claude-pane-waiting-on-queued-suite-runs.txt'),
+  'utf8',
+);
+
+test('a pane whose background-work progress line wrapped onto a second line is still seen as busy', () => {
+  assert.equal(liveBackgroundWork(PANE_SHOWING_QUEUED_SUITE_RUNS), '4 shells, 1 monitor still running');
+});
+
+test('a pane whose background-work progress line fits on one line is still seen as busy', () => {
+  const unwrapped = PANE_SHOWING_QUEUED_SUITE_RUNS.replace('monitor still\n  running', 'monitor still running');
+
+  assert.equal(liveBackgroundWork(unwrapped), '4 shells, 1 monitor still running');
+});
+
+test("a slash command the throne typed after a waiting agent's message does not hide that message", () => {
+  const message = lastMessageBlock(PANE_SHOWING_QUEUED_SUITE_RUNS);
+
+  assert.match(message, /^Both suite runs \(candidate and base\) are still queued for a\s+container slot\. I'll pick up again when they report\.$/);
+});
+
+test('a blocked marker naming its own background run says the agent waits on it and names no child', () => {
+  assert.deepEqual(classifyLastMessageTags('{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)'), {
+    kind: 'blocked',
+    blockedBy: [],
+    waitsOnOwnBackgroundRun: true,
+  });
+});
+
+test('a blocked marker naming its own background run and a child still waits on that child', () => {
+  assert.deepEqual(
+    classifyLastMessageTags(
+      'Both suite runs are queued.\n{"blocked":true} __BLOCKED_BY_shadow-abc__ BLOCKED_BY_own-background-run (the base suite)\nmore prose',
+    ),
+    { kind: 'blocked', blockedBy: ['shadow-abc'], waitsOnOwnBackgroundRun: true },
+  );
 });

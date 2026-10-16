@@ -4,12 +4,11 @@ import {
   describeValue,
   isPlainObject,
 } from '../shared-policy/config-value-shape.ts';
-import { resolveLiveThroneRoot } from '../throne-root-resolution.ts';
 import type { JevLimits } from './jev-budget.ts';
 import {
   RECALL_SECTION_FIELDS,
   loadUserConfigFile,
-  userConfigPath,
+  resolveUserConfigPath,
 } from '../user-config-loader.ts';
 
 export const SERVE_ARM = 'serve';
@@ -218,7 +217,7 @@ export async function loadRecallConfig(
   configPath?: string,
 ): Promise<RecallConfig> {
   const resolvedPath =
-    configPath ?? userConfigPath(await resolveLiveThroneRoot());
+    configPath ?? (await resolveUserConfigPath());
   const userConfigFile = await loadUserConfigFile(resolvedPath);
   if (userConfigFile === undefined) return DEFAULT_RECALL_CONFIG;
   return {

@@ -132,6 +132,7 @@ export interface ParsedReapArgs {
   force: boolean;
   bypassMarker: boolean;
   archiveAbandonedUnmerged: boolean;
+  spawnProcessGone: boolean;
   reason?: ReapReason;
 }
 
@@ -140,6 +141,7 @@ export interface ReapRequest {
   force: boolean;
   bypassMarker?: boolean;
   archiveAbandonedUnmerged: boolean;
+  spawnProcessGone?: boolean;
   reason: ReapReason;
 }
 

@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { errorText } from "../shared-policy/error-text.ts";
 import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
 import { listAgents as listLiveAgents } from "../herdr/herdr-runtime.service.ts";
@@ -137,7 +137,7 @@ export interface StartupResumeContract {
 }
 
 export function buildResumePrompt(name: string, throneRoot: string): string {
-  const data = path.join(RUNTIME_DATA_DIR, name);
+  const data = path.join(THRONE_DATA_DIR, name);
   const tools = path.join(throneRoot, "src", "tools.ts");
   return `You are \`${name}\`, a ${PERSONA_CONFIG.throneTitle.toLowerCase()} agent relaunched by startup reconciliation after your previous process died (crash/kill/reboot — the court self-heals). Re-establish yourself and RESUME your in-flight work: (1) read your identity + chain of command at ${path.join(data, "identity.md")}; (2) look under ${data} for your work — an /execute-todos bundle (a \`todo-*\` folder) or a ${PERSONA_CONFIG.tierTitles.shadow} ASSIGNMENT.md — and continue it where it left off; (3) drive all tooling through ${tools} (the live throne root), report progress to your supervisor and escalate genuine blockers to the ${PERSONA_CONFIG.tierTitles.regent} via send-agent. You never put a question to the ${PERSONA_CONFIG.addressTitle} — decisions are yours.`;
 }

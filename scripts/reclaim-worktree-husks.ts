@@ -24,7 +24,7 @@ const USAGE =
   "  --throne-root PATH  the repo `git worktree list` is read against " +
   "(default: this repo's own root)\n" +
   "  --worktrees-root PATH  directory holding worktree directories to audit " +
-  "(default: ~/.throne/worktrees)\n";
+  `(default: ${worktreesHome()})\n`;
 
 /**
  * No live agent is ever named this — passing it to `findTreeOccupants`

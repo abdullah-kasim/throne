@@ -7,6 +7,7 @@ import { ForgeRefusal, messageOf } from "./forge-refusal.ts";
 import { readForgejoSite } from "./forgejo-site.ts";
 
 export const FORGE = { forgejo: "forgejo", github: "github" } as const;
+export type Forge = (typeof FORGE)[keyof typeof FORGE];
 
 export type HostForgeDecision =
   | { readonly forge: typeof FORGE.forgejo; readonly url: string; readonly reason: string }

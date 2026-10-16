@@ -34,7 +34,7 @@ KEYS SHIPPED BELOW
                     (docker under /usr/local/bin, podman under brew) and
                     `timeout` (brew coreutils, optional) resolve — launchd's
                     bare system PATH reaches neither. Output goes to
-                    ~/Library/Logs/throne/ntfy.log; StandardOutPath does not
+                    ~/.throne/logs/ntfy.log ($THRONE_DATA_HOME/logs/ when set); StandardOutPath does not
                     expand ~, hence the redirect inside the shell.
   RunAtLoad         launchd.plist(5): "This optional key is used to control
                     whether your job is launched once at the time the job is
@@ -58,7 +58,7 @@ KEYS SHIPPED BELOW
 	<array>
 		<string>/bin/bash</string>
 		<string>-lc</string>
-		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{THRONE_ROOT}}/systemd/ntfy-serve {{THRONE_ROOT}}/systemd/ntfy-server.yml &gt;&gt; "$HOME/Library/Logs/throne/ntfy.log" 2&gt;&amp;1</string>
+		<string>mkdir -p "{{THRONE_LOGS}}" &amp;&amp; exec {{THRONE_ROOT}}/systemd/ntfy-serve {{THRONE_ROOT}}/systemd/ntfy-server.yml &gt;&gt; "{{THRONE_LOGS}}/ntfy.log" 2&gt;&amp;1</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

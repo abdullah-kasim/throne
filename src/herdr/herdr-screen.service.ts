@@ -1,6 +1,7 @@
 import { inspectSupportedAgentScreen } from "../codex-screen/composer/composer.service.ts";
 import { unresolvedComposerDeadlineMessage } from "./herdr-composer-deadline-message.ts";
 import { composerUnavailableTimeoutMessage } from "./herdr-composer-diagnostic-capture.ts";
+import { closeSettingsDialog, regentPaneShowsSettingsDialog, SETTINGS_DIALOG_ESCAPE_PRESS_LIMIT } from "./herdr-claude-settings-dialog.ts";
 import type { SupportedAgentScreenSnapshot, SupportedComposerHarness } from "../codex-screen/composer/composer.types.ts";
 import {
   codexScreenShowsActiveTurn,
@@ -335,11 +336,19 @@ export async function waitForRecognizedComposer(
   deps: SubmitToAgentDeps,
 ): Promise<SupportedAgentScreenSnapshot> {
   let lastVisibleAnsi: string | undefined;
+  let settingsDialogEscapePresses = 0;
   while (true) {
     try {
       const observed = await observeSupportedScreenWithVisibleAnsi(agent, harness, deps);
       lastVisibleAnsi = observed.visibleAnsi;
       if (observed.snapshot.activeComposer.state !== "unavailable") return observed.snapshot;
+      if (
+        settingsDialogEscapePresses < SETTINGS_DIALOG_ESCAPE_PRESS_LIMIT &&
+        regentPaneShowsSettingsDialog(agent, harness, observed)
+      ) {
+        settingsDialogEscapePresses += 1;
+        await closeSettingsDialog(agent, deps, settingsDialogEscapePresses);
+      }
     } catch (error) {
       const remaining = deadline - deps.now();
       if (!isTransientComposerObservationFailure(error) || remaining <= 0) {
@@ -363,6 +372,7 @@ export async function waitForRecognizedComposer(
           agent.name ?? agent.terminalId,
           lastVisibleAnsi,
           deps.captureComposerDiagnostic,
+          settingsDialogEscapePresses,
         ),
       );
     }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Bounded (non-exclusive up to N=2) tmpfs concurrency semaphore for
+// Bounded tmpfs concurrency semaphore for
 // container-backed suite runs. Containers run `--userns=keep-id` — same uid,
 // same per-uid tmpfs quota as the host — so nothing else stands between a
 // pile of concurrent suites and EDQUOT now that the exclusive full-suite
@@ -19,6 +19,7 @@ import { mkdirSync, readFileSync, statfsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveThroneHome } from "../src/shared-policy/throne-home.ts";
 import {
   buildHolderReportLines,
   isHolderVerified,
@@ -38,11 +39,8 @@ const innerScript = path.join(here, "suite-concurrency-guard-inner.mjs");
 // against the same shared ceiling as every other agent's Bash tool calls on
 // this box. Exceeding it produces EDQUOT, which does not fail a test — it
 // kills the Bash tool outright for whoever hit the quota (see
-// TMPFS_EDQUOT_PER_USER_QUOTA_KILLS_BASH.md). cap=2 is the bound on how many
-// suites may hold a tmpfs concurrency slot at once, chosen to leave the
-// shared quota enough headroom for ordinary Bash-tool tmpfs use elsewhere on
-// the box while still letting suites run concurrently at all.
-export const SLOT_CAP = 2;
+// TMPFS_EDQUOT_PER_USER_QUOTA_KILLS_BASH.md).
+export const SLOT_CAP = 3;
 
 // PLACEHOLDER — UNMEASURED. This is a conservative starting guess, not a
 // calibrated number: a clean per-suite tmp-delta measurement requires a
@@ -59,7 +57,7 @@ export const SLOT_CONFLICT_EXIT_CODE = 92;
 export function getConcurrencyLockDir() {
   return (
     process.env.THRONE_SUITE_CONCURRENCY_LOCK_DIR ??
-    path.join(os.homedir(), ".throne", "locks", "suite-concurrency")
+    path.join(resolveThroneHome(), "locks", "suite-concurrency")
   );
 }
 

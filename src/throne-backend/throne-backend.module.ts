@@ -14,6 +14,7 @@ import { AutoreapHostedWorker } from "../autoreap/autoreap.hosted-worker.ts";
 import { ProcwatchHostedWorker } from "../procwatch/procwatch.hosted-worker.ts";
 import { ForgejoBranchSyncHostedWorker } from "./forgejo-branch-sync.hosted-worker.ts";
 import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
+import { AgentSettingsHostedWorker } from "../agent-settings/agent-settings.hosted-worker.ts";
 
 /**
  * The long-lived `throne-backend` server: a real bootstrapped Nest
@@ -67,6 +68,7 @@ import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
     ProcwatchHostedWorker,
     ForgejoBranchSyncHostedWorker,
     CourtLivenessHostedWorker,
+    AgentSettingsHostedWorker,
     {
       provide: HOSTED_WORKERS,
       inject: [
@@ -81,6 +83,7 @@ import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
         ProcwatchHostedWorker,
         ForgejoBranchSyncHostedWorker,
         CourtLivenessHostedWorker,
+        AgentSettingsHostedWorker,
       ],
       useFactory: (
         noIdling: NoIdlingHostedWorker,
@@ -94,6 +97,7 @@ import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
         procwatch: ProcwatchHostedWorker,
         forgejoBranchSync: ForgejoBranchSyncHostedWorker,
         courtLiveness: CourtLivenessHostedWorker,
+        agentSettings: AgentSettingsHostedWorker,
       ) => [
         noIdling,
         sqliteQueueDrain,
@@ -106,6 +110,7 @@ import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
         procwatch,
         forgejoBranchSync,
         courtLiveness,
+        agentSettings,
       ],
     },
     HostedWorkerRegistrarService,

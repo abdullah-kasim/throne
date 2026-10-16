@@ -1,0 +1,147 @@
+[
+  {
+    "file": "src/alpha-autoscale/alpha-autoscale-tick.command.test.ts",
+    "seconds": 11.1,
+    "reason": "a REST sweep is proved to be waited for past the transport's usual 10 second limit, so one test must outlast 10 seconds of real time"
+  },
+  {
+    "file": "src/forge/background-hydration.test.ts",
+    "seconds": 3.8,
+    "reason": "one test starts the real detached hydration process and waits for its log line; 3.8 seconds in an uncontended container default run"
+  },
+  {
+    "file": "src/forge/open-pull-request.test.ts",
+    "seconds": 2.4,
+    "reason": "the first test carries the file's one-time staging host and push-branch setup; its own body is under 1 second"
+  },
+  {
+    "file": "src/forge/review-checkout.test.ts",
+    "seconds": 3.5,
+    "reason": "every test builds real git repositories, remotes and review worktrees before choosing the review checkout; four tests took 2.2 to 3.5 seconds in an uncontended container default run"
+  },
+  {
+    "file": "src/forge/review-worktree-cleanup.test.ts",
+    "seconds": 2.6,
+    "reason": "the first test carries the file's one-time staging host and push-branch setup"
+  },
+  {
+    "file": "src/relevance-classifier/jev-budget-processes.spec.ts",
+    "seconds": 5.6,
+    "reason": "one test races real node processes for the budget lock after killing its holder; slowest test 5.6 seconds in the suite container alone, 10.9 seconds with two other suites running"
+  },
+  {
+    "file": "test/autoscale-now-two-processes-share-one-sweep-lock.test.ts",
+    "seconds": 6.6,
+    "reason": "each test starts two real autoscale-now node processes at once and waits for both to finish; slowest test 6.6 seconds in the suite container alone, 11.9 seconds with two other suites running"
+  },
+  {
+    "file": "test/claude-guard-hook.test.ts",
+    "seconds": 5.3,
+    "reason": "one test runs the python guard hook's whole unit test suite as a child python process; slowest test 5.3 seconds in the suite container alone, 10.1 seconds with two other suites running"
+  },
+  {
+    "file": "test/forge-forgejo-pull-requests.test.ts",
+    "seconds": 2.1,
+    "reason": "one test opens the first pull request in a brand-new Forgejo copy that registers the pushed branch late, so it waits on the forge's own branch-registration poll by design"
+  },
+  {
+    "file": "test/forge-fresh-base.test.ts",
+    "seconds": 12.2,
+    "reason": "each test opens a Forgejo pull request against the fake Forgejo after moving, editing or diverging its base, pushing through git http-backend several times; slowest test 12.2 seconds in the suite container alone, 19.7 seconds with two other suites running"
+  },
+  {
+    "file": "test/forge-github-never-names-forgejo.test.ts",
+    "seconds": 2.1,
+    "reason": "the first test carries the file's one-time opening of a Forgejo pull request with media"
+  },
+  {
+    "file": "test/forge-github-pull-requests.test.ts",
+    "seconds": 4.2,
+    "reason": "one test runs eight GitHub pull request operations through the forge command and also carries the file's one-time checkout setup; 4.2 seconds in an uncontended container default run"
+  },
+  {
+    "file": "test/forge-given-pr-skills.test.ts",
+    "seconds": 6.2,
+    "reason": "its slow test opens a Forgejo pull request through git http-backend before trying the unsupported operation; slowest test 6.2 seconds in the suite container alone, 10.5 seconds with two other suites running"
+  },
+  {
+    "file": "test/forge-host-decision.test.ts",
+    "seconds": 10.2,
+    "reason": "its slow tests open a real Forgejo pull request through git http-backend before checking which host was chosen; slowest test 10.2 seconds in the suite container alone, 18.4 seconds with two other suites running"
+  },
+  {
+    "file": "test/forge-merge-on-github.test.ts",
+    "seconds": 16.3,
+    "reason": "the test stages a pull request into Forgejo and then merges it on GitHub, pushing through git http-backend on both sides; slowest test 16.3 seconds in the suite container alone, 29.4 seconds with two other suites running"
+  },
+  {
+    "file": "test/forge-promote.test.ts",
+    "seconds": 7.2,
+    "reason": "in the suite container every test that promotes still opens its own Forgejo pull request, pushing through git http-backend, and runs the pull request media publish script as a node process; 2.6 to 7.2 seconds per test there, 0.6 to 1.6 seconds on the host"
+  },
+  {
+    "file": "test/forge-stage.test.ts",
+    "seconds": 12.6,
+    "reason": "each test stages a GitHub pull request into a Forgejo twin, pushing the branch through git http-backend and re-hosting its media as attachments; slowest test 12.6 seconds in the suite container alone, 22.0 seconds with two other suites running"
+  },
+  {
+    "file": "test/forge-staged-feedback.test.ts",
+    "seconds": 17.6,
+    "reason": "each test stages and promotes a pull request, then carries answers between Forgejo and GitHub, so one test makes several pushes and publish runs; slowest test 17.6 seconds in the suite container alone, 33.7 seconds with two other suites running"
+  },
+  {
+    "file": "test/forge-status.test.ts",
+    "seconds": 11.1,
+    "reason": "its slow test opens a Forgejo pull request through git http-backend before reading its status; slowest test 11.1 seconds in the suite container alone, 20.5 seconds with two other suites running"
+  },
+  {
+    "file": "test/forge-sync-branches.test.ts",
+    "seconds": 10.2,
+    "reason": "each test mirrors a set of real git branches between a GitHub fixture and the fake Forgejo through git http-backend; slowest test 10.2 seconds in the suite container alone, 22.0 seconds with two other suites running"
+  },
+  {
+    "file": "test/forgejo-branch-sync-worker.test.ts",
+    "seconds": 14.5,
+    "reason": "each test runs the branch mirror over real checkouts and pushes every branch to the fake Forgejo through git http-backend; slowest test 14.5 seconds in the suite container alone, 24.2 seconds with two other suites running"
+  },
+  {
+    "file": "test/forgejo-serve-sh.test.ts",
+    "seconds": 2.6,
+    "reason": "one test runs the real forgejo-serve script twice, once for podman and once for docker, against fake runtimes; 2.6 seconds in an uncontended container default run"
+  },
+  {
+    "file": "test/git-shim-admits-a-waived-push.test.ts",
+    "seconds": 12.3,
+    "reason": "the test builds real git repositories and pushes through the real git shim twice, once refused and once under the waiver; slowest test 12.3 seconds in the suite container alone, 23.6 seconds with two other suites running"
+  },
+  {
+    "file": "test/install-forgejo-sh.test.ts",
+    "seconds": 11.8,
+    "reason": "each test runs the real install-forgejo.sh shell script end to end against fake binaries, and four of them take 10 to 12 seconds"
+  },
+  {
+    "file": "test/locate-benchmark.test.ts",
+    "seconds": 12.7,
+    "reason": "one test runs both locate stages over every task in the benchmark fixture against the whole repository"
+  },
+  {
+    "file": "test/omp-delivery-harness.test.ts",
+    "seconds": 10.4,
+    "reason": "one test launches a real herdr session and runs the tab leak guard against it as child processes; slowest test 10.4 seconds in the suite container alone, 24.4 seconds with two other suites running"
+  },
+  {
+    "file": "test/pr-media-forgejo.test.ts",
+    "seconds": 17.3,
+    "reason": "each test opens a Forgejo pull request and runs the pull request media publish script as a node process that uploads every file; slowest test 17.3 seconds in the suite container alone, 36.4 seconds with two other suites running"
+  },
+  {
+    "file": "test/push-checks.test.ts",
+    "seconds": 11.3,
+    "reason": "each test builds real git repositories and pushes through the real git guard and push-check hooks, and two of them take 10 to 11 seconds"
+  },
+  {
+    "file": "test/update-harnesses-integration.test.ts",
+    "seconds": 5.4,
+    "reason": "its update tests run the real update script with fake package installs and re-verify the vendored binaries as child processes; slowest test 5.4 seconds in the suite container alone, 13.7 seconds with two other suites running"
+  }
+]

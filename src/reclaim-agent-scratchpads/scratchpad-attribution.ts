@@ -2,7 +2,7 @@
  * The exact, forward-only transform the harness itself uses to name a
  * session scratchpad directory from an agent's cwd: every character that
  * is not `[A-Za-z0-9]` becomes `-`, one for one, with no collapsing of
- * adjacent separators (so `/var/home/theuser/.throne/...` and its literal `-`s
+ * adjacent separators (so the dot in a hidden folder name and its literal `-`s
  * are both individually replaced, producing the double-hyphen seams
  * observed on disk). This module only ever runs the transform FORWARD —
  * from a known candidate path to its expected slug — and compares by exact

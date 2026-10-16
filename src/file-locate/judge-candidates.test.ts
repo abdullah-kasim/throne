@@ -153,7 +153,7 @@ test('judgeCandidates uses the rules backend when THRONE_JEV_DISABLED overrides 
           statKeyFile: () => Promise.resolve({ isFile: () => true, size: 14 }),
         },
         jevBackend: PRODUCTION_JEV_DEPENDENCIES,
-        jevDataHome: '/nonexistent-jev-data-home',
+        jevDataHome: '/nonexistent-jev-home',
         writeStderr: () => undefined,
       }),
     { [ALLOWED_PATH]: fileText },

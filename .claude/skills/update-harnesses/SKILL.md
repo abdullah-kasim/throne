@@ -5,12 +5,14 @@ version: 1.0.0
 user-invocable: true
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension update-harnesses` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Update Throne-Managed Harnesses
 
 This skill is throne-local: it lives at `throne/.claude/skills/update-harnesses/`
 and Claude Code discovers it natively from a throne cwd (live root or worktree).
-It is deliberately not part of the global `claude/agent_docs/skills` tree, so it
-does not surface in unrelated repositories.
+It is deliberately not part of the machine's global skills tree (`~/.claude/skills`),
+so it does not surface in unrelated repositories.
 
 Use `scripts/update-harness.mjs` for every transaction. Do not reproduce its discovery, integrity, staging, probe, promotion, or rollback logic.
 

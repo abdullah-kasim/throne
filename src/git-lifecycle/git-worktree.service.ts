@@ -1,7 +1,7 @@
 import { access } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
-import { homedir } from 'node:os';
 import path from 'node:path';
+import { resolveThroneHome } from '../shared-policy/throne-home.ts';
 import { RUNTIME_THRONE_ROOT } from '../shared-policy/runtime-throne-root.ts';
 import { repoRoot, GitLifecycleService } from './git-command.service.ts';
 
@@ -10,7 +10,7 @@ export type TreePath = string;
 export const THRONE_PROJECT_DIR = RUNTIME_THRONE_ROOT;
 
 export function worktreesHome(): string {
-  return process.env.THRONE_WORKTREES_HOME ?? path.join(homedir(), '.throne', 'worktrees');
+  return process.env.THRONE_WORKTREES_HOME ?? path.join(resolveThroneHome(), 'worktrees');
 }
 
 export function repoWorktreesHome(canonicalRepoRoot: string): string {

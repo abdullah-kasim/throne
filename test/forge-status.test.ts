@@ -223,6 +223,23 @@ test("the head shas say whether the two copies are in sync", async () => {
   assert.equal((await status(behind.githubUrl)).inSync, false);
 });
 
+test("forge status --json reports the cross-host media links of each side", async () => {
+  const githubMediaUrl = "https://github.example.test/user-attachments/assets/7a1b2c3d-0000-4e5f-8a9b-0c1d2e3f4a5b";
+  const forgejoMediaUrl = `${host.forgejo.rootUrl}attachments/5d2c7f10-0000-4a6b-9c1d-8e7f6a5b4c3d`;
+  const { forgejoUrl, githubUrl } = await stagedPair({ body: `Adds the feature.\n\n![feature page](${forgejoMediaUrl})\n` });
+  host.forgejo.pullRequests.at(-1)!.body = `Adds the feature, staged from ${githubUrl}.\n\n![feature page](${githubMediaUrl})\n`;
+  const clean = await stagedPair();
+
+  const fromForgejo = await status(forgejoUrl);
+  const fromGithub = await status(githubUrl);
+
+  const expected = { forgejo: [githubMediaUrl], github: [forgejoMediaUrl] };
+  assert.deepEqual(fromForgejo.crossHostMediaLinks, expected);
+  assert.deepEqual(fromGithub.crossHostMediaLinks, expected);
+  assert.deepEqual((await status(clean.forgejoUrl)).crossHostMediaLinks, { forgejo: [], github: [] });
+  assert.ok(!("body" in fromForgejo.forgejo!) && !("body" in fromForgejo.github!));
+});
+
 test("plain status prints every fact as a key and value line", async () => {
   const { forgejoUrl, githubUrl } = await stagedPair();
 
@@ -239,7 +256,7 @@ test("an enterprise GitHub URL on a host without Forgejo is read with ghe and lo
   const state = await useFreshForgejoStateDirectory();
   const directory = await mkdtemp(path.join(tmpdir(), "forge-status-no-forgejo-"));
   const enterpriseUrl = "https://github.example-corp.test/team/service/pull/12";
-  const answer = { number: 12, url: enterpriseUrl, state: "OPEN", isDraft: false, headRefName: "fix", baseRefName: "trunk", headRefOid: "abc123", mergedAt: null, mergeCommit: null };
+  const answer = { number: 12, url: enterpriseUrl, state: "OPEN", isDraft: false, headRefName: "fix", baseRefName: "trunk", headRefOid: "abc123", mergedAt: null, mergeCommit: null, body: "Fixes the till." };
   const dependencies = forgeDependenciesWithFakeGithub(() => ({ exitCode: 0, stdout: `${JSON.stringify(answer)}\n`, stderr: "" }));
   try {
     const result = await runForgeCapturing(["status", enterpriseUrl, "--json"], dependencies, directory);
@@ -251,7 +268,7 @@ test("an enterprise GitHub URL on a host without Forgejo is read with ghe and lo
     assert.deepEqual(found.mergeTarget, { url: enterpriseUrl, program: "ghe", forgejoUrl: null });
     assert.deepEqual(
       dependencies.githubCalls.map((call) => [call.program, ...call.args]),
-      [["ghe", "pr", "view", enterpriseUrl, "--json", "number,url,state,isDraft,headRefName,baseRefName,headRefOid,mergedAt,mergeCommit"]],
+      [["ghe", "pr", "view", enterpriseUrl, "--json", "number,url,state,isDraft,headRefName,baseRefName,headRefOid,mergedAt,mergeCommit,body"]],
     );
   } finally {
     await rm(directory, { recursive: true, force: true });

@@ -7,7 +7,7 @@ import {
 } from "../tmp-scratch-lifecycle/scratch-dir-holders.ts";
 import { HerdrInventoryService } from "../herdr/herdr-inventory.service.ts";
 import { HerdrClientService } from "../herdr/herdr-client.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR, THRONE_HOME, resolveThroneHome } from "../shared-policy/throne-home.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { readKnownRepoNames } from "./scratchpad-attribution.ts";
 import {
@@ -27,9 +27,9 @@ const USAGE =
   "a dry-run report only\n" +
   `  --tmp-root PATH     scratch root to audit (default ${DEFAULT_TMP_ROOT})\n` +
   "  --worktrees-root PATH  directory holding <repo>/<agent> worktrees, used " +
-  "to attribute entry names (default ~/.throne/worktrees)\n" +
+  `to attribute entry names (default ${path.join(THRONE_HOME, "worktrees")})\n` +
   "  --data-dir PATH     throne data directory holding live/.reaped agent " +
-  "records (default ~/.throne/data)\n";
+  `records (default ${THRONE_DATA_DIR})\n`;
 
 interface ReclaimOptions {
   apply: boolean;
@@ -222,11 +222,11 @@ function renderReport(entries: ReclaimEntry[], options: ReclaimOptions): string 
  * (e.g. it does not exist) falls back to the unresolved value — the
  * default is best-effort, not a hard requirement.
  */
-async function resolveDefaultWorktreesHome(homedir: string): Promise<string> {
+async function physicalPathOrAsGiven(candidate: string): Promise<string> {
   try {
-    return await realpath(homedir);
+    return await realpath(candidate);
   } catch {
-    return homedir;
+    return candidate;
   }
 }
 
@@ -239,15 +239,15 @@ export async function runReclaimAgentScratchpads(
     return 0;
   }
 
-  const resolvedHomedir = await resolveDefaultWorktreesHome(homedir);
+  const physicalThroneHome = await physicalPathOrAsGiven(resolveThroneHome(process.env, homedir));
 
   let options: ReclaimOptions;
   try {
     options = parseArgs(args, {
       apply: false,
       tmpRoot: DEFAULT_TMP_ROOT,
-      worktreesRoot: path.join(resolvedHomedir, ".throne", "worktrees"),
-      dataDir: RUNTIME_DATA_DIR,
+      worktreesRoot: path.join(physicalThroneHome, "worktrees"),
+      dataDir: THRONE_DATA_DIR,
     });
   } catch (error) {
     process.stderr.write(

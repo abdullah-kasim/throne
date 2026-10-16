@@ -118,7 +118,7 @@ test("with an explicit merge order the row gets the pull request ready and then 
   assert.ok(proveAt < readyAt && readyAt < mergeAt, "Ready sits after Prove and before Merge");
   assert.ok(
     readSection(skill, "2. Ask the Lord two things, and only these").includes(
-      "With an explicit order to merge, quoted under `RULINGS:`, the row does both: every ready step, then the **Merge** step.",
+      "With an explicit order to merge, quoted under `RULINGS:`, the row does both: every ready step, then the **Answer** and **Merge** steps.",
     ),
   );
   assert.ok(readBullet(skill, "Merge").includes("it comes after every ready step above"));
@@ -144,12 +144,13 @@ test("a merge the Lord authorized without review uses --admin for the missing ap
   );
 });
 
-test("/pr-merge stops only for a foreign push or a refusal nothing can clear, and never asks the Lord", async () => {
+test("/pr-merge stops only for a foreign push, a person's comment during the run, or a refusal nothing can clear, and never asks the Lord", async () => {
   const skill = await readSkill("pr-merge");
+  assert.ok(!skill.includes("only two things"));
   assert.deepEqual(
     missingPhrases(readBullet(skill, "Stop"), [
-      "the row stops for only two things: a push to the root branch by someone else, whose intent is unknown; and a refusal that no fix and no granted bypass can clear",
-      "Each gets the refusal comment on the root",
+      "the row stops for only three reasons: a push to the root branch by someone else, whose intent is unknown; a person's review or comment on the root posted after the row launched, found by the person check in **Answer**; and a refusal that no fix and no granted bypass can clear",
+      "A foreign push and a refusal each get the refusal comment on the root",
       "a report to the supervisor; the Lord is never asked",
     ]),
     [],

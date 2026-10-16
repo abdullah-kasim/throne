@@ -9,6 +9,7 @@ import {
 import { checkAgentEvidenceRequirementByName } from "../slice-evidence/agent-evidence-gate.ts";
 import { readAgent } from "../herdr/herdr-runtime.service.ts";
 import { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
+import { refuseCompletionWithoutPageRecord } from "../where-i-stand/campaign-page-record.ts";
 import {
   runCompleteAgent,
   type CompleteAgentDependencies,
@@ -26,6 +27,7 @@ const REAL_DEPENDENCIES: CompleteAgentDependencies = {
   readAgent,
   readSpawnSpec,
   checkEvidenceRequirement: checkAgentEvidenceRequirementByName,
+  refuseCompletionWithoutPageRecord: (name) => refuseCompletionWithoutPageRecord(name),
 };
 
 export function configureCompleteAgentDependencies(

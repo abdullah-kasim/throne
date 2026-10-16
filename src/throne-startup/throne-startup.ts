@@ -25,6 +25,7 @@
 // AND no `Regent` already exists. Every failure path is caught and logged; the
 // command ALWAYS returns 0 so it can never disrupt harness launch.
 
+import os from "node:os";
 import path from "node:path";
 import {
   describeOmpExtensionInstall,
@@ -55,6 +56,7 @@ import { HARNESS_NAMES, type Harness } from "../harness-routing/harness.ts";
 import { pathsResolveEqual } from "../shared-policy/path-equivalence.ts";
 import { appendFile } from "node:fs/promises";
 import { resolveLiveThroneRoot } from "../throne-root-resolution.ts";
+import { KEEP_OLD_COPIES_FLAG, runMigrateHome } from "../migrate-home/migrate-home-runtime.ts";
 import {
   exportGitShimToSession,
   type SessionEnvExportOutcome,
@@ -106,6 +108,14 @@ export interface ThroneStartupDeps {
    */
   reconcile?: (liveAgents: HerdrAgent[]) => Promise<unknown>;
   exportSessionEnv?: () => Promise<SessionEnvExportOutcome>;
+  migrateHome?: () => Promise<number>;
+}
+
+export function copyOldInstallIntoThroneHome(
+  environment: NodeJS.ProcessEnv = process.env,
+  userHome = os.homedir(),
+): Promise<number> {
+  return runMigrateHome([KEEP_OLD_COPIES_FLAG], environment, userHome);
 }
 
 export const REAL_DEPS: ThroneStartupDeps = {
@@ -137,6 +147,7 @@ export const REAL_DEPS: ThroneStartupDeps = {
   writeRegentHarness,
   writeRegentRoute,
   reconcile: async () => [],
+  migrateHome: () => copyOldInstallIntoThroneHome(),
   exportSessionEnv: () =>
     exportGitShimToSession({
       sessionEnvFile: process.env.CLAUDE_ENV_FILE,
@@ -324,6 +335,24 @@ async function reconcileSafely(
   }
 }
 
+async function migrateHomeSafely(deps: ThroneStartupDeps): Promise<void> {
+  if (!deps.migrateHome) {
+    return;
+  }
+  try {
+    const exitCode = await deps.migrateHome();
+    if (exitCode !== 0) {
+      process.stderr.write(
+        `throne-startup: the throne home migration refused or failed (exit ${exitCode}); continuing\n`,
+      );
+    }
+  } catch (err) {
+    process.stderr.write(
+      `throne-startup: the throne home migration threw (${errText(err)}); continuing\n`,
+    );
+  }
+}
+
 /**
  * Idempotent SessionStart self-configuration. See the file header for the guard
  * contract. Always resolves to 0 — a wrong branch here would mis-rename a live
@@ -422,6 +451,7 @@ export async function run(
   // reaches this branch; gating on `isRegent` is what stops it from reaping or
   // resuming its sibling agents.
   if (isRegent) {
+    await migrateHomeSafely(deps);
     await reconcileSafely(deps, agents);
   }
   return 0;

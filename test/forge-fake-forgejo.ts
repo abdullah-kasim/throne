@@ -1,10 +1,10 @@
-import { execFile, spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
+import { gitInBare, serveGitOverHttp } from "./forge-fake-forgejo-git.ts";
+import { EMPTY_SNAPSHOT, replaceContents, replaceEntries, type FakeForgejoSnapshot, type FakeForgejoState } from "./forge-fake-forgejo-snapshot.ts";
 
 export const FAKE_FORGEJO_ADMIN = "court-admin";
 export const FAKE_FORGEJO_ADMIN_PASSWORD = "test-admin-password-7d1e";
@@ -62,33 +62,14 @@ export interface FakePullRequest {
   repository: string;
 }
 
-export interface FakeForgejo {
+export interface FakeForgejo extends FakeForgejoState {
   readonly rootUrl: string;
-  readonly repositories: Map<string, { readonly private: boolean }>;
-  readonly pullRequests: FakePullRequest[];
-  readonly comments: FakeConversationComment[];
-  readonly attachments: FakeAttachment[];
-  readonly reviews: FakeReview[];
-  readonly reviewComments: FakeReviewComment[];
-  readonly attachmentContents: Map<string, Buffer>;
-  readonly adminSignIns: string[];
-  readonly markdownRequests: unknown[];
-  readonly merges: unknown[];
-  readonly gitAuthorizations: string[];
-  readonly pullRequestCreateRequests: string[];
   readonly bareRepositoryPath: (repository: string) => string;
   registerPushedBranchesAfterReads(reads: number): void;
+  snapshot(): Promise<FakeForgejoSnapshot>;
+  restore(snapshot: FakeForgejoSnapshot): Promise<void>;
+  reset(): Promise<void>;
   close(): Promise<void>;
-}
-
-const execFileAsync = promisify(execFile);
-
-async function gitInBare(directory: string, args: readonly string[]): Promise<{ ok: boolean; stdout: string }> {
-  try {
-    return { ok: true, stdout: (await execFileAsync("git", [...args], { cwd: directory, encoding: "utf8" })).stdout };
-  } catch {
-    return { ok: false, stdout: "" };
-  }
 }
 
 async function readBody(request: IncomingMessage): Promise<Buffer> {
@@ -100,41 +81,6 @@ async function readBody(request: IncomingMessage): Promise<Buffer> {
 function sendJson(response: ServerResponse, status: number, value: unknown): void {
   response.writeHead(status, { "Content-Type": "application/json" });
   response.end(JSON.stringify(value));
-}
-
-function serveGitOverHttp(request: IncomingMessage, response: ServerResponse, projectRoot: string, pathInfo: string, query: string): void {
-  const backend = spawn("git", ["http-backend"], {
-    env: {
-      ...process.env,
-      GIT_PROJECT_ROOT: projectRoot,
-      GIT_HTTP_EXPORT_ALL: "1",
-      PATH_INFO: pathInfo,
-      REQUEST_METHOD: request.method ?? "GET",
-      QUERY_STRING: query,
-      CONTENT_TYPE: request.headers["content-type"] ?? "",
-      HTTP_CONTENT_ENCODING: request.headers["content-encoding"] ?? "",
-      REMOTE_USER: FAKE_FORGEJO_ADMIN,
-      REMOTE_ADDR: "127.0.0.1",
-    },
-  });
-  request.pipe(backend.stdin);
-  const output: Buffer[] = [];
-  backend.stdout.on("data", (chunk: Buffer) => output.push(chunk));
-  backend.on("close", () => {
-    const raw = Buffer.concat(output);
-    const split = raw.indexOf("\r\n\r\n");
-    const headerText = raw.subarray(0, split).toString("utf8");
-    const headers: Record<string, string> = {};
-    let status = 200;
-    for (const line of headerText.split("\r\n")) {
-      const [name, ...rest] = line.split(":");
-      const value = rest.join(":").trim();
-      if (name!.toLowerCase() === "status") status = Number(value.split(" ")[0]);
-      else headers[name!] = value;
-    }
-    response.writeHead(status, headers);
-    response.end(raw.subarray(split + 4));
-  });
 }
 
 export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGEJO_ADMIN_PASSWORD): Promise<FakeForgejo> {
@@ -470,6 +416,39 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
     }
   }
 
+  const snapshotDirectories: string[] = [];
+
+  async function takeSnapshot(): Promise<FakeForgejoSnapshot> {
+    const bareRepositoriesCopy = await mkdtemp(path.join(tmpdir(), "fake-forgejo-snapshot-"));
+    snapshotDirectories.push(bareRepositoriesCopy);
+    await cp(projectRoot, bareRepositoriesCopy, { recursive: true });
+    const { repositories, pullRequests, comments, attachments, reviews, reviewComments, attachmentContents, adminSignIns, markdownRequests, merges, gitAuthorizations, pullRequestCreateRequests } = fake;
+    const records = structuredClone({ repositories, pullRequests, comments, attachments, reviews, reviewComments, attachmentContents, adminSignIns, markdownRequests, merges, gitAuthorizations, pullRequestCreateRequests, branchReads });
+    return { records: { ...records, nextAttachmentId, readsBeforeBranchRegisters }, bareRepositoriesCopy };
+  }
+
+  async function restore(snapshot: FakeForgejoSnapshot): Promise<void> {
+    const { records } = snapshot;
+    replaceContents(fake.pullRequests, records.pullRequests);
+    replaceContents(fake.comments, records.comments);
+    replaceContents(fake.attachments, records.attachments);
+    replaceContents(fake.reviews, records.reviews);
+    replaceContents(fake.reviewComments, records.reviewComments);
+    replaceContents(fake.adminSignIns, records.adminSignIns);
+    replaceContents(fake.markdownRequests, records.markdownRequests);
+    replaceContents(fake.merges, records.merges);
+    replaceContents(fake.gitAuthorizations, records.gitAuthorizations);
+    replaceContents(fake.pullRequestCreateRequests, records.pullRequestCreateRequests);
+    replaceEntries(fake.repositories, records.repositories);
+    replaceEntries(fake.attachmentContents, records.attachmentContents);
+    replaceEntries(branchReads, records.branchReads);
+    nextAttachmentId = records.nextAttachmentId;
+    readsBeforeBranchRegisters = records.readsBeforeBranchRegisters;
+    await rm(projectRoot, { recursive: true, force: true });
+    if (snapshot.bareRepositoriesCopy === null) await mkdir(projectRoot);
+    else await cp(snapshot.bareRepositoriesCopy, projectRoot, { recursive: true });
+  }
+
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://fake.invalid");
     const gitPath = /^\/([^/]+\/[^/]+\.git)(\/.*)$/.exec(url.pathname);
@@ -480,7 +459,7 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
         response.writeHead(403);
         return void response.end("authorization required");
       }
-      return serveGitOverHttp(request, response, projectRoot, `/${gitPath[1]}${gitPath[2]}`, url.search.slice(1));
+      return serveGitOverHttp(request, response, projectRoot, `/${gitPath[1]}${gitPath[2]}`, url.search.slice(1), FAKE_FORGEJO_ADMIN);
     }
     if (!url.pathname.startsWith("/api/v1/")) return void answerWeb(request, response, url.pathname);
     void answerApiOrReportFailure(request, response, url.pathname.slice("/api/v1/".length), url.searchParams);
@@ -492,10 +471,14 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
     registerPushedBranchesAfterReads(reads: number) {
       readsBeforeBranchRegisters = reads;
     },
+    snapshot: takeSnapshot,
+    restore,
+    reset: () => restore(EMPTY_SNAPSHOT),
     async close() {
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       await rm(projectRoot, { recursive: true, force: true });
+      await Promise.all(snapshotDirectories.map((directory) => rm(directory, { recursive: true, force: true })));
     },
   };
 }

@@ -18,8 +18,8 @@
 // ALL validation completes before anything is written: a refusal leaves no
 // `tree-base.json`, no worktree, and no branch. On success the command notes
 // the base being branched from (plus the resolved target repo) under
-// `data/<name>/`, calls the GitTreeCreationService (which places the tree under
-// `~/.throne/worktrees/...`, OUTSIDE the target repo), and prints the tree
+// `data/<name>/`, calls the GitTreeCreationService (which places the tree in
+// the throne worktrees folder, OUTSIDE the target repo), and prints the tree
 // path. All coding happens in a tree, never the live checkout (AGENTS.md).
 
 import path from "node:path";

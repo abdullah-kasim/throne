@@ -11,8 +11,8 @@
 // `refresh_token` and break the user's `codex` login.
 //
 // The one filesystem-WRITE seam is the shared usage cache (the injected
-// `cacheIo`; real impl persists a per-harness last-good file at
-// `~/.throne/usage-cache/codex.json`). On a transient endpoint error the
+// `cacheIo`; real impl persists a per-harness last-good file in the throne
+// home's usage cache). On a transient endpoint error the
 // last-good numbers are returned marked `stale` instead of failing. The
 // credentials file above is still never written.
 //

@@ -7,10 +7,12 @@ import {
 import {
   agentRegistrationExists,
   markAgentTasked,
+  markSpawnFinished,
   readSpawnSpec,
   writeSpawnSpec,
 } from "../agentdata/spawn-data-contracts.ts";
 import { LedgerDataService } from "../agentdata/ledger-data.service.ts";
+import { correctSettingsRightAfterSpawn } from "../agent-settings/agent-settings-at-spawn.ts";
 import {
   ensureCodexTrust,
   probeCodexTrustPrompt,
@@ -282,6 +284,8 @@ const REAL_DEPS: CreateAgentDeps = {
   resolveAgent,
   startAgent,
   openMessageQueueStore: () => openMessageQueueStore(),
+  correctSettingsRightAfterSpawn: (agent, agentName) =>
+    correctSettingsRightAfterSpawn(agent, agentName),
   resumeRegisteredAgentInRestoredTab,
   closeAgentTab,
   ensureCodexTrust,
@@ -292,6 +296,7 @@ const REAL_DEPS: CreateAgentDeps = {
   writeModelAllowlist,
   readSpawnSpec,
   markAgentTasked,
+  markSpawnFinished,
   registrationExists: agentRegistrationExists,
   removeRegistration,
   getClaudeUsage: REAL_USAGE_READERS.claude,
@@ -424,6 +429,8 @@ export async function run(
     writeModelAllowlist: (options) =>
       writeModelAllowlist({ ...options, dataDir }),
     readSpawnSpec: (name) => readSpawnSpec(name, dataDir),
+    markSpawnFinished: (name, finishedAtIso) =>
+      markSpawnFinished(name, finishedAtIso, dataDir),
     registrationExists: (name) => agentRegistrationExists(name, dataDir),
     removeRegistration: (name) => removeRegistration(name, dataDir),
     readUsageBypassAuthorizations: () =>

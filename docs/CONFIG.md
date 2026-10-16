@@ -1,12 +1,17 @@
 # `config.user.ts` — every setting, in one place
 
-`config.user.ts` is the throne's single machine-local override file. It lives at
-the **live throne root** (next to `AGENTS.md`), is gitignored, and is read fresh
-by the commands that consult it, so an edit takes effect without a restart. A
-campaign worktree resolves the live root's file, never a copy of its own.
+`config.user.ts` is the throne's single machine-local override file. It lives in
+`~/.throne/config/` (AGENTS.md "Where the throne keeps things"); a copy at the
+**live throne root** (next to `AGENTS.md`, gitignored) wins when present, for
+quick testing, and when both exist the throne prints one line naming the copy it
+loaded. It is read fresh by the commands that consult it, so an edit takes effect
+without a restart. A campaign worktree resolves the same file as the live root,
+never a copy of its own.
 
-Start from the template: `cp config.user.example.ts config.user.ts`. Every field
-in every section is optional; an absent file, section or field leaves the
+Start from the template: `cp config.user.example.ts ~/.throne/config/config.user.ts`,
+with a `package.json` of `{ "type": "module" }` beside it so node loads the file
+as an ES module (`throne migrate-home` writes that file when it moves the
+config). Every field in every section is optional; an absent file, section or field leaves the
 committed default in force. **Unknown keys are refused at load time** with an
 error naming the file and the field, top-level or nested — an override that
 silently did nothing would be worse than a loud failure. A file naming only one
@@ -49,6 +54,7 @@ export default userConfig;
 | `identity` | `name`, `email`, `signingKey`, `signingFormat`, `identities`, `remotes` | every git commit the court makes (`throne git-identity`, the `bin/git` shim, tab creation; `agent_docs/commands.md`) |
 | `editor` (top level) | `editor` | `throne forge open` |
 | `recall` | `jevEnabled`, `jevKeyFile`, `hookEnabled`, `hookMode`, `verdictLineThreshold`, `hookTimeoutMilliseconds`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `repositoryMemoryNamesPerRepository`, `globalMemoryDirectories`, `rankAllowedRoots`, `jevTokensPerDay`, `jevTokensPerHour` | `throne recall`, `throne sift` and `throne rank` (`agent_docs/commands.md`) |
+| `agentSettings` | `checkEnabled`, `colourByRole` | the `agent-settings` worker and `throne agent-settings-tick` (`agent_docs/commands.md`) |
 
 ## Persona — how the court speaks
 
@@ -268,6 +274,30 @@ applies), `scope` (`global` or the project memory directory's name), `kind`
 `status` (`active`, `superseded`), `superseded_by` (file name),
 `cost_if_missed` (`low`, `high`). A superseded memory is never served.
 
+## `agentSettings` — the colour and name each agent's pane carries
+
+The backend's `agent-settings` worker checks every five minutes that each
+Claude Code agent shows the colour of its kind and carries its herdr tab's name
+as its session name, and corrects what differs (`agent_docs/commands.md`,
+`agent-settings-tick`).
+
+```ts
+agentSettings: {
+  checkEnabled: true,
+  colourByRole: {
+    Regent: 'red',
+    Stager: 'green',
+    Alpha: 'blue',
+    Shadow: 'purple',
+  },
+},
+```
+
+- `checkEnabled` — `false` switches the check off. Default `true`.
+- `colourByRole` — one colour name per role, each a single word the harness's
+  `/color` command accepts. A role left out keeps its default; the keys are
+  `Regent`, `Stager`, `Alpha` and `Shadow`.
+
 ## How the file is loaded
 
 - `src/user-config-loader.ts` parses the default export once per call, checks
@@ -278,7 +308,7 @@ applies), `scope` (`global` or the project memory directory's name), `kind`
   git shim) re-read with a cache-bust token, so an edit is seen by the next
   tick, the next tab and the next commit — not by tabs already open, whose
   exported environment was computed at creation.
-- A still-present legacy `src/config.user.ts` refuses loudly; the merged file at
-  the root is the only source of truth.
+- A still-present legacy `src/config.user.ts` refuses loudly; the merged file
+  (home copy, or the checkout copy when present) is the only source of truth.
 - `test/config-doc-covers-every-user-config-field.test.ts` fails the suite when
   a key known to the loader is missing from this document.

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { access, cp, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, test } from "node:test";
+import { after, afterEach, before, test } from "node:test";
 import { git } from "../../test/git-repo-test-fixture.ts";
 import { PRODUCTION_FORGE_DEPENDENCIES } from "./forge-dependencies.ts";
 import { ForgeRefusal } from "./forge-refusal.ts";
@@ -39,9 +39,8 @@ async function commitFile(repo: string, file: string): Promise<string> {
   return git(repo, ["rev-parse", "HEAD"]);
 }
 
-async function createForges(): Promise<Forges> {
+async function buildForges(): Promise<Forges> {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "review-checkout-")));
-  scratchRoots.push(root);
   const origin = path.join(root, "origin.git");
   const forgejo = path.join(root, "forgejo.git");
   await git(root, ["init", "-q", "--bare", "-b", "main", origin]);
@@ -59,6 +58,28 @@ async function createForges(): Promise<Forges> {
   await configureCommitter(checkout);
   await git(checkout, ["remote", "add", "forgejo", forgejo]);
   return { root, checkout, publisher, baseSha };
+}
+
+let builtOnce: Forges;
+
+before(async () => {
+  builtOnce = await buildForges();
+});
+
+after(async () => {
+  await rm(builtOnce.root, { recursive: true, force: true });
+});
+
+async function createForges(): Promise<Forges> {
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "review-checkout-")));
+  scratchRoots.push(root);
+  await cp(builtOnce.root, root, { recursive: true });
+  const copied = { ...builtOnce, root, checkout: path.join(root, "project"), publisher: path.join(root, "publisher") };
+  for (const repo of [copied.checkout, copied.publisher]) {
+    const config = path.join(repo, ".git", "config");
+    await writeFile(config, (await readFile(config, "utf8")).replaceAll(builtOnce.root, root));
+  }
+  return copied;
 }
 
 async function publishHead(forges: Forges, remote: string, ref: string): Promise<string> {

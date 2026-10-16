@@ -200,7 +200,7 @@ global git config sets, so a checkout whose `http.proxy` tunnels everything to
 another host still mirrors.
 
 Its log lines go where the backend's do:
-`journalctl --user -u throne-backend.service` on linux, `~/Library/Logs/throne/throne-backend.log`
+`journalctl --user -u throne-backend.service` on linux, `~/.throne/logs/throne-backend.log`
 on a mac.
 
 ### How the mirror finds each repository's checkout
@@ -426,7 +426,7 @@ On macOS:
 ```bash
 launchctl print gui/$(id -u)/com.throne.forgejo
 launchctl kickstart -k gui/$(id -u)/com.throne.forgejo
-tail -f ~/Library/Logs/throne/forgejo.log
+tail -f ~/.throne/logs/forgejo.log
 ```
 
 `systemd/forgejo-serve` refuses to start when `config/app.ini` is missing, so
@@ -516,7 +516,7 @@ context. What that run taught:
   PATH.
   An earlier `sed` parse used a GNU-only `{...p}` block that BSD sed refuses,
   and the LaunchAgent restarted it every 10 seconds.
-- When the service will not come up, read `~/Library/Logs/throne/forgejo.log`
+- When the service will not come up, read `~/.throne/logs/forgejo.log`
   and `launchctl print gui/$(id -u)/com.throne.forgejo`. Stop a restart loop
   with `launchctl bootout gui/$(id -u)/com.throne.forgejo`; start it again with
   `launchctl kickstart -k`, or re-run the installer. The installer names these

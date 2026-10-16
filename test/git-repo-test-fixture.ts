@@ -28,3 +28,10 @@ export async function initRepo(prefix: string): Promise<string> {
   await git(root, ['commit', '--no-gpg-sign', '-m', 'base']);
   return root;
 }
+
+export function turnOffCommitSigningThatTheEnvironmentTurnedOn(): void {
+  const entryIndex = Number(process.env.GIT_CONFIG_COUNT ?? 0);
+  process.env[`GIT_CONFIG_KEY_${entryIndex}`] = 'commit.gpgsign';
+  process.env[`GIT_CONFIG_VALUE_${entryIndex}`] = 'false';
+  process.env.GIT_CONFIG_COUNT = String(entryIndex + 1);
+}

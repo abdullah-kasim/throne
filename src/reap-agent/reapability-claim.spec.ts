@@ -39,7 +39,7 @@ before(async () => {
   await git(["config", "user.name", "fixture"]);
   await writeFile(path.join(repoDir, "seed.txt"), "seed\n");
   await git(["add", "seed.txt"]);
-  await git(["commit", "-m", "seed"]);
+  await git(["commit", "--no-gpg-sign", "-m", "seed"]);
 });
 
 after(async () => {
@@ -121,7 +121,7 @@ function buildDeps(name: string): ReapDeps {
     readSpawnCwd: async () => undefined,
     recordTiming: async () => {},
     notify: async () => undefined,
-    writeQueueReapOutcome: async () => {},
+    writeQueueReapOutcome: async () => ({ released: true }),
     appendLaunchLedgerStatus: async () => {},
     cleanupAgentScratch: async () => [],
     terminateWorktreeProcesses: async () => ({ killed: [], failed: [] }),
@@ -142,7 +142,7 @@ test("a delivered commit no longer admits an Alpha that never published a claim"
     { harness: "claude", model: "sonnet", effort: 1, cwd: repoDir },
     ledgerBaseDir,
   );
-  await git(["commit", "--allow-empty", "-m", "delivered work"]);
+  await git(["commit", "--no-gpg-sign", "--allow-empty", "-m", "delivered work"]);
   const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repoDir });
   const commit = stdout.trim();
   await DELIVERY_EVIDENCE_DATA.write(

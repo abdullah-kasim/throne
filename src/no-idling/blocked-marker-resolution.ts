@@ -52,7 +52,11 @@ export async function resolveBlockedTag(
       await ledger.writeBlockedMarker(name, tag.blockedBy);
       return tag;
     }
-    return { kind: 'blocked', blockedBy: persistedChildren };
+    return {
+      kind: 'blocked',
+      blockedBy: persistedChildren,
+      ...(tag.kind === 'blocked' && tag.waitsOnOwnBackgroundRun ? { waitsOnOwnBackgroundRun: true } : {}),
+    };
   }
   if (tag.kind === 'blocked') {
     await ledger.writeBlockedMarker(name, tag.blockedBy);

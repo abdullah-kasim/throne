@@ -11,6 +11,7 @@
 import {
   AT_CAPACITY_THRESHOLD,
   IO_AT_CAPACITY_THRESHOLD,
+  MEMORY_AT_CAPACITY_THRESHOLD,
   type PressureClassification,
 } from '../pressure-signal/classify-pressure.ts';
 import { DARWIN_IO_UNMEASURABLE_NOTE } from '../pressure-signal/darwin-pressure-reader.ts';
@@ -84,7 +85,8 @@ function gradingSummaryOf(source: ResourcePressureSnapshot['source']): string {
       ? 'load graded separately against its own per-core limit'
       : 'load-per-core x100 inside that figure';
   return (
-    `threshold ${AT_CAPACITY_THRESHOLD} on cpu/memory avg10+avg60, ${loadGrading}; ` +
+    `threshold ${AT_CAPACITY_THRESHOLD} on cpu avg10+avg60, ${loadGrading}; ` +
+    `memory graded separately at ${MEMORY_AT_CAPACITY_THRESHOLD}; ` +
     `io-full graded separately at ${IO_AT_CAPACITY_THRESHOLD}`
   );
 }
@@ -122,7 +124,7 @@ export function formatResourcePressureReport(
     // No PSI windows exist to print; say what the verdict was graded from
     // instead of rendering three "unavailable" lines that read as a fault.
     lines.push(
-      '  source: darwin -- cpu is utilisation over a 500 ms sample, memory is kernel memorystatus (100 - free%, floored by the pressure level)',
+      '  source: darwin -- cpu is utilisation over a 500 ms sample, memory is kernel memorystatus (100 - free%, or 100 when the kernel reports critical)',
     );
     lines.push(`  io: ${DARWIN_IO_UNMEASURABLE_NOTE}`);
   } else {
@@ -155,6 +157,7 @@ export function resourcePressureJson(snapshot: ResourcePressureSnapshot): object
     verdict: snapshot.classification.verdict,
     pressure: snapshot.classification.pressure,
     threshold: AT_CAPACITY_THRESHOLD,
+    memoryThreshold: MEMORY_AT_CAPACITY_THRESHOLD,
     reasons: snapshot.classification.reasons,
     psi: { cpu: snapshot.cpu, memory: snapshot.memory, io: snapshot.io },
     load: {

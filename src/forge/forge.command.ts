@@ -1,10 +1,11 @@
 import type { Command as CommanderCommand } from "commander";
 import { Command, CommandRunner } from "nest-commander";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
+import { crossHostMediaLinkLines, holdsCrossHostMediaLinks } from "./cross-host-media-links.ts";
 import { FORGE_USAGE, parseForgeArguments, type ForgeInvocation } from "./forge-arguments.ts";
 import { PRODUCTION_FORGE_DEPENDENCIES, type ForgeDependencies, type ProcessResult } from "./forge-dependencies.ts";
 import { messageOf } from "./forge-refusal.ts";
-import { mirrorFeedbackToTwin } from "./feedback-mirror.ts";
+import { mirroredCommentMediaLinkWarnings, mirrorFeedbackToTwin, type MediaLinkInMirroredComment } from "./feedback-mirror.ts";
 import { answerForgejoFeedback, listForgejoFeedback } from "./forgejo-answers.ts";
 import { closeMergedTwin, squashMergePullRequestOnGithub } from "./merging-on-github.ts";
 import { openPullRequest } from "./open-pull-request.ts";
@@ -47,6 +48,19 @@ async function printedPullRequestStatus(context: ForgeContext, invocation: Forge
   return invocation.flags.has("--json") ? printedJson(status) : { exitCode: 0, stdout: pullRequestStatusLines(status), stderr: "" };
 }
 
+async function printedMediaLinkCheck(context: ForgeContext, invocation: ForgeInvocation): Promise<ProcessResult> {
+  const { crossHostMediaLinks } = await pullRequestStatus(context, invocation.target!);
+  const stdout = invocation.flags.has("--json") ? printedJson(crossHostMediaLinks).stdout : crossHostMediaLinkLines(crossHostMediaLinks);
+  return { exitCode: holdsCrossHostMediaLinks(crossHostMediaLinks) ? 1 : 0, stdout, stderr: "" };
+}
+
+async function printedJsonWithMirroredCommentWarnings(
+  result: Promise<{ readonly mediaLinksInMirroredComments: readonly MediaLinkInMirroredComment[] }>,
+): Promise<ProcessResult> {
+  const copied = await result;
+  return { ...printedJson(copied), stderr: mirroredCommentMediaLinkWarnings(copied.mediaLinksInMirroredComments) };
+}
+
 function openOrCleanUp(context: ForgeContext, invocation: ForgeInvocation): Promise<ProcessResult> {
   if (invocation.flags.has("--cleanup")) return cleanUpReviewWorktrees(context);
   return openPullRequest(context, invocation.target!, {
@@ -66,6 +80,8 @@ function performForgeOperation(context: ForgeContext, invocation: ForgeInvocatio
   switch (invocation.operation) {
     case "status":
       return printedPullRequestStatus(context, invocation);
+    case "check-media-links":
+      return printedMediaLinkCheck(context, invocation);
     case "open":
       return openOrCleanUp(context, invocation);
     case "ensure-repository":
@@ -105,9 +121,9 @@ function performForgeOperation(context: ForgeContext, invocation: ForgeInvocatio
     case "promote":
       return printedJsonOf(promotePullRequest(context, target));
     case "stage":
-      return printedJsonOf(stageGithubPullRequest(context, target));
+      return printedJsonWithMirroredCommentWarnings(stageGithubPullRequest(context, target));
     case "mirror-feedback":
-      return printedJsonOf(mirrorFeedbackToTwin(context, target));
+      return printedJsonWithMirroredCommentWarnings(mirrorFeedbackToTwin(context, target));
     case "close-merged-twin":
       return printedJsonOf(closeMergedTwin(context, target));
     case "attach":

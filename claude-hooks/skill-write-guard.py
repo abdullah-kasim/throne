@@ -10,33 +10,11 @@ IDENTIFIER_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_-]{2,}")
 HOME_DIRECTORY_PATH = re.compile(r"/(?:Users|home)/([^/\s\"']+)")
 
 RUN_SKILL_WRITER_REMINDER = "skill-write-guard: this write touches a skill file. Run /skill-writer for it."
-REMOVED_TERM_REMINDER = "add the term you removed to publish-scrub.sed / private-refs.txt"
+REMOVED_TERM_REMINDER = "add the term you removed to publish-scrub.sed"
 
 
 def is_skill_file(path):
     return bool(SKILL_FILE_PATH.search(path))
-
-
-def private_refs_path():
-    return os.environ.get("THRONE_PRIVATE_REFS") or os.path.expanduser("~/.config/throne/private-refs.txt")
-
-
-def load_line_patterns(path):
-    try:
-        with open(path, encoding="utf-8") as handle:
-            lines = handle.read().splitlines()
-    except OSError:
-        return []
-    patterns = []
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        try:
-            patterns.append(re.compile(line))
-        except re.error:
-            continue
-    return patterns
 
 
 def find_publish_scrub_sed(file_path):
@@ -49,6 +27,10 @@ def find_publish_scrub_sed(file_path):
         if parent == directory:
             return None
         directory = parent
+
+
+def publish_scrub_sed_path():
+    return os.environ.get("PUBLISH_SCRUB_FILE") or find_publish_scrub_sed(os.path.abspath(__file__))
 
 
 def load_verify_patterns(publish_scrub_sed_path):
@@ -126,24 +108,22 @@ def removed_identifier_words(old_content, new_content):
     return sorted(old_words - new_words)
 
 
-def unlisted_removed_words(removed_words, private_patterns, verify_patterns):
-    all_patterns = private_patterns + verify_patterns
-    return [word for word in removed_words if not any(pattern.search(word) for pattern in all_patterns)]
+def unlisted_removed_words(removed_words, verify_patterns):
+    return [word for word in removed_words if not any(pattern.search(word) for pattern in verify_patterns)]
 
 
-def removed_term_reminder_applies(file_path, content, private_patterns, verify_patterns):
+def removed_term_reminder_applies(file_path, content, verify_patterns):
     old_content = previous_file_content(file_path)
     if old_content is None:
         return False
     removed = removed_identifier_words(old_content, content)
-    return bool(unlisted_removed_words(removed, private_patterns, verify_patterns))
+    return bool(unlisted_removed_words(removed, verify_patterns))
 
 
 def build_advisory(file_path, content):
-    private_patterns = load_line_patterns(private_refs_path())
-    verify_patterns = load_verify_patterns(find_publish_scrub_sed(file_path))
+    verify_patterns = load_verify_patterns(publish_scrub_sed_path())
 
-    hits = banned_pattern_hits(content, private_patterns + verify_patterns)
+    hits = banned_pattern_hits(content, verify_patterns)
     hits.extend(foreign_home_path_hits(content))
     if hits:
         number, line, pattern = hits[0]
@@ -154,7 +134,7 @@ def build_advisory(file_path, content):
         return {"decision": "block", "reason": reason}
 
     reminder_lines = [RUN_SKILL_WRITER_REMINDER]
-    if removed_term_reminder_applies(file_path, content, private_patterns, verify_patterns):
+    if removed_term_reminder_applies(file_path, content, verify_patterns):
         reminder_lines.append(REMOVED_TERM_REMINDER)
 
     return {

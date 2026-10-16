@@ -352,7 +352,7 @@ export async function advanceCandidateBranch(
   // the kind of mutation that can lose or corrupt someone else's dirt on a
   // failed restore). A REGISTERED WORKTREE matching `name`, by contrast, is
   // this candidate's own dedicated worktree under
-  // `~/.throne/worktrees/<repo>/<name>` — genuinely owned by it, safe to
+  // `worktreesHome()/<repo>/<name>` — genuinely owned by it, safe to
   // force-move. So this only ever force-moves a checkout distinct from
   // `root`; when the resolved checkout IS `root`, it falls through to the
   // ref-only `update-ref` path below exactly as if no checkout were open at

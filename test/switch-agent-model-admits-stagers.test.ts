@@ -2,10 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolveRegisteredSwitchPolicy } from "../src/switch-agent-model/registered-switch-policy.ts";
 import type { SpawnSpec } from "../src/agentdata/spawn-data-contracts.ts";
+import { planRolePool } from "../src/config.ts";
+
+const STAGER_PAIR = planRolePool("Stager")[0]!;
 
 const STAGER_SPAWN: SpawnSpec = {
-  harness: "claude",
-  model: "opus",
+  harness: STAGER_PAIR.harness,
+  model: STAGER_PAIR.model,
   effort: 1,
   cwd: "/Users/theuser/.throne/worktrees/throne/stager-fifth",
 };
@@ -29,7 +32,7 @@ test("a Stager is admitted by its identity role rather than a name prefix", asyn
   const resolved = await resolveRegisteredSwitchPolicy({
     agentName: "stager-fifth",
     spawn: STAGER_SPAWN,
-    requested: { model: "fable", effort: 1 },
+    requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,
     identityRole: "Stager",
     deps: DEPS,
@@ -38,14 +41,14 @@ test("a Stager is admitted by its identity role rather than a name prefix", asyn
   if (!resolved.ok) assert.doesNotMatch(resolved.reason, NO_ROLE_PREFIX);
   assert.equal(resolved.ok, true, resolved.ok ? "" : resolved.reason);
   if (!resolved.ok) return;
-  assert.equal(resolved.request.model, "fable");
+  assert.equal(resolved.request.model, STAGER_PAIR.model);
 });
 
 test("the identity role is read case-insensitively, as identity.md casing drifts", async () => {
   const resolved = await resolveRegisteredSwitchPolicy({
     agentName: "stager-second",
     spawn: STAGER_SPAWN,
-    requested: { model: "fable", effort: 1 },
+    requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,
     identityRole: "stager",
     deps: DEPS,
@@ -58,7 +61,7 @@ test("a Stager needs no objective contract to be switched", async () => {
   const resolved = await resolveRegisteredSwitchPolicy({
     agentName: "stager-fifth",
     spawn: { ...STAGER_SPAWN, objective_code: undefined },
-    requested: { model: "fable", effort: 1 },
+    requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,
     identityRole: "Stager",
     deps: DEPS,
@@ -71,7 +74,7 @@ test("the Stager name alone does not admit it; the identity role is what does", 
   const resolved = await resolveRegisteredSwitchPolicy({
     agentName: "stager-fifth",
     spawn: STAGER_SPAWN,
-    requested: { model: "fable", effort: 1 },
+    requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,
     deps: DEPS,
   });
@@ -85,7 +88,7 @@ test("an agent with neither a known role prefix nor a Stager identity is still r
   const resolved = await resolveRegisteredSwitchPolicy({
     agentName: "canary-floor",
     spawn: STAGER_SPAWN,
-    requested: { model: "fable", effort: 1 },
+    requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,
     deps: DEPS,
   });

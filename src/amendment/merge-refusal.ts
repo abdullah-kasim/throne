@@ -10,7 +10,7 @@ import { judgeAgentReconciliation } from "./check-reconciled-runtime.ts";
 
 const ALPHA_ROLE = "alpha";
 
-async function isAlpha(agentName: string, dataDir: string): Promise<boolean> {
+export async function isAlpha(agentName: string, dataDir: string): Promise<boolean> {
   const role = await readAgentRole(agentName, dataDir);
   return (
     role.status === IdentityLineReadStatus.Found &&

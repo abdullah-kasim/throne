@@ -5,6 +5,8 @@ version: 1.0.0
 user-invocable: true
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension restart-harnesses` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Restart the court's harness processes
 
 A harness pin change (`/update-harnesses`) rewrites `vendor/`, but every

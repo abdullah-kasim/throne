@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import {
   AGENT_STATUSES_DESIRED_STATES,
   type AgentStatusesDesiredState,
 } from './agent-statuses.types.ts';
 
-export const AGENT_STATUSES_REGENT_DIRECTORY = path.join(RUNTIME_DATA_DIR, 'regent');
+export const AGENT_STATUSES_REGENT_DIRECTORY = path.join(THRONE_DATA_DIR, 'regent');
 
 export async function readAgentStatusesDesiredState(
   regentDirectory: string = AGENT_STATUSES_REGENT_DIRECTORY,

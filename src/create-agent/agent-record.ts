@@ -173,6 +173,7 @@ export async function persistNewAgentRecord(
       effort: request.launchEffort,
       cwd: request.cwd,
       spawned_at: currentIsoTime(deps),
+      spawn_finished_at: null,
       ...(request.customExecutable === undefined
         ? {}
         : {

@@ -15,6 +15,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseTenSecondLawViolationNames } from "./suite-duration-gate.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_MANIFEST_PATH = path.join(
@@ -24,16 +25,19 @@ const DEFAULT_MANIFEST_PATH = path.join(
   "known-failures.json",
 );
 
-const NOT_OK_LINE = /^not ok \d+ - (.+)$/gm;
-const FAIL_SUMMARY = /^# fail (\d+)$/m;
-const CANCELLED_SUMMARY = /^# cancelled (\d+)$/m;
+const FAILING_TEST_ENTRY = /^test at (.+):\d+:\d+\n✖ (.+?)(?: \([\d.]+ms\))?$/gm;
+const FAIL_SUMMARY = /^ℹ fail (\d+)$/m;
+const CANCELLED_SUMMARY = /^ℹ cancelled (\d+)$/m;
+
+export function parseFailingTests(suiteOutput) {
+  return [...suiteOutput.matchAll(FAILING_TEST_ENTRY)].map((match) => ({
+    file: match[1],
+    name: match[2],
+  }));
+}
 
 export function parseNonPassingTestNames(suiteOutput) {
-  const names = new Set();
-  for (const match of suiteOutput.matchAll(NOT_OK_LINE)) {
-    names.add(match[1]);
-  }
-  return names;
+  return new Set(parseFailingTests(suiteOutput).map((failingTest) => failingTest.name));
 }
 
 export function parseSuiteFailCancelledCounts(suiteOutput) {
@@ -73,6 +77,7 @@ export function compareAgainstKnownFailures(suiteOutput, manifestNames) {
     nonPassingNames,
     unlistedNames,
     namesNotSeenFailing,
+    tenSecondLawViolationNames: parseTenSecondLawViolationNames(suiteOutput),
     counts: parseSuiteFailCancelledCounts(suiteOutput),
   };
 }
@@ -91,7 +96,17 @@ function reportComparison(comparison) {
       process.stdout.write(`  - ${name}\n`);
     }
   }
+  const lawViolationsFound = comparison.tenSecondLawViolationNames.length > 0;
+  if (lawViolationsFound) {
+    process.stderr.write(
+      `check-known-failures: ${comparison.tenSecondLawViolationNames.length} ten-second law violation(s), which no manifest entry excuses:\n`,
+    );
+    for (const name of comparison.tenSecondLawViolationNames) {
+      process.stderr.write(`  - ${name}\n`);
+    }
+  }
   if (comparison.unlistedNames.length === 0) {
+    if (lawViolationsFound) return 1;
     process.stdout.write(
       "check-known-failures: clean — every non-passing name is in the manifest\n",
     );

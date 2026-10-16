@@ -34,6 +34,7 @@ function fakeDeps(world: FakeWorld): MemoryResolverDeps & { toolCalls: string[][
     },
     realpath: async (candidate) => world.realpaths?.[candidate] ?? candidate,
     homeDir: () => '/home/op',
+    throneHome: () => '/home/op/.throne',
   };
 }
 

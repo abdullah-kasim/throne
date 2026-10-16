@@ -1,3 +1,4 @@
+import { sessionNameAtLaunch } from "../agent-settings/agent-settings-decision.ts";
 import {
   buildCustomLaunchArgv,
   buildLaunchArgv,
@@ -33,6 +34,11 @@ function launchArgv(request: PolicyResolution): string[] {
         harness: request.launchHarness,
         model: request.launchModel,
         effort: request.launchEffort,
+        sessionName: sessionNameAtLaunch(
+          request.name,
+          request.role,
+          request.launchHarness,
+        ),
       });
 }
 

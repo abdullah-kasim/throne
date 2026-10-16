@@ -1,9 +1,9 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 
-const DEFAULT_DATA_DIR = RUNTIME_DATA_DIR;
+const DEFAULT_DATA_DIR = THRONE_DATA_DIR;
 const SUPERVISOR_LINE_PREFIX = '- **Supervisor (routine):** ';
 const STAGER_ROLE = 'Stager';
 

@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { randomUUID } from "node:crypto";
 import {
   ALPHA_INSPECTION_CONTEXTS,
@@ -21,7 +21,7 @@ const AGENT_STATUSES_TARGET = "roster";
 const ALPHA_ROLE = "Alpha";
 const THRONE_ROOT = RUNTIME_THRONE_ROOT;
 const STATE_DIRECTORY = path.join(
-  RUNTIME_DATA_DIR,
+  THRONE_DATA_DIR,
   ".runtime",
   "alpha-monitoring",
 );

@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { resolveBlockedTag, type BlockedMarkerLedger } from './blocked-marker-resolution.ts';
+import { classifyLastMessageTags } from './idle-pane-tag-classification.ts';
 
 function fakeLedger(
   stored: { blockedAt: string; blockedBy?: readonly string[] } | null,
@@ -48,4 +49,16 @@ test('the first observation of a block persists the pane-declared blockedBy list
   );
 
   assert.deepEqual(ledger.writes, [['shadow-1', 'shadow-2']]);
+});
+
+test('an agent still blocked on a later sweep keeps saying it waits on its own background run', async () => {
+  const ledger = fakeLedger({ blockedAt: '2026-10-15T08:43:00.000Z', blockedBy: [] });
+
+  const state = await resolveBlockedTag(
+    'shadow-bakery-01-oven',
+    async () => classifyLastMessageTags('{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)'),
+    ledger,
+  );
+
+  assert.deepEqual(state, { kind: 'blocked', blockedBy: [], waitsOnOwnBackgroundRun: true });
 });

@@ -1,8 +1,8 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { RUNTIME_DATA_DIR } from '../shared-policy/runtime-data-home.ts';
+import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 
-export const DEFAULT_MCQ_ANSWER_LEDGER_PATH = path.join(RUNTIME_DATA_DIR, 'regent', 'mcq-answers.jsonl');
+export const DEFAULT_MCQ_ANSWER_LEDGER_PATH = path.join(THRONE_DATA_DIR, 'regent', 'mcq-answers.jsonl');
 
 export const MCQ_OUTCOMES = {
   ANSWERED: 'answered',

@@ -9,7 +9,7 @@ import {
 /** Where the durable `--bypass-model` authorization registry lives, named in the
  *  refusal itself: a reader who is told to pass the flag but not where its
  *  authorization is recorded still cannot act. Path is stated relative to the
- *  runtime data home so it survives a relocated `~/.throne`. */
+ *  throne data home so it survives a relocated throne home. */
 const MODEL_BYPASS_REGISTRY_HINT =
   '<throne data home>/regent/bypass-model-authorizations.json';
 

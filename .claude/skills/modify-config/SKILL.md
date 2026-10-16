@@ -3,15 +3,26 @@ name: modify-config
 description: This throne-only skill changes the throne's machine-local config.user.ts safely. Use it for /modify-config, or when the task says "change the config", "edit config.user.ts", "put the Alphas on opus", "put X on <model>", "set the effort", "change the Stager model", "change the Regent model", or "pause the autoscaler". It says where the file lives, what it can and cannot change, how to edit it without losing sections, how to prove the edit loaded, and who may edit it.
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension modify-config` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Modify config.user.ts
 
 ## Where the file is, and why
 
-- `config.user.ts` lives only in the **live throne root** (the main checkout)
-  and is gitignored. A worktree never has a copy, and every agent anywhere
-  reads the live root's copy. Edit it by absolute path. Never `cd` into the
-  live root to do it, and never create a `config.user.ts` in a worktree: it
-  would be ignored, and you would believe you had changed something.
+- `config.user.ts` lives in the **throne home's config folder**:
+  `~/.throne/config/config.user.ts`, or `$THRONE_DATA_HOME/config/config.user.ts`
+  when that override is set. Beside it sits a `package.json` saying
+  `{ "type": "module" }`, so the file imports as a module; keep it.
+- A `config.user.ts` in the **live throne root** (the main checkout,
+  gitignored) is loaded **instead** when it exists. When a home copy exists
+  too, each throne command that loads the config prints one line on stderr
+  saying the home copy is ignored. That copy is
+  for quick tests: when one exists, it is the file in force, so edit that one
+  or delete it on purpose.
+- Every agent anywhere reads the same copy in force; a worktree never has one
+  of its own. Edit it by absolute path. Never `cd` into the live root to do
+  it, and never create a `config.user.ts` in a worktree: it would be ignored,
+  and you would believe you had changed something.
 - `config.user.example.ts` (committed) documents every field with commented
   examples. `docs/CONFIG.md` holds the long reference.
 - **When a change takes effect:**
@@ -87,7 +98,7 @@ The other sections, each field listed in `docs/CONFIG.md`:
 | --- | --- |
 | One queue row on a different model | `add-to-queue --model-hint` at filing |
 | One queue row at a different effort | `add-to-queue --effort` at filing; it outranks `roleEfforts` for that campaign |
-| A sliceless or shadowless campaign | the Lord's own words for that row at filing; config never defaults a row to it |
+| A sliceless or shadowless campaign | the Lord's own words for that row at filing or, for sliceless, his standing ruling for read-only artefact rows; config never defaults a row to it |
 | A model the registry does not know | a registry change in code (`src/harness-routing/model-registry.ts`), then a rebuild |
 | The service environment, including the autoscaler's environment switch | `install-services`; it is baked into the unit files |
 | A new model on an already running agent | `switch-agent-model`, or its next fresh launch |
@@ -104,7 +115,9 @@ The other sections, each field listed in `docs/CONFIG.md`:
    (`throne list-harnesses-and-models`); one unknown name refuses the whole
    file at load and every throne command fails.
 4. Run `throne check-config` **before** the edit and again **after** it. It
-   loads and validates the file and prints each role's model and effort.
+   names the copy it loaded, validates it and prints each role's model and
+   effort. If it names a different copy from the one you edited, your edit
+   is not in force.
    Show the Lord the two outputs side by side.
 5. Tell the Lord what changes when (see above).
 6. Never commit it. It is gitignored for a reason.

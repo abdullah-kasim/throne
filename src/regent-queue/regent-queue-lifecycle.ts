@@ -36,16 +36,22 @@ export function findQueueItemByObjectiveCode(
   return all.items.find((item) => item.objectiveCode === objectiveCode);
 }
 
+export function listInFlightQueueItems(
+  store: RegentQueueStore,
+): RegentQueueItemRow[] {
+  const all = store.readAll();
+  if (all.state !== "items") return [];
+  return all.items.filter(
+    (item) => item.status === RegentQueueItemStatus.InFlight,
+  );
+}
+
 export function findInFlightQueueItemByAgentName(
   store: RegentQueueStore,
   agentName: string,
 ): RegentQueueItemRow | undefined {
-  const all = store.readAll();
-  if (all.state !== "items") return undefined;
-  return all.items.find(
-    (item) =>
-      item.status === RegentQueueItemStatus.InFlight &&
-      item.agentName === agentName,
+  return listInFlightQueueItems(store).find(
+    (item) => item.agentName === agentName,
   );
 }
 

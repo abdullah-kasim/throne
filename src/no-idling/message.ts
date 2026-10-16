@@ -83,9 +83,58 @@ function buildAlphaRoleFamiliesSection(alphaFamilies: readonly NoIdlingFamilyNot
   return `No-idling detected fully-idle Alpha(s) that need Regent unstalling: ${details}. Inspect each named Alpha and its children. If an Alpha is genuinely dependency-blocked, tell it to publish the standalone JSON {"blocked":true} as its latest message so future no-idling sweeps ignore it. Otherwise use send-agent with an actionable consume, repair, reap, and dependency-ready dispatch instruction. Do not send a generic continue message and do not start a validation round solely because of this notice.`;
 }
 
+interface AgentWaitingOnBackgroundWork {
+  readonly agent: string;
+  readonly backgroundWork: string;
+}
+
+function isWaitingOnBackgroundWork<Listed extends { readonly backgroundWork?: string }>(
+  listed: Listed,
+): listed is Listed & { readonly backgroundWork: string } {
+  return listed.backgroundWork !== undefined;
+}
+
+function singleQuotedForTheShell(text: string): string {
+  return `'${text.replaceAll("'", `'\\''`)}'`;
+}
+
+function lineAskingForTheBlockedMarker({ agent, backgroundWork }: AgentWaitingOnBackgroundWork): string {
+  return `throne send-agent ${agent} ${singleQuotedForTheShell(
+    `Publish {"blocked":true} BLOCKED_BY_own-background-run (${backgroundWork}) as your latest message; clear it when you resume.`,
+  )}`;
+}
+
+function buildWaitingOnBackgroundWorkSection(
+  waitingAgents: readonly AgentWaitingOnBackgroundWork[],
+): string {
+  const details = waitingAgents
+    .map(
+      (waiting) =>
+        `${waiting.agent} — waiting on background work: ${waiting.backgroundWork}. Send exactly: ${lineAskingForTheBlockedMarker(waiting)}`,
+    )
+    .join('; ');
+  return `No-idling sees agent(s) waiting on background work that did not post the blocked marker: ${details}. Such a pane is waiting, not idle: never reap it and never send it a generic continue. Send each agent its line once per wait; the marker stops these pages until it resumes.`;
+}
+
+export function familiesWithNoMemberWaitingOnBackgroundWork<
+  Family extends { readonly alpha: string; readonly idleChildren: readonly string[] },
+>(
+  families: readonly Family[],
+  violations: readonly { readonly agent: string; readonly backgroundWork?: string }[],
+): Family[] {
+  const waitingAgentNames = new Set(violations.filter(isWaitingOnBackgroundWork).map(({ agent }) => agent));
+  return families.filter(
+    ({ alpha, idleChildren }) => ![alpha, ...idleChildren].some((name) => waitingAgentNames.has(name)),
+  );
+}
+
 export function buildNoIdlingMessage(params: NoIdlingMessageParams): string {
-  const alphaFamilies = params.families.filter(isAlphaRoleNotice);
-  const nonAlphaFamilies = params.families.filter((family) => !isAlphaRoleNotice(family));
+  const violations = params.reapabilityProtocolViolations ?? [];
+  const waitingViolations = violations.filter(isWaitingOnBackgroundWork);
+  const idleViolations = violations.filter((violation) => !isWaitingOnBackgroundWork(violation));
+  const familiesWithNoWaitingMember = familiesWithNoMemberWaitingOnBackgroundWork(params.families, violations);
+  const alphaFamilies = familiesWithNoWaitingMember.filter(isAlphaRoleNotice);
+  const nonAlphaFamilies = familiesWithNoWaitingMember.filter((family) => !isAlphaRoleNotice(family));
   const orphanFamilies = nonAlphaFamilies.filter(
     (family) => family.orphanedSupervisorName !== undefined,
   );
@@ -102,8 +151,11 @@ export function buildNoIdlingMessage(params: NoIdlingMessageParams): string {
   if (otherNonAlphaFamilies.length > 0) {
     sections.push(buildNonAlphaRoleFamiliesSection(otherNonAlphaFamilies));
   }
-  if ((params.reapabilityProtocolViolations?.length ?? 0) > 0) {
-    const details = params.reapabilityProtocolViolations!
+  if (waitingViolations.length > 0) {
+    sections.push(buildWaitingOnBackgroundWorkSection(waitingViolations));
+  }
+  if (idleViolations.length > 0) {
+    const details = idleViolations
       .map(({ agent, reason }) => `${agent} (${reason})`)
       .join('; ');
     sections.push(
@@ -174,12 +226,25 @@ export interface UntaskedAgentsMessageParams {
 }
 
 export function buildUntaskedAgentsMessage(params: UntaskedAgentsMessageParams): string {
-  const details = params.untasked
-    .map(
-      ({ name, role, ageMs }) => `${name} (${role}) — idle and untasked for ~${Math.floor(ageMs / 60_000)}m`,
-    )
-    .join('; ');
-  return `No-idling detected live agent(s) that were spawned but never tasked: ${details}. Their create-agent call landed but the follow-up send-agent assignment never did. Use send-agent to give each named agent its assignment now.`;
+  const waitingAgents = params.untasked
+    .filter(isWaitingOnBackgroundWork)
+    .map(({ name, backgroundWork }) => ({ agent: name, backgroundWork }));
+  const idleAgents = params.untasked.filter((agent) => !isWaitingOnBackgroundWork(agent));
+  const sections: string[] = [];
+  if (idleAgents.length > 0) {
+    const details = idleAgents
+      .map(
+        ({ name, role, ageMs }) => `${name} (${role}) — idle and untasked for ~${Math.floor(ageMs / 60_000)}m`,
+      )
+      .join('; ');
+    sections.push(
+      `No-idling detected live agent(s) that were spawned but never tasked: ${details}. Their create-agent call landed but the follow-up send-agent assignment never did. Use send-agent to give each named agent its assignment now.`,
+    );
+  }
+  if (waitingAgents.length > 0) {
+    sections.push(buildWaitingOnBackgroundWorkSection(waitingAgents));
+  }
+  return sections.join(' ');
 }
 
 export interface StaleTabsMessageParams {

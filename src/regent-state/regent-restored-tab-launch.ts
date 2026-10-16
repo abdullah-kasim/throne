@@ -1,4 +1,6 @@
 import path from "node:path";
+import { sessionNameAtLaunch } from "../agent-settings/agent-settings-decision.ts";
+import { AGENT_ROLES } from "../agent-settings/agent-settings.types.ts";
 import {
   readSpawnSpec,
   type SpawnSpec,
@@ -10,9 +12,14 @@ import type {
   ResumeRegisteredAgentInRestoredTabDeps,
   StartOptions,
 } from "../herdr/herdr-create.contracts.ts";
-import { findRestoredAgentTab } from "../herdr/restored-agent-tab.ts";
+import { paneHasLiveHarnessProcess } from "../herdr/herdr-process-detection.ts";
+import { exactLabelTabs } from "../herdr/herdr-restored-tab-inspection.ts";
+import {
+  findRestoredAgentTab,
+  type RestoredAgentTabDeps,
+} from "../herdr/restored-agent-tab.ts";
 import { errorText } from "../shared-policy/error-text.ts";
-import { REGENT_TAB_LABEL } from "./regent-liveness.ts";
+import { REGENT_NAME, REGENT_TAB_LABEL } from "./regent-liveness.ts";
 
 export interface RegentRestoredTabLaunch {
   freshSession: StartOptions;
@@ -26,11 +33,17 @@ function readRegentSpawnSpec(regentDir: string): Promise<SpawnSpec | null> {
 
 function recordedSessionResumeArgv(spec: SpawnSpec | null): string[] | null {
   if (spec?.session_id === undefined) return null;
+  const harness = parseHarness(spec.harness);
   return buildResumeArgv(
     {
-      harness: parseHarness(spec.harness),
+      harness,
       model: spec.model,
       effort: spec.effort,
+      sessionName: sessionNameAtLaunch(
+        REGENT_NAME,
+        AGENT_ROLES.REGENT,
+        harness,
+      ),
     },
     spec.session_id,
   );
@@ -76,4 +89,19 @@ export async function relaunchRegentInRestoredTab(
     );
   }
   return true;
+}
+
+export async function paneOfRegentTabStillRunningItsHarness(
+  deps: RestoredAgentTabDeps,
+): Promise<string | null> {
+  const regentTabs = exactLabelTabs(await deps.listTabs(), REGENT_TAB_LABEL);
+  if (regentTabs.length !== 1) return null;
+  const regentPanes = (await deps.listPanes()).filter(
+    (pane) => pane.tabId === regentTabs[0]!.tabId,
+  );
+  if (regentPanes.length !== 1) return null;
+  const { paneId } = regentPanes[0]!;
+  return paneHasLiveHarnessProcess(await deps.getPaneProcessInfo(paneId))
+    ? paneId
+    : null;
 }

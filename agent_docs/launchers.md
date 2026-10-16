@@ -14,9 +14,10 @@ at `throne/bin/`:
   *before* the library.
 
 They are self-contained in the sense the port needed: nothing under
-`throne/bin/` reads, sources, or execs anything stowed into `~/bin`, and the
-one path they derive from the harness discovery link — the global skills dir at
-`agent-launcher-lib.sh:186` — is used only when it already exists. They do
+`throne/bin/` reads, sources, or execs a launcher installed outside the
+throne, and the one path they derive from the harness discovery link — the
+global skills dir at `agent-launcher-lib.sh:192` — is used only when it already
+exists. They do
 require an ordinary POSIX host: both entry scripts open `#!/usr/bin/env bash`,
 so `/usr/bin/env` must exist outside `$HOME`, and a bash of at least 4.3 must
 be findable (the guard's own candidates include `/opt/homebrew/bin/bash` and
@@ -41,7 +42,7 @@ Being script-relative, a worktree's `tools.ts` spawns through *that worktree's*
 anything about the code under review.
 
 `claudey-all` is the exception: it is not a throne launcher, so it stays a bare
-name resolved from `PATH` (the stowed `agent-launchers` package provides it).
+name resolved from `PATH`, and it must be installed separately.
 Exact stored legacy Claude/GPT resumes reach it, and fresh GPT launches reach
 it whenever `ACTIVE_GPT_HARNESS_POLICY_NAME` selects the Claude-harness forward
 path. Inspect `./bin/throne-cli list-harnesses-and-models` for the live
@@ -68,10 +69,8 @@ launch argv `buildLaunchArgv` emits for opencode is exactly
 `<opencodey> -m <model>` — no effort token, because opencode has no native
 effort flag; see MODEL_POLICY.md), and `-s <id>` resumes a session.
 
-The stowed `agent-launchers` package is unchanged by opencode support: no
-`opencodey` copy is added there, the throne's `bin/opencodey` is the only
-opencode launcher, and the interactive `~/bin` copies remain claudey/codexy
-only.
+The throne's `bin/opencodey` is the only opencode launcher; no copy of it
+exists outside the throne.
 
 ### Rollback
 
@@ -84,8 +83,8 @@ plus `CONFLICT (modify/delete)` on `test/throne-launcher-path.test.ts`, which
 `d247c09` modified after `17d2c3d` created it, so git leaves HEAD's version in
 the tree instead of deleting it. `throne/AGENTS.md` and
 `throne/agent_docs/commands.md` auto-merge, and both still mention
-`THRONE_LAUNCHER_DIR` afterwards. The stowed `~/bin`
-launchers were never touched, so the underlying spawn behavior — bare
+`THRONE_LAUNCHER_DIR` afterwards. Launchers installed outside the
+throne were never touched, so the underlying spawn behavior — bare
 `claudey`/`codexy` resolved from `PATH` — is recoverable by reverting just
 the resolver/argv code paths (`src/harness.ts`, `src/regentstate.ts`,
 `src/herdr.ts`); the doc and test files then need manual reconciliation, not
@@ -144,10 +143,10 @@ child processes against stub `bash`/`claude`/`codex` executables in a temp
    is what carries `throne/.claude/skills` into every spawn, including spawns
    whose cwd is a different repo entirely. Because it is script-relative, a
    worktree's launchers expose that worktree's throne, not the live one.
-3. **The global agent-skills package dir, resolved from `$HOME/.claude/skills`, only when it
-   exists.** The personal global skills tree is a convenience on this box, not
-   a dependency; on a machine without that tree the argument is simply
-   omitted rather than pointing `--add-dir` at nothing.
+3. **The global skills tree, resolved from the `$HOME/.claude/skills` link,
+   only when it exists.** A global skills tree is a convenience, not a
+   dependency; on a machine without it the argument is simply omitted rather
+   than pointing `--add-dir` at nothing.
 
 `codexy` builds no add-dir set — Codex discovers skills through its own
 `.agents/skills` path. It does not pass its arguments through untouched,
@@ -173,12 +172,11 @@ with no GNU-only flags:
 - `md5sum` (Linux) vs `md5` (macOS) is chosen at runtime by `yolo_path_hash`,
   which hashes with `printf` — no trailing newline — on both.
 
-## Relationship to the stowed `agent-launchers` package
+## Relationship to launchers installed outside the throne
 
-The stowed `agent-launchers/bin/` copies remain the interactive launchers: they
-are what `~/bin/claudey`, `~/bin/codexy`, and the `enable-yolo-mode` shims in
-`~/bin-override` point at. They are untouched by the throne copies and keep
-working exactly as before.
+Interactive launchers installed outside the throne, such as personal
+`claudey`/`codexy` copies on `PATH` or yolo-mode shims in `$YOLO_OVERRIDE_DIR`,
+are untouched by the throne copies and keep working exactly as before.
 
 - The throne copies are canonical **for throne spawns**.
 - `claudey-all` is not ported. It stays PATH-resolved, preserves exact stored
@@ -186,9 +184,8 @@ working exactly as before.
   the live forward policy selects the Claude-harness GPT path. Inspect
   `list-harnesses-and-models` for the current selection. It is Linux-only by
   nature because it routes through CLIProxyAPI.
-- The two trees will drift. Deduplicating them is a deliberate follow-up for
-  the Lord to call, not a silent maintenance chore — until then, a fix that
-  matters to both belongs in both.
+- An outside copy drifts from the throne's; a fix that matters to both
+  belongs in both.
 
 ## Custom harness executables
 

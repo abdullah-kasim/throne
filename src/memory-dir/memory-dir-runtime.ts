@@ -7,6 +7,7 @@ import { access, readFile, realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { delimiter } from 'node:path';
+import { resolveThroneHome } from '../shared-policy/throne-home.ts';
 import type { MemoryResolverDeps } from './memory-dir-resolver.ts';
 
 const execFileAsync = promisify(execFile);
@@ -61,4 +62,5 @@ export const PRODUCTION_MEMORY_RESOLVER_DEPS: MemoryResolverDeps = {
   },
   realpath: (candidate) => realpath(candidate),
   homeDir: () => homedir(),
+  throneHome: () => resolveThroneHome(),
 };

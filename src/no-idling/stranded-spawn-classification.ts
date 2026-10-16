@@ -1,6 +1,8 @@
 import { inspectSupportedAgentScreen } from '../codex-screen/composer/composer.service.ts';
 import type { SupportedComposerHarness } from '../codex-screen/composer/composer.types.ts';
-import { AGENT_MIN_AGE_MS } from './idle-family.ts';
+import { AGENT_MIN_AGE_MS, spawnedAtAgeMs } from './idle-family.ts';
+import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
+import { isSpawnStillStarting } from '../agentdata/spawn-starting.ts';
 
 /**
  * A throne-ledger-matched tab herdr reports as hosting no live agent can
@@ -29,6 +31,18 @@ export type StrandedSpawnClassification =
 export interface StrandedSpawnDurableEvidence {
   readonly taskedAt: string | null | undefined;
   readonly ageMs: number | undefined;
+  readonly spawnStillStarting: boolean;
+}
+
+export function strandedSpawnEvidenceFromSpawnRecord(
+  spawnSpec: SpawnSpec | null,
+  nowMs: number,
+): StrandedSpawnDurableEvidence {
+  return {
+    taskedAt: spawnSpec?.tasked_at,
+    ageMs: spawnedAtAgeMs(spawnSpec?.spawned_at, nowMs),
+    spawnStillStarting: isSpawnStillStarting(spawnSpec, nowMs),
+  };
 }
 
 /**
@@ -68,7 +82,8 @@ export function classifyStrandedSpawnPane(
     openingPromptExists &&
     durableEvidence.taskedAt === null &&
     durableEvidence.ageMs !== undefined &&
-    durableEvidence.ageMs >= AGENT_MIN_AGE_MS
+    durableEvidence.ageMs >= AGENT_MIN_AGE_MS &&
+    !durableEvidence.spawnStillStarting
   ) {
     return 'STRANDED_SPAWN';
   }

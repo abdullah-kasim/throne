@@ -3,10 +3,11 @@
 // `throne-backend` process instead of its own -- mirrors
 // `src/keep-going/keep-going-route.ts`. `AlphaAutoscaleTickCommand` itself
 // stays in `alpha-autoscale-tick.command.ts` and imports both from here.
-import { TransportClient, TransportConnectionError } from "../transport/transport-client.ts";
+import { TransportClient } from "../transport/transport-client.ts";
 import {
   createCapturedSinks,
   runCapturedWork,
+  runManualTriggerOverTransport,
   type ManualTriggerRouteResult,
 } from "../transport/manual-trigger-route.ts";
 import {
@@ -125,32 +126,13 @@ export async function runAlphaAutoscaleOverTransport(
   client: TransportClient,
   args: readonly string[],
 ): Promise<number> {
-  let response: Awaited<ReturnType<TransportClient["request"]>>;
   process.stderr.write(
     "alpha-autoscale-tick: transport rest: running the sweep inside throne-backend " +
       "(--local runs it in this process instead)\n",
   );
-  try {
-    response = await client.request(ALPHA_AUTOSCALE_ROUTE_PATH, args);
-  } catch (error) {
-    if (error instanceof TransportConnectionError) {
-      process.stderr.write(
-        `alpha-autoscale-tick: throne-backend is unreachable over the transport (${error.message}). ` +
-          `Pass --local to run the in-process sweep instead.\n`,
-      );
-      return 1;
-    }
-    throw error;
-  }
-  if (!response.ok) {
-    process.stderr.write(
-      `alpha-autoscale-tick: ${response.error?.message ?? "transport request failed"}. ` +
-        `Pass --local to run the in-process sweep instead.\n`,
-    );
-    return 1;
-  }
-  const result = response.result as ManualTriggerRouteResult;
-  if (result.stdout.length > 0) process.stdout.write(result.stdout);
-  if (result.stderr.length > 0) process.stderr.write(result.stderr);
-  return result.exitCode;
+  return runManualTriggerOverTransport(client, {
+    commandName: "alpha-autoscale-tick",
+    routePath: ALPHA_AUTOSCALE_ROUTE_PATH,
+    args,
+  });
 }

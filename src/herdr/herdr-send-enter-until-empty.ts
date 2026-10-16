@@ -7,7 +7,7 @@ import { REAL_KEYED_SUBMISSION_WINDOW_STORE } from "./keyed-submission-token.ts"
 import { getPaneProcessInfo, resolveAgent } from "./herdr-runtime.service.ts";
 import { getPaneProcessInfoInSession, listAgentsInSession } from "./herdr-runtime-session-reads.ts";
 import type { HerdrAgent } from "./herdr-inventory.service.ts";
-import { pressEnter, pressPaneKey, sendText } from "./herdr-client.ts";
+import { isHerdrPaneGone, pressEnter, pressPaneKey, sendText } from "./herdr-client.ts";
 import {
   pressEnterInSession,
   pressPaneKeyInSession,
@@ -151,6 +151,9 @@ export async function pressEnterUntilEmptyTextbox(
       throw new SubmitAssumedFilledError(name, observed.reason);
     } else {
       emptyConfirmations = 0;
+      if (isHerdrPaneGone(observed.observationError)) {
+        throw observed.observationError;
+      }
       lastObservationError = observed.observationError;
       // The pre-write resident-draft check (elsewhere in the send
       // transaction) already answered "is a human typing here" before this

@@ -22,6 +22,7 @@ import {
 } from "./alpha-autoscale/alpha-autoscale-tick.command.ts";
 import { AutoscaleStatusCommand } from "./alpha-autoscale/autoscale-status.command.ts";
 import { AlphaAutoscaleHostedWorker } from "./alpha-autoscale/alpha-autoscale.hosted-worker.ts";
+import { AgentSettingsTickCommand } from "./agent-settings/agent-settings-tick.command.ts";
 import { CreateAgentCommand } from "./create-agent/create-agent.command.ts";
 import { KeepGoingCommand } from "./keep-going/keep-going.command.ts";
 import { NoIdlingCommand } from "./no-idling/no-idling.command.ts";
@@ -51,26 +52,12 @@ import { ValidateDeliveryCommand } from "./validate-delivery/validate-delivery.c
 import { CheckMainIntegrityCommand } from "./check-main-integrity/check-main-integrity.command.ts";
 import { TrimQueueCommand } from "./trim-queue/trim-queue.command.ts";
 import { PushWaiverCommand } from "./push-waiver/push-waiver.command.ts";
-import { RegentQueueMigrateCommand } from "./regent-queue/regent-queue-migrate.command.ts";
-import { AddToQueueCommand } from "./add-to-queue/add-to-queue.command.ts";
 import { ThroneBotSayCommand } from "./throne-bot/throne-bot-say.command.ts";
 import { ThroneBotSendFileCommand } from "./throne-bot/throne-bot-send-file.command.ts";
 import { ThroneBotRegisterBotCommand } from "./throne-bot/throne-bot-register-bot.command.ts";
 import { ThroneBotListBotsCommand } from "./throne-bot/throne-bot-list-bots.command.ts";
 import { ThroneBotLintObjectiveCommand } from "./throne-bot/throne-bot-lint-objective.command.ts";
-import { UpdateQueueCommand } from "./update-queue/update-queue.command.ts";
-import { AmendmentCommand } from "./amendment/amendment.command.ts";
-import { ReleaseDeferredCommand } from "./release-deferred/release-deferred.command.ts";
-import { CheckQueueAmendmentsReconciledCommand } from "./amendment/check-reconciled.command.ts";
-import { SituationBriefCommand } from "./situation-brief/situation-brief.command.ts";
-import { MarkQueueLaunchEligibleCommand } from "./mark-queue-launch-eligible/mark-queue-launch-eligible.command.ts";
-import { ReconcileQueueCommand } from "./reconcile-queue/reconcile-queue.command.ts";
-import { StageLaunchBriefCommand } from "./stage-launch-brief/stage-launch-brief.command.ts";
 import { RegentQueueRenderCommand } from "./regent-queue/regent-queue-render.command.ts";
-import { WorkLogCommand } from "./work-log/work-log.command.ts";
-import { InstallServicesCommand } from "./install-services/install-services.command.ts";
-import { EnsureHarnessSetupCommand } from "./ensure-harness-setup/ensure-harness-setup.command.ts";
-import { AttachThroneHerdrCommand } from "./attach-throne-herdr/attach-throne-herdr.command.ts";
 import { ThroneStartupCommand } from "./throne-startup/throne-startup.command.ts";
 import { DismissRegentCommand } from "./dismiss-regent/dismiss-regent.command.ts";
 import { SummonRegentCommand } from "./summon-regent/summon-regent.command.ts";
@@ -87,6 +74,8 @@ import { PlanUsageHistoryService } from "./plan-usage-remaining/plan-usage-histo
 import { CampaignEvidenceCommand } from "./campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "./sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
 import { MemoryDirCommand } from "./memory-dir/memory-dir.command.ts";
+import { SkillExtensionCommand } from "./skill-extension/skill-extension.command.ts";
+import { MigrateHomeCommand } from "./migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "./memory-recall/recall.command.ts";
 import { RankCommand } from "./item-rank/rank.command.ts";
 import { LocateCommand } from "./file-locate/locate.command.ts";
@@ -102,7 +91,6 @@ import {
 import { REAL_CODEX_USAGE_DEPS } from "./shared-policy/codex-usage.service.ts";
 import { ResourcePressureCommand } from "./resource-pressure/resource-pressure.command.ts";
 import { TokenBalanceCommand } from "./token-balance/token-balance.command.ts";
-import { LintQueuePlanCommand } from "./lint-queue-plan/lint-queue-plan.command.ts";
 import {
   DisableThroneCommand,
   EnableThroneCommand,
@@ -172,6 +160,7 @@ import { PlanUsagePlatformService } from "./plan-usage-remaining/plan-usage-plat
 import { PlanUsagePresentationService } from "./plan-usage-remaining/plan-usage-presentation.service.ts";
 import { HarnessRoutingPolicyService } from "./harness-routing/harness-routing-policy.service.ts";
 import { COMMAND_REGISTRY_PROVIDERS } from "./shared-policy/command-registry.ts";
+import { QUEUE_COMMAND_PROVIDERS } from "./shared-policy/command-registry-queue.ts";
 
 // The command-name/visibility/migrated-flag side of "what commands exist" is
 // owned by COMMAND_REGISTRY (see src/shared-policy/command-registry.ts); this
@@ -265,6 +254,10 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
       provide: AutoscaleStatusCommand,
       useFactory: () => new AutoscaleStatusCommand(),
     },
+    {
+      provide: AgentSettingsTickCommand,
+      useFactory: () => new AgentSettingsTickCommand(),
+    },
     AlphaAutoscaleHostedWorker,
     {
       provide: NotifyLordCommand,
@@ -296,26 +289,13 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     CheckMainIntegrityCommand,
     TrimQueueCommand,
     PushWaiverCommand,
-    RegentQueueMigrateCommand,
-    AddToQueueCommand,
     ThroneBotSayCommand,
     ThroneBotSendFileCommand,
     ThroneBotRegisterBotCommand,
     ThroneBotListBotsCommand,
     ThroneBotLintObjectiveCommand,
-    UpdateQueueCommand,
-    AmendmentCommand,
-    ReleaseDeferredCommand,
-    CheckQueueAmendmentsReconciledCommand,
-    SituationBriefCommand,
-    MarkQueueLaunchEligibleCommand,
-    ReconcileQueueCommand,
-    StageLaunchBriefCommand,
     RegentQueueRenderCommand,
-    WorkLogCommand,
-    InstallServicesCommand,
-    EnsureHarnessSetupCommand,
-    AttachThroneHerdrCommand,
+    ...QUEUE_COMMAND_PROVIDERS,
     ThroneStartupCommand,
     DismissRegentCommand,
     SummonRegentCommand,
@@ -338,10 +318,11 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     CodexUsageRemainingCommand,
     ResourcePressureCommand,
     TokenBalanceCommand,
-    LintQueuePlanCommand,
     CampaignEvidenceCommand,
     SweepTmpScratchCommand,
     MemoryDirCommand,
+    SkillExtensionCommand,
+    MigrateHomeCommand,
     RecallCommand,
     RankCommand,
     LocateCommand,

@@ -22,6 +22,7 @@ import {
   AT_CAPACITY_THRESHOLD,
   IO_AT_CAPACITY_THRESHOLD,
   LOAD_GRADED_IN_PRESSURE_FIGURE,
+  MEMORY_AT_CAPACITY_THRESHOLD,
   classifyPressure,
   type LoadReading,
 } from "./classify-pressure.ts";
@@ -237,4 +238,16 @@ test("the io term is read from the full line, not some", () => {
   assert.equal(full.state, "ok");
   assert.equal(full.avg10, 27.1);
   assert.equal(full.avg60, 49.43);
+});
+
+test("memory is graded at its own 80 while cpu stays at 70", () => {
+  assert.equal(MEMORY_AT_CAPACITY_THRESHOLD, 80);
+  assert.equal(AT_CAPACITY_THRESHOLD, 70);
+  const memoryAt75 = classifyPressure(CALM_PSI, { state: "ok", avg10: 75, avg60: 75 }, CALM_LOAD, CALM_IO, LOAD_GRADED_IN_PRESSURE_FIGURE);
+  assert.equal(memoryAt75.verdict, "take-more-work");
+  assert.equal(memoryAt75.pressure, 10, "memory must not appear in the 70-graded figure");
+  const memoryAt80 = classifyPressure(CALM_PSI, { state: "ok", avg10: 80, avg60: 80 }, CALM_LOAD, CALM_IO, LOAD_GRADED_IN_PRESSURE_FIGURE);
+  assert.equal(memoryAt80.verdict, "at-capacity");
+  const cpuAt70 = classifyPressure({ state: "ok", avg10: 70, avg60: 70 }, CALM_PSI, CALM_LOAD, CALM_IO, LOAD_GRADED_IN_PRESSURE_FIGURE);
+  assert.equal(cpuAt70.verdict, "at-capacity");
 });

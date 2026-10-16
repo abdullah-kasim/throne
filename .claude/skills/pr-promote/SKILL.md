@@ -5,6 +5,8 @@ version: 1.0.0
 user-invocable: true
 ---
 
+**Operator extension — run first.** Before anything else in this skill, run `throne skill-extension pr-promote` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
+
 # Promote a Forgejo pull request to GitHub
 
 On a host with Forgejo installed, every pull request the court opens lands in
@@ -65,10 +67,11 @@ a record. Tell the Lord which link to take out in Forgejo and run it again.
 
 After the media publish, the command reads the GitHub body back and refuses,
 with a non-zero exit and no success output, while it still holds a
-`<!-- drop … here -->` placeholder or a link to the Forgejo host. The message
-names the GitHub URL, the placeholders' file names or the Forgejo host, and
-the one command that finishes the job: `throne forge promote <forgejo url>`
-again, because a repromote re-hosts the media whenever GitHub still holds
+`<!-- drop … here -->` placeholder or an image or video link to the Forgejo
+host, which the media link check (section 4) finds. The message names the
+GitHub URL, the placeholders' file names or each such link, and the one
+command that finishes the job: `throne forge promote <forgejo url>` again,
+because a repromote re-hosts the media whenever GitHub still holds
 placeholders. When the upload failed only because nobody signed in within
 the wait, the message says the upload needs the Lord to sign in in the
 browser window it opens. Pass that on to him as it is. When the upload failed
@@ -84,12 +87,14 @@ wizard on that folder: `node <pr-media>/publish.mjs <github url> --folder
 
 The same command on a pull request that is already promoted finds the Forgejo
 metadata comment and opens nothing new. A GitHub pull request staged with
-`throne forge stage` has that comment too, so it repromotes the same way. Instead it:
+`throne forge stage` has that comment too, so it repromotes the same way;
+staging runs the media link check on the Forgejo body it wrote (section 4).
+Instead it:
 
 1. pushes the updated head branch to `origin`;
 2. replaces the GitHub body with the current Forgejo body, re-hosting the
    media again, even when nothing else changed, and refuses as above while
-   placeholders remain;
+   placeholders or media links to the Forgejo host remain;
 3. replies on GitHub to each review item that was mirrored into Forgejo and
    answered there: an inline thread gets a reply in its thread, and a
    conversation comment or review body gets a conversation comment. The
@@ -117,6 +122,54 @@ It closes the Forgejo pull request, never merges it, with the comment "This
 pull request has been merged on the GitHub side: <github url>", and prints
 `"mergedOnGithub": true`. A Forgejo pull request that is already closed gets
 no second comment. Tell the Lord the pull request was already merged.
+
+## 4. The media link check
+
+A media link that points at the other forge does not load there. GitHub does
+not let an attachment be hotlinked from Forgejo, and the Forgejo host is
+reachable only on the tailnet, so nobody reading the pull request on GitHub
+can load a file it serves. So after every copy of a pull request body
+between the two forges (`throne forge stage`, `throne forge promote`, and a
+repromote), the command checks the copied body for image and video links
+that point at the other forge. Only attachment and media links count; a
+prose link to the twin pull request or to a commit is not a finding of this
+check.
+
+A refusal from the check means the copy was made and is not finished. The
+command exits non-zero, prints no success output, and names the pull
+request, each link and the one command that repairs it:
+
+- **On the GitHub side**, after a promote or a repromote:
+  `throne forge promote <forgejo url>` again, as section 1 says.
+- **On the Forgejo side**, after `throne forge stage`, on a first staging
+  and on a pull request that is already staged:
+  `/pr-media publish <forgejo pull request url>`, which uploads the media to
+  Forgejo and rewrites the Forgejo body to hold Forgejo links. Staging
+  re-hosts the GitHub media it can download. Media on a GitHub Enterprise
+  host cannot be downloaded with a token (the attachment route answers HTTP
+  404), so staging leaves those links where they are, and publishing is how
+  they are replaced. The twin is open and its feedback is mirrored all the
+  same; only its media is unfinished.
+
+To check a pair at any time, give either side's URL:
+
+```bash
+throne forge check-media-links <pull request url>
+```
+
+It reads both sides, writes nothing, and prints the cross-host media links
+on each, one line per link with `forgejo` or `github` in front. It exits 0
+when there are none and 1 when there are any; `--json` prints the two lists.
+`throne forge status <url> --json` carries the same finding as
+`crossHostMediaLinks`, one list per side. Run it after the repair, and do
+not call a promote or a staging finished while it exits 1.
+
+Review comments are the one copy that is reported and not refused. When
+`throne forge stage` or `throne forge mirror-feedback` copies a GitHub
+review comment that holds a GitHub media link into Forgejo, the command
+names the link and the GitHub comment, and the mirror still succeeds: no
+command re-hosts the media of a comment, and the mirrored comment already
+links to its GitHub original, where the media loads.
 
 ## A worked shape
 

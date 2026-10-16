@@ -264,6 +264,14 @@ export async function submitToAgentWhileLocked(
       const guarded =
         guardedFrame?.snapshot ??
         (await observeSupportedScreen(agent, harness, deps));
+      if (
+        guarded.activeComposer.state === "draft" &&
+        options.leaveResidentDraftUnsubmitted === true
+      ) {
+        throw new Error(
+          "a resident draft occupies the composer; nothing was written",
+        );
+      }
       if (guarded.activeComposer.state === "draft") {
         // The held lock settles exclusive composer ownership: text found now
         // is flushed — submitted through the same bounded Enter transaction —

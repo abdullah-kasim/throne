@@ -164,12 +164,12 @@ test('the GitHub branch of every PR-creating skill keeps the gh commands it ran 
   assert.match(prDescription, /\(`gh pr edit --body-file` on GitHub\)/);
   assert.ok(prDescription.includes([
     'git push -u origin <branch>',
-    'gh pr create [--draft] --base <default-branch> --head <branch> \\',
+    'gh pr create [--draft] --base <base-branch> --head <branch> \\',
     '  --title "<title>" --body-file <path-to-body.md>',
   ].join('\n')));
   assert.ok(pullRequestDelivery.includes([
     'git -C "$repo" push -u origin "$target_branch"',
-    'gh -R <owner>/<repo> pr create --draft --base <default branch> --head "$target_branch" \\',
+    'gh -R <owner>/<repo> pr create --draft --base <default branch or parent-branch> --head "$target_branch" \\',
     '   --title "<what changed, as the contributor would say it>" --body-file <body.md>',
     'gh -R <owner>/<repo> pr view "$target_branch" --json url,isDraft,headRefName,baseRefName',
   ].join('\n')));

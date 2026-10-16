@@ -30,7 +30,7 @@ KEYS SHIPPED BELOW
                     pane it spawns inherit the PATH the .profile chain builds
                     (mise shims, brew). A launchd agent otherwise starts with
                     the bare system PATH, which reaches none of them. The
-                    server's own output goes to ~/Library/Logs/throne/ —
+                    server's own output goes to ~/.throne/logs/ ($THRONE_DATA_HOME/logs/ when set) —
                     there is no journal on a mac, and StandardOutPath does
                     not expand ~, so the redirect lives inside the shell.
   RunAtLoad         launchd.plist(5): "This optional key is used to control
@@ -42,6 +42,12 @@ KEYS SHIPPED BELOW
   ThrottleInterval  launchd.plist(5): "by default, jobs will not be spawned
                     more than once every 10 seconds." 10 is that documented
                     default; the linux unit's RestartSec=3 is not reproduced.
+  ProcessType       launchd.plist(5): "If left unspecified, the system will
+                    apply light resource limits to the job, throttling its
+                    CPU usage and I/O bandwidth." and "Interactive jobs run
+                    with the same resource limitations as apps, that is to
+                    say, none." Every pane, test runner and browser the
+                    server starts is its descendant and inherits its limits.
 
 SHARP EDGE — a herdr behavior, not a launchd one: `herdr update` with its
 handoff flag makes the OLD server spawn the new one as a detached daemon,
@@ -58,7 +64,7 @@ Any restart drops every live pane.
 	<array>
 		<string>/bin/bash</string>
 		<string>-lc</string>
-		<string>mkdir -p "$HOME/Library/Logs/throne" &amp;&amp; exec {{HERDR_BIN}} --session throne server &gt;&gt; "$HOME/Library/Logs/throne/throne-herdr.log" 2&gt;&amp;1</string>
+		<string>mkdir -p "{{THRONE_LOGS}}" &amp;&amp; exec {{HERDR_BIN}} --session throne server &gt;&gt; "{{THRONE_LOGS}}/throne-herdr.log" 2&gt;&amp;1</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
@@ -66,5 +72,7 @@ Any restart drops every live pane.
 	<true/>
 	<key>ThrottleInterval</key>
 	<integer>10</integer>
+	<key>ProcessType</key>
+	<string>Interactive</string>
 </dict>
 </plist>

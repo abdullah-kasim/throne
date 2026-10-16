@@ -99,9 +99,16 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-const DIR =
-  process.env.THRONE_OMP_DELIVERY_DIR ??
-  path.join(os.homedir(), ".throne", "data", ".runtime", "omp-delivery");
+export function deliveryDirectory(environment = process.env, home = os.homedir()) {
+  const configured = environment.THRONE_OMP_DELIVERY_DIR?.trim();
+  if (configured) {
+    return path.resolve(configured);
+  }
+  const throneHome = environment.THRONE_DATA_HOME?.trim() || path.join(home, ".throne");
+  return path.join(path.resolve(throneHome), "data", ".runtime", "omp-delivery");
+}
+
+const DIR = deliveryDirectory();
 const POLL_MS = 500;
 
 /** herdr sets this in every pane it owns; it is the only thing an omp instance

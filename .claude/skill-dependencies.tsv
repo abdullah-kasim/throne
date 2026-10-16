@@ -44,6 +44,7 @@ run-todos	shipped
 share-stuff	global
 skill-writer	shipped
 switch-campaign-model	shipped
+tailnet-preview	global
 throne-fork	shipped
 throne-startup	shipped
 ticket-check	global
@@ -52,5 +53,6 @@ todo	not-a-skill
 todos	not-a-skill
 two	not-a-skill
 update-harnesses	shipped
+where-i-stand	shipped
 write-and-execute-todos	shipped
 write-todos	shipped

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 import { HARNESS_NAMES } from "../harness-routing/harness.ts";
-import { RUNTIME_DATA_DIR } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { resolveSpawnPolicy } from "./policy.ts";
 import { baseDeps, baseRequest } from "./policy-test-fixtures.ts";
 
@@ -65,7 +65,7 @@ test("an owner allowlist refusal tells the Alpha why bypass flags cannot admit a
   assert.ok(
     refusal.includes(
       path.join(
-        RUNTIME_DATA_DIR,
+        THRONE_DATA_DIR,
         "alpha-brg-model-allowlist",
         "model-allowlist.json",
       ),

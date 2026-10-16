@@ -3,23 +3,24 @@ import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import {
+  copyOfCheckoutForEachTest,
   forgeDependenciesWithFakeGithub,
-  repositoryWithOriginAndFeatureBranch,
   runForgeCapturing,
   useFreshForgejoStateDirectory,
+  type CheckoutWithOrigin,
   type ForgejoStateDirectory,
 } from "./forge-test-support.ts";
 
+const checkoutForThisTest = copyOfCheckoutForEachTest("forge-github-");
 let state: ForgejoStateDirectory;
-let checkout: Awaited<ReturnType<typeof repositoryWithOriginAndFeatureBranch>>;
+let checkout: CheckoutWithOrigin;
 
 beforeEach(async () => {
   state = await useFreshForgejoStateDirectory();
-  checkout = await repositoryWithOriginAndFeatureBranch("forge-github-");
+  checkout = checkoutForThisTest();
 });
 
 afterEach(async () => {
-  await checkout.remove();
   await state.remove();
 });
 

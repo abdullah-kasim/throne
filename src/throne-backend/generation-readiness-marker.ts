@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { RUNTIME_DATA_HOME } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_HOME } from "../shared-policy/throne-home.ts";
 
 /**
  * The other half of hazard #1 (Regent ruling, 2026-08-14, BCL campaign):
@@ -24,7 +24,7 @@ import { RUNTIME_DATA_HOME } from "../shared-policy/runtime-data-home.ts";
  *      generation it is deciding whether to roll back.
  */
 
-export const GENERATION_READINESS_MARKER_DIR = path.join(RUNTIME_DATA_HOME, "state", "generation-readiness");
+export const GENERATION_READINESS_MARKER_DIR = path.join(THRONE_HOME, "state", "generation-readiness");
 
 export interface GenerationReadinessState {
   /** The last generation that reached this unit's own `READY=1`. Absent until the first-ever successful boot. */

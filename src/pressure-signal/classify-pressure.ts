@@ -12,6 +12,8 @@ import type { PsiReading } from "./psi-pressure-reader.ts";
 // constant without an explicit Lord ruling.
 export const AT_CAPACITY_THRESHOLD = 70;
 
+export const MEMORY_AT_CAPACITY_THRESHOLD = 80;
+
 // THE LORD'S RULING OF 2026-08-27, after the io term produced a FALSE refusal:
 // "io has a higher threshold then. try 90".
 //
@@ -85,7 +87,7 @@ export interface PressureClassification {
  * pressure figure graded against `AT_CAPACITY_THRESHOLD`, and grades IO
  * SEPARATELY against its own, higher `IO_AT_CAPACITY_THRESHOLD`:
  *
- *   pressure = max(cpu.avg10, cpu.avg60, memory.avg10, memory.avg60,
+ *   pressure = max(cpu.avg10, cpu.avg60,
  *                  loadPerCore × 100)          graded at 70
  *   io-full  = max(io.avg10, io.avg60)          graded at 90
  *
@@ -155,23 +157,27 @@ export function classifyPressure(
 
   const loadPerCore = load.load1 / load.cpuCount;
   const loadPressure = loadPerCore * LOAD_PRESSURE_PER_CORE_RATIO;
-  const psiMax = Math.max(cpu.avg10, cpu.avg60, memory.avg10, memory.avg60);
-  const pressure = loadLimit.gradedIn === "pressure-figure" ? Math.max(psiMax, loadPressure) : psiMax;
+  const cpuMax = Math.max(cpu.avg10, cpu.avg60);
+  const memoryMax = Math.max(memory.avg10, memory.avg60);
+  const pressure = loadLimit.gradedIn === "pressure-figure" ? Math.max(cpuMax, loadPressure) : cpuMax;
   const ioFull = Math.max(io.avg10, io.avg60);
 
   const pressureAtCapacity = pressure >= AT_CAPACITY_THRESHOLD;
+  const memoryAtCapacity = memoryMax >= MEMORY_AT_CAPACITY_THRESHOLD;
   const ioAtCapacity = ioFull >= IO_AT_CAPACITY_THRESHOLD;
   const loadAtItsOwnLimit =
     loadLimit.gradedIn === "its-own-limit" && loadPerCore >= loadLimit.loadPerCoreAtCapacity;
   const verdict: PressureVerdict =
-    pressureAtCapacity || ioAtCapacity || loadAtItsOwnLimit ? "at-capacity" : "take-more-work";
+    pressureAtCapacity || memoryAtCapacity || ioAtCapacity || loadAtItsOwnLimit
+      ? "at-capacity"
+      : "take-more-work";
 
   return {
     verdict,
     pressure,
     reasons: [
-      `pressure ${pressure.toFixed(2)} ${pressureAtCapacity ? ">=" : "<"} ${AT_CAPACITY_THRESHOLD}`,
-      `psi max ${psiMax.toFixed(2)} (cpu ${Math.max(cpu.avg10, cpu.avg60).toFixed(2)}, memory ${Math.max(memory.avg10, memory.avg60).toFixed(2)})`,
+      `pressure ${pressure.toFixed(2)} ${pressureAtCapacity ? ">=" : "<"} ${AT_CAPACITY_THRESHOLD} (cpu ${cpuMax.toFixed(2)})`,
+      `memory ${memoryMax.toFixed(2)} ${memoryAtCapacity ? ">=" : "<"} ${MEMORY_AT_CAPACITY_THRESHOLD}`,
       loadReasonOf(loadPerCore, loadPressure, loadLimit),
       `io-full ${ioFull.toFixed(2)} ${ioAtCapacity ? ">=" : "<"} ${IO_AT_CAPACITY_THRESHOLD}`,
     ],

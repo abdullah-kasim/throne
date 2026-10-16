@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { afterEach, before, beforeEach, test } from "node:test";
+import { beforeEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { git } from "./git-repo-test-fixture.ts";
 import { FAKE_GITHUB_REPOSITORY } from "./forge-fake-github.ts";
 import { runForgeCapturing } from "./forge-test-support.ts";
-import { forge, forgeJson, promote, stagingDependencies, startStagingHost, type StagingHost } from "./forge-staging-test-support.ts";
+import { forge, forgeJson, promote, stagingDependencies, startStagingHostForEachTest, type StagingHost } from "./forge-staging-test-support.ts";
 
 interface StackToMerge {
   readonly host: string;
@@ -25,28 +25,23 @@ const stackScript = (await import(path.join(SKILLS_DIRECTORY, "pr-merge", "stack
 const GITHUB_PULL_REQUEST_URL = `https://github.com/${FAKE_GITHUB_REPOSITORY}/pull/7`;
 
 let host: StagingHost;
+let forgejoUrl: string;
+let githubUrl: string;
 
-before(async () => {
-  await import("../src/forge/forge.command.ts");
-});
-
-beforeEach(async () => {
-  host = await startStagingHost("forge-merge-on-github-");
-});
-
-afterEach(async () => {
-  await host.remove();
-});
-
-async function openAndPromoteForgejoPullRequest(): Promise<{ readonly forgejoUrl: string; readonly githubUrl: string }> {
-  const bodyFile = path.join(host.checkout.repo, "pr-body.md");
+async function openAndPromoteForgejoPullRequest(prepared: StagingHost): Promise<void> {
+  const bodyFile = path.join(prepared.checkout.repo, "pr-body.md");
   await writeFile(bodyFile, "## Summary\n\nAdds the feature.\n");
-  const forgejoUrl = (
-    await forge(host, ["pr", "create", "--base", "main", "--head", "add/feature", "--title", "Add the feature", "--body-file", bodyFile])
+  forgejoUrl = (
+    await forge(prepared, ["pr", "create", "--base", "main", "--head", "add/feature", "--title", "Add the feature", "--body-file", bodyFile])
   ).trim();
-  const promotion = await promote(host, forgejoUrl);
-  return { forgejoUrl, githubUrl: promotion.githubUrl };
+  githubUrl = (await promote(prepared, forgejoUrl)).githubUrl;
 }
+
+const stagingHostForThisTest = startStagingHostForEachTest("forge-merge-on-github-", openAndPromoteForgejoPullRequest);
+
+beforeEach(() => {
+  host = stagingHostForThisTest();
+});
 
 async function mergeOnGithubDirectly(githubUrl: string): Promise<void> {
   const state = await host.github.read();
@@ -68,7 +63,6 @@ function mergedOnGithubMessages(): string[] {
 const runSeamInProcess = async (args: readonly string[]): Promise<string> => forge(host, args);
 
 test("merging a staged pull request merges it on GitHub", async () => {
-  const { forgejoUrl, githubUrl } = await openAndPromoteForgejoPullRequest();
 
   for (const handedUrl of [forgejoUrl, githubUrl]) {
     const stack = await stackScript.discoverStackToMerge(handedUrl, runSeamInProcess);
@@ -89,7 +83,6 @@ test("merging a staged pull request merges it on GitHub", async () => {
 });
 
 test("merging a staged pull request on GitHub closes its Forgejo pull request with a message saying it was merged on GitHub", async () => {
-  const { githubUrl } = await openAndPromoteForgejoPullRequest();
   const closeCommand = await closeCommandNamedByTheMergeSkill(githubUrl);
 
   const beforeTheMerge = await runForgeCapturing(closeCommand, stagingDependencies, host.checkout.repo);
@@ -109,7 +102,6 @@ test("merging a staged pull request on GitHub closes its Forgejo pull request wi
 });
 
 test("promoting a pull request whose GitHub twin was already merged closes the Forgejo pull request instead of promoting again", async () => {
-  const { forgejoUrl, githubUrl } = await openAndPromoteForgejoPullRequest();
   await mergeOnGithubDirectly(githubUrl);
   const originHeadBefore = await git(host.checkout.origin, ["rev-parse", "refs/heads/add/feature"]);
   await writeFile(path.join(host.checkout.repo, "late-change.txt"), "late change\n");
@@ -134,7 +126,6 @@ test("promoting a pull request whose GitHub twin was already merged closes the F
 });
 
 test("closing a Forgejo twin twice adds one message", async () => {
-  const { forgejoUrl, githubUrl } = await openAndPromoteForgejoPullRequest();
   await mergeOnGithubDirectly(githubUrl);
 
   const first = await forgeJson<{ closed: boolean }>(host, ["close-merged-twin", githubUrl]);

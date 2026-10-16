@@ -1,7 +1,7 @@
 import http from "node:http";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { RUNTIME_DATA_HOME } from "../shared-policy/runtime-data-home.ts";
+import { THRONE_HOME } from "../shared-policy/throne-home.ts";
 
 /**
  * The one envelope shape crossing the UNIX socket in both directions. `cwd`
@@ -50,7 +50,7 @@ export type TransportRouteHandler = (envelope: TransportRequestEnvelope) => Prom
  */
 export const JOB_STATUS_ROUTE_PATH = "__job_status__";
 
-export function resolveTransportSocketPath(runtimeDataHome: string = RUNTIME_DATA_HOME): string {
+export function resolveTransportSocketPath(runtimeDataHome: string = THRONE_HOME): string {
   return path.join(runtimeDataHome, "state", "throne-backend.sock");
 }
 

@@ -8,9 +8,9 @@ import { LedgerDataService } from '../agentdata/ledger-data.service.ts';
 import { openingPromptPath } from '../agentdata/identity-data.service.ts';
 import { fileExists, readSpawnSpec } from '../agentdata/spawn-data-contracts.ts';
 import { HARNESS_NAMES } from '../harness-routing/harness.ts';
-import { spawnedAtAgeMs } from './idle-family.ts';
 import {
   classifyStrandedSpawnPane,
+  strandedSpawnEvidenceFromSpawnRecord,
   type StrandedSpawnClassification,
 } from './stranded-spawn-classification.ts';
 
@@ -190,10 +190,7 @@ export async function classifyCandidateThroneTab(
     HARNESS_NAMES.CLAUDE,
     paneAnsi,
     openingPromptExists,
-    {
-      taskedAt: spawnSpec?.tasked_at,
-      ageMs: spawnedAtAgeMs(spawnSpec?.spawned_at, Date.now()),
-    },
+    strandedSpawnEvidenceFromSpawnRecord(spawnSpec, Date.now()),
   );
   return classification === undefined
     ? { kind: 'none' }

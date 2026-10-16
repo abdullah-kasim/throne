@@ -10,8 +10,8 @@ and the Lord's phone must be on the same tailnet to receive pushes.
 The server address and topic are **host-local secrets** and are deliberately
 absent from this repository: the server URL is a private tailnet address, and
 the topic is an unguessable string that anyone holding it can push to the
-Lord's phone with. They live in the gitignored `config.user.ts` at the live
-throne root:
+Lord's phone with. They live in the operator's `config.user.ts` (where it
+lives: AGENTS.md "Where the throne keeps things"):
 
 ```ts
 ntfy: {
@@ -66,7 +66,7 @@ bind mounts get `:Z`.
 
 - `systemd/ntfy.service` — the linux user unit.
 - `launchd/com.throne.ntfy.plist` — the macOS LaunchAgent (same wrapper,
-  logs to `~/Library/Logs/throne/ntfy.log`).
+  logs to `~/.throne/logs/ntfy.log`).
 - `systemd/ntfy-serve` — wrapper that waits for a real tailnet IPv4, then
   execs the container. Platform-aware: `ip`/`tailscale0` on linux,
   `ifconfig` and the `Tailscale.app` bundle CLI on a mac.
@@ -104,7 +104,7 @@ On macOS:
 launchctl print gui/$(id -u)/com.throne.ntfy
 launchctl kickstart -k gui/$(id -u)/com.throne.ntfy   # restart
 launchctl bootout gui/$(id -u)/com.throne.ntfy        # stop (install.sh re-bootstraps)
-tail -f ~/Library/Logs/throne/ntfy.log
+tail -f ~/.throne/logs/ntfy.log
 ```
 
 Verify the **installed** unit, not `systemd/ntfy.service` in the repo. The repo
@@ -130,9 +130,9 @@ while the installed-unit form above exits 0 with no output.
   `DEFAULT_SERVER_URL = 'http://127.0.0.1:8410'`, with
   `THRONE_NTFY_SERVER_URL` overriding both.
 
-**Do not "simplify" this to `0.0.0.0`.** The host's default firewalld zone opens
-high TCP ports on the LAN interface already. Binding `0.0.0.0:8410` would make
-ntfy reachable from the local wireless LAN. The tailnet-IP bind is the
+**Do not "simplify" this to `0.0.0.0`.** A host firewall may already
+allow high TCP ports on the LAN interface, so binding `0.0.0.0:8410` could make
+ntfy reachable from the local network. The tailnet-IP bind is the
 containment boundary.
 
 If the server URL or port changes, update all three surfaces together:

@@ -18,8 +18,10 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { after, test } from "node:test";
 
-import { git, initRepo } from "./git-repo-test-fixture.ts";
+import { git, initRepo, turnOffCommitSigningThatTheEnvironmentTurnedOn } from "./git-repo-test-fixture.ts";
 import { absorbAndStamp } from "../src/git-lifecycle/absorb-and-stamp.ts";
+
+turnOffCommitSigningThatTheEnvironmentTurnedOn();
 
 const scratchRoots: string[] = [];
 

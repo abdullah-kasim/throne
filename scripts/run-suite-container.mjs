@@ -31,18 +31,24 @@ import {
   containerRuntime,
 } from "./container-runtime.mjs";
 import { verifySuiteRunTornDown } from "./suite-container-leak-guard.mjs";
+import { reportEndOfSuiteRun } from "./suite-end-of-run-report.mjs";
 import {
-  ZERO_TESTS_EXECUTED_EXIT_CODE,
-  countTestsExecuted,
-  formatTestsExecutedLine,
-  suiteExitedCleanWithoutRunningTests,
-} from "./suite-test-verdict.mjs";
-import { applyTenSecondLawGate } from "./suite-duration-gate.mjs";
+  checkHostDistIsFresh,
+  createHostDistMountArguments,
+  runHostPreGuardsWhileImageBuilds,
+} from "./suite-host-pre-guards.mjs";
+import { formatChangedFilesForEnvironment, listFilesChangedAgainstMain } from "./suite-changed-files.mjs";
 import {
   SuiteSignalError,
   findSuiteSignal,
   runChildWithSignalForwarding,
 } from "./suite-child-signal-forwarding.mjs";
+import {
+  RUN_STARTED_AT_ENVIRONMENT_VARIABLE,
+  createOutputLineRecorder,
+  formatSuiteTimingReport,
+  readRunStartedAtMs,
+} from "./suite-phase-timings.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(HERE, "..");
@@ -315,6 +321,7 @@ export function createSuiteContainerRunArguments(
 }
 
 async function runComposedSuite(runId, suiteCommand) {
+  const slotHeldAtMs = Date.now();
   const suitePaths = resolveSuiteRunPaths(runId);
   const imageReference = resolveSuiteAppImageReference(runId);
   const cleanup = createCleanupStack();
@@ -324,23 +331,38 @@ async function runComposedSuite(runId, suiteCommand) {
   });
   let primaryFailure;
   try {
-    await buildOwnedSuiteAppImageBounded(cleanup, imageReference);
+    const { imageBuild, hostGuards } = await runHostPreGuardsWhileImageBuilds(
+      () => buildOwnedSuiteAppImageBounded(cleanup, imageReference),
+      () => checkHostDistIsFresh(REPO_ROOT),
+    );
+    if (!hostGuards.result.ok) {
+      process.stderr.write(`${hostGuards.result.message}\n`);
+      return 1;
+    }
+    process.stdout.write(`${hostGuards.result.message}\n`);
 
-    const suiteEnv = resolveSuiteContainerEnvironment(suitePaths, {
-      sessionName: `throne-suite-${runId}`,
-      runId,
-    });
+    const suiteEnv = {
+      ...resolveSuiteContainerEnvironment(suitePaths, {
+        sessionName: `throne-suite-${runId}`,
+        runId,
+      }),
+      ...formatChangedFilesForEnvironment(listFilesChangedAgainstMain(REPO_ROOT)),
+    };
     const envArgs = Object.entries(suiteEnv).flatMap(([key, value]) => [
       "-e",
       `${key}=${value}`,
     ]);
-    const mountArgs = createSuiteContainerMountArguments(suitePaths);
+    const mountArgs = [
+      ...createSuiteContainerMountArguments(suitePaths),
+      ...createHostDistMountArguments(hostGuards.result.distDirectory),
+    ];
 
     const runtime = containerRuntime();
     process.stdout.write(
       `suite-run: id=${runId} runtime=${runtime} data=${suitePaths.dataHome} config=${suitePaths.configHome}\n`,
     );
     let suiteOutput = "";
+    const outputLines = createOutputLineRecorder();
     const suiteStartedAt = new Date();
     const status = await runChildWithSignalForwarding(
       runtime,
@@ -360,29 +382,26 @@ async function runComposedSuite(runId, suiteCommand) {
           ...suiteCommand,
         ]),
       ],
-      { stdio: "inherit", onOutput: (chunk) => { suiteOutput += chunk; } },
+      { stdio: "inherit", onOutput: (chunk) => { suiteOutput += chunk; outputLines.record(chunk); } },
     );
     const suiteFinishedAt = new Date();
     process.stdout.write(
       `suite-wall-clock: before=${suiteStartedAt.toISOString()} after=${suiteFinishedAt.toISOString()} elapsed_ms=${suiteFinishedAt.getTime() - suiteStartedAt.getTime()}\n`,
     );
-    const executedCount = countTestsExecuted(suiteOutput);
-    // Greppable on this script's own stdout for EVERY real run, not only the
-    // zero-count failure case below — a gate Shadow (or a human) reading the
-    // log can find "tests executed:" once and get the real count without
-    // re-deriving it from the raw node --test TAP output.
-    process.stdout.write(formatTestsExecutedLine(executedCount));
-    if (suiteExitedCleanWithoutRunningTests(status, executedCount)) {
-      process.stderr.write(
-        executedCount === undefined
-          ? "run-suite-container: suite exited 0 but no test-runner \"tests N\" summary was found in its output — refusing to report success for a run whose test count cannot be confirmed\n"
-          : "run-suite-container: suite exited 0 but executed zero tests — refusing to report success; check the test globs actually matched files\n",
-      );
-      return ZERO_TESTS_EXECUTED_EXIT_CODE;
-    }
-    return applyTenSecondLawGate(status, suiteOutput, {
-      isHeavyTier: Boolean(process.env.THRONE_HEAVY_TESTS),
-      writeViolation: (line) => process.stderr.write(line),
+    process.stdout.write(
+      formatSuiteTimingReport({
+        runStartedAtMs: readRunStartedAtMs(process.env, slotHeldAtMs),
+        slotHeldAtMs,
+        imageBuild,
+        hostGuards,
+        outputLines: outputLines.lines(),
+        containerExitedAtMs: suiteFinishedAt.getTime(),
+        suiteOutput,
+      }),
+    );
+    return reportEndOfSuiteRun(status, suiteOutput, process.env, {
+      writeOutput: (line) => process.stdout.write(line),
+      writeError: (line) => process.stderr.write(line),
     });
   } catch (error) {
     primaryFailure = error;
@@ -456,6 +475,7 @@ function parseArgs(argv) {
 async function main() {
   const { slotHeld, runId, suiteCommand } = parseArgs(process.argv.slice(2));
   if (!slotHeld) {
+    process.env[RUN_STARTED_AT_ENVIRONMENT_VARIABLE] = String(Date.now());
     process.exit(reexecUnderConcurrencySlot(runId, suiteCommand));
   }
   const exitCode = await runComposedSuite(runId, suiteCommand);
