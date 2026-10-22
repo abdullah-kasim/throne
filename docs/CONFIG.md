@@ -49,7 +49,7 @@ export default userConfig;
 | Section | Keys | Read by |
 | --- | --- | --- |
 | Persona (top level) | `roleplayPreset`, `addressTitle`, `tierTitles`, `throneTitle`, `campaignTitle`, `queueDescription`, `roleplayPrompt` | every identity text, opening prompt, resurrection prompt and user-facing message (`agent_docs/persona-config.md`) |
-| `ntfy` (top level) | `serverUrl`, `topic` | `notify-lord` phone pushes (`agent_docs/ntfy-phone-notifications.md`) |
+| `ntfy` (top level) | `serverUrl`, `topic`, `enabled` | `notify-lord` phone pushes (`agent_docs/ntfy-phone-notifications.md`) |
 | `steering` | `activePlanPresetName`, `activeTargetEffort`, `activeHarness`, `messageQueueTransport`, `customPlanPresets`, `stagerPool`, `roleEfforts`, `regentRoute`, `tokenBalanceEnabled`, `autoscaleEnabled`, `regentHeartbeatNudgeEnabled`, `macLoadPerCoreAtCapacity` | every fresh spawn's harness/model/effort, the Stager pool, the Regent's model and effort, the autoscaler, the token balancer (`agent_docs/MODEL_POLICY.md`) |
 | `identity` | `name`, `email`, `signingKey`, `signingFormat`, `identities`, `remotes` | every git commit the court makes (`throne git-identity`, the `bin/git` shim, tab creation; `agent_docs/commands.md`) |
 | `editor` (top level) | `editor` | `throne forge open` |
@@ -93,6 +93,7 @@ whole section to keep the inert committed defaults (loopback server, topic
 | --- | --- | --- | --- |
 | `serverUrl` | string | `http://127.0.0.1:8410` | Base URL of the ntfy server (typically a private tailnet address). |
 | `topic` | string | `throne-notifications` | The topic `notify-lord` publishes to. Anyone holding it can push to your phone: treat it as a secret. |
+| `enabled` | boolean | `true` | `false` stops every phone push the throne sends (completion notices, `notify-lord`, alerts) without touching the ntfy server; `notify-lord` then says nothing was sent. |
 
 `THRONE_NTFY_SERVER_URL` and `THRONE_NTFY_TOPIC` in the environment override
 both, whatever the file says.
@@ -312,3 +313,59 @@ agentSettings: {
   (home copy, or the checkout copy when present) is the only source of truth.
 - `test/config-doc-covers-every-user-config-field.test.ts` fails the suite when
   a key known to the loader is missing from this document.
+
+## `accounts.json` — which Claude account folders agents run on
+
+A separate JSON file beside `config.user.ts`: `~/.throne/config/accounts.json`.
+With no file the throne behaves as it always has: one account, `~/.claude`, and
+no account recorded for any agent. Malformed JSON, an unknown key or a bad value
+is refused with an error naming the file; it never falls back to a default
+silently. The reader is `src/account/accounts-config.ts`; the decision that
+uses it is `src/harness-routing/policy/account-balance.ts`.
+
+```json
+{
+  "accounts": [
+    { "name": "primary", "harness": "claude", "folder": "/Users/theuser/.claude" },
+    { "name": "secondary", "harness": "claude", "folder": "/Users/theuser/.throne/accounts/claude/secondary" }
+  ],
+  "longRunningAccount": "primary",
+  "companyLogin": { "emailDomain": "example.com" },
+  "mcpServersAllowedOnEveryAccount": [],
+  "balancing": true
+}
+```
+
+- `accounts` — the account folders, in fill order. Each entry has `name` (one
+  plain lowercase word; `company` is reserved), `harness` (`claude`) and
+  `folder` (an absolute path). The account whose folder is `~/.claude` is the
+  primary. A new short-lived agent goes to the first account under 90% used on
+  both the all-models 5-hour and weekly windows. The Fable window does not count.
+  If no account is under 90%, the agent goes to the first account not yet at
+  its limit. An account whose usage cannot be read (none read, or refused with
+  HTTP 429) is not counted as full: when no readable account is below its
+  limit, the agent goes to a logged-in account with no usage reading, the
+  primary first, and the reason names the unreadable accounts. The spawn
+  pauses only when every logged-in account has a usage reading at its limit.
+- `longRunningAccount` — the account Stagers and the Regent run on, whatever
+  the usage. Absent: the first account. `throne account switch-long-running <name>` sets it.
+- `companyLogin` — how the company login is recognised from a folder's own
+  login (`oauthAccount` in that folder's `.claude.json`): `emailDomain`,
+  `organizationUuid`, or both. Company work runs only on the account logged
+  in as the company, and waits while that account is at its limit.
+- `mcpServersAllowedOnEveryAccount` — MCP server names every account may use.
+  Every other server is company-only. Absent: none.
+- `balancing` — `true` or `false`; absent means `true`. With `false`, a spawn
+  reads no account usage and goes to the primary account, unless the agent
+  names its account with `create-agent --account <name>`. Stagers and the
+  Regent still run on `longRunningAccount`, and company work still runs on the
+  company account. Every account's folder mapping stays in force: recorded
+  accounts, relaunches and the transcript lookup keep using each agent's own
+  folder.
+
+Removing or renaming `accounts.json` is not a way to turn balancing off. It
+also drops every account's folder mapping: on 2026-10-16 (message 20518),
+with the file set aside, send-agent to an Alpha on the secondary account was
+refused with "transcript contains no assistant runtime-model record", because
+the transcript check looked in `~/.claude/projects` instead of the secondary
+folder. Set `"balancing": false` instead.

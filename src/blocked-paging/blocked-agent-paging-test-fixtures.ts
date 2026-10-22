@@ -2,6 +2,11 @@ import type { BlockedAgentPagingDependencies } from './blocked-agent-paging-depe
 import type { BlockedPageLedgerEntry } from './blocked-agent-escalation-ledger.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import type { HerdrAgent } from '../herdr/herdr-identity-contracts.ts';
+import {
+  readHarnessBackgroundWork,
+  type HarnessBackgroundWorkHost,
+} from '../process-inspection/harness-background-work.ts';
+import { PROCESS_HOST_WITHOUT_HERDR } from '../process-inspection/harness-background-work-test-fixtures.ts';
 
 export interface StoredBlockedMarker {
   blockedAt: string;
@@ -15,6 +20,7 @@ export function fakeBlockedAgentPagingDependencies(fake: {
   readonly supervisorOf: (name: string) => string;
   readonly readAgent: (name: string) => Promise<string>;
   readonly blockedMarkers?: Map<string, StoredBlockedMarker>;
+  readonly processHostOfPane?: (paneId: string) => HarnessBackgroundWorkHost;
 }) {
   const pages: string[] = [];
   const lordNotices: string[] = [];
@@ -26,6 +32,8 @@ export function fakeBlockedAgentPagingDependencies(fake: {
     getRoster: async () => fake.roster,
     readAgentSupervisor: async (name) => fake.supervisorOf(name),
     readAgent: fake.readAgent,
+    readHarnessBackgroundWork: (paneId) =>
+      readHarnessBackgroundWork(paneId, fake.processHostOfPane?.(paneId) ?? PROCESS_HOST_WITHOUT_HERDR),
     readVisiblePaneText: async () => '',
     blockedMarkerLedger: {
       readBlockedMarker: async (name) => blockedMarkers.get(name) ?? null,

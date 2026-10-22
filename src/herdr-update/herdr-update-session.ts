@@ -62,7 +62,7 @@ export async function launchIsolatedHerdrSession(
     );
   }
   const { configPath, configDir } = await writeNestedAllowScratchConfig();
-  const child = spawn(executablePath, ["--session", sessionName], {
+  const child = spawn(executablePath, ["--session", sessionName, "server"], {
     stdio: "ignore",
     detached: true,
     env: { ...env, HERDR_CONFIG_PATH: configPath },

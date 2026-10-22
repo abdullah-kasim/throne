@@ -7,10 +7,12 @@ import { PlanUsageRemainingCommand } from "../plan-usage-remaining/plan-usage-re
 import { CodexUsageRemainingCommand } from "../codex-usage-remaining/codex-usage-remaining.command.ts";
 import { ResourcePressureCommand } from "../resource-pressure/resource-pressure.command.ts";
 import { TokenBalanceCommand } from "../token-balance/token-balance.command.ts";
+import { AccountCommand } from "../account/account.command.ts";
 import { CampaignEvidenceCommand } from "../campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "../sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
 import { MemoryDirCommand } from "../memory-dir/memory-dir.command.ts";
 import { SkillExtensionCommand } from "../skill-extension/skill-extension.command.ts";
+import { ScratchPaneCommand } from "../scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "../migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "../memory-recall/recall.command.ts";
 import { RankCommand } from "../item-rank/rank.command.ts";
@@ -104,6 +106,14 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
       "Report the token-lane load balancer's verdict: which of SonnetLow/TerraLow new balanced-role spawns should use, or why both are unusable.",
   },
   {
+    name: "account",
+    provider: AccountCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Manage the Claude account folders agents run on: list each account's login, usage, live agents, MCP servers and link drift; add an account folder and print its login command; switch the Stagers and the Regent to another account.",
+  },
+  {
     name: "campaign-evidence",
     provider: CampaignEvidenceCommand,
     visibility: "public",
@@ -133,7 +143,7 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: false,
     description:
-      "Work with pull requests on this host's forge: which forge, ensure-repository, push-branch, pr create/view/edit/list/diff/comment, attach, detach and render-markdown, on Forgejo when it is installed and answering, otherwise through gh; stage an existing GitHub pull request in Forgejo; pr merge only on GitHub, never in Forgejo.",
+      "Work with pull requests on this host's forge: which forge, ensure-repository, push-branch, pr create/view/edit/list/diff/comment, attach, detach and render-markdown, on Forgejo when it is installed and answering, otherwise through gh; stage an existing GitHub pull request in Forgejo; pr merge only on GitHub, never in Forgejo, except that a repository whose git config sets throne.forge.landsOnMain lands its Forgejo pull requests on main through land, promote and pr merge.",
   },
   {
     name: "migrate-home",
@@ -160,6 +170,14 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Print the operator's extension to a named skill from the throne home's skill-extensions folder, or nothing when there is none; --list names every extension present.",
+  },
+  {
+    name: "scratch-pane",
+    provider: ScratchPaneCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Register an unnamed herdr pane a live agent opened on purpose, with its owner and a time it may stay until, so the unnamed-agent sweep stays quiet about it.",
   },
   {
     name: "recall",

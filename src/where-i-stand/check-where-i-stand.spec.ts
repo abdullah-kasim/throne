@@ -21,7 +21,7 @@ import {
 import { FRAME_HEADINGS, PageSection, sectionHeadingOf } from "./page-frame.ts";
 import { JournalAction, readJournal } from "./page-journal.ts";
 import { PAGE_FILE_NAME, showPage } from "./page-store.ts";
-import { runWhereIStand, WhereIStandExitCode } from "./where-i-stand-runtime.ts";
+import { runWhereIStand } from "./where-i-stand-runtime.ts";
 
 const ALPHA = "alpha-bakery-01";
 const OBJECTIVE_CODE = "bakery";
@@ -102,7 +102,7 @@ async function writePage(
   writtenAt: Date,
   content: string,
 ): Promise<void> {
-  const exitCode = await runWhereIStand(["lock", "--checksum", (await showPage(room.dataHome)).version], {
+  await runWhereIStand(["lock", "--checksum", (await showPage(room.dataHome)).version], {
     dataHome: room.dataHome,
     currentAgentName: async () => writer,
     now: () => writtenAt,
@@ -110,8 +110,9 @@ async function writePage(
     err: () => undefined,
     waitForRelease: () => writeFile(path.join(room.dataHome, PAGE_FILE_NAME), content, "utf8"),
     tellRegent: async () => undefined,
+    readStandardInput: async () => "",
   });
-  assert.equal(exitCode, WhereIStandExitCode.Done);
+  assert.equal((await showPage(room.dataHome)).content, content);
 }
 
 function recordDelivered(t: TestContext, room: PageRecordPlaces, writer: string, writtenAt: Date): Promise<void> {

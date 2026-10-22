@@ -1,0 +1,8 @@
+    1     0     1 /sbin/launchd
+  612     1   612 /usr/libexec/logd
+ 1200     1  1200 herdr server
+52148  1200 52148 -zsh
+52785 52148 52785 /Users/theuser/throne/vendor/node_modules/.bin/claude --dangerously-skip-permissions --model opus --name shadow-bakery-01
+53282 52785 52785 npm exec @modelcontextprotocol/server-filesystem
+53489 53282 52785 node /Users/theuser/.npm/_npx/4f1c/node_modules/.bin/mcp-server-filesystem
+53551 52785 52785 caffeinate -i -t 300

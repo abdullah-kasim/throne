@@ -749,11 +749,22 @@ evidence of it.
   message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`, for
   example `{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)`.
   `own-background-run` is not a child agent: the blocked-agent pager stays
-  silent while the pane shows the run still going, and pages the Regent once
-  if the marker stays up after the run is gone. Its next ordinary message
+  silent while a process the agent's harness started for the run is still
+  alive, and pages the Regent once if the marker stays up after the run is
+  gone. The throne reads running work from the process table, never from the
+  pane's text. Its next ordinary message
   clears the marker; it never repeats the marker when it resumes work.
   Otherwise no-idling pages the Regent every minute about an agent that is not
   idle.
+- **A scratch harness pane is registered before it is opened.** An agent that
+  opens an unnamed harness pane in herdr on purpose (a scratch Claude or Codex
+  session for a measurement or a probe) first runs
+  `throne scratch-pane register <pane> --owner <its own name> --until <ISO-8601 time>`,
+  and closes the pane's tab when it is done. No-idling stays silent about a
+  registered pane while its owner is alive and the time has not passed; it
+  reports the pane to the Regent once as an expired scratch pane after the
+  time, and once as an orphaned scratch pane as soon as the owner is gone. An
+  unregistered unnamed pane is reported every sweep.
 - **The Regent tells a waiting agent the one line to send.** When a no-idling
   notice names an agent "waiting on background work", the Regent sends it
   exactly
@@ -1360,6 +1371,7 @@ exists.
 |---------|---------|
 | `assert-herdr` | Refuse to run unless inside a herdr session. |
 | `agent-statuses` | Table of every herdr agent + its status (idle/working/blocked). |
+| `scratch-pane register <pane> --owner <agent> --until <ISO-8601 time>` | Record that a live agent owns an unnamed herdr pane it opened on purpose until a time, so no-idling's unnamed-agent sweep stays silent about it; the sweep reports it once when the time passes and once when the owner is gone. Refuses an owner that is not a known agent and a time that has passed. |
 | `agent-logs <name> [--lines N] [--source visible\|recent\|recent-unwrapped]` | Read what an agent has been doing (its recent/visible output). An Alpha uses it for one completion review, an explicit blocker, or silence beyond the 30-minute Regent heartbeat interval; the Regent uses it for diagnostics and to answer the Lord without blocking. It is never an Alpha short-cadence polling loop. |
 | `send-agent <recipient-name> <prompt...> [--sender-name <name>] [--key <key>] [--clear-blocked]` | Send to a uniquely resolved recipient through the SQLite-backed delivery queue. `--clear-blocked` explicitly clears the recipient's durable blocked marker as part of this send, independent of message content. Delivery is the platform primitive — `herdr agent prompt <recipient> <body> --wait --timeout <ms>` owns the write, the Enter, and its own queue semantics; the throne keeps only its value around it: unique recipient resolution, sender attribution and the queue id last (`<sender> said: <prompt> [message <id>]`, so a message whose head is clipped in the pane still ends with the id to re-read it by), the per-recipient pane mutex with identity re-proof under the lock, draft protection, file-backed payloads at 768 bytes and above (pointer + `read-payload` consumer), typed evidence, and durable receipts. Platform outcomes map to the throne's verdicts: a refusal before any write (`agent_not_found`/`agent_not_ready`/`empty_agent_prompt`/`agent_prompt_failed`/a command that never ran) is typed not-sent and retry-safe; a settled recipient state is delivered/queued evidence and records the supervision event; `agent_prompt_stalled`, `timeout`, `agent_not_running`, unknown codes, and unparseable successes assume filled — never resend. Inspect first, retry only typed not-sent, and never resend an assumed-filled verdict. On acceptance, `send-agent` prints the SQLite work-item id to check with `message-status <id>`; every accepted send is also unconditionally, best-effort recorded to `$THRONE_DATA/<senderName>/sent-messages.jsonl`, one JSON line per send (`{"timestamp": "<ISO 8601>", "recipient": "<name>", "id": "<the printed id>", "transport": "sqlite"}`). A ledger write failure never fails or delays the send. |
 | `mcq --agent <name> (--answer <n> \| --dismiss) [--dry-run]` | Answer or dismiss the interactive prompt (a harness permission menu or a numbered question) held up in a named agent's pane. Regent or Stager only. Refuses when no prompt is visible or `<n>` is not offered; presses the digit first, falls back to Up/Down and Enter with a cursor check after every press, and pages the Regent to take over by hand when the cursor is not where expected. `--dry-run` prints what it would press. Appends to `~/.throne/data/regent/mcq-answers.jsonl`. |
@@ -1808,7 +1820,8 @@ throne keeps a file points here.
 | Path | What lives there |
 | --- | --- |
 | `~/.throne` | The throne home. `THRONE_DATA_HOME` (an absolute path) overrides it, and is the only override. |
-| `~/.throne/config/` | The operator's settings: `features.json` and `config.user.ts` (with a `package.json` marking the folder an ES module). A `config.user.ts` in the live checkout wins when present, for quick testing; when both exist the throne prints one line naming the copy it loaded, and `throne check-config` always names it. |
+| `~/.throne/config/` | The operator's settings: `features.json`, `accounts.json` (the Claude account folders; see "Claude account folders" below) and `config.user.ts` (with a `package.json` marking the folder an ES module). A `config.user.ts` in the live checkout wins when present, for quick testing; when both exist the throne prints one line naming the copy it loaded, and `throne check-config` always names it. |
+| `~/.throne/accounts/claude/` | Every Claude account folder but the primary (`secondary/` today), the `security` stand-in in `bin/`, and the per-account MCP server files in `mcp/`. Each folder holds its own login; nothing here is ever committed or printed. |
 | `~/.throne/browser-profiles/` | agent-browser sign-ins, one folder per host, named at runtime. |
 | `~/.throne/logs/` | Service logs from the macOS LaunchAgents (linux services log to the journal). Logs written before the move stay in their old folder. |
 | `~/.throne/data/`, `~/.throne/worktrees/`, the `*.sqlite3` queues, `locks/`, `state/`, `diagnostics/`, `references/`, `where-i-stand.md` | Runtime state: agent ledgers, campaign worktrees, the message and objective queues, and the Lord's page. |
@@ -1822,6 +1835,59 @@ throne home and leaves a `MOVED.txt` naming the new places in each old folder.
 written until `throne migrate-home` is run by hand. Old logs are never moved, and the
 checkout's `config.user.ts` moves only when asked
 (`--include-checkout-config`).
+
+### Claude account folders
+
+Claude agents run on a few account folders, each shared by every agent on that
+account; an agent never gets a folder of its own, because per-agent config
+folders expired logins (2026-08-16: three agents on `Login expired` in one
+evening; `agent_docs/spawn-trust-suppression.md`).
+
+- `~/.throne/config/accounts.json` lists them: `accounts` (ordered; the first,
+  the primary, is `~/.claude`), `longRunningAccount`, `companyLogin` (how the
+  company login is recognised) and `mcpServersAllowedOnEveryAccount`. With no
+  file, every agent runs on `~/.claude` exactly as before.
+- The primary launches with no `CLAUDE_CONFIG_DIR`. Every other folder
+  launches with `CLAUDE_CONFIG_DIR` and the `security` stand-in first on
+  `PATH`, so its login stays in that folder's `.credentials.json` and never in
+  the macOS Keychain; the Keychain item "Claude Code-credentials" belongs to
+  the primary and is never touched. Its `CLAUDE.md`, `settings.json`,
+  `skills`, `hooks` and `plugins` are links to the primary's. Recipe and
+  evidence: `~/.throne/data/.reaped/alpha-acctspike-01/REPORT.md`.
+- Which account a folder holds is whatever the Lord logged in there with
+  Claude Code's own login command. The throne reads it from the folder's own `.claude.json`, never
+  from the folder's name, and `throne account list` reports a folder holding
+  the wrong login. `throne account add <name>` creates a folder and prints
+  the login command; logging in is the Lord's act.
+- New Alphas, Shadows and other short-lived agents fill the primary until its
+  all-models 5-hour or weekly window reaches 90% used, then the next account
+  (`agent_docs/architecture.md`, "Exact native target and hard quota gate").
+  An account whose usage cannot be read is not counted as full: with no
+  readable account below its limit the agent goes to an unreadable account,
+  the primary first, and the spawn pauses only when every logged-in account
+  reads as at its limit. `"balancing": false` in `accounts.json` turns the
+  usage choice off and sends them to the primary while keeping every folder
+  mapping; setting `accounts.json` aside is not an off switch, because it
+  drops the mapping too (`docs/CONFIG.md`).
+  `create-agent --account <name>` overrides that. Stagers and the Regent run on
+  `longRunningAccount`, and only `throne account switch-long-running <name>`
+  moves them, restarting each in place with its session carried across.
+- An agent keeps its account for life: every resume, restart and recovery
+  relaunches it on its recorded account, and its trust grant and transcript
+  live in that account's folder.
+- MCP servers and claude.ai connectors authenticate with the Claude account,
+  so the company-only ones run only on the company account: each launch gets
+  its servers through `--mcp-config`, and a server not listed in
+  `mcpServersAllowedOnEveryAccount` counts as company-only. A company-login
+  launch omits `--strict-mcp-config` so its claude.ai connectors load; every
+  other account gets `--strict-mcp-config` and
+  `ENABLE_CLAUDEAI_MCP_SERVERS=false`.
+  Command-line tools (`gh`, `ghe`, `git push`, the throne's forge commands)
+  run on every account.
+- Work that needs a company MCP tool runs on the company account only. A
+  Stager on another account files it as a queue row with the line
+  `ACCOUNT: company`, whose Alpha and Shadows then run on the company account;
+  the Regent never runs such work on another account itself.
 
 ## Chain of command — every spawned agent is told who to talk to
 

@@ -6,6 +6,7 @@ import {
   slowTestGroup,
 } from "../test/heavy-tests-gate.ts";
 import { applyTenSecondLawGate } from "./suite-duration-gate.mjs";
+import { listKilledTestFiles } from "./suite-test-file-watchdog.mjs";
 import {
   ZERO_TESTS_EXECUTED_EXIT_CODE,
   countTestsExecuted,
@@ -42,14 +43,15 @@ export function enabledGroupsListNoTestFiles(suiteOutput) {
   return suiteOutput.split("\n").some((line) => line.trim() === NO_LISTED_TEST_FILES_NOTICE);
 }
 
-export function formatSuiteOutcomeLine({ status, lawExempt, violationCount }) {
+export function formatSuiteOutcomeLine({ status, lawExempt, violationCount, killedTestFiles = [] }) {
   const testsOutcome = status === 0 ? "tests passed" : `tests failed (exit ${status})`;
   const lawOutcome = lawExempt
     ? "ten-second law not applied to a slow, container or heavy run"
     : violationCount === 0
       ? "ten-second law kept"
       : `ten-second law broken by ${violationCount} test item(s)`;
-  return `run-suite-container: outcome: ${testsOutcome}; ${lawOutcome}\n`;
+  const killedOutcome = killedTestFiles.length > 0 ? `; killed past the per-file time limit: ${killedTestFiles.join(", ")}` : "";
+  return `run-suite-container: outcome: ${testsOutcome}; ${lawOutcome}${killedOutcome}\n`;
 }
 
 export function reportEndOfSuiteRun(status, suiteOutput, environment, { writeOutput, writeError }) {
@@ -77,6 +79,6 @@ export function reportEndOfSuiteRun(status, suiteOutput, environment, { writeOut
       writeError(line);
     },
   });
-  writeOutput(formatSuiteOutcomeLine({ status, lawExempt, violationCount }));
+  writeOutput(formatSuiteOutcomeLine({ status, lawExempt, violationCount, killedTestFiles: listKilledTestFiles(suiteOutput) }));
   return exitCode;
 }

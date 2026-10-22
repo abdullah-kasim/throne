@@ -7,6 +7,8 @@ import { PRODUCTION_FORGE_DEPENDENCIES, type ForgeDependencies, type ProcessResu
 import { messageOf } from "./forge-refusal.ts";
 import { mirroredCommentMediaLinkWarnings, mirrorFeedbackToTwin, type MediaLinkInMirroredComment } from "./feedback-mirror.ts";
 import { answerForgejoFeedback, listForgejoFeedback } from "./forgejo-answers.ts";
+import { reviewFindingsForGithub, reviewOnForgejo } from "./forgejo-review.ts";
+import { landPullRequestOnMain } from "./landing-on-main.ts";
 import { closeMergedTwin, squashMergePullRequestOnGithub } from "./merging-on-github.ts";
 import { openPullRequest } from "./open-pull-request.ts";
 import { promotePullRequest } from "./promotion.ts";
@@ -17,7 +19,7 @@ import {
   createPullRequest,
   detachFromPullRequest,
   diffPullRequest,
-  editPullRequestBody,
+  editPullRequest,
   ensureRepository,
   listOpenPullRequests,
   printedJson,
@@ -30,6 +32,7 @@ import {
 import { DEFAULT_OPEN_PULL_REQUEST_LIMIT } from "./pull-request-shapes.ts";
 import { pullRequestStatus, pullRequestStatusLines } from "./pull-request-status.ts";
 import { cleanUpReviewWorktrees } from "./review-worktree-cleanup.ts";
+import { recordSelfReviewedHead } from "./self-review.ts";
 
 export interface ForgeCommandIo {
   readonly cwd: () => string;
@@ -99,7 +102,7 @@ function performForgeOperation(context: ForgeContext, invocation: ForgeInvocatio
     case "pr view":
       return viewPullRequest(context, target);
     case "pr edit":
-      return editPullRequestBody(context, target, value("--body-file"));
+      return editPullRequest(context, target, { title: invocation.values.get("--title"), bodyFile: invocation.values.get("--body-file") });
     case "pr list":
       return listOpenPullRequests(context, Number(invocation.values.get("--limit") ?? DEFAULT_OPEN_PULL_REQUEST_LIMIT));
     case "pr diff":
@@ -110,6 +113,12 @@ function performForgeOperation(context: ForgeContext, invocation: ForgeInvocatio
       return commentOnPullRequest(context, target, value("--body-file"));
     case "pr feedback":
       return printedJsonOf(listForgejoFeedback(context, target));
+    case "pr review":
+      return printedJsonOf(reviewOnForgejo(context, target, value("--comments-file")));
+    case "pr review-findings":
+      return printedJsonOf(reviewFindingsForGithub(context, target, value("--out")));
+    case "pr self-reviewed":
+      return printedJsonOf(recordSelfReviewedHead(context, target, value("--head")));
     case "pr answer":
       return printedJsonOf(
         answerForgejoFeedback(context, target, {
@@ -120,6 +129,8 @@ function performForgeOperation(context: ForgeContext, invocation: ForgeInvocatio
       );
     case "promote":
       return printedJsonOf(promotePullRequest(context, target));
+    case "land":
+      return printedJsonOf(landPullRequestOnMain(context, target));
     case "stage":
       return printedJsonWithMirroredCommentWarnings(stageGithubPullRequest(context, target));
     case "mirror-feedback":
@@ -175,7 +186,7 @@ export async function runForge(
 @Command({
   name: "forge",
   description:
-    "Work with pull requests on this host's forge: Forgejo when it is installed and answering, otherwise GitHub through gh; promote a Forgejo pull request to GitHub, stage an existing GitHub pull request in Forgejo, and stage its review feedback in Forgejo; merge only on GitHub and close the Forgejo twin once it is merged there.",
+    "Work with pull requests on this host's forge: Forgejo when it is installed and answering, otherwise GitHub through gh; promote a Forgejo pull request to GitHub, stage an existing GitHub pull request in Forgejo, and stage its review feedback in Forgejo; merge on GitHub and close the Forgejo twin once it is merged there; in a repository whose git config sets throne.forge.landsOnMain, land a Forgejo pull request on main as one signed squash commit instead, and never write to GitHub for it.",
   allowUnknownOptions: true,
   allowExcessArgs: true,
 })

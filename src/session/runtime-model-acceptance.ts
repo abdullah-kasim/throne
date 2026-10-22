@@ -16,6 +16,7 @@ import {
   type ClaudeRuntimeModelAttestation,
 } from "./claude-runtime-model-attestation.ts";
 import { resolvedOrRawPath } from "../shared-policy/path-equivalence.ts";
+import { claudeProjectsFolderOf } from "../account/agent-account.ts";
 import {
   IdentityLineReadStatus,
   readAgentRole,
@@ -154,7 +155,7 @@ export async function checkAgentRuntimeModelAcceptance(
   name: string,
   phase: RuntimeModelAcceptancePhase,
   baseDir: string = DEFAULT_DATA_DIR,
-  projectsDir: string = path.join(homedir(), ".claude", "projects"),
+  claudeProjectsFolder?: string,
 ): Promise<RuntimeModelAcceptance> {
   const spawn = await readSpawnSpec(name, baseDir);
   const exemptRole = await humanSteeredRoleOf(name, baseDir);
@@ -165,6 +166,7 @@ export async function checkAgentRuntimeModelAcceptance(
     return { ok: true, outcome: "not-applicable" };
   }
 
+  const projectsDir = claudeProjectsFolder ?? claudeProjectsFolderOf(spawn.account);
   const transcriptPath = await newestTranscriptPath(
     claudeProjectDirectory(spawn.cwd, projectsDir),
     spawn.session_id,
@@ -233,7 +235,7 @@ export async function awaitSpawnTaskingConfirmation(
   name: string,
   phase: RuntimeModelAcceptancePhase,
   baseDir: string = DEFAULT_DATA_DIR,
-  projectsDir: string = path.join(homedir(), ".claude", "projects"),
+  claudeProjectsFolder?: string,
   deps: SpawnTaskingConfirmationDeps = {},
 ): Promise<RuntimeModelAcceptance> {
   const pollIntervalMs = deps.pollIntervalMs ?? SPAWN_TASKING_POLL_INTERVAL_MS;
@@ -254,7 +256,7 @@ export async function awaitSpawnTaskingConfirmation(
         name,
         phase,
         baseDir,
-        projectsDir,
+        claudeProjectsFolder,
       );
     } catch {
       // A transient read failure mid-poll (e.g. the transcript directory not

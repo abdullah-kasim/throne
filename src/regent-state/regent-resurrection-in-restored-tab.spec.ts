@@ -120,6 +120,7 @@ async function courtAfterReboot(shape: CourtShape): Promise<FakeCourt> {
       role,
     }),
     restoredTab,
+    readAccountsConfig: () => null,
     writeStderr: () => {},
     throneRoot: "/throne",
     regentDir: await regentDirWithSpawnRecord(shape.recordedSessionId),

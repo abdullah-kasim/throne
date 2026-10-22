@@ -7,7 +7,7 @@ import {
 import { NO_IDLING_REGENT_NAME } from '../no-idling/idle-family.ts';
 import { NO_IDLING_SUBMIT_TIMEOUT_MS } from '../no-idling/no-idling-run.ts';
 
-const BLOCKED_AGENT_PAGING_SENDER = '';
+export const BLOCKED_AGENT_PAGING_SENDER = 'blocked-paging';
 
 export async function submitPageToRegent(
   message: string,

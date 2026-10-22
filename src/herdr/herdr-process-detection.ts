@@ -39,6 +39,14 @@ export function isLiveHarnessProcess(processInfo: HerdrForegroundProcess): boole
   return argvExecutableCandidates(processInfo.argv).some(isHarnessExecutableName);
 }
 
+export function harnessProcessOf(processInfo: HerdrPaneProcessInfo): HerdrForegroundProcess | undefined {
+  return processInfo.foregroundProcesses.find(isLiveHarnessProcess);
+}
+
+export function isHarnessCommandLine(command: string): boolean {
+  return argvExecutableCandidates(command.split(/\s+/)).some(isHarnessExecutableName);
+}
+
 export function isRegisteredHarnessProcess(registeredHarness: Harness, processInfo: HerdrForegroundProcess): boolean {
   return [registeredHarness, runtimeHarness(registeredHarness)].some((harness) => {
     const executableNames = new Set(HARNESS_EXECUTABLE_NAMES[harness]);

@@ -51,6 +51,7 @@ const USAGE =
   "Lord-only authorization for a Regent recipient)] [--bypass-zero-quota] " +
   "[--bypass-opencode-telemetry-unavailable] " +
   "[--objective-code <code> | --non-campaign] " +
+  "[--account <name> | --account company (a Claude agent's account; without it the account balancer chooses)] " +
   "[--empty-worktree] " +
   "[--fork-of <parent-stager> (Stager only; spawns a fresh fork of a live parent " +
   "Stager, inherits its model unless --model is given, and opens on the brief " +

@@ -1,7 +1,7 @@
 # sweep-tmp-scratch-slash.timer — user unit. Fires
 # sweep-tmp-scratch-slash.service on boot and every 6 hours thereafter.
 #
-# Same 6-hour cadence and rationale as sweep-tmp-scratch-home.timer: the
+# Same 6-hour cadence as sweep-tmp-scratch-claude1000.timer: the
 # sweep's own `--min-age-ms` age gate, not this interval, is what protects a
 # live campaign's scratch directory.
 #

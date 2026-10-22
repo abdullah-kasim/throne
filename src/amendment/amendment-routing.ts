@@ -28,7 +28,8 @@ export interface AmendmentRowFacts {
   readonly alphaName: string | null;
   readonly deliveredCommit: string | null;
   readonly deliveryBranch: string | null;
-  readonly alphaHasWrittenItsReport: boolean;
+  readonly alphaIsLive: boolean;
+  readonly alphaReportedDone: boolean;
 }
 
 const FINISHED_STATUSES: ReadonlySet<RegentQueueItemStatus> = new Set([
@@ -41,12 +42,16 @@ const NOT_YET_LAUNCHED_STATUSES: ReadonlySet<RegentQueueItemStatus> = new Set([
   RegentQueueItemStatus.Deferred,
 ]);
 
-function hasAlreadyDelivered(row: AmendmentRowFacts): boolean {
+function alphaIsFinished(row: AmendmentRowFacts): boolean {
   return (
-    FINISHED_STATUSES.has(row.status) ||
-    row.deliveredCommit !== null ||
-    row.alphaHasWrittenItsReport
+    row.status === RegentQueueItemStatus.InFlight &&
+    row.alphaName !== null &&
+    (row.alphaReportedDone || !row.alphaIsLive)
   );
+}
+
+function isWorkFinished(row: AmendmentRowFacts): boolean {
+  return FINISHED_STATUSES.has(row.status) || row.deliveredCommit !== null || alphaIsFinished(row);
 }
 
 function describeAlpha(row: AmendmentRowFacts): string {
@@ -58,9 +63,11 @@ function describeDelivery(row: AmendmentRowFacts): string {
   const evidence =
     row.deliveredCommit !== null
       ? `delivered ${where} at ${row.deliveredCommit}`
-      : row.alphaHasWrittenItsReport
-        ? `is finished: ${describeAlpha(row)} has already written REPORT.md`
-        : `is ${row.status}`;
+      : FINISHED_STATUSES.has(row.status)
+        ? `is ${row.status}`
+        : row.alphaReportedDone
+          ? `is finished: ${describeAlpha(row)} has reported DONE to its supervisor`
+          : `is finished: ${describeAlpha(row)} is no longer live`;
   return (
     `queue objective "${row.objectiveCode}" ${evidence}, so no one would ever act on an amendment to it. ` +
     `File a NEW objective against ${where} instead (/queue-objective), quoting the Lord's words there.`
@@ -79,7 +86,7 @@ export function decideAmendmentRoute(
         `An amendment needs a row to attach to; file a new objective with /queue-objective instead.`,
     };
   }
-  if (hasAlreadyDelivered(row)) {
+  if (isWorkFinished(row)) {
     return {
       route: AmendmentRoute.RefuseAlreadyDelivered,
       reason: describeDelivery(row),

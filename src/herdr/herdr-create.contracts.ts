@@ -5,6 +5,7 @@ export interface StartOptions {
    *  Defaults to the canonical agent name when absent — resumes and any
    *  caller that doesn't compute a persona label keep today's behaviour. */
   tabLabel?: string;
+  account?: string;
 }
 export type StartEvidencePhase =
   | "tab-created"

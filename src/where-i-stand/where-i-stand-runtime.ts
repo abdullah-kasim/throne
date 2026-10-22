@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { text as readStreamAsText } from "node:stream/consumers";
 import { promisify } from "node:util";
 import { resolveCurrentAgentName } from "../herdr/herdr-session.service.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
@@ -11,6 +12,8 @@ import {
   releaseEditLock,
   takeEditLock,
 } from "./edit-lock.ts";
+import { isTheLordsName } from "./page-journal.ts";
+import { saveOneUnitAsTheLord, SaveOutcome, unitChangeOf, type SaveAttempt } from "./page-save.ts";
 import { pagePathIn, PageWriteOutcome, showPage, type PageWriter } from "./page-store.ts";
 import type { UnrecordedEdit } from "./unrecorded-edit.ts";
 import {
@@ -21,21 +24,24 @@ import {
 } from "./where-i-stand-arguments.ts";
 import {
   NOTHING_WAS_WRITTEN,
-  renderBrokenFrameAtRelease,
   renderBrokenFrameOnNote,
+  renderFaultsAtRelease,
   renderHeldByAnother,
   renderLockHeld,
+  renderNameReservedForTheLord,
   renderRelease,
+  renderSaveAnswer,
   renderStaleChecksum,
   renderUnrecordedEdit,
   renderWriteIsGone,
+  SAVE_INPUT_REFUSED,
 } from "./where-i-stand-messages.ts";
 
 export const WhereIStandExitCode = {
   Done: 0,
   Refused: 1,
   InvalidInvocation: 2,
-  ReleasedWithBrokenFrame: 3,
+  ReleasedWithFaults: 3,
 } as const;
 
 export interface WhereIStandDependencies {
@@ -46,6 +52,7 @@ export interface WhereIStandDependencies {
   readonly err: (message: string) => void;
   readonly waitForRelease: (holdForMilliseconds: number) => Promise<void>;
   readonly tellRegent: (message: string) => Promise<void>;
+  readonly readStandardInput: () => Promise<string>;
   readonly flockExecutable?: string;
 }
 
@@ -77,6 +84,7 @@ export function realWhereIStandDependencies(
     tellRegent: async (message) => {
       await execFileAsync("throne", ["send-agent", CANONICAL_REGENT_AUTHORITY, message]);
     },
+    readStandardInput: () => readStreamAsText(process.stdin),
   };
 }
 
@@ -161,11 +169,11 @@ async function holdTheEditLock(
   await dependencies.waitForRelease(parsed.holdForMilliseconds);
   const released = await releaseEditLock(writer, attempt);
   dependencies.out(renderRelease(released));
-  if (released.frameFaults.length === 0) return WhereIStandExitCode.Done;
-  const brokenFrame = renderBrokenFrameAtRelease(released);
-  dependencies.err(brokenFrame);
-  await tellRegentOrSayWhyNot(`${writer.name} released the page's edit lock with a broken frame. ${brokenFrame}`, dependencies);
-  return WhereIStandExitCode.ReleasedWithBrokenFrame;
+  const faults = renderFaultsAtRelease(released);
+  if (faults === "") return WhereIStandExitCode.Done;
+  dependencies.err(faults);
+  await tellRegentOrSayWhyNot(`${writer.name} released the page's edit lock with faults to fix. ${faults}`, dependencies);
+  return WhereIStandExitCode.ReleasedWithFaults;
 }
 
 async function changeThePage(
@@ -177,6 +185,10 @@ async function changeThePage(
     writerName = await dependencies.currentAgentName();
   } catch (error) {
     dependencies.err(renderCallerWithoutIdentity(error));
+    return WhereIStandExitCode.Refused;
+  }
+  if (isTheLordsName(writerName)) {
+    dependencies.err(renderNameReservedForTheLord(writerName));
     return WhereIStandExitCode.Refused;
   }
   const writer: PageWriter = {
@@ -195,6 +207,31 @@ async function changeThePage(
   }
 }
 
+function printSaveAnswer(outcome: SaveAttempt["outcome"], message: string, dependencies: WhereIStandDependencies): void {
+  dependencies.out(`${JSON.stringify({ outcome, message })}\n`);
+}
+
+function isAKeptSave(attempt: SaveAttempt): boolean {
+  return attempt.outcome === SaveOutcome.Saved || attempt.outcome === SaveOutcome.Unchanged;
+}
+
+async function saveFromThePage(dependencies: WhereIStandDependencies): Promise<number> {
+  const change = unitChangeOf(await dependencies.readStandardInput());
+  if (change === undefined) {
+    printSaveAnswer(SaveOutcome.Failed, SAVE_INPUT_REFUSED, dependencies);
+    return WhereIStandExitCode.InvalidInvocation;
+  }
+  let attempt: SaveAttempt;
+  try {
+    attempt = await saveOneUnitAsTheLord(dependencies, change);
+  } catch (error) {
+    attempt = { outcome: SaveOutcome.Failed, reason: messageOf(error) };
+  }
+  await reportUnrecordedEdit(attempt.unrecordedEdit, dependencies);
+  printSaveAnswer(attempt.outcome, renderSaveAnswer(attempt), dependencies);
+  return isAKeptSave(attempt) ? WhereIStandExitCode.Done : WhereIStandExitCode.Refused;
+}
+
 export async function runWhereIStand(
   commandArguments: readonly string[],
   dependencies: WhereIStandDependencies = realWhereIStandDependencies(),
@@ -211,5 +248,6 @@ export async function runWhereIStand(
     return WhereIStandExitCode.Refused;
   }
   if (parsed.action === WhereIStandAction.Show) return showThePage(dependencies);
+  if (parsed.action === WhereIStandAction.Save) return saveFromThePage(dependencies);
   return changeThePage(parsed, dependencies);
 }

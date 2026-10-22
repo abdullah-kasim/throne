@@ -181,34 +181,6 @@ test('the where-i-stand skill puts the differences on the page, not in the termi
   assert.ok(!differencesStep.includes('tell the Lord only what differs'), 'the differences are not told in the terminal');
 });
 
-test('the where-i-stand skill serves the page on the tailnet only', async () => {
-  const servingStep = await readSkillSection('where-i-stand', STEP_HEADINGS[4]);
-  assert.deepEqual(
-    missingPhrases(servingStep, [
-      'on the tailnet only, never through funnel, at the path `/where-i-stand`',
-      'The server does not survive a reboot, so check it on every run and start it when it is not up',
-      `curl -s -o /dev/null -w '%{http_code}\\n' "\${page_url}where-i-stand-prs.json"`,
-      'or it is an older page served without the pull request table',
-      'tailnet-preview.sh stop where-i-stand',
-      'tailnet-preview.sh share where-i-stand "$page_source"',
-      'ln -s "${THRONE_DATA_HOME:-$HOME/.throne}/where-i-stand.md" "$page_source/where-i-stand.md"',
-      'ln -s "${XDG_CACHE_HOME:-$HOME/.cache}/where-i-stand/where-i-stand-prs.json" "$page_source/where-i-stand-prs.json"',
-      'Both links must be absolute',
-      'When the data file is missing, run the reader once with `--refresh` (step 2), which writes it, before you start the server.',
-      'It sits outside every checkout and worktree, so it outlives them',
-      'The copy keeps the link as a link.',
-      "An older preview that holds the path is replaced through the script's own `stop`",
-      'Never take the path over with `tailscale serve` by hand',
-    ]),
-    [],
-  );
-  assert.ok(!servingStep.includes('tailscale funnel'), 'no step runs a funnel');
-  assert.ok(
-    servingStep.indexOf('tailnet-preview.sh stop where-i-stand') < servingStep.indexOf('tailnet-preview.sh share where-i-stand'),
-    'stop runs before share',
-  );
-});
-
 test('every page entry starts with its links, its kind and where it stands', async () => {
   const source = await readFile(resolve(PAGE_SKILL_DIRECTORY, 'SKILL.md'), 'utf8');
   const writingRules = readMarkdownSection(source, '## Writing rules for the page');
@@ -506,4 +478,14 @@ test("the copied reader's own tests pass", async () => {
     env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
   });
   assert.match(stderr, /Ran \d+ tests/);
+});
+
+test("the where-i-stand skill tells agents to start a throne or dotfiles entry's Kind line with the repository name", async () => {
+  assert.deepEqual(
+    missingPhrases(await readSkillSection('where-i-stand', '## Writing rules for the page'), [
+      'An entry for throne or dotfiles work with no pull request starts its `Kind:` line with `throne` or `dotfiles`',
+      'so the page sorts it into its collapsed throne and dotfiles section.',
+    ]),
+    [],
+  );
 });

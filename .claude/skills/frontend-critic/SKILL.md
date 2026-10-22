@@ -266,6 +266,128 @@ each suspicion, try each in the browser with the moves and readbacks of
 3d, and report each one confirmed in the section 5 format. A suspicion
 the browser cannot confirm is listed as unconfirmed, not fixed.
 
+## 3f. Pixel parity, base against head
+
+Run this when a change must not move a single pixel on the pages it
+touches: a refactor, a shared-component extraction, a dependency bump, a
+markup swap. It compares the base branch against the head across a list
+of page states, viewports and themes, and its job is to find a
+difference as early as possible. Knowing exactly which state caused it
+comes second, because the agent can work that out quickly once it knows
+there is one.
+
+The defaults, in order of importance:
+
+1. **Chain by default.** States that share a start URL run as one chain:
+   one page walks the steps the way a person does and captures after each
+   step, on base and on head. A chain stops at its first difference (fail
+   fast). Only then is the failing chain re-run with a fresh page per
+   state to find which step caused it. Fresh-page-per-state is the
+   fallback for locating a fault, never the first run.
+2. **Capture base and head side by side,** in parallel, not one after the
+   other.
+3. **The base-against-base control runs once on two or three states,** not
+   on every state. If the control is not 0 px, the run stops and says the
+   page is noisy, because no diff can be trusted on it.
+4. **Switch the theme in place** with Playwright
+   `page.emulateMedia({ colorScheme })` rather than opening a new context
+   and reloading. Switch only when the theme actually changes: re-applying
+   the current theme before a capture re-rasters sub-pixel edges and adds
+   one-shade noise. A page that reads the colour scheme once at load and
+   keeps it in its own state also needs its own theme control pressed, in
+   place, without a reload.
+5. **Wait on a named settle condition** (the data the state shows is on
+   screen, the network is quiet), never a fixed sleep. Fixed waits come
+   down only once the settle condition is proven on that page.
+
+It measures in Chromium, like the rest of this skill (section 4).
+
+Report, per state: the viewport, the theme, the pixel difference of head
+against base, the pixel difference of the control where it ran, and the
+paths of the shots. For a failing chain, also report the state where the
+chain stopped and the state the fresh-page re-run named. A difference the
+fresh-page re-run cannot reproduce comes from the chain's history or from
+noise; run the same input with head pointed at the base to tell which.
+
+### The shipped script
+
+`pixel-parity.mjs`, beside this file, does the run:
+
+```bash
+node .claude/skills/frontend-critic/pixel-parity.mjs parity-states.mjs parity-out
+```
+
+It writes `parity-out/results.json` (the control rows, one row per
+captured state with `headPixels`, `controlPixels`, `shots` and `error`,
+and, for each failing chain, where it stopped and which state the
+fresh-page re-run named) and `parity-out/shots/`, prints one line per
+state as it goes, and exits 1 on any difference, error or noisy control.
+
+The throne does not depend on Playwright. The script loads it from the
+project being checked: run it from that project's folder, or name a
+folder with `playwright` installed as `playwrightFrom`.
+
+The input is a JavaScript module whose default export describes the run.
+Steps and settle conditions are functions, so anything a person does on
+the page can be a step. Picture a recipe app whose search page must not
+move after its card component was extracted:
+
+```js
+async function cardsOnScreen(page) {
+  await page.locator('.recipeCard').first().waitFor();
+  await page.waitForLoadState('networkidle');
+}
+
+export default {
+  base: 'http://127.0.0.1:5101',
+  head: 'http://127.0.0.1:5102',
+  viewports: { desktop: { width: 1440, height: 900 }, phone: { width: 393, height: 852 } },
+  themes: ['dark', 'light'],
+  contextOptions: { timezoneId: 'UTC', locale: 'en-US', reducedMotion: 'reduce' },
+  scrollRoot: '#results',
+  async preparePage(page) {
+    await page.clock.setFixedTime(1767225600000);
+  },
+  async applyTheme(page, theme) {
+    if ((await page.locator('html').getAttribute('data-theme')) !== theme) await page.getByRole('button', { name: 'Switch theme' }).click();
+  },
+  chains: [
+    {
+      name: 'search',
+      url: '/recipes/search?q=soup',
+      states: [
+        { name: 'results', settle: cardsOnScreen },
+        { name: 'vegetarian', step: (page) => page.getByRole('checkbox', { name: 'Vegetarian' }).check(), settle: cardsOnScreen },
+        { name: 'card-open', step: (page) => page.locator('.recipeCard').first().click(), settle: (page) => page.locator('.recipeDetail').waitFor() },
+      ],
+    },
+    {
+      name: 'search-error',
+      url: '/recipes/search?q=soup',
+      preparePage: (page) => page.route('**/api/search*', (route) => route.fulfill({ status: 500 })),
+      states: [{ name: 'error', settle: (page) => page.getByText('Search failed').waitFor() }],
+    },
+  ],
+};
+```
+
+`base`, `head`, `viewports`, `themes` and `chains` are required, and every
+state needs a `settle`. A chain's `url` is appended to each side's
+address. `contextOptions` go to every new browser context. `preparePage`
+runs on each new page, and a chain's own `preparePage` runs before its
+first navigation, which is where request interception for loading and
+error states goes; both receive `{ side }` (`'base'` or `'head'`), as do
+`step` and `settle`. `applyTheme` is optional and runs after
+`emulateMedia` for a page that keeps the theme in its own state.
+`scrollRoot` names an element inside the scrolling pane; the script
+scrolls that pane, or the document, and captures every screenful.
+
+Prove the compare can fail before trusting a clean run: plant a visible
+one-pixel change on head only, from the input (for example
+`page.addStyleTag` in a mid-chain `step` when `side` is `'head'`), and
+check that the chain stops at that state and the fresh-page re-run names
+it.
+
 ## 4. Measure in Chromium only
 
 The critique measures in Chromium, the browser agent-browser drives, and

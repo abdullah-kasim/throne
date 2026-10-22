@@ -119,7 +119,7 @@ function forgejoGitEnvironment(repository: ForgejoRepository, api: ForgejoApi): 
   return environmentForForgejoGit(process.env, repository.owner, api.token, api.rootUrl);
 }
 
-async function pushToForgejo(
+export async function pushToForgejo(
   repo: string,
   refspec: string,
   repository: ForgejoRepository,
@@ -191,7 +191,7 @@ async function freshBaseRefFor(repo: string, branch: string, dependencies: Forge
   return fetched === ORIGIN_FETCH.fetched ? originTrackingRef(branch) : `${BRANCH_REF_PREFIX}${branch}`;
 }
 
-async function fetchForgejoBranch(
+export async function fetchForgejoBranch(
   repo: string,
   branch: string,
   repository: ForgejoRepository,
@@ -208,7 +208,7 @@ async function fetchForgejoBranch(
   return forgejoBranch;
 }
 
-async function isAncestor(repo: string, ancestor: string, descendant: string, dependencies: ForgeDependencies): Promise<boolean> {
+export async function isAncestor(repo: string, ancestor: string, descendant: string, dependencies: ForgeDependencies): Promise<boolean> {
   return (await dependencies.runProcess("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd: repo })).exitCode === 0;
 }
 

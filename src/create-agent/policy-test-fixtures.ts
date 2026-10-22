@@ -121,6 +121,7 @@ export function baseDeps(
     planPresetName: "AnthropicOnly",
     targetEffort: 1,
     readModelAllowlist: async () => undefined,
+    readAccountsConfig: () => null,
     openQueueStore: fakeQueueStoreWithOpenItem("brg"),
     readUsageBypassAuthorizations: async () => ({
       version: 1,

@@ -60,6 +60,7 @@ import {
   typeHarnessCommandIntoIdleClaudePane,
   type HarnessCommandTypingResult,
 } from "./harness-command-typing.ts";
+import { claudeProjectsFolderOf } from "../account/agent-account.ts";
 
 export interface AgentSettingsTickRequest {
   readonly dryRun: boolean;
@@ -73,6 +74,7 @@ export interface AgentSettingsTickDeps {
   readonly readSessionSettings: (
     workingDirectory: string,
     sessionId: string | undefined,
+    recordedAccount: string | undefined,
   ) => Promise<ClaudeSessionSettings>;
   readonly typeHarnessCommand: (
     agent: HerdrAgent,
@@ -90,8 +92,8 @@ export const REAL_AGENT_SETTINGS_TICK_DEPS: AgentSettingsTickDeps = {
   readRoster: () => getAgentStatusesRoster(),
   listPaneAgents: () => listAgents(),
   readSpawnSpec: (agentName) => readSpawnSpec(agentName),
-  readSessionSettings: (workingDirectory, sessionId) =>
-    readClaudeSessionSettings(workingDirectory, sessionId),
+  readSessionSettings: (workingDirectory, sessionId, recordedAccount) =>
+    readClaudeSessionSettings(workingDirectory, sessionId, claudeProjectsFolderOf(recordedAccount)),
   typeHarnessCommand: (agent, commandText) =>
     typeHarnessCommandIntoIdleClaudePane(agent, commandText),
   reviveAgent: (agentName, request) => reviveAgentInItsTab(agentName, request),
@@ -285,6 +287,7 @@ async function settingsReportOfLiveAgent(
   const recorded = await tick.deps.readSessionSettings(
     spawnSpec.cwd,
     spawnSpec.session_id,
+    spawnSpec.account,
   );
   const actual: ActualAgentSettings = {
     ...LIVE_WITH_NOTHING_READ,

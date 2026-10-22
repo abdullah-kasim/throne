@@ -3,9 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { FORGE, ghEnvironmentFor, ghWorkingDirectoryFor, parsePullRequestUrl, pullRequestStatusOf, runForgeSeam } from '../pr-merge/stack.mjs';
 
-const usage = 'usage: node pending-review.mjs <pull request url> <comments.json> [--dry-run]';
+const usage = 'usage: node pending-review.mjs <pull request url> <comments.json> [--dry-run] [--to-github]';
 const guardMarker = 'throne-gh-guard-shim';
-export const forgejoHasNoPendingReview = 'A Forgejo pull request cannot get a pending review: the forge seam has no review operation, so nothing was written.';
 
 function whichProgram(program) {
   const result = spawnSync('/usr/bin/which', [program], { encoding: 'utf8' });
@@ -49,13 +48,34 @@ export function pendingReviewPayload(headSha, comments) {
   return { commit_id: headSha, comments };
 }
 
-export async function leavePendingReview(url, commentsPath, flags, { runSeam = runForgeSeam, runGithub = runGh, writeOutput = (text) => process.stdout.write(text) } = {}) {
-  if (!url || !commentsPath) throw new Error(usage);
+function readComments(commentsPath) {
+  return JSON.parse(readFileSync(commentsPath, 'utf8'));
+}
+
+function unstagedGithubRefusal(url) {
+  return `${url} is not staged in Forgejo, so nothing was written: stage it first with \`throne forge stage ${url}\`, then leave the review on its Forgejo twin.`;
+}
+
+function forgejoUrlToGithubRefusal(url) {
+  return `${url} is a Forgejo pull request, so nothing was written: a GitHub pending review goes on the GitHub twin's url.`;
+}
+
+async function leaveForgejoReview(url, commentsPath, status, flags, { runSeam, writeOutput }) {
+  if (status.forgejo === null) throw new Error(unstagedGithubRefusal(url));
+  const comments = readComments(commentsPath);
+  validateComments(comments);
+  if (flags.includes('--dry-run')) {
+    writeOutput(`${JSON.stringify({ forgejoPullRequest: status.forgejo.url, comments }, null, 2)}\n`);
+    return;
+  }
+  writeOutput(await runSeam(['pr', 'review', url, '--comments-file', commentsPath]));
+}
+
+function leaveGithubPendingReview(url, commentsPath, status, flags, { runGithub, writeOutput }) {
+  if (status.publishTo === FORGE.forgejo) throw new Error(forgejoUrlToGithubRefusal(url));
   const { owner, repo, number } = parsePullRequestUrl(url);
-  const status = await pullRequestStatusOf(url, runSeam);
-  if (status.publishTo === FORGE.forgejo) throw new Error(forgejoHasNoPendingReview);
   const { program } = status.mergeTarget;
-  const comments = validateComments(JSON.parse(readFileSync(commentsPath, 'utf8')));
+  const comments = validateComments(readComments(commentsPath));
   const headSha = runGithub(program, ['pr', 'view', String(number), '--repo', `${owner}/${repo}`, '--json', 'headRefOid', '--jq', '.headRefOid']).trim();
   const payload = pendingReviewPayload(headSha, comments);
   if (flags.includes('--dry-run')) {
@@ -67,6 +87,13 @@ export async function leavePendingReview(url, commentsPath, flags, { runSeam = r
   const attached = JSON.parse(runGithub(program, ['api', `repos/${owner}/${repo}/pulls/${number}/reviews/${review.id}/comments`, '--paginate']));
   writeOutput(`pending review ${review.id} on #${number}: state ${readBack.state}, ${attached.length} of ${comments.length} comments attached, at ${headSha.slice(0, 10)}\n${readBack.html_url ?? ''}\n`);
   if (readBack.state !== 'PENDING') throw new Error(`review ${review.id} is ${readBack.state}, not PENDING`);
+}
+
+export async function leavePendingReview(url, commentsPath, flags, { runSeam = runForgeSeam, runGithub = runGh, writeOutput = (text) => process.stdout.write(text) } = {}) {
+  if (!url || !commentsPath) throw new Error(usage);
+  const status = await pullRequestStatusOf(url, runSeam);
+  if (flags.includes('--to-github')) return leaveGithubPendingReview(url, commentsPath, status, flags, { runGithub, writeOutput });
+  return leaveForgejoReview(url, commentsPath, status, flags, { runSeam, writeOutput });
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {

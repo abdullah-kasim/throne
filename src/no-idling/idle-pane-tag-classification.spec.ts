@@ -9,7 +9,6 @@ import { test } from 'node:test';
 import {
   classifyLastMessageTags,
   lastMessageBlock,
-  liveBackgroundWork,
   readReapabilityClaimStatus,
 } from './idle-pane-tag-classification.ts';
 
@@ -53,16 +52,6 @@ const PANE_SHOWING_QUEUED_SUITE_RUNS = await readFile(
   path.join(import.meta.dirname, 'fixtures', 'claude-pane-waiting-on-queued-suite-runs.txt'),
   'utf8',
 );
-
-test('a pane whose background-work progress line wrapped onto a second line is still seen as busy', () => {
-  assert.equal(liveBackgroundWork(PANE_SHOWING_QUEUED_SUITE_RUNS), '4 shells, 1 monitor still running');
-});
-
-test('a pane whose background-work progress line fits on one line is still seen as busy', () => {
-  const unwrapped = PANE_SHOWING_QUEUED_SUITE_RUNS.replace('monitor still\n  running', 'monitor still running');
-
-  assert.equal(liveBackgroundWork(unwrapped), '4 shells, 1 monitor still running');
-});
 
 test("a slash command the throne typed after a waiting agent's message does not hide that message", () => {
   const message = lastMessageBlock(PANE_SHOWING_QUEUED_SUITE_RUNS);

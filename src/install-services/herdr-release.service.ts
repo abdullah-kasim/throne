@@ -23,25 +23,25 @@ export interface HerdrReleaseArtifact {
 // `herdr-update-release.ts` already targets `herdrdev/herdr`. Leaving this
 // one on the pre-migration name kept two pins pointing at two repositories.
 export const HERDR_RELEASE = {
-  version: '0.8.2',
+  version: '0.9.5',
   repository: 'herdrdev/herdr',
-  tag: 'v0.8.2',
+  tag: 'v0.9.5',
   artifacts: {
     'linux-aarch64': {
       filename: 'herdr-linux-aarch64',
-      sha256: 'f55610658e1c2e0d2aaef730b4b2ab885f7f8ba00285ab372bfb14f2e3d5b40d',
+      sha256: '17d7536f2da50859523680ef279dffcac8e4a235f4e46fe8da6c2ec44141897c',
     },
     'linux-x86_64': {
       filename: 'herdr-linux-x86_64',
-      sha256: '976150a14d490c94b243ea2e1a7eb2dfb67f12e36b182db90936f6728e6aecf4',
+      sha256: '14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d',
     },
     'macos-aarch64': {
       filename: 'herdr-macos-aarch64',
-      sha256: 'a5d4f4d504d8b309c91f811050559300faba31258425f53c50852fc96f6ae574',
+      sha256: 'fb77c2232a05a8035421382c894392f4174e4e38a18e48af3dd0290157c3a7e2',
     },
     'macos-x86_64': {
       filename: 'herdr-macos-x86_64',
-      sha256: 'ab50262c8190cd7aa9056d249d255c08c328c3e8716de9cfa29db4f131b8e2c1',
+      sha256: '5fb0a908ec7f6745e3e245738b06bfad56c46391c391ab3c0955fbead01f1369',
     },
   },
 } as const satisfies {

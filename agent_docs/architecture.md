@@ -380,6 +380,29 @@ inside `create-agent` -> injected harness usage -> unified steering.
 
 Usage steering, bounded-history forecasting, and history reads are mandatory for fresh spawns. Pools, floors, availability, native quota, effort, and stored-resume contracts remain separate gates.
 
+When `~/.throne/config/accounts.json` lists Claude accounts, a fresh Claude
+spawn is also placed on one account folder, read from each folder's own login.
+`create-agent --account <name>` names it outright. A row marked
+`ACCOUNT: company`, and every Shadow of its Alpha, runs on the company account
+and waits while that account is at its limit. A Stager or the Regent runs on
+the recorded `longRunningAccount`, whatever the usage; only
+`throne account switch-long-running <name>` changes it. Every other agent
+goes to the first account in the list (the primary, `~/.claude`) until either
+of its all-models windows, `5h` or `weekly`, reaches 90% used, then to the
+next account, and back to the primary once both are under 90% again. The
+Fable-scoped weekly window plays no part. An account with no usable usage
+reading (none read, or refused with HTTP 429) is not counted as full: when no
+readable account is below its limit, the spawn goes to a logged-in account
+with no usage reading, the primary first, and names the unreadable accounts.
+The spawn pauses only when every logged-in account has a usage reading at its
+limit. `"balancing": false` in `accounts.json` stops the usage choice: no
+account usage is read and every other agent goes to the primary, while the
+folder mapping, `--account`, the long-running account and the company account
+keep their rules. The account is recorded in `spawn.json` and
+`identity.md`, and every resume, restart and recovery relaunches the agent on
+it: an agent keeps its account for life. Without the file there is one
+account, `~/.claude`, and nothing is recorded.
+
 One per-run memoized Claude-usage Promise is shared when Shadow routing and the
 final gate both need telemetry, so they cannot disagree through a second fetch.
 The gate completes before Codex trust, registration/ledger writes,

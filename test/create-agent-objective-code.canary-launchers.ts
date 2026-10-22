@@ -112,11 +112,13 @@ if (args[0] === '--version') {
   process.stdout.write('herdr ' + version + '\n');
 } else if (args[0] === 'status' && args[1] === 'server') {
   log(readonlyLog, invocationArgs);
-  process.stdout.write(
-    'status: running\nversion: ' + version +
-    '\nprotocol: ${THRONE_HERDR_PROTOCOL}\ncompatible: yes\n' +
-    'socket: /hermetic/.config/herdr/sessions/' + expectedSession + '/herdr.sock\n',
-  );
+  emit({
+    status: 'running',
+    version,
+    protocol: ${THRONE_HERDR_PROTOCOL},
+    compatible: true,
+    socket: '/hermetic/.config/herdr/sessions/' + expectedSession + '/herdr.sock',
+  });
 } else if (args[0] === 'agent' && args[1] === 'list') {
   log(readonlyLog, invocationArgs);
   emit({ result: { agents: state.agents } });

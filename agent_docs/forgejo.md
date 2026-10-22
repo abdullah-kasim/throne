@@ -12,7 +12,8 @@ It is **only a staging area**: nothing is merged in Forgejo. A pull request
 reaches GitHub through `/pr-promote` on the Lord's word and is merged there;
 its Forgejo pull request is then closed with a comment saying it was merged
 on the GitHub side (`throne forge close-merged-twin`, see
-`agent_docs/commands.md` `## forge`).
+`agent_docs/commands.md` `## forge`). The one exception is a repository that
+lands on main (below), whose pull requests never reach GitHub.
 
 It is **optional**. A plain `./install.sh` or `install-services` run never
 pulls, renders, enables or starts anything Forgejo. Only
@@ -152,6 +153,67 @@ opens it in the editor: it reuses a clean worktree already at its head, or
 creates a detached review worktree fetched from the checkout's `forgejo`
 remote when Forgejo holds the head (`origin` otherwise). The `/pr-open` skill
 runs it.
+
+## Repositories that land on main
+
+A repository can use Forgejo as its only pull-request forge: GitHub holds
+only its `main`, and the forge seam never makes a GitHub pull request,
+review or comment for it. The mark is one git config key in the repository's
+local checkout, which its linked worktrees share:
+
+```bash
+git -C <repo> config throne.forge.landsOnMain true
+git -C <repo> config --type=bool --get throne.forge.landsOnMain
+```
+
+The second line prints `true` for a marked repository. Unset or `false`
+leaves the repository on the staging flow above.
+
+In a marked repository `throne forge land <pr>`, `throne forge promote <pr>`
+and `throne forge pr merge <pr> --squash` run one landing, in this order:
+
+1. refuse unless the pull request's base is the default branch;
+2. fetch `main` from `origin` and the head from Forgejo;
+3. `git merge --squash` the head onto `origin/main` in a scratch worktree
+   outside the checkout; a conflict refuses, listing every conflicting path,
+   with nothing pushed or commented;
+4. commit with `git commit -S`: the subject is the title without its `WIP: `
+   prefix and `[GH-…]` marker, the body the text of the body's
+   `## What (human)` section, or else its first paragraph, with records and
+   `<details>` tags removed;
+5. push the commit to `origin` `main`, then to the `forgejo` remote's `main`,
+   never forced;
+6. comment `Landed on main as <sha>` on the Forgejo pull request, then close
+   it as merged: turn on the copy's `allow_manual_merge` setting and post
+   Forgejo's manual-merge mark (`POST …/pulls/{n}/merge` with
+   `{"Do":"manually-merged","MergeCommitID":"<sha>"}`), so Forgejo reports
+   `merged: true` with `merge_commit_sha` the landed commit. A refused mark
+   refuses, naming the commit already on both mains; nothing is pushed
+   again;
+7. remove the scratch worktree, on a refusal too.
+
+It prints `{"forgejoUrl","landedCommit","base":"main","closed":true}`.
+Both remotes end on the same commit, so the next `pr create` finds Forgejo's
+copy of `main` current. The Forgejo head branch is left in place.
+
+Forgejo's merge button is never used and no merge style that makes a commit
+(`merge`, `rebase`, `rebase-merge`, `squash`, `fast-forward-only`) is ever
+requested: a merge commit Forgejo makes would not carry the Lord's signature.
+The manual-merge mark makes no commit; it only records the signed commit that
+already landed. Signing is never turned off; a
+signing failure refuses with nothing pushed.
+
+The landing never touches the local checkout's working tree, index or
+branches, so the Lord's local `main` is not updated by it; a fetch and a
+fast-forward bring it up to date.
+
+What refuses, naming the key, with nothing sent to GitHub: in a marked
+repository, `pr create`, `pr edit` and `pr comment` whenever they would
+reach GitHub, and `pr review-findings` (so /pr-review's "promote the
+review"). In an unmarked repository, `land` refuses and changes nothing.
+Rows filed on a marked repository carry a pull-request branch
+(`/queue-objective` step 5), so each stops at a Forgejo pull request until
+the Lord says `/pr-merge` or `/pr-promote`.
 
 ## Keeping Forgejo copies current
 

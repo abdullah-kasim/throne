@@ -10,6 +10,7 @@ export const WHERE_I_STAND_USAGE = [
   "usage: throne where-i-stand show",
   `       throne where-i-stand lock --checksum <checksum> [--ttl <seconds>s|<minutes>m, default ${DEFAULT_LOCK_DURATION}, at most 15m]`,
   '       throne where-i-stand note "<one line>"',
+  '       throne where-i-stand save < {"loaded": "<entry as the page loaded it>", "edited": "<its new text>"}',
 ].join("\n");
 
 export const WhereIStandAction = {
@@ -17,13 +18,15 @@ export const WhereIStandAction = {
   Lock: "lock",
   Note: "note",
   Write: "write",
+  Save: "save",
 } as const;
 
 export type WhereIStandArguments =
   | { readonly action: typeof WhereIStandAction.Show }
   | { readonly action: typeof WhereIStandAction.Lock; readonly checksum: string; readonly holdForMilliseconds: number }
   | { readonly action: typeof WhereIStandAction.Note; readonly event: string }
-  | { readonly action: typeof WhereIStandAction.Write };
+  | { readonly action: typeof WhereIStandAction.Write }
+  | { readonly action: typeof WhereIStandAction.Save };
 
 function oneLineEventOf(text: string | undefined): string {
   const event = (text ?? "").trim();
@@ -70,7 +73,11 @@ export function parseWhereIStandArguments(commandArguments: readonly string[]): 
     if (rest.length > 1) throw new Error("note takes the event as one quoted argument");
     return { action, event: oneLineEventOf(rest[0]) };
   }
+  if (action === WhereIStandAction.Save) {
+    if (rest.length > 0) throw new Error(`save takes no argument; it reads its JSON from standard input, got "${rest.join(" ")}"`);
+    return { action };
+  }
   throw new Error(
-    action === undefined ? "an action is required: show, lock or note" : `"${action}" is not an action: use show, lock or note`,
+    action === undefined ? "an action is required: show, lock, note or save" : `"${action}" is not an action: use show, lock, note or save`,
   );
 }

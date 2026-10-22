@@ -313,6 +313,7 @@ export function readAutoscaleQueue(
       shadowless: itemByObjective.get(brief.objectiveCode)?.shadowless === true,
       sliceless: itemByObjective.get(brief.objectiveCode)?.sliceless === true,
       effort: itemByObjective.get(brief.objectiveCode)?.effort ?? null,
+      account: itemByObjective.get(brief.objectiveCode)?.account ?? null,
     }));
   return candidates.length === 0
     ? {

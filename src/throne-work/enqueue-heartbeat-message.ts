@@ -107,6 +107,9 @@ export async function submitToAgentViaQueue(
         senderName,
         prompt,
         ...(options.key === undefined ? {} : { key: options.key }),
+        ...(options.omitSenderAttribution === undefined
+          ? {}
+          : { omitSenderAttribution: options.omitSenderAttribution }),
         clearRecipientBlockedOnDelivery: false,
       },
       deps,
@@ -114,4 +117,22 @@ export async function submitToAgentViaQueue(
   } finally {
     store.close();
   }
+}
+
+export async function submitUnattributedToAgentViaQueue(
+  target: HerdrAgent,
+  senderName: string,
+  prompt: string,
+  options: SubmitToAgentOptions = {},
+  deps: EnqueueHeartbeatMessageDeps = REAL_ENQUEUE_HEARTBEAT_MESSAGE_DEPS,
+  openStore: () => MessageQueueStore = openMessageQueueStore,
+): Promise<void> {
+  await submitToAgentViaQueue(
+    target,
+    senderName,
+    prompt,
+    { ...options, omitSenderAttribution: true },
+    deps,
+    openStore,
+  );
 }

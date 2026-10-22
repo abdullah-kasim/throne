@@ -20,7 +20,9 @@ export async function forgejoPullRequestFor(context: ForgeContext, targetText: s
   const target = parsePullRequestTarget(targetText);
   const decision = await decidePullRequestForge(target, context.dependencies);
   if (decision.forge === FORGE.github) {
-    throw new ForgeRefusal(`${targetText} is a GitHub pull request that was never staged or promoted: no Forgejo metadata comment links it (${decision.reason}).`);
+    throw new ForgeRefusal(
+      `${targetText} is a GitHub pull request that was never staged or promoted: no Forgejo metadata comment links it (${decision.reason}). Stage it in Forgejo first with \`throne forge stage ${targetText}\`.`,
+    );
   }
   const forgejoTarget = decision.twinUrl === undefined ? target : parsePullRequestTarget(decision.twinUrl);
   const api = await openForgejoApiOnThisHost(context.dependencies);

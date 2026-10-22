@@ -11,7 +11,7 @@ import {
   createForgejoPullRequest,
   detachFromForgejoPullRequest,
   diffForgejoPullRequest,
-  editForgejoPullRequestBody,
+  editForgejoPullRequest,
   listOpenForgejoPullRequests,
   renderMarkdownOnForgejo,
   viewForgejoPullRequest,
@@ -23,7 +23,7 @@ import {
   githubCommentArguments,
   githubCreateArguments,
   githubDiffArguments,
-  githubEditBodyArguments,
+  githubEditArguments,
   githubListOpenArguments,
   githubPushArguments,
   githubRenderMarkdownArguments,
@@ -38,6 +38,8 @@ import {
   type GithubProgram,
   type PullRequestTarget,
 } from "./pull-request-forge.ts";
+import { refuseGithubWriteWhereRepositoryLandsOnMain } from "./repository-lands-on-main.ts";
+import { bodyKeepingSelfReviewRecord } from "./staging-records.ts";
 
 export interface ForgeContext {
   readonly repo: string;
@@ -87,6 +89,15 @@ async function onPullRequestForge(
 
 function github(context: ForgeContext, program: GithubProgram, args: readonly string[]): Promise<ProcessResult> {
   return runGithub(args, { program, repo: context.repo, bypass: context.bypass }, context.dependencies);
+}
+
+async function writeToGithubUnlessRepositoryLandsOnMain(
+  context: ForgeContext,
+  githubWrite: string,
+  write: () => Promise<ProcessResult>,
+): Promise<ProcessResult> {
+  await refuseGithubWriteWhereRepositoryLandsOnMain(context.repo, githubWrite, context.dependencies);
+  return write();
 }
 
 async function sendBodyFileToGithub(
@@ -156,7 +167,7 @@ export async function createPullRequest(
       const created = await createForgejoPullRequest(context.repo, { ...request, body }, api, context.dependencies);
       return printedLine(created.url);
     },
-    (program) => github(context, program, githubCreateArguments(request)),
+    (program) => writeToGithubUnlessRepositoryLandsOnMain(context, "Opening a GitHub pull request", () => github(context, program, githubCreateArguments(request))),
   );
 }
 
@@ -169,15 +180,28 @@ export async function viewPullRequest(context: ForgeContext, target: string): Pr
   );
 }
 
-export async function editPullRequestBody(context: ForgeContext, target: string, bodyFile: string): Promise<ProcessResult> {
+export async function editPullRequest(
+  context: ForgeContext,
+  target: string,
+  change: { readonly title?: string; readonly bodyFile?: string },
+): Promise<ProcessResult> {
+  const { title, bodyFile } = change;
   return onPullRequestForge(
     context,
     target,
     async (api, parsed) => {
-      const body = await readFile(bodyFile, "utf8");
-      return printedLine((await editForgejoPullRequestBody(context.repo, parsed, body, api, context.dependencies)).url);
+      const body =
+        bodyFile === undefined
+          ? undefined
+          : bodyKeepingSelfReviewRecord((await viewForgejoPullRequest(context.repo, parsed, api, context.dependencies)).body, await readFile(bodyFile, "utf8"));
+      return printedLine((await editForgejoPullRequest(context.repo, parsed, { title, body }, api, context.dependencies)).url);
     },
-    (program) => sendBodyFileToGithub(context, bodyFile, (githubBodyFile) => github(context, program, githubEditBodyArguments(target, githubBodyFile))),
+    (program) =>
+      writeToGithubUnlessRepositoryLandsOnMain(context, "Editing a GitHub pull request", () =>
+        bodyFile === undefined
+          ? github(context, program, githubEditArguments(target, { title }))
+          : sendBodyFileToGithub(context, bodyFile, (githubBodyFile) => github(context, program, githubEditArguments(target, { title, bodyFile: githubBodyFile }))),
+      ),
   );
 }
 
@@ -215,7 +239,10 @@ export async function commentOnPullRequest(context: ForgeContext, target: string
       const body = await readFile(bodyFile, "utf8");
       return printedLine(await commentOnForgejoPullRequest(context.repo, parsed, body, api, context.dependencies));
     },
-    (program) => sendBodyFileToGithub(context, bodyFile, (githubBodyFile) => github(context, program, githubCommentArguments(target, githubBodyFile))),
+    (program) =>
+      writeToGithubUnlessRepositoryLandsOnMain(context, "Commenting on a GitHub pull request", () =>
+        sendBodyFileToGithub(context, bodyFile, (githubBodyFile) => github(context, program, githubCommentArguments(target, githubBodyFile))),
+      ),
   );
 }
 

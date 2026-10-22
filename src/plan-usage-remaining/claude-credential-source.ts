@@ -14,6 +14,7 @@ import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 
 export const CLAUDE_KEYCHAIN_SERVICE = 'Claude Code-credentials';
+export const MACOS_SECURITY_PATH = '/usr/bin/security';
 const KEYCHAIN_READ_TIMEOUT_MS = 5_000;
 
 export interface ClaudeCredentialSourceDeps {
@@ -22,18 +23,20 @@ export interface ClaudeCredentialSourceDeps {
   platform: NodeJS.Platform;
 }
 
-export async function realReadKeychainItem(service: string): Promise<string> {
-  const run = promisify(execFile);
-  const { stdout } = await run('security', ['find-generic-password', '-s', service, '-w'], {
-    timeout: KEYCHAIN_READ_TIMEOUT_MS,
-    encoding: 'utf8',
-  });
-  return stdout.trim();
+export function keychainReaderAt(securityPath: string): (service: string) => Promise<string> {
+  return async (service) => {
+    const run = promisify(execFile);
+    const { stdout } = await run(securityPath, ['find-generic-password', '-s', service, '-w'], {
+      timeout: KEYCHAIN_READ_TIMEOUT_MS,
+      encoding: 'utf8',
+    });
+    return stdout.trim();
+  };
 }
 
 export const REAL_CLAUDE_CREDENTIAL_DEPS: ClaudeCredentialSourceDeps = {
   readFile: (path) => readFile(path, 'utf8'),
-  readKeychainItem: realReadKeychainItem,
+  readKeychainItem: keychainReaderAt(MACOS_SECURITY_PATH),
   platform: process.platform,
 };
 

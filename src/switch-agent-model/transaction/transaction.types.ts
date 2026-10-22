@@ -97,7 +97,7 @@ export interface SwitchTransactionDeps {
   ) => Promise<T>;
   startAgent: (
     name: string,
-    opts: { cwd: string; argv: string[] },
+    opts: { cwd: string; argv: string[]; account?: string },
   ) => Promise<AgentStartEvidence>;
   persistSpawnSpec: (spec: SpawnSpec) => Promise<void>;
   readSpawnSpec?: () => Promise<SpawnSpec>;

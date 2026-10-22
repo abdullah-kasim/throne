@@ -16,15 +16,16 @@ import { Injectable } from "@nestjs/common";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { HARNESS_NAMES, resolveModel, type Harness } from "../harness-routing/harness.ts";
+import { readAccountsConfig } from "../account/accounts-config.ts";
+import type { ReadAccountsConfig } from "../account/agent-account.ts";
 import {
-  HARNESS_NAMES,
-  buildLaunchArgv,
-  resolveModel,
-  throneLauncherPath,
-  type Harness,
-} from "../harness-routing/harness.ts";
-import { sessionNameAtLaunch } from "../agent-settings/agent-settings-decision.ts";
-import { AGENT_ROLES } from "../agent-settings/agent-settings.types.ts";
+  configuredRegentLaunch,
+  recordRegentLaunchAccount,
+  regentFreshLaunchOptions,
+  regentLaunchArgv,
+  type RegentLaunch,
+} from "./regent-launch-recipe.ts";
 import {
   acquireResurrectLock,
   releaseResurrectLock,
@@ -36,14 +37,6 @@ export {
   RESURRECT_LOCK_STALE_MS,
 } from "./regent-resurrect-lock.ts";
 import { PERSONA_CONFIG } from "../application-config.service.ts";
-import { resolveTargetEffort } from "../config.ts";
-import { parseHarness } from "../harness-routing/model-registry.ts";
-import { modelEffortRange } from "../harness-routing/policy/capabilities.ts";
-import {
-  activeRegentRoute,
-  targetEffortForRole,
-  type CustomPlanPresetPair,
-} from "../steering-user-config.ts";
 import {} from "../herdr/herdr-create.service.ts";
 import {
   REAL_RESUME_REGISTERED_AGENT_DEPS,
@@ -51,10 +44,7 @@ import {
 } from "../herdr/herdr-creation-orchestration.ts";
 import { deliverOpeningPrompt } from "../herdr/herdr-opening-prompt.ts";
 import { COMPOSER_RECOGNITION_TIMEOUT_MS } from "../herdr/herdr-send.types.ts";
-import type {
-  ResumeRegisteredAgentInRestoredTabDeps,
-  StartOptions,
-} from "../herdr/herdr-create.contracts.ts";
+import type { ResumeRegisteredAgentInRestoredTabDeps } from "../herdr/herdr-create.contracts.ts";
 import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 import {
@@ -126,60 +116,6 @@ export type RegentHarness = Harness;
 export interface RegentRoute {
   readonly harness: RegentHarness;
   readonly model: string;
-}
-
-export interface RegentLaunch extends RegentRoute {
-  readonly effort: number;
-}
-
-export function resolveConfiguredRegentLaunch(
-  route: CustomPlanPresetPair | undefined,
-  targetEffort: number,
-): RegentLaunch | undefined {
-  if (route === undefined) return undefined;
-  const harness = parseHarness(route.harness);
-  const model = resolveModel(harness, route.model);
-  const range = modelEffortRange(harness, model);
-  if (range === undefined) {
-    throw new Error(
-      `steering.regentRoute ${harness}/${model} has no registered effort range`,
-    );
-  }
-  return { harness, model, effort: resolveTargetEffort(targetEffort, range) };
-}
-
-export function configuredRegentLaunch(): RegentLaunch | undefined {
-  return resolveConfiguredRegentLaunch(
-    activeRegentRoute(),
-    targetEffortForRole("regent"),
-  );
-}
-
-const EFFORT_OF_A_RECORDED_ROUTE = 1;
-
-export function regentLaunchArgv(
-  configured: RegentLaunch | undefined,
-  recordedRoute: RegentRoute | undefined,
-  recordedHarness: RegentHarness,
-): string[] {
-  const route = configured ?? recordedRoute;
-  if (route !== undefined) {
-    return buildLaunchArgv({
-      harness: route.harness,
-      model: route.model,
-      effort: configured?.effort ?? EFFORT_OF_A_RECORDED_ROUTE,
-      sessionName: sessionNameAtLaunch(
-        REGENT_NAME,
-        AGENT_ROLES.REGENT,
-        route.harness,
-      ),
-    });
-  }
-  return [
-    throneLauncherPath(
-      recordedHarness === HARNESS_NAMES.CODEX ? "codexy" : "claudey",
-    ),
-  ];
 }
 
 /** Absent/garbage marker ⇒ keep the court alive (fail-safe). */
@@ -314,6 +250,7 @@ export interface ResurrectDeps {
   findLiveRegent: typeof findLiveRegent;
   installHerdrOperatorSkill: typeof installHerdrOperatorSkill;
   restoredTab?: ResumeRegisteredAgentInRestoredTabDeps;
+  readAccountsConfig: ReadAccountsConfig;
   writeStderr: (text: string) => void;
   throneRoot: string;
   regentDir: string;
@@ -332,6 +269,7 @@ const REAL_RESURRECT_DEPS: ResurrectDeps = {
   findLiveRegent,
   installHerdrOperatorSkill,
   restoredTab: REAL_RESUME_REGISTERED_AGENT_DEPS,
+  readAccountsConfig,
   writeStderr: (text) => process.stderr.write(text),
   throneRoot: REPO_ROOT,
   regentDir: REGENT_DIR,
@@ -455,10 +393,7 @@ export async function resurrectRegent(
       route?.harness ??
       await deps.readRegentHarness(deps.regentDir);
     const argv = regentLaunchArgv(configured, route, harness);
-    const opts: StartOptions = {
-      cwd: deps.throneRoot,
-      argv,
-    };
+    const opts = regentFreshLaunchOptions(deps.throneRoot, argv, deps.readAccountsConfig);
     const skill = await deps.installHerdrOperatorSkill("Regent", deps.throneRoot);
     if (skill.kind === "failed") {
       deps.writeStderr(
@@ -466,19 +401,30 @@ export async function resurrectRegent(
           `(${skill.message}); the Regent can still run herdr through bin/herdr.\n`,
       );
     }
-    const relaunchedInRestoredTab =
-      deps.restoredTab !== undefined &&
-      (await relaunchRegentInRestoredTab(
+    const restoredTabLaunch =
+      deps.restoredTab === undefined
+        ? null
+        : await relaunchRegentInRestoredTab(
         {
           freshSession: opts,
           regentDir: deps.regentDir,
+          readAccountsConfig: deps.readAccountsConfig,
           writeStderr: deps.writeStderr,
         },
         deps.restoredTab,
-      ));
-    if (!relaunchedInRestoredTab) {
+      );
+    if (restoredTabLaunch === null) {
       await deps.startAgent(REGENT_NAME, opts);
     }
+    await recordRegentLaunchAccount({
+      regentDir: deps.regentDir,
+      harness,
+      route: configured ?? route,
+      effort: configured?.effort,
+      cwd: deps.throneRoot,
+      account: (restoredTabLaunch ?? opts).account,
+      launchedAt: new Date(),
+    });
     await deps.deliverOpeningPrompt(REGENT_NAME, RESURRECT_PROMPT, {
       composerWaitMilliseconds: REGENT_RESURRECTION_COMPOSER_WAIT_MS,
       forceSubmitResidentDraftOnTimeout: false,

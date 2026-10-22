@@ -30,7 +30,7 @@ export interface SwitchTransactionDeps {
   listSessionCandidates?: (harness: Harness, cwd: string) => Promise<readonly SessionCandidate[]>;
   closeAgent: (agent: Pick<HerdrAgent, "tabId" | "paneId">) => Promise<void>;
   withRecipientPaneLock: <T>(paneId: string, action: () => Promise<T>) => Promise<T>;
-  startAgent: (name: string, opts: { cwd: string; argv: string[] }) => Promise<AgentStartEvidence>;
+  startAgent: (name: string, opts: { cwd: string; argv: string[]; account?: string }) => Promise<AgentStartEvidence>;
   persistSpawnSpec: (spec: SpawnSpec) => Promise<void>;
   readSpawnSpec?: () => Promise<SpawnSpec>;
   resolvePath: (path: string) => Promise<string>;

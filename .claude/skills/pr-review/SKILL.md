@@ -1,25 +1,48 @@
 ---
 name: pr-review
-description: 'This throne-only skill reviews someone else''s pull request for the Lord and leaves the result as an UNSUBMITTED (pending) review on GitHub, line comments only, ready for him to read, edit, and submit himself. It reads the code, not the description; when the diff touches front-end code it also runs /frontend-critic against the running change and turns its findings into line comments. Invoked by /pr-review <pull request url>, or when the Lord says "review this PR", "review PR N for me", "leave a pending review", "draft a review", or "look over this PR". It never submits, approves, or requests changes: submitting is the Lord''s act.'
+description: 'This throne-only skill reviews a pull request for the Lord as a principal engineer who will own the code in production, and posts the result as a review of line comments on the pull request''s Forgejo twin, plus one conversation comment holding every finding ready for him to copy into GitHub. GitHub gets a pending review only when he says "/pr-promote the review", "promote the review" or "send the review to GitHub". It reads the code, not the description, and runs /frontend-critic on front-end changes. Invoked by /pr-review <pull request url>, or when the Lord says "review this PR", "review PR N for me", "leave a pending review", "draft a review", or "look over this PR". Its self-review mode, on "/pr-review my own PR ... and fix it", "self-review" or "review and fix my PR", reviews his own pull request, fixes each finding in its own commit, pushes the fixes to Forgejo only, and posts nothing. It never submits, approves, or requests changes: submitting is the Lord''s act.'
 version: 1.0.0
 user-invocable: true
 ---
 
 **Operator extension — run first.** Before anything else in this skill, run `throne skill-extension pr-review` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
 
-# Review a pull request, leave it pending for the Lord
+# Review a pull request on Forgejo first
 
-The output is a pending review on the pull request: line comments attached
-to exact lines on the new side of the diff, no body, not submitted. Nobody
-but the Lord sees it until he opens the pull request, reads each comment,
-edits or deletes what he disagrees with, and presses Submit. So every
-comment must be one he could send as his own: specific, checked, and
-polite.
+## The reviewer
+
+Review as if you will own this code in production and own its security.
+Assume the change is broken until the code proves otherwise. Hunt failure
+paths, trust boundaries and data exposure first, and never pad the review
+with style or praise. Security is a lens you always apply, not your whole
+job: a crash on an empty reply matters as much as a leaked token.
+
+This is a reviewing stance only. The reviewer never pages, notifies,
+mentions, messages or contacts anyone, and the stance changes nothing
+about what this skill may write.
+
+## What this skill writes
+
+- Normal mode: one review of line comments on the pull request's Forgejo
+  twin, and one conversation comment there that holds the same findings
+  ready to copy into GitHub.
+- Self-review mode: fix commits, pushed to Forgejo only, and one hidden
+  record of the reviewed head in the Forgejo pull request's body, which
+  shows nothing to a reader.
+- On "/pr-promote the review": one pending review on GitHub.
+
+Nothing else is posted, sent or announced anywhere: no replies on other
+threads, no @-mentions, no review requests, no chat messages, no
+notifications. Nothing is ever submitted, approved, or marked as
+requesting changes.
+
+Every line comment must be one the Lord could send as his own: specific,
+checked, and polite. On Forgejo he reads each one, edits or deletes what
+he disagrees with, and only then promotes what is left to GitHub.
 
 Who runs it: a Stager directly for a small pull request, or, on the Lord's
 word, an Alpha from a queue row filed with `/queue-objective` (opus
-sliceless is the usual shape; its effort follows the row). Either way the
-review is created with his account, which is why it stays pending.
+sliceless is the usual shape; its effort follows the row).
 
 ## 1. Read the pull request as it runs, not as it is described
 
@@ -36,13 +59,14 @@ head into a throwaway worktree (`git -C <repo> worktree add --detach
 changed files there so line numbers are exact.
 
 Read `publishTo` from `throne forge status <url> --json` first. `github` (a
-github.com or enterprise url, staged in Forgejo or not) goes on exactly as
-above. `forgejo` (a url of this host's Forgejo) is read through the forge
-seam instead: `throne forge pr view <url>` and
-`throne forge pr diff <url>`, with the head fetched from the checkout's
-`forgejo` remote. The seam reads no review threads, so `threads.mjs` is not
-run, and the Lord is told the review was written without the existing
-conversation. A Forgejo review ends at step 5 (below).
+github.com or enterprise url, staged in Forgejo or not) is still read
+exactly as above, with `threads.mjs` and `<gh>`. `forgejo` (a url of this
+host's Forgejo) is read through the forge seam instead:
+`throne forge pr view <url>` and `throne forge pr diff <url>`, with the head
+fetched from the checkout's `forgejo` remote. The seam reads no review
+threads, so `threads.mjs` is not run, and the Lord is told the review was
+written without the existing conversation. Either way the review is posted
+on Forgejo in step 5.
 
 Read the existing threads and conversation first: a point someone already
 raised is not raised again; reply there instead only if you have something
@@ -129,16 +153,84 @@ Screenshots stay under `~/tmp/review-<n>/`; they are never committed and
 never uploaded without the Lord's word. A defect with no line to attach to
 goes in the summary to the Lord instead.
 
-## 5. Leave the review pending
+## 5. Post the review on Forgejo
 
 Write the comments to `~/tmp/review-<n>.json` as an array of
 `{ "path", "line", "body" }` (optionally `"start_line"`), paths relative to
-the repository root, lines on the new side. Check the payload, then create
-the review:
+the repository root, lines on the new side.
+
+A GitHub pull request with no Forgejo twin (`throne forge status <url>
+--json` shows none) is staged first:
+
+```bash
+throne forge stage <github url>
+```
+
+Check the payload, then post the review:
 
 ```bash
 node .claude/skills/pr-review/pending-review.mjs <url> ~/tmp/review-<n>.json --dry-run
 node .claude/skills/pr-review/pending-review.mjs <url> ~/tmp/review-<n>.json
+```
+
+The url may be the Forgejo pull request or its staged GitHub twin; either
+way the script hands the file to `throne forge pr review`, which posts one
+Forgejo review holding every line comment, never submitted for approval or
+changes, and writes the one copy-paste comment. That comment lists each
+finding as a `path:line` heading and its body, so the Lord can paste them
+into GitHub by hand. A second review run rewrites the same comment in place
+instead of adding another. The copy-paste comment is never promoted to
+GitHub. The script prints the review url and the comment url; GitHub is not
+touched.
+
+## 6. Tell the Lord
+
+One short table: file:line, the finding in a sentence, how it was
+confirmed (a command, a test, a measurement). Then the Forgejo review url
+and the copy-paste comment url, both printed in step 5; the "suspected" items
+that did not make the review, each with what would settle it; and anything
+worth his attention that had no line to attach to. Remove the throwaway
+worktree.
+
+**Existing reviewers' findings** (required). One line per finding already
+on the pull request, built from the `threads.mjs` output read in step 1,
+with no second fetch: line threads, review bodies and conversation
+comments, from people and bots alike. A review body or bot report holding
+three findings gives three lines. Each line gives who raised it;
+`file:line`, or "review body" for a finding with no line (a conversation
+comment included); the finding in one sentence; and one verdict:
+
+- `same finding`: this review reached it on its own.
+- `agree`: checked and it holds; not in the review because step 1 does
+  not repeat a point already raised.
+- `disagree: <one-clause reason>`: checked and it does not hold.
+- `not assessed`: not checked.
+
+An "agree" or "disagree" carries the same burden as a comment: it must
+survive step 3's refute pass, and an opinion that did not go through it is
+"not assessed". The list is for the Lord only; none of it is posted to the
+pull request. The report message to the supervisor (or the Lord) carries
+the counts, for example "Existing findings: 5 (same 1, agree 2, disagree
+1, not assessed 1)".
+
+When he edits or deletes a comment before submitting, that is a ruling
+about what he wants from a review: ask him whether it should become a line
+in this skill, and write it here if he says yes.
+
+## Promote the review
+
+Only on "/pr-promote the review", "promote the review" or "send the review
+to GitHub". Plain "/pr-promote <pr>" never carries the review; see
+`/pr-promote` for how the pull request itself is promoted.
+
+Read the review's line comments back from Forgejo as the Lord left them
+(his edits kept, his deletions dropped), then create the GitHub pending
+review from them, dry run first:
+
+```bash
+throne forge pr review-findings <forgejo url> --out ~/tmp/review-<n>-github.json
+node .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github --dry-run
+node .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github
 ```
 
 The script pins the review to the head commit, omits the submit event (so
@@ -147,13 +239,7 @@ that guard is the `gh` on PATH, then reads the review back and fails unless
 it is PENDING with every comment attached. GitHub allows one pending review
 per person per pull request: if one exists already, the create call fails;
 add to it instead of deleting it (below), and never delete the Lord's own
-pending comments.
-
-On a Forgejo pull request the script stops before writing anything, with
-"A Forgejo pull request cannot get a pending review: the forge seam has no
-review operation, so nothing was written." That is where a Forgejo review
-stops. Nothing is posted to Forgejo; step 6's table goes to the Lord with
-that sentence, and the GraphQL changes below are GitHub-only.
+pending comments. The copy-paste comment is never promoted.
 
 ### Changing a pending review: GraphQL, not REST
 
@@ -192,40 +278,40 @@ GraphQL instead, on both github.com and the enterprise host.
 Only comments this run created may be edited or deleted. The Lord's own
 pending comments are never touched.
 
-The Lord's order to review authorizes creating the pending review and
-nothing else: never submit it, never approve, never request changes, never
-reply on other threads.
+## Self-review mode
 
-## 6. Tell the Lord
+Triggers: "/pr-review my own PR ... and fix it", "self-review", "review and
+fix my PR", and a self-review step in `/pr-promote` or `/pr-merge`.
 
-One short table: file:line, the finding in a sentence, how it was
-confirmed (a command, a test, a measurement). Then the link to the pull
-request's Files tab, where the pending review waits; the "suspected" items
-that did not make the review, each with what would settle it; and anything
-worth his attention that had no line to attach to. Remove the throwaway
-worktree.
-
-**Existing reviewers' findings** (required). One line per finding already
-on the pull request, built from the `threads.mjs` output read in step 1,
-with no second fetch: line threads, review bodies and conversation
-comments, from people and bots alike. A review body or bot report holding
-three findings gives three lines. Each line gives who raised it;
-`file:line`, or "review body" for a finding with no line (a conversation
-comment included); the finding in one sentence; and one verdict:
-
-- `same finding`: this review reached it on its own.
-- `agree`: checked and it holds; not in the review because step 1 does
-  not repeat a point already raised.
-- `disagree: <one-clause reason>`: checked and it does not hold.
-- `not assessed`: not checked.
-
-An "agree" or "disagree" carries the same burden as a comment: it must
-survive step 3's refute pass, and an opinion that did not go through it is
-"not assessed". The list is for the Lord only; none of it is posted to the
-pull request. The report message to the supervisor (or the Lord) carries
-the counts, for example "Existing findings: 5 (same 1, agree 2, disagree
-1, not assessed 1)".
-
-When he edits or deletes a comment before submitting, that is a ruling
-about what he wants from a review: ask him whether it should become a line
-in this skill, and write it here if he says yes.
+1. **Refuse on someone else's pull request.** Self-review is for the
+   Lord's own pull requests only; on any other, stop and tell him so. Read
+   the author: for a GitHub pull request, or a Forgejo pull request staged
+   from one, the GitHub author decides
+   (`<gh> pr view <n> --repo <owner>/<repo> --json author --jq .author.login`
+   against `<gh> api user --jq .login`). A Forgejo pull request with no
+   GitHub twin was opened by this throne and is his.
+2. **Stage first** when a GitHub pull request has no Forgejo twin:
+   `throne forge stage <github url>`.
+3. **Review.** Run steps 1 to 4 in full, as the same reviewer, with the
+   same hunt and refute passes. Check out the head branch itself, not a
+   detached head (`git -C <repo> worktree add ~/tmp/review-<n> <head
+   branch>`), so the fixes land on it.
+4. **Fix every finding that survived refutation, one commit per finding.**
+   Before each commit, check the repository's identity with
+   `git var GIT_COMMITTER_IDENT`. A finding whose fix turns out to be wrong
+   when attempted is dropped, with why. Then run the project's tests and
+   lint, and fix what they show.
+5. **Push to Forgejo only:**
+   `throne forge push-branch --branch <head branch> --repo <repo>`. GitHub
+   gets the fixes on the next `/pr-promote`.
+6. **Record the reviewed head**, the final head after the fixes:
+   `throne forge pr self-reviewed <url> --head <sha>`. It writes one hidden
+   record, `<!-- self-review: <sha> -->`, into the Forgejo pull request's
+   body, replacing an earlier one, and leaves the rest of the body as it
+   was. It posts no comment and no review, and a reader sees nothing.
+7. **Post nothing.** No Forgejo review, no copy-paste comment, no GitHub
+   review, no replies.
+8. **Report** each finding with its fixing commit, each finding rejected on
+   a fix attempt with why, and the "suspected" list from step 3. When run as
+   a step of `/pr-promote` or `/pr-merge`, the report goes into that row's
+   REPORT.md.

@@ -26,7 +26,8 @@ Use `scripts/update-harness.mjs` for every transaction. Do not reproduce its dis
    install. `bin/claude`/`bin/codex` export `CLAUDE_BIN`/`CODEX_BIN` pointing
    at this same vendored binary, so no other resolution order reflects what
    agents execute.
-3. Never update or restart Herdr. A herdr update is planned separately.
+3. Never update or restart Herdr from this skill. A herdr update goes through
+   `/update-herdr`.
 
 ## Workflow
 

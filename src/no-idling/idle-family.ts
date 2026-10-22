@@ -50,7 +50,6 @@ export {
   classifyLastMessageTags,
   classifyReapabilityAwareLastMessageTags,
   lastMessageBlock,
-  liveBackgroundWork,
 } from './idle-pane-tag-classification.ts';
 
 // Milliseconds since `spawn.json`'s `spawned_at` timestamp, or undefined when

@@ -18,6 +18,7 @@
 //      one verdict that is true by construction at insert time.
 
 import { parseQueueEffort } from "../harness-routing/effort-level.ts";
+import { accountLineFailureIn } from "../regent-queue/queue-row-account.ts";
 import {
   openRegentQueueStore,
   type RegentQueueStore,
@@ -191,6 +192,8 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
   if (body.length === 0) {
     throw new MissingQueueItemBodyError();
   }
+  const accountFailure = accountLineFailureIn(body);
+  if (accountFailure !== undefined) throw new Error(`add-to-queue: ${accountFailure}`);
   const launchOverrides: PartialLaunchMetadata = {
     ...(launchValues["alpha-name"] === undefined
       ? {}

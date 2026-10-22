@@ -41,12 +41,6 @@ export type NativeClaudeAvailability =
       exhausted_windows: NativeClaudeWindowEvidence[];
     }
   | {
-      status: "stale-unknown";
-      target: NativeClaudeTarget;
-      as_of: string;
-      error?: string;
-    }
-  | {
       status: "unknown";
       target: NativeClaudeTarget;
       as_of: string;
@@ -138,13 +132,6 @@ export function evaluateNativeClaudeAvailability(
   target: NativeClaudeTarget,
   payload: UsagePayload,
 ): NativeClaudeAvailability {
-  if (payload.stale === true)
-    return {
-      status: "stale-unknown",
-      target,
-      as_of: payload.as_of,
-      ...(payload.error === undefined ? {} : { error: payload.error }),
-    };
   if (payload.source === "error")
     return {
       status: "source-failure",
@@ -239,16 +226,6 @@ function nativeModelLabel(model: NativeClaudeModel): string {
 function nativeAvailabilityDetail(
   availability: NativeClaudeAvailability,
 ): string {
-  if (availability.status === "stale-unknown") {
-    return [
-      `state stale-unknown as of ${availability.as_of}`,
-      availability.error === undefined
-        ? undefined
-        : `source error: ${availability.error}`,
-    ]
-      .filter((part): part is string => part !== undefined)
-      .join("; ");
-  }
   if (availability.status === "unknown") {
     return (
       `state unknown as of ${availability.as_of}; ${availability.reason}: ` +

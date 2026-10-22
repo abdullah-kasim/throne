@@ -6,8 +6,15 @@ import {
   type ModelPairPool,
   type PlanRole,
 } from "../config.ts";
-import { configuredRegentLaunch } from "../regent-state/regent-state.service.ts";
+import os from "node:os";
+import { accountAdapterFor } from "../account/account-adapters.ts";
+import { accountsConfigPath, readAccountsConfig } from "../account/accounts-config.ts";
+import { configuredRegentLaunch } from "../regent-state/regent-launch-recipe.ts";
 import { resolveUserConfigPath } from "../user-config-loader.ts";
+import { loadNtfyUserConfig } from "../application-config.service.ts";
+import { notifyConfigFrom, ntfyServerAnswers } from "../notify-lord/notification.service.ts";
+
+const NTFY_SETUP_DOC = "agent_docs/ntfy-phone-notifications.md";
 
 const EFFORT_NAMES = ["", "low", "medium", "high", "xhigh", "max", "ultracode"];
 
@@ -45,8 +52,49 @@ export function renderResolvedSteering(configPath: string): string {
   return `${lines.join("\n")}\n`;
 }
 
+export async function renderAccountLines(
+  configPath: string = accountsConfigPath(),
+  userHome: string = os.homedir(),
+): Promise<string> {
+  const config = readAccountsConfig(configPath);
+  if (config === null) return "";
+  const lines = await Promise.all(
+    config.accounts.map(async (account) => {
+      const login = await accountAdapterFor(account).readLogin(account, config.companyLogin, { userHome });
+      return `account ${account.name}: ${account.folder}, ${login.loggedIn ? "logged in" : "logged out"}\n`;
+    }),
+  );
+  return lines.join("");
+}
+
+export interface NtfyReport {
+  text: string;
+  failed: boolean;
+}
+
+export async function renderNtfyLine(configPath: string): Promise<NtfyReport> {
+  const ntfySection = await loadNtfyUserConfig(configPath);
+  const notifyConfig = notifyConfigFrom(ntfySection);
+  if (!notifyConfig.sendingEnabled) {
+    return { text: "ntfy: phone notifications are off (ntfy.enabled is false), so the server is not checked\n", failed: false };
+  }
+  if (ntfySection === undefined) {
+    return {
+      text: `ntfy: FAILED, ${configPath} has no ntfy section; set one up as ${NTFY_SETUP_DOC} describes\n`,
+      failed: true,
+    };
+  }
+  if (await ntfyServerAnswers(notifyConfig.serverUrl, notifyConfig.timeoutMs)) {
+    return { text: `ntfy: the server at ${notifyConfig.serverUrl} answered its health check\n`, failed: false };
+  }
+  return { text: `ntfy: FAILED, the server at ${notifyConfig.serverUrl} did not answer its health check\n`, failed: true };
+}
+
 export async function run(): Promise<number> {
   const configPath = await resolveUserConfigPath();
   process.stdout.write(renderResolvedSteering(configPath));
-  return 0;
+  process.stdout.write(await renderAccountLines());
+  const ntfyReport = await renderNtfyLine(configPath);
+  process.stdout.write(ntfyReport.text);
+  return ntfyReport.failed ? 1 : 0;
 }

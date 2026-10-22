@@ -4,7 +4,7 @@ import path from 'node:path';
 import { Injectable } from '@nestjs/common';
 import { RecipientPaneLockService } from '../shared-policy/recipient-pane-lock.service.ts';
 
-export const OWNED_HERDR_CLIENT_RELEASE_TAG = 'v0.8.2';
+export const OWNED_HERDR_CLIENT_RELEASE_TAG = 'v0.9.5';
 
 /** The session name every herdr-dependent command targets. Resolved once, at
  *  module load, from `THRONE_HERDR_SESSION_NAME_OVERRIDE`: a set non-empty
@@ -38,7 +38,7 @@ export class DuplicateAgentNameAcrossSessionsError extends Error {
  *  2026-08-24, not inferred from the mismatch error text. (v0.8.0 reported
  *  19.) An incorrect value here rejects a perfectly good server as
  *  incompatible. Re-read it from the binary whenever the pinned tag moves. */
-export const THRONE_HERDR_PROTOCOL = '20';
+export const THRONE_HERDR_PROTOCOL = '22';
 export const CODEX_HERDR_READ_TIMEOUT_MS = 10_000;
 export const THRONE_HERDR_SESSION = THRONE_HERDR_SESSION_NAME;
 export interface HerdrAttachBoundary {
@@ -285,30 +285,31 @@ export class HerdrClientService {
 
   async preflightCompatibility(): Promise<void> {
     const version = await this.execute(['--version']);
-    const status = await this.execute(['status', 'server']);
+    const status = await this.execute(['status', 'server', '--json']);
     const expectedVersion = `herdr ${OWNED_HERDR_CLIENT_RELEASE_TAG.slice(1)}`;
     if (version.stdout.trim() !== expectedVersion) {
       throw new HerdrCompatibilityError(
         `throne owned herdr client version mismatch: expected "${expectedVersion}", received "${version.stdout.trim()}"`,
       );
     }
-    const fields: Record<string, string> = {};
-    for (const line of status.stdout.trim().split('\n')) {
-      const separator = line.indexOf(':');
-      if (separator < 0) throw new HerdrCompatibilityError('herdr status server returned a malformed response');
-      fields[line.slice(0, separator).trim().toLowerCase()] = line.slice(separator + 1).trim();
+    let fields: { status?: unknown; version?: unknown; protocol?: unknown; compatible?: unknown; socket?: unknown };
+    try {
+      fields = JSON.parse(status.stdout) ?? {};
+    } catch {
+      throw new HerdrCompatibilityError('herdr status server returned a malformed response');
     }
     if (
       fields.status !== 'running' ||
       fields.version !== OWNED_HERDR_CLIENT_RELEASE_TAG.slice(1) ||
-      fields.protocol !== THRONE_HERDR_PROTOCOL ||
-      fields.compatible !== 'yes' ||
-      !fields.socket?.includes(`/sessions/${THRONE_HERDR_SESSION_NAME}/`)
+      String(fields.protocol) !== THRONE_HERDR_PROTOCOL ||
+      fields.compatible !== true ||
+      typeof fields.socket !== 'string' ||
+      !fields.socket.includes(`/sessions/${THRONE_HERDR_SESSION_NAME}/`)
     ) {
       throw new HerdrCompatibilityError(
         `throne herdr server is incompatible for named session "${THRONE_HERDR_SESSION_NAME}": ` +
           `expected running version ${OWNED_HERDR_CLIENT_RELEASE_TAG.slice(1)}, protocol ${THRONE_HERDR_PROTOCOL}, ` +
-          `compatible yes, and an isolated /sessions/${THRONE_HERDR_SESSION_NAME}/ socket; ` +
+          `compatible true, and an isolated /sessions/${THRONE_HERDR_SESSION_NAME}/ socket; ` +
           `received ${JSON.stringify(fields)}`,
       );
     }

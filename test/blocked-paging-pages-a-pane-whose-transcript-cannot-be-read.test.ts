@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { reconcileBlockedAgentPages } from "../src/blocked-paging/blocked-agent-paging.hosted-worker.ts";
 import type { BlockedAgentPagingDependencies } from "../src/blocked-paging/blocked-agent-paging-dependencies.types.ts";
+import { readHarnessBackgroundWork } from "../src/process-inspection/harness-background-work.ts";
+import { PROCESS_HOST_WITHOUT_HERDR } from "../src/process-inspection/harness-background-work-test-fixtures.ts";
 import type { BlockedPageLedgerEntry } from "../src/blocked-paging/blocked-agent-escalation-ledger.ts";
 import type { AgentStatusesRosterEntry } from "../src/agent-statuses/agent-statuses.types.ts";
 import type { HerdrAgent } from "../src/herdr/herdr-identity-contracts.ts";
@@ -27,6 +29,7 @@ function dependencies(roster: AgentStatusesRosterEntry[], pages: string[], stder
     readAgent: async (name) => {
       throw new Error(`herdr agent read ${name} --lines 200 failed (agent_not_idle): cannot read 200 lines while blocked`);
     },
+    readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId, PROCESS_HOST_WITHOUT_HERDR),
     readVisiblePaneText: async () => PERMISSION_BOX,
     blockedMarkerLedger: {
       readBlockedMarker: async () => null,

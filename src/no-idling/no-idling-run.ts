@@ -12,7 +12,6 @@ import {
   type BlockedMarkerLedger,
   type FullyIdleFamily,
   type LastMessageTagState,
-  liveBackgroundWork,
 } from './idle-family.ts';
 import {
   readAgentAges,
@@ -23,7 +22,12 @@ import {
   readSupervisors,
 } from './idle-family-evidence-assembly.ts';
 import { findReapabilityProtocolViolations } from './reapability-protocol.ts';
-import { withWhatEachAgentWaitsOn } from './background-wait.ts';
+import {
+  runningWorkDescription,
+  runningWorkOfRosterAgents,
+  withWhatEachAgentWaitsOn,
+  type ReadRunningWork,
+} from './background-wait.ts';
 import { readClaimedButRefusedAgentNames } from '../autoreap/refusal-evidence.ts';
 import { ConfirmedObservationTracker } from './confirmed-observation.ts';
 import { confirmNoLiveChildrenAlphaNames } from './fully-idle-family-confirmation.ts';
@@ -100,12 +104,14 @@ async function notifyRegentOfUntaskedAgents(
   deps: NoIdlingDependencies,
   roster: readonly AgentStatusesRosterEntry[],
   dataDir: string,
+  readRunningWork: ReadRunningWork,
 ): Promise<void> {
   const untasked = await findUntaskedAgents({
     roster,
     readSpawnSpec: (name) => deps.readSpawnSpec(name, dataDir),
     hasFutureScheduledDelivery: deps.hasFutureScheduledDelivery,
     readPane: (name) => readMemberPane(name, deps),
+    readRunningWork,
     now: deps.now ?? Date.now,
   });
   if (untasked.length === 0) {
@@ -155,15 +161,11 @@ function readMemberPane(member: string, deps: NoIdlingDependencies): Promise<str
 async function readMemberPaneTag(
   member: string,
   deps: NoIdlingDependencies,
+  readRunningWork: ReadRunningWork,
 ): Promise<LastMessageTagState> {
   try {
     const output = await readMemberPane(member, deps);
-    // Live background work outranks the message-marker classification: herdr
-    // reports a Claude pane idle whenever the model is not generating, so an
-    // agent waiting on a background shell looks idle to the roster while it is
-    // demonstrably not. Its last message is usually an ordinary "waiting for the
-    // run" sentence, which would classify `unmarked` and flag the whole family.
-    const running = liveBackgroundWork(output);
+    const running = runningWorkDescription(await readRunningWork(member));
     if (running !== undefined) {
       return { kind: 'busy', running };
     }
@@ -178,18 +180,20 @@ async function readMemberLastMessageTags(
   member: string,
   deps: NoIdlingDependencies,
   ledger: BlockedMarkerLedger,
+  readRunningWork: ReadRunningWork,
 ): Promise<LastMessageTagState> {
-  return resolveBlockedTag(member, () => readMemberPaneTag(member, deps), ledger);
+  return resolveBlockedTag(member, () => readMemberPaneTag(member, deps, readRunningWork), ledger);
 }
 
 async function readFamilyLastMessageTags(
   family: FullyIdleFamily,
   deps: NoIdlingDependencies,
   ledger: BlockedMarkerLedger,
+  readRunningWork: ReadRunningWork,
 ): Promise<ReadonlyMap<string, LastMessageTagState>> {
   const tags = new Map<string, LastMessageTagState>();
   for (const member of [family.alpha, ...family.idleChildren]) {
-    tags.set(member, await readMemberLastMessageTags(member, deps, ledger));
+    tags.set(member, await readMemberLastMessageTags(member, deps, ledger, readRunningWork));
   }
   return tags;
 }
@@ -236,9 +240,10 @@ export async function runNoIdling(
     return 1;
   }
 
-  await notifyRegentOfUntaskedAgents(deps, roster, dataDir);
+  const readRunningWork = runningWorkOfRosterAgents(roster, deps.readHarnessBackgroundWork);
+  await notifyRegentOfUntaskedAgents(deps, roster, dataDir, readRunningWork);
   await notifyRegentOfStaleTabs(deps, dataDir);
-  await notifyRegentOfUnnamedAgents(deps, dataDir);
+  await notifyRegentOfUnnamedAgents(deps, roster, dataDir);
   await notifyRegentOfStrandedSpawns(deps, dataDir);
   await recoverStrandedSpawns(deps, dataDir);
   await notifyRegentOfDeferredRows(deps, notify);
@@ -284,6 +289,7 @@ export async function runNoIdling(
       family,
       deps,
       deps.blockedMarkerLedger,
+      readRunningWork,
     )) {
       lastMessageTags.set(member, state);
     }
@@ -297,7 +303,7 @@ export async function runNoIdling(
     }
     lastMessageTags.set(
       entry.name,
-      await readMemberLastMessageTags(entry.name, deps, deps.blockedMarkerLedger),
+      await readMemberLastMessageTags(entry.name, deps, deps.blockedMarkerLedger, readRunningWork),
     );
   }
 
@@ -367,6 +373,7 @@ export async function runNoIdling(
       readClaimedButRefusedAgentNames(),
       resolvedSupervisorNames,
     ),
+    readRunningWork,
     (name) => readMemberPane(name, deps),
   );
   if (completedAlphas.length > 0) {

@@ -29,6 +29,15 @@ produced a dashboard that reported only the **idle** provider — worse than
 useless, because it read as "safe" while saying nothing about the harness under
 load.
 
+When the throne has Claude accounts configured, `plan-usage-remaining --json`
+carries an `accounts` list beside its top-level payload: one entry per account,
+in list order, with `name`, `logged_in` and, for a logged-in account, its own
+`usage` payload. Report one set of Claude rows per account, naming the account
+in the Harness cell (`claude/primary`, `claude/secondary`), and never stand in
+the top-level payload for another account. An account that is logged out, or
+whose `usage.source` is `error`, gets one line under the table saying so.
+Without the `accounts` list there is one Claude account; report it as `claude`.
+
 Report a provider only from data it actually returned. Never infer usage for a
 harness with no data; list it as unavailable instead. OpenCode Go is normally
 unavailable — say so in one line rather than dropping it silently.

@@ -128,7 +128,7 @@ export async function forgeJson<T>(host: StagingHost, args: readonly string[]): 
   return JSON.parse(await forge(host, args)) as T;
 }
 
-async function writeInRepo(host: StagingHost, name: string, content: string | Uint8Array): Promise<string> {
+export async function writeInRepo(host: StagingHost, name: string, content: string | Uint8Array): Promise<string> {
   const filePath = path.join(host.checkout.repo, name);
   await writeFile(filePath, content);
   return filePath;

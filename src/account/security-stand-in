@@ -1,0 +1,20 @@
+#!/bin/bash
+log="$HOME/tmp/claude-security-standin.log"
+service=""
+arguments=("$@")
+for ((index = 0; index < ${#arguments[@]}; index++)); do
+  if [ "${arguments[index]}" = "-s" ]; then service="${arguments[index + 1]}"; fi
+done
+if [ "$1" = "-i" ]; then
+  request="$(cat)"
+  service="$(printf '%s' "$request" | sed -n 's/.* -s "\([^"]*\)".*/\1/p' | head -1)"
+  command="$(printf '%s' "$request" | awk '{print $1}' | head -1)"
+  printf '%s pid=%s -i %s service=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PPID" "$command" "$service" >> "$log"
+  exit 1
+fi
+printf '%s pid=%s %s service=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PPID" "$1" "$service" >> "$log"
+case "$1" in
+  find-generic-password|delete-generic-password) exit 44 ;;
+  show-keychain-info) exit 0 ;;
+  *) exit 1 ;;
+esac

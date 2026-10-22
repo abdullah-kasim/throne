@@ -5,6 +5,7 @@ import {
 import { buildResumeArgv } from "../../harness-routing/harness.ts";
 import type { AgentStartEvidence } from "../../herdr/herdr-create.contracts.ts";
 import { errorText } from "../../shared-policy/error-text.ts";
+import { launchAccountOption } from "../../account/agent-account.ts";
 import type { PhaseLog } from "./phase-log.ts";
 import {
   type SwitchTransactionDeps,
@@ -63,6 +64,7 @@ export async function rollBackToPrevious(
     restored = await deps.startAgent(input.agentName, {
       cwd: input.spawn.cwd,
       argv: buildResumeArgv(previous, sessionId),
+      ...(await launchAccountOption(input.agentName, input.spawn.account)),
     });
     log.ok("resume-previous", restored.phase);
   } catch (error) {

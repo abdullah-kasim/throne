@@ -12,11 +12,13 @@ import {
   AGENT_LIFECYCLE_STATES,
   type AgentStatusesRosterEntry,
 } from './agent-statuses.types.ts';
-import type { AgentStatus, ReadOptions } from '../herdr/herdr-inventory.service.ts';
+import type { AgentStatus } from '../herdr/herdr-inventory.service.ts';
 import { agentStatusAcceptsInput } from '../herdr/herdr-inventory.service.ts';
-import { readAgent } from '../herdr/herdr-runtime.service.ts';
-import { liveBackgroundWork } from '../no-idling/idle-family.ts';
-import { NO_IDLING_AGENT_READ_TIMEOUT_MS } from '../no-idling/no-idling-run.ts';
+import {
+  HARNESS_BACKGROUND_WORK_KINDS,
+  readHarnessBackgroundWork,
+  type HarnessBackgroundWork,
+} from '../process-inspection/harness-background-work.ts';
 
 const REGENT_NAME = 'Regent';
 
@@ -103,18 +105,6 @@ export function computeAgentStatusesRoster(
   ].sort((left, right) => compareAgentStatusesNames(left.name, right.name));
 }
 
-// The live pane tail read scanned for background-work chrome. `liveBackgroundWork`
-// only looks at its own last-15-lines tail, so this window just needs enough
-// margin to reliably contain that tail; it is deliberately far smaller than
-// no-idling's 200-line marker-classification window because no message-marker
-// parsing happens here.
-const LIVE_BACKGROUND_WORK_READ_LINES = 30;
-
-/** Whether a roster entry's raw herdr status is one a stale pane-idle read
- *  could be masking real background work behind — i.e. one `agentStatusAcceptsInput`
- *  already accepts. An entry whose status is already `working`/`blocked` needs no
- *  pane read: it cannot be under-reporting business, so checking it would only
- *  spend a read for no possible correction. */
 function needsLiveBackgroundWorkCheck(entry: AgentStatusesRosterEntry): boolean {
   return (
     entry.lifecycle === AGENT_LIFECYCLE_STATES.LIVE &&
@@ -123,58 +113,32 @@ function needsLiveBackgroundWorkCheck(entry: AgentStatusesRosterEntry): boolean 
   );
 }
 
-/** The live agent's pane tail, or undefined when the read fails or times out —
- *  callers must treat undefined as "no signal", never as "definitely idle". */
-async function readLiveAgentPaneTail(
-  name: string,
-  readAgentPaneTail: (name: string, opts?: ReadOptions) => Promise<string>,
-): Promise<string | undefined> {
-  try {
-    return await readAgentPaneTail(name, {
-      source: 'recent',
-      lines: LIVE_BACKGROUND_WORK_READ_LINES,
-      timeoutMilliseconds: NO_IDLING_AGENT_READ_TIMEOUT_MS,
-    });
-  } catch {
-    return undefined;
-  }
-}
-
-/** The roster's truthful live status: `working` when the pane tail shows live
- *  background work, otherwise the raw herdr status unchanged. */
 function correctedLiveStatus(
   rawStatus: AgentStatus,
-  runningWork: string | undefined,
+  backgroundWork: HarnessBackgroundWork,
 ): AgentStatus {
-  return runningWork === undefined ? rawStatus : 'working';
+  return backgroundWork.kind === HARNESS_BACKGROUND_WORK_KINDS.RUNNING ? 'working' : rawStatus;
 }
 
-/** One roster entry, corrected for live background work when its raw status
- *  needed checking; every other entry passes through unread and unchanged. */
 async function withLiveBackgroundWorkCorrection(
   entry: AgentStatusesRosterEntry,
-  readAgentPaneTail: (name: string, opts?: ReadOptions) => Promise<string>,
+  readBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>,
 ): Promise<AgentStatusesRosterEntry> {
-  if (!needsLiveBackgroundWorkCheck(entry)) {
+  if (!needsLiveBackgroundWorkCheck(entry) || entry.paneId === undefined) {
     return entry;
   }
-  const paneTail = await readLiveAgentPaneTail(entry.name, readAgentPaneTail);
-  const runningWork = paneTail === undefined ? undefined : liveBackgroundWork(paneTail);
   return {
     ...entry,
-    liveStatus: correctedLiveStatus(entry.liveStatus!, runningWork),
+    liveStatus: correctedLiveStatus(entry.liveStatus!, await readBackgroundWork(entry.paneId)),
   };
 }
 
-/** The roster with every live agent's status corrected for pane-visible
- *  background work `agent-statuses.command.ts` would otherwise report as
- *  falsely done/idle. */
 async function applyLiveBackgroundWorkCorrections(
   roster: readonly AgentStatusesRosterEntry[],
-  readAgentPaneTail: (name: string, opts?: ReadOptions) => Promise<string>,
+  readBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>,
 ): Promise<AgentStatusesRosterEntry[]> {
   return Promise.all(
-    roster.map((entry) => withLiveBackgroundWorkCorrection(entry, readAgentPaneTail)),
+    roster.map((entry) => withLiveBackgroundWorkCorrection(entry, readBackgroundWork)),
   );
 }
 
@@ -184,7 +148,7 @@ export interface AgentStatusesRosterDependencies {
   readonly listCompletedAgentNames: () => Promise<string[]>;
   readonly readAgentStatusRole: (name: string) => Promise<string>;
   readonly loadAgentStatusesRegentTitle: () => Promise<string>;
-  readonly readAgentPaneTail: (name: string, opts?: ReadOptions) => Promise<string>;
+  readonly readHarnessBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>;
 }
 
 const DEFAULT_ROSTER_DEPENDENCIES: AgentStatusesRosterDependencies = {
@@ -193,7 +157,7 @@ const DEFAULT_ROSTER_DEPENDENCIES: AgentStatusesRosterDependencies = {
   listCompletedAgentNames,
   readAgentStatusRole,
   loadAgentStatusesRegentTitle,
-  readAgentPaneTail: readAgent,
+  readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId),
 };
 
 export async function getAgentStatusesRoster(
@@ -229,5 +193,5 @@ export async function getAgentStatusesRoster(
     new Set(completedNames),
     roles,
   );
-  return applyLiveBackgroundWorkCorrections(roster, dependencies.readAgentPaneTail);
+  return applyLiveBackgroundWorkCorrections(roster, dependencies.readHarnessBackgroundWork);
 }

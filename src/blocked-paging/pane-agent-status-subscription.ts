@@ -154,13 +154,9 @@ async function runOneSubscriptionSession(
 }
 
 async function resolveHerdrSocketPath(herdrClient: HerdrClientService): Promise<string> {
-  const status = await herdrClient.run(["status", "server"]);
-  for (const line of status.stdout.trim().split("\n")) {
-    const separator = line.indexOf(":");
-    if (separator < 0) continue;
-    const key = line.slice(0, separator).trim().toLowerCase();
-    if (key === "socket") return line.slice(separator + 1).trim();
-  }
+  const status = await herdrClient.run(["status", "server", "--json"]);
+  const { socket } = (JSON.parse(status.stdout) ?? {}) as { socket?: unknown };
+  if (typeof socket === "string" && socket.length > 0) return socket;
   throw new Error('herdr status server did not report a "socket" field');
 }
 

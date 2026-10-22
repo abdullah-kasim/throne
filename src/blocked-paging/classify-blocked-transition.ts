@@ -3,8 +3,11 @@ import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.
 import {
   classifyLastMessageTags,
   lastMessageBlock,
-  liveBackgroundWork,
 } from '../no-idling/idle-pane-tag-classification.ts';
+import {
+  HARNESS_BACKGROUND_WORK_KINDS,
+  type HarnessBackgroundWork,
+} from '../process-inspection/harness-background-work.ts';
 
 export const BLOCKED_TRANSITION_VERDICTS = {
   FINE: 'blocked-and-fine',
@@ -71,16 +74,22 @@ export function classifyBlockedTransition(
 export const OWN_BACKGROUND_RUN_WAITS = {
   RUNNING: 'running',
   NONE_RUNNING: 'none-running',
+  UNREADABLE: 'unreadable',
 } as const;
 
 export type OwnBackgroundRunWait = (typeof OWN_BACKGROUND_RUN_WAITS)[keyof typeof OWN_BACKGROUND_RUN_WAITS];
 
-export function ownBackgroundRunWait(output: string): OwnBackgroundRunWait | undefined {
+export function waitsOnOwnBackgroundRun(output: string): boolean {
   const tag = classifyLastMessageTags(lastMessageBlock(output));
-  if (tag.kind !== 'blocked' || tag.waitsOnOwnBackgroundRun !== true) {
-    return undefined;
-  }
-  return liveBackgroundWork(output) === undefined
-    ? OWN_BACKGROUND_RUN_WAITS.NONE_RUNNING
-    : OWN_BACKGROUND_RUN_WAITS.RUNNING;
+  return tag.kind === 'blocked' && tag.waitsOnOwnBackgroundRun === true;
+}
+
+const OWN_BACKGROUND_RUN_WAIT_BY_WORK_KIND = {
+  [HARNESS_BACKGROUND_WORK_KINDS.RUNNING]: OWN_BACKGROUND_RUN_WAITS.RUNNING,
+  [HARNESS_BACKGROUND_WORK_KINDS.NONE]: OWN_BACKGROUND_RUN_WAITS.NONE_RUNNING,
+  [HARNESS_BACKGROUND_WORK_KINDS.UNKNOWN]: OWN_BACKGROUND_RUN_WAITS.UNREADABLE,
+} as const;
+
+export function ownBackgroundRunWait(backgroundWork: HarnessBackgroundWork): OwnBackgroundRunWait {
+  return OWN_BACKGROUND_RUN_WAIT_BY_WORK_KIND[backgroundWork.kind];
 }

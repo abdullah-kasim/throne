@@ -33,7 +33,6 @@ interface FeedbackItem {
 }
 
 interface PendingReviewScript {
-  readonly forgejoHasNoPendingReview: string;
   leavePendingReview(
     url: string,
     commentsPath: string,
@@ -309,26 +308,45 @@ test("the GitHub thread dump of a staged pull request sends the reader to its Fo
   );
 });
 
-test("a pending review on a GitHub pull request with a Forgejo twin goes to GitHub, and a Forgejo pull request still refuses", async () => {
+const REVIEW_OPERATION_RESULT = `${JSON.stringify({ reviewId: 31, reviewUrl: "review on the twin", copyCommentUrl: "copy comment on the twin", head: "9d1e7c2b" })}\n`;
+
+async function leaveReviewWithoutPromoting(target: string) {
   const commentsPath = path.join(host.checkout.repo, "review-comments.json");
   await writeFile(commentsPath, JSON.stringify([{ path: "feature.txt", line: 2, body: "Name the oven here." }]));
-  const githubCalls: Array<{ readonly program: string; readonly args: readonly string[] }> = [];
-  const options = {
-    runSeam: (args: readonly string[]) => forge(host, args),
-    runGithub: (program: string, args: readonly string[]) => {
-      githubCalls.push({ program, args: [...args] });
-      return "9d1e7c2b\n";
+  const reviewOperationCalls: string[][] = [];
+  const githubCalls: string[][] = [];
+  const githubWritesBefore = await host.github.mutatingCalls();
+  let output = "";
+  await pendingReviewScript.leavePendingReview(target, commentsPath, [], {
+    runSeam: async (args) => {
+      if (args[0] !== "pr" || args[1] !== "review") return forge(host, args);
+      reviewOperationCalls.push([...args]);
+      return REVIEW_OPERATION_RESULT;
     },
-    writeOutput: () => undefined,
-  };
-
-  await pendingReviewScript.leavePendingReview(githubUrl, commentsPath, ["--dry-run"], options);
-  await assert.rejects(pendingReviewScript.leavePendingReview(forgejoUrl, commentsPath, ["--dry-run"], options), {
-    message: pendingReviewScript.forgejoHasNoPendingReview,
+    runGithub: (program, args) => {
+      githubCalls.push([program, ...args]);
+      return "";
+    },
+    writeOutput: (text) => void (output += text),
   });
+  return { commentsPath, reviewOperationCalls, githubCalls, output, githubWritesBefore };
+}
+
+test("a review of a Forgejo pull request goes to the Forgejo review operation", async () => {
+  const review = await leaveReviewWithoutPromoting(forgejoUrl);
+
+  assert.deepEqual(review.reviewOperationCalls, [["pr", "review", forgejoUrl, "--comments-file", review.commentsPath]]);
+  assert.equal(review.output, REVIEW_OPERATION_RESULT);
+  assert.deepEqual(review.githubCalls, []);
+  assert.deepEqual(await host.github.mutatingCalls(), review.githubWritesBefore);
+});
+
+test("a review of a GitHub pull request staged in Forgejo goes to its Forgejo twin, not GitHub", async () => {
+  const review = await leaveReviewWithoutPromoting(githubUrl);
 
   assert.equal(githubUrl, `https://github.com/${FAKE_GITHUB_REPOSITORY}/pull/7`);
-  assert.deepEqual(githubCalls, [
-    { program: "gh", args: ["pr", "view", "7", "--repo", FAKE_GITHUB_REPOSITORY, "--json", "headRefOid", "--jq", ".headRefOid"] },
-  ]);
+  assert.deepEqual(review.reviewOperationCalls, [["pr", "review", githubUrl, "--comments-file", review.commentsPath]]);
+  assert.equal(review.output, REVIEW_OPERATION_RESULT);
+  assert.deepEqual(review.githubCalls, []);
+  assert.deepEqual(await host.github.mutatingCalls(), review.githubWritesBefore);
 });

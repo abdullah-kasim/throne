@@ -74,6 +74,32 @@ export function parsePsCommandLines(output: string): Map<number, string> {
   return commandByPid;
 }
 
+export interface ProcessRow {
+  readonly pid: number;
+  readonly parentPid: number;
+  readonly processGroupId: number;
+  readonly command: string;
+}
+
+export function parseProcessTable(output: string): ProcessRow[] {
+  return output.split('\n').flatMap((line) => {
+    const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+    if (!match) return [];
+    return [{
+      pid: Number(match[1]),
+      parentPid: Number(match[2]),
+      processGroupId: Number(match[3]),
+      command: match[4]!.trim(),
+    }];
+  });
+}
+
+export async function readProcessTable(
+  run: RunHostCommand = REAL_RUN_HOST_COMMAND,
+): Promise<ProcessRow[]> {
+  return parseProcessTable(await run('ps', ['-A', '-o', 'pid=,ppid=,pgid=,command=']));
+}
+
 export async function listProcessesUnderPathDarwin(
   targetPath: string,
   run: RunHostCommand = REAL_RUN_HOST_COMMAND,

@@ -1,4 +1,4 @@
-import type { PageEntry } from "./page-frame.ts";
+import { entryHeadingOf, listEntriesAndQuestions, PageSection, type PageEntry } from "./page-frame.ts";
 
 const LINKS_LINE_PREFIX = "- Links: ";
 const FIELD_SEPARATOR = " · ";
@@ -65,14 +65,17 @@ function sameWork(one: EntryLinks, other: EntryLinks, workOf: (url: string) => s
   );
 }
 
-export function entriesAboutTheSameWork(entry: PageEntry, page: readonly PageEntry[]): PageEntry[] {
+function entriesSharingWorkWith(entry: PageEntry, page: readonly PageEntry[], workOf: (url: string) => string): PageEntry[] {
   const links = readLinksLine(entry);
   if (links === undefined) return [];
-  const workOf = pullRequestJoiner(page);
   return page.filter((other) => {
     const otherLinks = readLinksLine(other);
-    return other.identity !== entry.identity && otherLinks !== undefined && sameWork(links, otherLinks, workOf);
+    return other !== entry && otherLinks !== undefined && sameWork(links, otherLinks, workOf);
   });
+}
+
+export function entriesAboutTheSameWork(entry: PageEntry, page: readonly PageEntry[]): PageEntry[] {
+  return entriesSharingWorkWith(entry, page, pullRequestJoiner(page)).filter((other) => other.identity !== entry.identity);
 }
 
 export function saysItIsSuperseded(entry: PageEntry): boolean {
@@ -81,4 +84,28 @@ export function saysItIsSuperseded(entry: PageEntry): boolean {
 
 export function lineToFixIn(entry: PageEntry): string {
   return linesOf(entry).find((line) => line.startsWith(WHERE_IT_STANDS_PREFIX)) ?? readLinksLine(entry)?.line ?? "";
+}
+
+export function stillSays(entry: PageEntry): string {
+  return `"${entryHeadingOf(entry.identity)}" still says "${lineToFixIn(entry)}"`;
+}
+
+function isAQuestion(entry: PageEntry): boolean {
+  return entry.section === PageSection.NeedsYou;
+}
+
+export function groupsOfTheSameWork(content: string): PageEntry[][] {
+  const current = listEntriesAndQuestions(content).filter((entry) => !saysItIsSuperseded(entry));
+  const workOf = pullRequestJoiner(current);
+  const grouped = new Set<PageEntry>();
+  const groups: PageEntry[][] = [];
+  for (const entry of current) {
+    if (grouped.has(entry)) continue;
+    const others = entriesSharingWorkWith(entry, current, workOf).filter((other) => isAQuestion(other) === isAQuestion(entry));
+    if (others.length === 0) continue;
+    const group = [entry, ...others];
+    for (const member of group) grouped.add(member);
+    groups.push(group);
+  }
+  return groups;
 }

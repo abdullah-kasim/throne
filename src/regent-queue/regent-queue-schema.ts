@@ -28,6 +28,7 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
       shadowless INTEGER NOT NULL DEFAULT 0,
       sliceless INTEGER NOT NULL DEFAULT 0,
       effort INTEGER,
+      account TEXT,
       agent_name TEXT,
       target_repo TEXT,
       base_commit TEXT,
@@ -132,6 +133,8 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
     );
   if (!names.has("effort"))
     db.exec(`ALTER TABLE queue_items ADD COLUMN effort INTEGER`);
+  if (!names.has("account"))
+    db.exec(`ALTER TABLE queue_items ADD COLUMN account TEXT`);
   if (!names.has("delivery_mirror_state"))
     db.exec(
       `ALTER TABLE queue_items ADD COLUMN delivery_mirror_state TEXT NOT NULL DEFAULT 'unknown'`,

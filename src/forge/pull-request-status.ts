@@ -18,6 +18,7 @@ import {
 } from "./pull-request-forge.ts";
 import { openForgejoApiOnThisHost, type ForgeContext } from "./pull-request-operations.ts";
 import { PULL_REQUEST_STATE, PULL_REQUEST_STATUS_FIELDS } from "./pull-request-shapes.ts";
+import { NO_SELF_REVIEW, selfReviewOf, type SelfReview } from "./self-review.ts";
 import { githubTwinOf } from "./staged-pair.ts";
 
 export const TARGET_KIND = { githubUrl: "github-url", forgejoUrl: "forgejo-url", number: "number", branch: "branch" } as const;
@@ -58,6 +59,7 @@ export interface PullRequestStatus {
   readonly mergeTarget: MergeTarget | null;
   readonly mergeTargetRefusal: string | null;
   readonly crossHostMediaLinks: CrossHostMediaLinks;
+  readonly selfReview: SelfReview;
 }
 
 interface GithubPullRequestJson {
@@ -227,6 +229,11 @@ async function findSides(context: ForgeContext, target: PullRequestTarget, host:
   return { kind: TARGET_KIND.githubUrl, sides: await sidesOfGithubUrl(context, target, holder.program, host) };
 }
 
+async function selfReviewOfForgejoSide(context: ForgeContext, forgejo: ForgejoSide | null, forgejoBody: string | null): Promise<SelfReview> {
+  if (forgejo === null || forgejoBody === null) return NO_SELF_REVIEW;
+  return selfReviewOf(context, forgejoBody, forgejo.headSha);
+}
+
 export async function pullRequestStatus(context: ForgeContext, targetText: string): Promise<PullRequestStatus> {
   const target = parsePullRequestTarget(targetText);
   const host = await decideHostForge(context.dependencies);
@@ -243,6 +250,7 @@ export async function pullRequestStatus(context: ForgeContext, targetText: strin
     publishTo: publishToOf(kind, stage, forgejo),
     ...mergeTargetOf(github?.url ?? null, forgejo?.url ?? null),
     crossHostMediaLinks: await crossHostMediaLinksOfPair(sides.bodies, host.url, context.dependencies),
+    selfReview: await selfReviewOfForgejoSide(context, forgejo, sides.bodies.forgejo),
   };
 }
 

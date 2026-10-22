@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { QueuedAlphaCandidate } from "../keep-going/alpha-capacity.ts";
 import type { ModelPair } from "../config.ts";
+import type { QueueRowAccount } from "../regent-queue/queue-row-account.ts";
 
 /**
  * On-disk ready-queue contract: one JSON file per candidate directly under
@@ -27,6 +28,7 @@ export interface LaunchQueueCandidate extends QueuedAlphaCandidate {
   readonly shadowless?: boolean;
   readonly sliceless?: boolean;
   readonly effort?: number | null;
+  readonly account?: QueueRowAccount | null;
   /** When set, targetBranch is a PR branch: spawn-git-tree creates it at baseCommit
    *  (forked from this mainline branch) if it does not exist locally yet. */
   readonly createTargetFromBranch?: string;

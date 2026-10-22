@@ -31,10 +31,15 @@ function runQuietly(command: string, args: string[], cwd: string, environment: N
   });
 }
 
+async function gitInCheckout(checkout: InventedCheckout, args: string[]): Promise<string> {
+  const result = await runQuietly("git", args, checkout.checkout, checkout.environment);
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+}
+
 async function commitEverything(checkout: InventedCheckout) {
-  await runQuietly("git", ["add", "-A"], checkout.checkout, checkout.environment);
-  const commit = await runQuietly("git", ["commit", "--quiet", "-m", "invented"], checkout.checkout, checkout.environment);
-  assert.equal(commit.status, 0, commit.stderr);
+  await gitInCheckout(checkout, ["add", "-A"]);
+  await gitInCheckout(checkout, ["commit", "--quiet", "-m", "invented"]);
 }
 
 function environmentWithoutInjectedGitConfig(): NodeJS.ProcessEnv {
@@ -48,7 +53,7 @@ async function createInventedCheckout(context: TestContext, files: Record<string
   const publicTarget = path.join(root, "public");
   const globalConfig = path.join(root, "gitconfig");
   await writeFile(globalConfig, "[user]\n\tname = Invented\n\temail = invented@example.com\n[core]\n\thooksPath = /dev/null\n");
-  const environment = { ...environmentWithoutInjectedGitConfig(), TMPDIR: root, GIT_CONFIG_GLOBAL: globalConfig, GIT_CONFIG_NOSYSTEM: "1" };
+  const environment = { ...environmentWithoutInjectedGitConfig(), TMPDIR: root, GIT_CONFIG_GLOBAL: globalConfig, GIT_CONFIG_NOSYSTEM: "1", LC_ALL: "C" };
   delete environment.PUBLISH_SCRUB_FILE;
   delete environment.PUBLISH_TARGET;
   await mkdir(path.join(checkout, "scripts"), { recursive: true });
@@ -60,7 +65,7 @@ async function createInventedCheckout(context: TestContext, files: Record<string
     await mkdir(path.dirname(path.join(checkout, file)), { recursive: true });
     await writeFile(path.join(checkout, file), content);
   }
-  await runQuietly("git", ["init", "--quiet"], checkout, environment);
+  await runQuietly("git", ["init", "--quiet", "--initial-branch=main"], checkout, environment);
   await runQuietly("git", ["init", "--quiet"], publicTarget, environment);
   const invented = { root, checkout, publicTarget, environment };
   await commitEverything(invented);
@@ -69,6 +74,30 @@ async function createInventedCheckout(context: TestContext, files: Record<string
 
 function publishDryRun(checkout: InventedCheckout) {
   return runQuietly("bash", ["publish.sh", "--dry-run", "--target", checkout.publicTarget], checkout.checkout, checkout.environment);
+}
+
+function publishForReal(checkout: InventedCheckout, extraArguments: string[] = []) {
+  return runQuietly("bash", ["publish.sh", "--target", checkout.publicTarget, ...extraArguments], checkout.checkout, checkout.environment);
+}
+
+async function createCheckoutWithMainOneCommitAhead(context: TestContext) {
+  const checkout = await createInventedCheckout(context, { "publish-scrub.sed": inventedScrubFile, "README.md": "First.\n" });
+  const olderCommit = await gitInCheckout(checkout, ["rev-parse", "--short=12", "HEAD"]);
+  await writeFile(path.join(checkout.checkout, "README.md"), "Second.\n");
+  await commitEverything(checkout);
+  const mainCommit = await gitInCheckout(checkout, ["rev-parse", "--short=12", "main"]);
+  await gitInCheckout(checkout, ["checkout", "--quiet", "-b", "older", olderCommit]);
+  return { checkout, olderCommit, mainCommit };
+}
+
+async function assertNothingWasStaged(checkout: InventedCheckout) {
+  assert.deepEqual((await readdir(checkout.root)).filter((entry) => entry.startsWith("throne-publish.")), []);
+}
+
+async function assertPublicTargetUntouched(checkout: InventedCheckout) {
+  const branches = await runQuietly("git", ["for-each-ref"], checkout.publicTarget, checkout.environment);
+  assert.equal(branches.stdout, "");
+  assert.deepEqual(await readdir(checkout.publicTarget), [".git"]);
 }
 
 function lintPrivateReferences(checkout: InventedCheckout) {
@@ -122,6 +151,66 @@ test("a publish dry run refuses a snapshot in which a verify term survives scrub
   assert.equal(dryRun.status, 1);
   assert.match(dryRun.stderr, /banned pattern 'Quindle' survived scrubbing/);
   assert.match(dryRun.stderr, /notes\.md/);
+});
+
+test("a publish dry run from a tree whose HEAD is behind main refuses, naming both commits", async (context) => {
+  const { checkout, olderCommit, mainCommit } = await createCheckoutWithMainOneCommitAhead(context);
+
+  const dryRun = await publishDryRun(checkout);
+
+  assert.equal(dryRun.status, 1);
+  assert.equal(dryRun.stderr.trim().split("\n").length, 1, dryRun.stderr);
+  assert.match(dryRun.stderr, new RegExp(`this tree is at ${olderCommit}, not main's tip \\(${mainCommit}\\); bring it to main`));
+  await assertNothingWasStaged(checkout);
+});
+
+test("a publish dry run at main's tip passes", async (context) => {
+  const { checkout } = await createCheckoutWithMainOneCommitAhead(context);
+  await gitInCheckout(checkout, ["checkout", "--quiet", "main"]);
+
+  const dryRun = await publishDryRun(checkout);
+
+  assert.equal(dryRun.status, 0, dryRun.stderr);
+  assert.match(dryRun.stdout, /dry run OK/);
+});
+
+test("a real publish from a tree whose HEAD is not main's tip refuses before writing to the public repository", async (context) => {
+  const { checkout, olderCommit } = await createCheckoutWithMainOneCommitAhead(context);
+
+  const publish = await publishForReal(checkout);
+
+  assert.equal(publish.status, 1);
+  assert.match(publish.stderr, new RegExp(`this tree is at ${olderCommit}, not main's tip`));
+  await assertPublicTargetUntouched(checkout);
+});
+
+test("a real publish from a branch other than main refuses even at main's tip, so the published-commit record lands on main", async (context) => {
+  const { checkout } = await createCheckoutWithMainOneCommitAhead(context);
+  await gitInCheckout(checkout, ["checkout", "--quiet", "-B", "older", "main"]);
+
+  const publish = await publishForReal(checkout);
+
+  assert.equal(publish.status, 1);
+  assert.match(publish.stderr, /a real publish records the published commit on the checked-out branch, which is not main/);
+  await assertPublicTargetUntouched(checkout);
+});
+
+test("a dry run off main passes only with --any-commit, and a real publish refuses --any-commit", async (context) => {
+  const { checkout } = await createCheckoutWithMainOneCommitAhead(context);
+
+  const dryRun = await runQuietly(
+    "bash",
+    ["publish.sh", "--dry-run", "--any-commit", "--target", checkout.publicTarget],
+    checkout.checkout,
+    checkout.environment,
+  );
+  const publish = await publishForReal(checkout, ["--any-commit"]);
+
+  assert.equal(dryRun.status, 0, dryRun.stderr);
+  assert.match(dryRun.stdout, /dry run OK/);
+  assert.equal(publish.status, 1);
+  assert.match(publish.stderr, /--any-commit only applies to --dry-run/);
+  await assertPublicTargetUntouched(checkout);
 });
 
 test("the private-reference check skips a checkout with no publish-scrub.sed", async (context) => {

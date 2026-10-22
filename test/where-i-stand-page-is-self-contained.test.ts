@@ -1,17 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import { PAGE_FILE, pageScriptsInOrder } from './where-i-stand-page-scripts.support.ts';
 
-const PAGE_FILE = resolve(import.meta.dirname, '..', '.claude/skills/where-i-stand/page/index.html');
 const PAGE_ADDRESS_NAMING_THE_PAGE_FILE = 'http://127.0.0.1:8080/where-i-stand/index.html';
 const PAGE_ADDRESS_WITH_A_TRAILING_SLASH = 'http://127.0.0.1:8080/where-i-stand/';
 const PAGE_ADDRESS_WITHOUT_A_TRAILING_SLASH = 'http://127.0.0.1:8080/where-i-stand';
 const MARKDOWN_FILE_BESIDE_THE_PAGE = 'http://127.0.0.1:8080/where-i-stand/where-i-stand.md';
 const RECORDS_FILE_BESIDE_THE_PAGE = 'http://127.0.0.1:8080/where-i-stand/where-i-stand-prs.json';
 const BOTH_FILES_BESIDE_THE_PAGE = [MARKDOWN_FILE_BESIDE_THE_PAGE, RECORDS_FILE_BESIDE_THE_PAGE];
-const SCRIPT_BLOCK = /<script>([\s\S]*?)<\/script>/;
+const SCRIPT_ELEMENTS = /<script>[\s\S]*?<\/script>|<script src="[\w-]+\.js"><\/script>/g;
 
 const MARKUP_THAT_LOADS_A_RESOURCE = [
   /\ssrc\s*=/i,
@@ -38,10 +37,11 @@ const SCRIPT_THAT_LOADS_A_RESOURCE = [
 const ADDRESS_ON_ANOTHER_ORIGIN = /[a-z][a-z0-9+.-]*:\/\/|["'(=\s]\/\/[a-z0-9]/i;
 
 const page = await readFile(PAGE_FILE, 'utf8');
-const pageScript = SCRIPT_BLOCK.exec(page)?.[1] ?? '';
-const pageMarkupAndStyle = page.replace(SCRIPT_BLOCK, '');
+const pageScripts = await pageScriptsInOrder();
+const pageScript = pageScripts.join('\n');
+const pageMarkupAndStyle = page.replace(SCRIPT_ELEMENTS, '');
 
-function browserObjectThatAcceptsEveryCall(knownProperties: Record<string, string> = {}): unknown {
+function browserObjectThatAcceptsEveryCall(knownProperties: Record<string, unknown> = {}): unknown {
   const browserObject: unknown = new Proxy(function browserFunction() {}, {
     get: (_target, property) => {
       if (typeof property === 'symbol' || property === 'then') return undefined;
@@ -53,11 +53,14 @@ function browserObjectThatAcceptsEveryCall(knownProperties: Record<string, strin
   return browserObject;
 }
 
-async function addressesThePageFetches(pageAddress: string): Promise<string[]> {
+async function pageOpenedAt(pageAddress: string): Promise<{ fetchedAddresses: string[]; movedTo: string[] }> {
   const fetchedAddresses: string[] = [];
+  const movedTo: string[] = [];
+  const { pathname, search, hash } = new URL(pageAddress);
+  const location = { pathname, search, hash, replace: (address: string) => movedTo.push(address) };
   const browser = vm.createContext({
     document: browserObjectThatAcceptsEveryCall({ baseURI: pageAddress }),
-    window: browserObjectThatAcceptsEveryCall(),
+    window: browserObjectThatAcceptsEveryCall({ location }),
     URL,
     setInterval: () => 0,
     fetch: async (address: string) => {
@@ -67,8 +70,12 @@ async function addressesThePageFetches(pageAddress: string): Promise<string[]> {
       });
     },
   });
-  await vm.runInContext(pageScript, browser);
-  return fetchedAddresses;
+  for (const script of pageScripts) await vm.runInContext(script, browser);
+  return { fetchedAddresses, movedTo };
+}
+
+async function addressesThePageFetches(pageAddress: string): Promise<string[]> {
+  return (await pageOpenedAt(pageAddress)).fetchedAddresses;
 }
 
 function patternsFoundIn(text: string, patterns: RegExp[]): string[] {
@@ -80,6 +87,7 @@ test('the where-i-stand page loads nothing from a network', async () => {
   assert.deepEqual(patternsFoundIn(pageMarkupAndStyle, MARKUP_THAT_LOADS_A_RESOURCE), []);
   assert.deepEqual(patternsFoundIn(pageScript, SCRIPT_THAT_LOADS_A_RESOURCE), []);
   assert.deepEqual(patternsFoundIn(page, [ADDRESS_ON_ANOTHER_ORIGIN]), []);
+  assert.deepEqual(patternsFoundIn(pageScript, [ADDRESS_ON_ANOTHER_ORIGIN]), []);
   assert.equal(
     (await addressesThePageFetches(PAGE_ADDRESS_NAMING_THE_PAGE_FILE)).length,
     2,
@@ -94,4 +102,10 @@ test('the where-i-stand page fetches the Markdown file and the pull request reco
 
 test('the where-i-stand page finds both files when opened without a trailing slash', async () => {
   assert.deepEqual(await addressesThePageFetches(PAGE_ADDRESS_WITHOUT_A_TRAILING_SLASH), BOTH_FILES_BESIDE_THE_PAGE);
+});
+
+test('the where-i-stand page opened without a trailing slash moves to its folder address so its scripts load from that folder', async () => {
+  assert.deepEqual((await pageOpenedAt(`${PAGE_ADDRESS_WITHOUT_A_TRAILING_SLASH}?from=phone#needs-you`)).movedTo, ['/where-i-stand/?from=phone#needs-you']);
+  assert.deepEqual((await pageOpenedAt(PAGE_ADDRESS_WITH_A_TRAILING_SLASH)).movedTo, []);
+  assert.deepEqual((await pageOpenedAt(PAGE_ADDRESS_NAMING_THE_PAGE_FILE)).movedTo, []);
 });

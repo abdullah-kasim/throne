@@ -19,11 +19,16 @@ import {
   type RestoredAgentTabDeps,
 } from "../herdr/restored-agent-tab.ts";
 import { errorText } from "../shared-policy/error-text.ts";
+import {
+  launchAccountOption,
+  type ReadAccountsConfig,
+} from "../account/agent-account.ts";
 import { REGENT_NAME, REGENT_TAB_LABEL } from "./regent-liveness.ts";
 
 export interface RegentRestoredTabLaunch {
   freshSession: StartOptions;
   regentDir: string;
+  readAccountsConfig: ReadAccountsConfig;
   writeStderr: (text: string) => void;
 }
 
@@ -31,8 +36,7 @@ function readRegentSpawnSpec(regentDir: string): Promise<SpawnSpec | null> {
   return readSpawnSpec(path.basename(regentDir), path.dirname(regentDir));
 }
 
-function recordedSessionResumeArgv(spec: SpawnSpec | null): string[] | null {
-  if (spec?.session_id === undefined) return null;
+function recordedSessionResumeArgv(spec: SpawnSpec, sessionId: string): string[] {
   const harness = parseHarness(spec.harness);
   return buildResumeArgv(
     {
@@ -45,50 +49,63 @@ function recordedSessionResumeArgv(spec: SpawnSpec | null): string[] | null {
         harness,
       ),
     },
-    spec.session_id,
+    sessionId,
   );
+}
+
+async function recordedSessionResumeOptions(
+  spec: SpawnSpec | null,
+  launch: RegentRestoredTabLaunch,
+): Promise<StartOptions | null> {
+  if (spec?.session_id === undefined) return null;
+  return {
+    cwd: launch.freshSession.cwd,
+    argv: recordedSessionResumeArgv(spec, spec.session_id),
+    ...(await launchAccountOption(REGENT_NAME, spec.account, launch.readAccountsConfig)),
+  };
 }
 
 async function resumeRecordedRegentSession(
   launch: RegentRestoredTabLaunch,
   deps: ResumeRegisteredAgentInRestoredTabDeps,
-): Promise<boolean> {
+): Promise<StartOptions | null> {
   try {
-    const argv = recordedSessionResumeArgv(
+    const resumeOptions = await recordedSessionResumeOptions(
       await readRegentSpawnSpec(launch.regentDir),
+      launch,
     );
-    if (argv === null) return false;
+    if (resumeOptions === null) return null;
     await resumeRegisteredAgentInRestoredTabWithDeps(
       REGENT_TAB_LABEL,
-      { ...launch.freshSession, argv },
+      resumeOptions,
       deps,
     );
-    return true;
+    return resumeOptions;
   } catch (error) {
     launch.writeStderr(
       "resurrectRegent: the recorded session could not be resumed in the " +
         `restored "${REGENT_TAB_LABEL}" tab (${errorText(error)}); starting ` +
         "a fresh session in that tab.\n",
     );
-    return false;
+    return null;
   }
 }
 
 export async function relaunchRegentInRestoredTab(
   launch: RegentRestoredTabLaunch,
   deps: ResumeRegisteredAgentInRestoredTabDeps,
-): Promise<boolean> {
+): Promise<StartOptions | null> {
   if ((await findRestoredAgentTab(REGENT_TAB_LABEL, deps)) === null) {
-    return false;
+    return null;
   }
-  if (!(await resumeRecordedRegentSession(launch, deps))) {
-    await resumeRegisteredAgentInRestoredTabWithDeps(
-      REGENT_TAB_LABEL,
-      launch.freshSession,
-      deps,
-    );
-  }
-  return true;
+  const resumedWith = await resumeRecordedRegentSession(launch, deps);
+  if (resumedWith !== null) return resumedWith;
+  await resumeRegisteredAgentInRestoredTabWithDeps(
+    REGENT_TAB_LABEL,
+    launch.freshSession,
+    deps,
+  );
+  return launch.freshSession;
 }
 
 export async function paneOfRegentTabStillRunningItsHarness(

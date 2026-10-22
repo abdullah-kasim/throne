@@ -75,6 +75,7 @@ import { CampaignEvidenceCommand } from "./campaign-evidence/campaign-evidence.c
 import { SweepTmpScratchCommand } from "./sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
 import { MemoryDirCommand } from "./memory-dir/memory-dir.command.ts";
 import { SkillExtensionCommand } from "./skill-extension/skill-extension.command.ts";
+import { ScratchPaneCommand } from "./scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "./migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "./memory-recall/recall.command.ts";
 import { RankCommand } from "./item-rank/rank.command.ts";
@@ -91,6 +92,7 @@ import {
 import { REAL_CODEX_USAGE_DEPS } from "./shared-policy/codex-usage.service.ts";
 import { ResourcePressureCommand } from "./resource-pressure/resource-pressure.command.ts";
 import { TokenBalanceCommand } from "./token-balance/token-balance.command.ts";
+import { AccountCommand } from "./account/account.command.ts";
 import {
   DisableThroneCommand,
   EnableThroneCommand,
@@ -318,10 +320,12 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     CodexUsageRemainingCommand,
     ResourcePressureCommand,
     TokenBalanceCommand,
+    AccountCommand,
     CampaignEvidenceCommand,
     SweepTmpScratchCommand,
     MemoryDirCommand,
     SkillExtensionCommand,
+    ScratchPaneCommand,
     MigrateHomeCommand,
     RecallCommand,
     RankCommand,

@@ -19,12 +19,20 @@ import { spawnSync } from "node:child_process";
 export const CONTAINER_RUNTIME_ENV_VAR = "THRONE_CONTAINER_RUNTIME";
 export const SUPPORTED_CONTAINER_RUNTIMES = Object.freeze(["docker", "podman"]);
 
-/**
- * The suite image bakes in x86_64 bun and herdr binaries at pinned
- * checksums, so it is built and run as linux/amd64 everywhere — a no-op on
- * an amd64 host, emulation (Rosetta / qemu) on an arm64 one.
- */
-export const SUITE_CONTAINER_PLATFORM = "linux/amd64";
+const SUITE_CONTAINER_PLATFORM_BY_HOST_ARCHITECTURE = Object.freeze({
+  arm64: "linux/arm64",
+  x64: "linux/amd64",
+});
+
+export function suiteContainerPlatform(hostArchitecture = process.arch) {
+  const platform = SUITE_CONTAINER_PLATFORM_BY_HOST_ARCHITECTURE[hostArchitecture];
+  if (platform === undefined) {
+    throw new Error(
+      `container-runtime: the suite container has no image for host architecture ${hostArchitecture}; supported: ${Object.keys(SUITE_CONTAINER_PLATFORM_BY_HOST_ARCHITECTURE).join(", ")}`,
+    );
+  }
+  return platform;
+}
 
 export function commandExistsOnPath(command, spawn = spawnSync) {
   const probe = spawn("sh", ["-c", `command -v "$1" >/dev/null 2>&1`, "sh", command], {

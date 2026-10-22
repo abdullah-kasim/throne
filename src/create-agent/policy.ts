@@ -45,6 +45,7 @@ import { campaignEffortOfAlpha, inheritedCampaignEffort } from "./campaign-effor
 import { resolveLaneEvidenceStage } from "./lane-inheritance.ts";
 import { laneGateRefusal } from "./lane-gate.ts";
 import { parseQueueModelHint } from "../regent-queue/model-hint.ts";
+import { accountUsageReader, resolveSpawnAccount } from "./spawn-account.ts";
 
 export async function resolveSpawnPolicy(
   request: RegistrationResolution,
@@ -326,13 +327,16 @@ export async function resolveSpawnPolicy(
     );
     return { ok: false, code: 1 };
   }
+  const spawnAccount = await resolveSpawnAccount({ ...request, launchHarness }, objectiveContract, deps);
+  if (!spawnAccount.ok) return spawnAccount;
   const quotaGate = await finalQuotaGate({
     name: request.name,
     resuming: request.resuming,
     harness: launchHarness,
     model: launchModel,
     bypassZeroQuota: request.flags["bypass-zero-quota"] === true,
-    readClaude: deps.nativeClaudeUsageReader ?? readers.claude,
+    readClaude:
+      accountUsageReader(spawnAccount.value, deps) ?? deps.nativeClaudeUsageReader ?? readers.claude,
     readCodex: readers.codex,
   });
   if (quotaGate.message !== undefined) writeStderr(quotaGate.message);
@@ -381,6 +385,9 @@ export async function resolveSpawnPolicy(
       laneEvidence,
       modelHint,
       campaignEffort: campaignEffortOfAlpha(request, launchEffort),
+      account: spawnAccount.value.account?.name,
+      accountRequirement: spawnAccount.value.requirement,
+      accountReason: spawnAccount.value.reason,
     },
   };
 }

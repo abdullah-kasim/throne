@@ -53,6 +53,13 @@ import type {
   UsageBypassAuthorizationEvidence as ContractUsageBypassAuthorizationEvidence,
   UsageBypassAuthorizationRegistry,
 } from "./create-agent-contracts.ts";
+import type { Account, AccountsConfig, CompanyLogin } from "../account/accounts-config.ts";
+import type { AccountLogin } from "../account/claude-account-adapter.ts";
+import type {
+  AccountReading,
+  AccountRequirement,
+} from "../harness-routing/policy/account-balance.ts";
+import type { UsagePayload } from "../plan-usage-remaining/telemetry.types.ts";
 
 /**
  * What a lane-bearing campaign records at Alpha spawn and every descendant
@@ -83,6 +90,7 @@ export type SpawnTaskingOutcome =
   | "not-applicable";
 
 export interface ParsedFlags {
+  account?: string;
   "fork-of"?: string;
   harness?: string;
   "harness-executable"?: string;
@@ -225,6 +233,10 @@ export interface CreateAgentDeps {
   // kill-switch gate produces before its consumers land.
   resolveTokenBalanceVerdict?: () => LaneBalanceVerdict | undefined;
   isTokenBalanceOperatorEnabled?: () => boolean;
+  readAccountsConfig?: () => AccountsConfig | null;
+  readAccountReading?: (account: Account, config: AccountsConfig) => Promise<AccountReading>;
+  readAccountLogin?: (account: Account, companyLogin: CompanyLogin | undefined) => Promise<AccountLogin>;
+  readAccountUsage?: (account: Account) => Promise<UsagePayload>;
 }
 
 export interface CreateAgentRequest {
@@ -256,6 +268,8 @@ export interface RegistrationResolution extends CreateAgentRequest {
   customExecutable?: string;
   customPassthrough: string[];
   emptyWorktree?: boolean;
+  account?: string;
+  accountRequirement?: AccountRequirement;
 }
 
 export interface PolicyResolution extends RegistrationResolution {
@@ -274,6 +288,7 @@ export interface PolicyResolution extends RegistrationResolution {
   laneEvidence?: LaneEvidence;
   modelHint?: ModelPair;
   campaignEffort?: number;
+  accountReason?: string;
 }
 
 export interface StageSuccess<T> {

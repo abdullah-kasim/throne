@@ -1,7 +1,7 @@
 ---
 name: where-i-stand
-description: 'This throne-only skill points the Lord at the page of what he is working on: one Markdown file under the throne data home that only agents write, served on the tailnet below a table of his pull requests. Its answer in the terminal is the page''s link and nothing else; the page, the table and what changed sit in the browser. It then reads the forges, the queue and the live agents in the background, puts the differences on the page, corrects the page entry by entry, and keeps the tailnet copy of the page up. Use when the Lord asks "where do I stand", "what am I working on", "what needs me", "how are my PRs going", "show me the page", or invokes /where-i-stand. It also holds the writing rules every agent follows when it edits that page.'
-version: 1.2.1
+description: 'This throne-only skill points the Lord at the page of what he is working on: one Markdown file under the throne data home that agents write and the Lord edits in place on the page, served on the tailnet below a table of his pull requests. Its answer in the terminal is the page''s link and nothing else; the page, the table and what changed sit in the browser. It then reads the forges, the queue and the live agents in the background, puts the differences on the page, corrects the page entry by entry, and keeps the tailnet copy of the page up. Use when the Lord asks "where do I stand", "what am I working on", "what needs me", "how are my PRs going", "show me the page", or invokes /where-i-stand. It also holds the writing rules every agent follows when it edits that page.'
+version: 1.4.0
 user-invocable: true
 ---
 
@@ -13,7 +13,8 @@ The Lord reads one page to see what he is working on while many agents are
 busy: `where-i-stand.md` under the throne data home
 (`${THRONE_DATA_HOME:-$HOME/.throne}/where-i-stand.md`). Nothing generates
 it. Agents write it as they file, launch, block and deliver work, so it is
-already there when he asks. This skill points him at it first and corrects
+already there when he asks, and the Lord edits or removes an entry where he
+reads it, on the page. This skill points him at it first and corrects
 it second.
 
 Every change to the page is a targeted edit of one entry, made with your
@@ -87,11 +88,23 @@ throne agent-statuses
   the pull requests that are new, gone or changed since the cache, `--cached`
   answers from the cache without reading any host, and `--json` prints the
   raw records. Pass the same `--days` to every call.
+- The same `--refresh` run, on github.com and each GitHub host in his hosts
+  file, also reads two lists of other people's pull requests. Waiting for his
+  review: the notification feed's review requests, kept only while the pull
+  request is open, still asks him or one of his teams, and has no review of
+  his in any state; each says whether it waits on him or on which team.
+  His teammates' pull requests: the open ones the members of his `team` line's
+  team opened in its organisation, updated inside `--days`. Both go into the
+  cache and the page's data file, `--cached` and `--json` give them back, and
+  `--changes` stays about his own pull requests. Forgejo is not read for
+  either list: it holds no review requests for him.
 - The `--refresh --changes` run also writes the page's data file,
   `${XDG_CACHE_HOME:-$HOME/.cache}/where-i-stand/where-i-stand-prs.json`:
   the pull request table, the time it was read, the hosts that could not be
   read, and the lines that changed since the last run. The page shows it
-  above the agents' sections. `--cached` never writes it.
+  above the agents' sections, and shows throne and dotfiles work, in the
+  table and in the sections, in its own collapsed section at the end.
+  `--cached` never writes it.
 - From those records read each listed pull request's state: CI, reviews,
   merged, closed. Look also for pull requests of the Lord's that the page
   does not list.
@@ -104,8 +117,12 @@ throne agent-statuses
 Hosts and tokens stay in the Lord's own configuration, never in this
 repository. The reader takes them from `~/.config/where-i-stand/hosts` (or
 the file `WHERE_I_STAND_HOSTS` names): one line `<host> <command>` for a
-GitHub host whose command accepts `gh`'s arguments, and one line
-`forgejo <root address> <token file>` for a Forgejo host. Its cache lives
+GitHub host whose command accepts `gh`'s arguments, one line
+`forgejo <root address> <token file>` for a Forgejo host, and at most one
+line `team <host> <org>/<team slug>` per GitHub host naming the Lord's team
+there, and any number of lines `owner <host> <owner>`: a GitHub host with
+`owner` lines is searched for his pull requests in those owners only. A host
+with no `team` line gets no teammates' list. Its cache lives
 under `${XDG_CACHE_HOME:-~/.cache}/where-i-stand/`. A host that cannot be
 read comes back under `problems`; say so instead of treating its pull
 requests as gone.
@@ -170,7 +187,7 @@ never rewritten whole.
 
 ### 5. Keep the tailnet page up
 
-The Lord also reads the page on his phone, from a small static page served on
+The Lord also reads the page on his phone, from a small page server served on
 the tailnet only, never through funnel, at the path `/where-i-stand`. The
 server does not survive a reboot, so check it on every run and start it when
 it is not up:
@@ -182,41 +199,40 @@ curl -s -o /dev/null -w '%{http_code}\n' "${page_url}where-i-stand-prs.json"
 
 `200` means it is up; `$page_url` is the link step 1 answers with, and you
 stop here. Anything else means it is not up, or it is an older page served
-without the pull request table. Start it through the `tailnet-preview`
-skill's script:
+without the pull request table. Start the page server that sits beside the
+page:
 
 ```bash
-page_source="$(mktemp -d "$HOME/tmp/where-i-stand-page-XXXXXX")"
-cp "$THRONE_LIVE_ROOT/.claude/skills/where-i-stand/page/index.html" "$page_source/"
-ln -s "${THRONE_DATA_HOME:-$HOME/.throne}/where-i-stand.md" "$page_source/where-i-stand.md"
-ln -s "${XDG_CACHE_HOME:-$HOME/.cache}/where-i-stand/where-i-stand-prs.json" "$page_source/where-i-stand-prs.json"
 ~/.claude/skills/tailnet-preview/tailnet-preview.sh stop where-i-stand
-~/.claude/skills/tailnet-preview/tailnet-preview.sh share where-i-stand "$page_source"
+python3 "$THRONE_LIVE_ROOT/.claude/skills/where-i-stand/page/page_server.py" stop
+python3 "$THRONE_LIVE_ROOT/.claude/skills/where-i-stand/page/page_server.py" start
 ```
 
-- The script copies its input into
-  `${TAILNET_PREVIEW_ROOT:-$HOME/tmp/tailnet-preview}/where-i-stand`. That
-  copy is the served folder. It sits outside every checkout and worktree, so
-  it outlives them; `$page_source` is only the staging copy.
-- The copy keeps the link as a link. Measured on 2026-10-14 on a scratch
-  path: after `share`, `ls -l` of the served folder showed the link still
-  pointing at its target, the served address returned the target's content,
-  and after the target was replaced by a rename the same address returned
-  the new content with a fresh `Last-Modified`. So the served page always
-  shows the live file. Both links must be absolute, as the commands above
-  make them.
-- Each link needs its file to exist. When `show` printed the empty frame
-  because nobody had written the page yet, take step 4's lock and create the
-  file at the path `show` printed with that frame, using your harness's file
-  tool, before you start the server. When the data file is missing,
-  run the reader once with `--refresh` (step 2), which writes it, before you
-  start the server.
-- An older preview that holds the path is replaced through the script's own
-  `stop`, which is why `stop` runs before `share` above. Never take the path
-  over with `tailscale serve` by hand. When `share` refuses because something
-  the script did not start holds `/where-i-stand`, stop and report that; do
-  not pick another path.
-- `share` prints the address and the words `tailnet only`. Read both back
+- The server listens on 127.0.0.1 only, and `start` publishes it at
+  `/where-i-stand` with `tailscale serve`. It reads `index.html` from its own
+  folder, the page from `${THRONE_DATA_HOME:-$HOME/.throne}/where-i-stand.md`
+  and the data file from
+  `${XDG_CACHE_HOME:-$HOME/.cache}/where-i-stand/where-i-stand-prs.json` on
+  every request, so the served page always shows the live files. Nothing is
+  copied.
+- It also answers the page's saves: it runs `throne where-i-stand save` with
+  the entry as the Lord loaded it and as he edited it, and that save takes
+  the same lock, keeps the same previous copy and journals the edit with the
+  writer `Lord`. Only the page server runs `throne where-i-stand save`; an
+  agent never does.
+- Each file needs to exist. When `show` printed the empty frame because
+  nobody had written the page yet, take step 4's lock and create the file at
+  the path `show` printed with that frame, using your harness's file tool,
+  before you start the server. When the data file is missing, run the reader
+  once with `--refresh` (step 2), which writes it, before you start the
+  server.
+- An older static preview of the page is removed by the `tailnet-preview`
+  script's own `stop`, and an older page server by the server's own `stop`,
+  which is why both run before `start` above. Never take the path over with
+  `tailscale serve` by hand. When `start` refuses because something it did
+  not start holds `/where-i-stand`, stop and report that; do not pick another
+  path.
+- `start` prints the address and the words `tailnet only`. Read both back
   before you give the link.
 
 ## Writing rules for the page
@@ -243,6 +259,10 @@ it there.
   The separator is a space, a middle dot and a space (` · `). The
   ` — <title>` part of the `Kind:` line may be left out. The free lines
   follow: what is and is not verified, who wrote it and when.
+- An entry for throne or dotfiles work with no pull request starts its
+  `Kind:` line with `throne` or `dotfiles`, for example
+  `- Kind: dotfiles — Shorter shell prompt`, so the page sorts it into its
+  collapsed throne and dotfiles section.
 - One line per fact. A state, a link, a question: each on its own line.
 - One current entry per piece of work. Whoever records a newer state of
   some work, Stager, Regent or Alpha, removes every other entry about the
@@ -253,6 +273,10 @@ it there.
   Forgejo or GitHub pull request (a Forgejo pull request and its GitHub twin
   are one piece of work), or, when neither has a pull request, the same
   ticket and the same commit or branch.
+  Releasing the edit lock and saving from the page both report every group
+  of current entries about the same work, a `## Needs you` question beside
+  its work's own entry excepted; the release then exits 3 and tells the
+  Regent, while the save is kept.
 - A link for every pull request. Never a bare number.
 - Say what is not verified. An entry that names only what passed reads as
   finished work.
@@ -304,6 +328,7 @@ list in one place. Every entry this table names is written in the entry form
 | Alpha | unblocks | the `## Needs you` entry goes, and a note |
 | Alpha | delivers | its entry moves to `## Delivered, not on GitHub` or `## On GitHub`, every other entry about the same work is removed or marked superseded, and a note |
 | Regent | abandons, defers or releases a row | the entry, corrected or moved, and a note |
+| Lord | edits or removes an entry or a `## Just happened` line on the page | that one entry or line, saved through the page server and journaled with the writer `Lord`; a save whose entry changed since he loaded the page is refused, and the page shows him the current entry |
 
 Only the delivery write is checked by a command:
 `throne check-where-i-stand --agent <alpha>` refuses, and with it the Alpha's

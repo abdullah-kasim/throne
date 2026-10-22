@@ -446,24 +446,19 @@ export async function loadPersonaConfig(
   );
 }
 
-/**
- * Resolves the host-local ntfy identity from the same user file. An absent
- * file, or a file with no `ntfy` section, yields `{}` — every field then falls
- * back to the committed neutral default at the notification call site.
- */
 export async function loadNtfyUserConfig(
   userConfigPath?: string,
-): Promise<NtfyUserConfig> {
+): Promise<NtfyUserConfig | undefined> {
   const resolvedPath =
     userConfigPath ?? (await resolveUserConfigPath());
-  return (await loadValidatedPersonaOverride(resolvedPath))?.ntfy ?? {};
+  return (await loadValidatedPersonaOverride(resolvedPath))?.ntfy;
 }
 
 /** The effective config, resolved once per process. */
 export const PERSONA_CONFIG: PersonaConfig = await loadPersonaConfig();
 
 /** The host-local ntfy identity, resolved once per process alongside it. */
-export const NTFY_USER_CONFIG: NtfyUserConfig = await loadNtfyUserConfig();
+export const NTFY_USER_CONFIG: NtfyUserConfig | undefined = await loadNtfyUserConfig();
 
 
 export class ApplicationConfigService {

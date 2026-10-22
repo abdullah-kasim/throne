@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { PERSONA_CONFIG } from "../application-config.service.ts";
 import { readLiveClaudeModel } from "../session/live-claude-model.ts";
+import { readAccountsConfig } from "../account/accounts-config.ts";
+import { claudeProjectsFolderOf, type ReadAccountsConfig } from "../account/agent-account.ts";
 import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import {
   readSpawnSpec,
@@ -58,9 +60,10 @@ export interface RestartHarnessesDeps {
   now: () => number;
   readSpawnSpec: (name: string) => Promise<SpawnSpec | null>;
   writeSpawnSpec: (name: string, spec: SpawnSpec) => Promise<void>;
-  readLiveModel: (agent: HerdrAgent) => Promise<string | undefined>;
+  readLiveModel: (agent: HerdrAgent, recordedAccount: string | undefined) => Promise<string | undefined>;
   readHarnessRecord: (name: string) => Promise<string | undefined>;
   resume: (name: string) => Promise<void>;
+  readAccountsConfig: ReadAccountsConfig;
   configuredEffort: (
     name: string,
     role: string | undefined,
@@ -121,13 +124,15 @@ export const REAL_DEPS: RestartHarnessesDeps = {
   now: Date.now,
   readSpawnSpec: (name) => readSpawnSpec(name),
   writeSpawnSpec: (name, spec) => writeSpawnSpec(name, spec),
-  readLiveModel: readLiveClaudeModel,
+  readLiveModel: (agent, recordedAccount) =>
+    readLiveClaudeModel(agent, claudeProjectsFolderOf(recordedAccount)),
   readHarnessRecord: readHarnessRecordFromLedger,
   resume: (name) =>
     resumeOrphan(name, {
       ...REAL_RESUME_CONTRACT,
       exactResumePrompt: buildHarnessRestartPrompt,
     }),
+  readAccountsConfig,
   configuredEffort: readConfiguredEffort,
   renameAgent: (paneId, name) => renameAgent(paneId, name),
   acquireRegentRestartLock: () => acquireResurrectLock(REGENT_DIR),
@@ -368,7 +373,7 @@ async function restartAgentInPlace(
   if (classification.verdict === "failed") {
     return { name, verdict: "failed", detail: classification.detail };
   }
-  const liveModel = await deps.readLiveModel(agent);
+  const liveModel = await deps.readLiveModel(agent, existingSpec?.account);
   let synthesisNote = "";
   if (existingSpec === null) {
     const synthesizedSpec = await synthesizeSpawnSpec(agent, liveModel, deps);
@@ -417,6 +422,15 @@ function beforeSelfStopMessage(agent: HerdrAgent): string {
   return `restart-harnesses: stopping the invoking harness's own pane (${agent.paneId}) to restart it — this is the last target\n`;
 }
 
+function accountsConfigProblem(readConfig: ReadAccountsConfig): string | undefined {
+  try {
+    readConfig();
+    return undefined;
+  } catch (error) {
+    return errorText(error);
+  }
+}
+
 export async function restartHarnesses(
   options: RestartHarnessesOptions,
   deps: RestartHarnessesDeps,
@@ -438,6 +452,15 @@ export async function restartHarnesses(
     return skipped;
   }
   const outcomes: RestartOutcome[] = [...skipped];
+  const accountsProblem = accountsConfigProblem(deps.readAccountsConfig);
+  if (accountsProblem !== undefined) {
+    for (const agent of targets) {
+      const outcome: RestartOutcome = { name: agent.name!, verdict: "failed", detail: `${accountsProblem}; nothing was stopped` };
+      deps.warn(renderOutcome(outcome));
+      outcomes.push(outcome);
+    }
+    return outcomes;
+  }
   for (const agent of targets) {
     if (agent.paneId === invokingPaneId) deps.log(beforeSelfStopMessage(agent));
     const outcome = await restartOne(agent, deps);

@@ -25,6 +25,10 @@ export function throneBrowserProfilesDirectory(environment?: NodeJS.ProcessEnv, 
   return path.join(resolveThroneHome(environment, userHome), "browser-profiles");
 }
 
+export function throneAccountsDirectory(environment?: NodeJS.ProcessEnv, userHome?: string): string {
+  return path.join(resolveThroneHome(environment, userHome), "accounts");
+}
+
 export function throneLogsDirectory(environment?: NodeJS.ProcessEnv, userHome?: string): string {
   return path.join(resolveThroneHome(environment, userHome), "logs");
 }

@@ -6,7 +6,8 @@ import { Command, CommandRunner } from 'nest-commander';
 import { getAgentStatusesRoster } from '../agent-statuses/agent-statuses-roster.ts';
 import { readAgentSupervisor } from '../agentdata/identity-data.service.ts';
 import { resolveAgent, readAgent } from '../herdr/herdr-runtime.service.ts';
-import { submitToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
+import { readHarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
+import { submitUnattributedToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
 import {
   clearBlockedMarker,
   readBlockedMarker,
@@ -74,8 +75,9 @@ export const REAL_NO_IDLING_DEPENDENCIES: NoIdlingDependencies = {
   // Regent notices route through the durable queue — a busy Regent composer
   // becomes a server-side retry instead of a failed sweep. See
   // `enqueue-heartbeat-message.ts`.
-  submitToAgent: submitToAgentViaQueue,
+  submitToAgent: submitUnattributedToAgentViaQueue,
   readAgent,
+  readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId),
   blockedMarkerLedger: {
     readBlockedMarker: (name) => readBlockedMarker(name),
     writeBlockedMarker: (name, blockedBy) => writeBlockedMarker(name, { blockedBy }),

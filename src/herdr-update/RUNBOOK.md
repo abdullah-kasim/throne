@@ -24,28 +24,38 @@ pressure.
 
 ## Performing a real upgrade: `scripts/herdr-upgrade.mjs`
 
-    node scripts/herdr-upgrade.mjs v0.8.3 [--dry-run] [--yes]
+    node scripts/herdr-upgrade.mjs --check
+    node scripts/herdr-upgrade.mjs v0.8.3 --dry-run
+    node scripts/herdr-upgrade.mjs v0.8.3 --yes --restart-ordered-by-lord "<the Lord's words, verbatim>"
 
 Ten phases, each verified before the next. Written after doing v0.8.0 ->
 v0.8.2 by hand on 2026-08-24; every guard in it exists because that run hit
 the thing it guards against. Run `--dry-run` first — it performs the real
 rehearsal (network, hash check, isolated session) and stops short of any
-mutation.
+mutation. `--check` takes no tag and mutates nothing: it reports the pinned
+tag and protocol, the tags installed under the owned herdr home, the live
+`throne` server's version and protocol, and the latest release.
+
+A real run restarts herdr and the backend, so it refuses in preflight, before
+anything changes, unless `--restart-ordered-by-lord` carries the Lord's own
+words ordering that restart; `--yes` never stands in for them. A dry run needs
+no word and lists live campaign agents instead of refusing them.
 
 | # | Phase | Why it is here |
 | - | ----- | -------------- |
-| 1 | preflight | Refuses a dirty tree and refuses live campaign agents. |
+| 1 | preflight | Refuses a dirty tree, live campaign agents, and a real run without the Lord's words. |
 | 2 | rehearse | `rehearseHerdrUpdate`; requires hash match and a clean sweep. |
 | 3 | install | Hash-verified artifact only, alongside the old version. |
 | 4 | pins | Both pin sites, digests from real release metadata. |
 | 5 | identity snapshot | **Before** the mismatch window opens. |
 | 6 | build | Opens the client/server mismatch window. |
-| 7 | unit | `install-services` re-renders ExecStart; restarts nothing. |
-| 8 | restart | Detached transient unit: herdr, then `throne-backend`. |
+| 7 | unit | `install-services` re-renders the unit (Linux: ExecStart via `systemctl --user cat`; macOS: the `com.throne.throne-herdr` LaunchAgent plist must name the new binary); restarts nothing. |
+| 8 | restart | Detached (Linux: `systemd-run` transient unit; macOS: its own session): herdr, then `throne-backend`. Linux: `systemctl --user restart` on both units. macOS: `launchctl kickstart -k` would relaunch the job launchd cached at bootstrap, still the old binary, so the herdr agent is booted out, the script waits until `launchctl print` no longer finds it, bootstraps the rewritten plist (retrying while launchd refuses), and confirms the loaded job names the new binary; never bootstrap before launchd confirms the bootout. The backend's plist does not change, so it gets `launchctl kickstart -k` once the new server answers. |
 | 9 | identity repair | `scripts/herdr-repair-identities.mjs`. |
-| 10 | verify | Server status, roster, end-to-end CLI. |
+| 10 | verify | The restarted server must answer with the target version, or the restart writes a `FAILED:` line and stops before the backend; then roster, end-to-end CLI. |
 
-Output lands in `~/tmp/herdr-upgrade.log`.
+Every line the script prints lands in `~/tmp/herdr-upgrade.log`; each run
+opens with a header line naming the mode, tag and time.
 
 ## The five traps this replaces
 
@@ -76,19 +86,23 @@ the restart, the client speaks the new protocol and the server the old one, so
 *every* throne herdr call fails `protocol_mismatch`. Do not start with live
 campaigns running, and keep the window short.
 
-**5. Restarting herdr alone is not enough.** `throne-backend.service` is a
-separate unit in its own cgroup. It survives the herdr restart still running
+**5. Restarting herdr alone is not enough.** `throne-backend` is a
+separate service (its own cgroup on Linux, its own LaunchAgent on macOS). It survives the herdr restart still running
 the OLD `dist/` in memory, believing the previous protocol and binary path —
 while hosting the only cron that resurrects the Regent. Restart it after
 herdr is healthy or nothing can bring the court back.
 
 ## What the restart actually does to agents
 
-It does **not** kill panes. That was predicted with confidence from the
+On Linux it does **not** kill panes. That was predicted with confidence from the
 process tree (`herdr` is the parent of every pane shell) plus
 `KillMode=control-group`, and the prediction was wrong — every pane survived,
 including the one that fired the restart. herdr advertises
 `detached_server_daemon: true`.
+
+That observation is Linux only. On macOS the standing rule is the opposite:
+reloading herdr drops every herdr pane, so a restart there needs the Lord's
+word.
 
 What it destroys is **agent name registration**, which is server-side state.
 With the names gone the boot ritual finds no named Regent and renames the

@@ -84,7 +84,7 @@ export function runLintQueuePlan(
   const failures = lintQueuePlanBody(body);
   if (failures.length > 0) {
     dependencies.writeStderr(
-      `lint-queue-plan: ${subject} is not launch-ready (${failures.length} missing section${failures.length === 1 ? "" : "s"}):\n${failures.map((failure) => `  - ${failure}`).join("\n")}\n`,
+      `lint-queue-plan: ${subject} is not launch-ready (${failures.length} problem${failures.length === 1 ? "" : "s"}):\n${failures.map((failure) => `  - ${failure}`).join("\n")}\n`,
     );
     return 1;
   }

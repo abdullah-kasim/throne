@@ -3,8 +3,8 @@ import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.
 import { AGENT_MIN_AGE_MS, spawnedAtAgeMs } from './idle-family.ts';
 import { isSpawnStillStarting } from '../agentdata/spawn-starting.ts';
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
-import { paneShowsTheAgentHasActed } from './idle-pane-tag-classification.ts';
-import { backgroundWorkThePaneWaitsOn } from './background-wait.ts';
+import { latestMessageDeclaresBlockedOrReapable } from './idle-pane-tag-classification.ts';
+import { runningWorkDescription, waitingSentenceInPane, type ReadRunningWork } from './background-wait.ts';
 
 /**
  * Closes the gap `findFullyIdleFamilies` cannot: that check only fires once
@@ -31,6 +31,7 @@ export interface FindUntaskedAgentsEvidence {
   /** A future scheduled assignment suppresses paging without changing tasked_at. */
   readonly hasFutureScheduledDelivery?: (name: string, nowMs: number) => Promise<boolean>;
   readonly readPane?: (name: string) => Promise<string>;
+  readonly readRunningWork?: ReadRunningWork;
   readonly now?: () => number;
 }
 
@@ -45,6 +46,11 @@ async function readPaneIfReadable(
   } catch {
     return undefined;
   }
+}
+
+async function isRunningToolWork(evidence: FindUntaskedAgentsEvidence, name: string): Promise<boolean> {
+  const work = await evidence.readRunningWork?.(name);
+  return work !== undefined && runningWorkDescription(work) !== undefined;
 }
 
 function isIdleAcceptingInput(entry: AgentStatusesRosterEntry): boolean {
@@ -92,11 +98,14 @@ export async function findUntaskedAgents(
     if (await evidence.hasFutureScheduledDelivery?.(entry.name, nowMs)) {
       continue;
     }
-    const pane = await readPaneIfReadable(evidence, entry.name);
-    if (pane !== undefined && paneShowsTheAgentHasActed(pane)) {
+    if (await isRunningToolWork(evidence, entry.name)) {
       continue;
     }
-    const backgroundWork = pane === undefined ? undefined : backgroundWorkThePaneWaitsOn(pane);
+    const pane = await readPaneIfReadable(evidence, entry.name);
+    if (pane !== undefined && latestMessageDeclaresBlockedOrReapable(pane)) {
+      continue;
+    }
+    const backgroundWork = pane === undefined ? undefined : waitingSentenceInPane(pane);
     untasked.push({
       name: entry.name,
       role: entry.role,

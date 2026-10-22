@@ -27,12 +27,18 @@ const DELIVERY_NOTICE_OPENINGS: Record<
     `Message ${messageId} from ${senderName} may not have reached you. Read it:`,
 };
 
+const UNNAMED_SENDER_NOTICE_NAME = "the throne";
+
+function noticeSenderName(senderName: string): string {
+  return senderName.trim().length === 0 ? UNNAMED_SENDER_NOTICE_NAME : senderName;
+}
+
 export function buildDeliveryNotice(
   verdict: UndeliveredMessageVerdict,
   messageId: number,
   senderName: string,
 ): string {
-  const opening = DELIVERY_NOTICE_OPENINGS[verdict](messageId, senderName);
+  const opening = DELIVERY_NOTICE_OPENINGS[verdict](messageId, noticeSenderName(senderName));
   return `${opening} ${READ_MESSAGE_COMMAND_LINE} ${messageId}`;
 }
 

@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { SUITE_CONTAINER_PLATFORM, containerRuntime } from "./container-runtime.mjs";
+import { containerRuntime, suiteContainerPlatform } from "./container-runtime.mjs";
 
 // Measured 2026-08-19 with:
 //   podman build --no-cache -f docker/suite-app.Dockerfile -t <tag> .
@@ -87,7 +87,7 @@ export function buildBoundedSuiteAppImage(
 ) {
   return runOwnedBuildProcess(
     runtime,
-    ["build", "--platform", SUITE_CONTAINER_PLATFORM, "-f", dockerfile, "-t", imageReference, context],
+    ["build", "--platform", suiteContainerPlatform(), "-f", dockerfile, "-t", imageReference, context],
     imageReference,
     { stdio: "inherit", ...options },
   );

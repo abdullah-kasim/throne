@@ -126,6 +126,7 @@ function renderItem(
     item.effort == null
       ? undefined
       : `effort: ${item.effort}${effortLevelName(item.effort) === undefined ? "" : ` (${effortLevelName(item.effort)})`}`,
+    item.account ? `account: ${item.account}` : undefined,
     item.prBranch ? `pr: ${item.prBranch}` : undefined,
     item.agentName ? `agent: ${item.agentName}` : undefined,
     item.targetRepo ? `repo: ${item.targetRepo}` : undefined,

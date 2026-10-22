@@ -10,6 +10,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from review_requests_and_teammates import collect_others, configured_teams, hosts_file_lines, owners_searched_on, window_start
+
 HOSTS_FILE = os.path.expanduser(os.environ.get("WHERE_I_STAND_HOSTS", "~/.config/where-i-stand/hosts"))
 FAILING = {"FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE"}
 PASSING = {"SUCCESS", "NEUTRAL", "SKIPPED"}
@@ -33,13 +35,7 @@ def configured_hosts():
 
 
 def configured_forges():
-    forges = []
-    if os.path.exists(HOSTS_FILE):
-        for line in open(HOSTS_FILE):
-            parts = line.split()
-            if len(parts) == 3 and parts[0] == FORGEJO:
-                forges.append((parts[1].rstrip("/"), os.path.expanduser(parts[2])))
-    return forges
+    return [(root.rstrip("/"), os.path.expanduser(token_file)) for root, token_file in hosts_file_lines(HOSTS_FILE, FORGEJO)]
 
 
 def host_names():
@@ -214,10 +210,10 @@ def fold_staged_copies(prs):
 
 
 def collect(days):
-    since = (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+    since = window_start(days)
     prs, problems = [], []
     for host, cli in configured_hosts():
-        found, error = run_json([cli, "search", "prs", "--author", "@me", "--updated", f">={since}", "--limit", "100", "--json", "url,repository,number"])
+        found, error = run_json([cli, "search", "prs", "--author", "@me", *owners_searched_on(HOSTS_FILE, host), "--updated", f">={since}", "--limit", "100", "--json", "url,repository,number"])
         if error:
             problems.append(f"{host}: {error[0]}")
             continue
@@ -392,13 +388,15 @@ def table_row(pr):
     }
 
 
-def page_data(prs, problems, change_lines, days, read_at):
+def page_data(prs, problems, change_lines, days, read_at, waiting, teammates):
     return {
         "read_at": read_at,
         "days": days,
         "problems": problems,
         "changes": [line.removeprefix("- ") for line in change_lines],
         "rows": [table_row(pr) for group in ORDER for pr in group_members(prs, group)],
+        "waiting_for_review": waiting,
+        "teammates": teammates,
     }
 
 
@@ -423,8 +421,8 @@ def write_json_through_a_rename(path, data):
     os.replace(temporary_path, path)
 
 
-def write_cache(days, prs, problems, hosts):
-    write_json_through_a_rename(cache_path(days), {"written_at": utc_now().isoformat(), "hosts": hosts, "prs": prs, "problems": problems})
+def write_cache(days, prs, problems, hosts, waiting, teammates):
+    write_json_through_a_rename(cache_path(days), {"written_at": utc_now().isoformat(), "hosts": hosts, "prs": prs, "problems": problems, "waiting_for_review": waiting, "teammates": teammates})
 
 
 def write_page_data(data):
@@ -471,19 +469,21 @@ def main(argv=None):
             print(f"No cache yet for the last {arguments.days} days; run without --cached for the full report.")
             return 1
         print(f"from the cache, {cache_age(cache['written_at'], utc_now())} old; refreshing in the background", file=sys.stderr if arguments.json else sys.stdout)
-        prs, problems = cache["prs"], cache["problems"]
+        prs, problems, waiting, teammates = cache["prs"], cache["problems"], cache.get("waiting_for_review", []), cache.get("teammates", [])
     else:
         previous_prs = (read_cache(arguments.days) or {"prs": []})["prs"]
         prs, problems = collect(arguments.days)
-        write_cache(arguments.days, prs, problems, host_names())
+        waiting, teammates, other_problems = collect_others(arguments.days, configured_hosts(), configured_teams(HOSTS_FILE), run_json, check_counts)
+        problems += other_problems
+        write_cache(arguments.days, prs, problems, host_names(), waiting, teammates)
     shown = visible(prs, arguments.include_merged, arguments.include_closed)
     if not arguments.cached:
         change_lines = changes(visible(previous_prs, arguments.include_merged, arguments.include_closed), shown)
-        write_page_data(page_data(shown, problems, change_lines, arguments.days, utc_now().isoformat()))
+        write_page_data(page_data(shown, problems, change_lines, arguments.days, utc_now().isoformat(), waiting, teammates))
     if arguments.changes:
         print("\n".join(change_lines))
     elif arguments.json:
-        print(json.dumps({"prs": shown, "problems": problems}, indent=1))
+        print(json.dumps({"prs": shown, "problems": problems, "waiting_for_review": waiting, "teammates": teammates}, indent=1))
     else:
         print(markdown(shown, arguments.days, problems))
     return 0

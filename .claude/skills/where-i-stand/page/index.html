@@ -5,54 +5,34 @@
 <title>Where I stand</title>
 <style>
 :root { color-scheme: light dark; --page: #f6f7f9; --card: #fff; --text: #1f2328; --muted: #59636e; --line: #d0d7de; --link: #0969da; --code: #eff1f3; --needs-you-card: #fff8c5; --needs-you-line: #9a6700; --problem: #a40e26; }
-@media (prefers-color-scheme: dark) {
-  :root { --page: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #9198a1; --line: #3d444d; --link: #4493f8; --code: #262c36; --needs-you-card: #2a2206; --needs-you-line: #d29922; --problem: #ff7b72; }
-}
+@media (prefers-color-scheme: dark) { :root { --page: #0d1117; --card: #161b22; --text: #e6edf3; --muted: #9198a1; --line: #3d444d; --link: #4493f8; --code: #262c36; --needs-you-card: #2a2206; --needs-you-line: #d29922; --problem: #ff7b72; } }
 body { margin: 0; padding: 24px; font: 16px/1.6 system-ui, sans-serif; background: var(--page); color: var(--text); overflow-wrap: anywhere; }
-header, main { max-width: 760px; margin: 0 auto; }
-main { margin-top: 16px; }
-h1 { font-size: 22px; line-height: 1.3; margin: 0 0 4px; }
-header p { margin: 0; font-size: 14px; color: var(--muted); }
-header #fetch-problem { color: var(--problem); font-weight: 600; }
+header, main { max-width: 760px; margin: 0 auto; } main { margin-top: 16px; }
+h1 { font-size: 22px; line-height: 1.3; margin: 0 0 4px; } header p { margin: 0; font-size: 14px; color: var(--muted); } header #fetch-problem { color: var(--problem); font-weight: 600; }
 section { --card-padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: var(--card-padding); margin: 0 0 16px; }
 section.needs-you { background: var(--needs-you-card); border-color: var(--needs-you-line); border-left-width: 6px; padding-left: calc(var(--card-padding) - 5px); }
-section > :first-child { margin-top: 0; }
-section > :last-child { margin-bottom: 0; }
-h2 { font-size: 18px; line-height: 1.3; margin: 0 0 8px; }
-h3 { font: 600 16px/1.4 ui-monospace, monospace; margin: 16px 0 4px; }
-h4, h5, h6 { font-size: 15px; margin: 12px 0 4px; }
-p, ul, ol, blockquote, pre { margin: 0 0 8px; }
-ul, ol { padding-left: 22px; }
-li > ul, li > ol, li > p { margin-bottom: 0; }
-a { color: var(--link); padding: 3px 0; }
-code { font: 14px/1.4 ui-monospace, monospace; background: var(--code); border-radius: 4px; padding: 1px 4px; }
-pre { background: var(--code); border-radius: 6px; padding: 12px; white-space: pre-wrap; }
-pre code { background: none; padding: 0; }
-blockquote { border-left: 3px solid var(--line); padding-left: 12px; color: var(--muted); }
-hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
-#work h3 { font: 600 15px/1.4 system-ui, sans-serif; }
-#work .problem { color: var(--problem); font-weight: 600; }
-#work table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 15px; }
-#work th, #work td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-top: 1px solid var(--line); }
-#work th { font-size: 14px; color: var(--muted); border-top: 0; }
-#work th:first-child { width: 28%; }
-#work td > div { margin-bottom: 4px; }
-#work .missing { color: var(--muted); }
-#work .kind { font-weight: 600; }
-@media (max-width: 600px) {
-  body { padding: 16px; }
-  section { --card-padding: 12px; }
+section > :first-child { margin-top: 0; } section > :last-child { margin-bottom: 0; }
+h2 { font-size: 18px; line-height: 1.3; margin: 0 0 8px; } h3 { font: 600 16px/1.4 ui-monospace, monospace; margin: 16px 0 4px; }
+h4, h5, h6 { font-size: 15px; margin: 12px 0 4px; } p, ul, ol, blockquote, pre { margin: 0 0 8px; } .unit-editor { border-radius: 4px; } .unit-editor:focus { outline: 2px solid var(--link); outline-offset: 2px; } .unit-editor .listed { display: list-item; margin-left: 22px; } .unit-line:not([hidden]) ~ .unit-line[hidden] + .unit-line:not([hidden]) { margin-top: 8px; }
+ul, ol { padding-left: 22px; } li > ul, li > ol, li > p { margin-bottom: 0; } a { color: var(--link); padding: 3px 0; }
+code { font: 14px/1.4 ui-monospace, monospace; background: var(--code); border-radius: 4px; padding: 1px 4px; } .unit-controls button { min-height: 32px; padding: 4px 12px; font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; } .unsaved { border-left: 3px solid var(--problem); padding-left: 12px; margin: 8px 0; }
+pre { background: var(--code); border-radius: 6px; padding: 12px; white-space: pre-wrap; } pre code { background: none; padding: 0; }
+blockquote { border-left: 3px solid var(--line); padding-left: 12px; color: var(--muted); } hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; } .unit-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; } .unit-controls:has(> :not([hidden], :empty)) { margin: 4px 0 8px; } .unit:last-child > :last-child, .unsaved > :last-child { margin-bottom: 0; } .unit-status { color: var(--muted); } .unit-status.problem, .problem { color: var(--problem); font-weight: 600; }
+summary { cursor: pointer; font-weight: 600; padding: 4px 0; } #work details { margin-top: 16px; } .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+details > div > p:first-child { margin: 16px 0 0; font-size: 14px; color: var(--muted); } details > div > p:first-child + h3 { margin-top: 0; } #work h3 { font: 600 15px/1.4 system-ui, sans-serif; } #work .problem { color: var(--problem); font-weight: 600; }
+#work table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 15px; } #work th, #work td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-top: 1px solid var(--line); }
+#work th { font-size: 14px; color: var(--muted); border-top: 0; } #work th:first-child { width: 28%; } #work td > div { margin-bottom: 4px; } #work .missing { color: var(--muted); } #work .kind { font-weight: 600; }
+#work h3 + table { table-layout: auto; overflow-wrap: break-word; } #work h3 + table th:first-child { width: auto; } #work td:is([data-label="Age"], [data-label="CI"]) { white-space: nowrap; }
+@media (max-width: 600px) { body { padding: 16px; } section { --card-padding: 12px; }
   #work thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   #work table, #work tbody, #work tr, #work td { display: block; width: auto; }
-  #work tr { border-top: 1px solid var(--line); padding: 8px 0; }
-  #work td { border: 0; padding: 4px 0; }
-  #work td::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
-}
+  #work tr { border-top: 1px solid var(--line); padding: 8px 0; } #work td { border: 0; padding: 4px 0; }
+  #work td::before { content: attr(data-label); display: block; font-size: 13px; font-weight: 600; color: var(--muted); } }
 </style>
 <header>
 <h1>Where I stand</h1>
 <p id="file-time">Fetching the file.</p>
-<p id="fetch-problem" role="status"></p>
+<p id="fetch-problem" role="status"></p><p id="save-announcement" class="visually-hidden" role="status"></p>
 </header>
 <main>
 <section id="work">
@@ -62,7 +42,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
 </section>
 <div id="page-content"></div>
 </main>
-<script>
+<script>window.location.pathname.endsWith('/') || window.location.pathname.endsWith('.html') || window.location.replace(`${window.location.pathname}/${window.location.search}${window.location.hash}`);</script><script src="edit-entries.js"></script><script>
 const markdownFileName = 'where-i-stand.md';
 const recordsFileName = 'where-i-stand-prs.json';
 const pageFileExtension = '.html';
@@ -70,11 +50,18 @@ const refreshIntervalMilliseconds = 60000;
 const needsYouHeading = 'Needs you';
 const webProtocols = ['http:', 'https:'];
 const workColumns = ['Links', 'What sort of work', 'Where it stands'];
+const noWorkWords = 'No pull requests or agent entries to show.';
 const missingLinkWords = { forgejo: 'no Forgejo copy', github: 'not on GitHub yet', ticket: 'no ticket' };
 const noPullRequestWords = 'no pull request';
 const kindNotStatedWords = 'kind not stated';
 const linkSeparator = ' · ';
 const kindTitleSeparator = ' — ';
+const throneAndDotfilesRepositoryNames = ['throne', 'dotfiles'];
+const throneAndDotfilesWords = 'Throne and dotfiles';
+const otherPullRequestTables = [
+  { heading: 'Waiting for your review', recordsKey: 'waiting_for_review', columns: ['Pull request', 'Title', 'Author', 'Waiting on', 'CI', 'Age'], emptyWords: 'No pull requests are waiting for your review.' },
+  { heading: "Your teammates' pull requests", recordsKey: 'teammates', columns: ['Author', 'Pull request', 'Title', 'State', 'CI', 'Last updated'], emptyWords: 'No open pull requests from your teammates.' },
+];
 
 const fencePattern = /^\s{0,3}(```+|~~~+)/;
 const headingPattern = /^\s{0,3}(#{1,6})\s+(.*)$/;
@@ -85,6 +72,7 @@ const inlinePattern = /(`+)(.+?)\1|\[([^\]]+)\]\(([^)\s]+)\)|\*\*(?!\s)(.+?)\*\*
 
 const entryLinePattern = /^\s*[-*+]\s+(Links|Kind|Where it stands):\s*(.*)$/;
 const linkPartPattern = /^(Forgejo|GitHub|Ticket)\s+(.*)$/;
+const supersededLinePattern = /^\s*(?:- )?Superseded by `### /;
 
 const pageContent = document.getElementById('page-content');
 const fileTime = document.getElementById('file-time');
@@ -95,23 +83,17 @@ let shownMarkdown = null;
 let shownRecordsText = null;
 let shownRecords = null;
 let refreshesStarted = 0;
+const shownSpoilers = {};
 
-function element(tagName, children = []) {
+function element(tagName, children = [], className = '') {
   const created = document.createElement(tagName);
   created.append(...children);
+  if (className) created.classList.add(className);
   return created;
 }
 
-function linkOpensWebOrRelativeTarget(target) {
-  try {
-    return webProtocols.includes(new URL(target, document.baseURI).protocol);
-  } catch {
-    return false;
-  }
-}
-
 function renderLink(children, target, markdownSource) {
-  if (!linkOpensWebOrRelativeTarget(target)) return markdownSource;
+  if (webAddress(target, document.baseURI) === null) return markdownSource;
   const link = element('a', children);
   link.setAttribute('href', target);
   link.setAttribute('rel', 'noreferrer');
@@ -162,10 +144,6 @@ function readHeading(lines, start) {
   return { block: element(`h${hashes.length}`, renderInline(text.trim())), next: start + 1 };
 }
 
-function readRule(lines, start) {
-  return { block: element('hr'), next: start + 1 };
-}
-
 function readQuote(lines, start) {
   const quoted = [];
   let end = start;
@@ -194,11 +172,9 @@ function readList(lines, start) {
 }
 
 const blockReaders = [
-  { opens: fencePattern, read: readFencedCode },
-  { opens: headingPattern, read: readHeading },
-  { opens: rulePattern, read: readRule },
-  { opens: quotePattern, read: readQuote },
-  { opens: listItemPattern, read: readList },
+  { opens: fencePattern, read: readFencedCode }, { opens: headingPattern, read: readHeading },
+  { opens: rulePattern, read: (lines, start) => ({ block: element('hr'), next: start + 1 }) },
+  { opens: quotePattern, read: readQuote }, { opens: listItemPattern, read: readList },
 ];
 
 function blockReaderFor(line) {
@@ -208,9 +184,7 @@ function blockReaderFor(line) {
 function readParagraph(lines, start) {
   let end = start + 1;
   while (end < lines.length && lines[end].trim() !== '' && blockReaderFor(lines[end]) === undefined) end += 1;
-  const children = lines
-    .slice(start, end)
-    .flatMap((line, index) => [...(index === 0 ? [] : [element('br')]), ...renderInline(line.trim())]);
+  const children = lines.slice(start, end).flatMap((line, index) => [...(index === 0 ? [] : [element('br')]), ...renderInline(line.trim())]);
   return { block: element('p', children), next: end };
 }
 
@@ -218,36 +192,74 @@ function renderBlocks(lines) {
   const blocks = [];
   let position = 0;
   while (position < lines.length) {
-    if (lines[position].trim() === '') {
-      position += 1;
-      continue;
-    }
-    const read = blockReaderFor(lines[position]) ?? readParagraph;
-    const { block, next } = read(lines, position);
-    blocks.push(block);
+    const read = lines[position].trim() === '' ? null : blockReaderFor(lines[position]) ?? readParagraph;
+    const { block, next } = read === null ? { block: null, next: position + 1 } : read(lines, position);
+    if (block !== null) blocks.push(block);
     position = next;
   }
   return blocks;
 }
 
-function groupIntoSections(blocks) {
+function renderSpoiler(spoilerName, children, needsYouFlags) {
+  const wasOpen = shownSpoilers[spoilerName]?.open === true;
+  delete shownSpoilers[spoilerName];
+  if (needsYouFlags.length === 0) return [];
+  const needsYouWords = needsYouFlags.some(Boolean) ? `, ${needsYouFlags.filter(Boolean).length} needs you` : '';
+  const spoiler = element('details', [element('summary', [`${throneAndDotfilesWords} (${needsYouFlags.length}${needsYouWords})`]), ...children]);
+  if (wasOpen) spoiler.open = true;
+  shownSpoilers[spoilerName] = spoiler;
+  return [spoiler];
+}
+
+function movedEntryTarget(entries, heading, movedEntries) {
+  const index = entries.findIndex((entry) => element('h3', renderInline(entry.identity)).textContent === heading.textContent);
+  const entry = heading.tagName === 'H3' && index !== -1 ? entries.splice(index, 1)[0] : undefined;
+  if (entry === undefined || !entryIsThroneOrDotfilesWork(entry)) return null;
+  movedEntries.push({ entry, shown: element('div', [element('p', [`Section: ${entry.sectionHeading}`])]) });
+  return movedEntries.at(-1).shown;
+}
+
+function groupIntoSections(blocks, entries) {
   const sections = [];
+  const movedEntries = [];
+  let movedEntry = null;
   for (const block of blocks) {
     const opensSection = block.tagName === 'H2';
     if (opensSection || sections.length === 0) sections.push(element('section'));
     if (opensSection && block.textContent.trim() === needsYouHeading) sections.at(-1).classList.add('needs-you');
-    sections.at(-1).append(block);
+    if (opensSection || block.tagName === 'H3') movedEntry = movedEntryTarget(entries, block, movedEntries);
+    (movedEntry ?? sections.at(-1)).append(block);
   }
-  return sections;
+  const spoilers = renderSpoiler('entries', movedEntries.map(({ shown }) => shown), movedEntries.map(({ entry }) => isNeedsYouEntry(entry)));
+  return [...sections, ...spoilers.map((spoiler) => element('section', [spoiler]))];
 }
 
-function webAddress(text) {
+function webAddress(text, base) {
   try {
-    const address = new URL(text.replace(/^<(.*)>$/, '$1'));
+    const address = new URL(text.replace(/^<(.*)>$/, '$1'), base);
     return webProtocols.includes(address.protocol) ? address.href : null;
   } catch {
     return null;
   }
+}
+
+function isThroneOrDotfilesName(name) {
+  const repositoryName = (name ?? '').toLowerCase().replace(/\.git$/, '');
+  return throneAndDotfilesRepositoryNames.includes(repositoryName) || repositoryName.startsWith('throne-');
+}
+
+function linkNamesThroneOrDotfiles(link) {
+  const firstWord = (link ?? '').trim().split(/\s+/)[0];
+  const address = webAddress(firstWord);
+  return isThroneOrDotfilesName(address === null ? firstWord : new URL(address).pathname.split('/')[2]);
+}
+
+function entryIsThroneOrDotfilesWork({ links, kind }) {
+  return [links.forgejo, links.github, links.withoutPullRequest].some(linkNamesThroneOrDotfiles) || isThroneOrDotfilesName(kind.split(/\s+/)[0]);
+}
+
+function isNeedsYouEntry(entry) {
+  return entry?.sectionHeading === needsYouHeading;
 }
 
 function readLinksLine(linksLine) {
@@ -261,16 +273,10 @@ function readLinksLine(linksLine) {
   return links;
 }
 
-function describeEntry({ sectionHeading, identity, lines }) {
+function describeEntry({ sectionHeading, identity, lines, superseded }) {
   const [kind, ...titleParts] = (lines.Kind ?? '').split(kindTitleSeparator);
-  return {
-    sectionHeading,
-    identity,
-    links: readLinksLine(lines.Links ?? ''),
-    kind: kind.trim(),
-    title: titleParts.join(kindTitleSeparator).trim(),
-    whereItStands: lines['Where it stands'] ?? '',
-  };
+  const title = titleParts.join(kindTitleSeparator).trim();
+  return { sectionHeading, identity, links: readLinksLine(lines.Links ?? ''), kind: kind.trim(), title, whereItStands: lines['Where it stands'] ?? '', superseded };
 }
 
 function readEntries(markdown) {
@@ -279,9 +285,10 @@ function readEntries(markdown) {
   for (const line of markdown.split(/\r?\n/)) {
     const heading = headingPattern.exec(line);
     if (heading !== null && heading[1].length === 2) sectionHeading = heading[2].trim();
-    if (heading !== null && heading[1].length === 3) entries.push({ sectionHeading, identity: heading[2].trim(), lines: {} });
+    if (heading !== null && heading[1].length === 3) entries.push({ sectionHeading, identity: heading[2].trim(), lines: {}, superseded: false });
     const entryLine = entryLinePattern.exec(line);
     const entry = entries.at(-1);
+    if (entry !== undefined && supersededLinePattern.test(line)) entry.superseded = true;
     if (entryLine !== null && entry !== undefined && entry.lines[entryLine[1]] === undefined) entry.lines[entryLine[1]] = entryLine[2].trim();
   }
   return entries.map(describeEntry);
@@ -299,9 +306,7 @@ function entryNamesRecord(entry, record) {
 function linkItem(label, value, missingWords) {
   const address = webAddress(value ?? '');
   if (address !== null) return element('div', [renderLink([label], address, label)]);
-  const words = element('div', [value || missingWords]);
-  if (!value || value === missingWords) words.classList.add('missing');
-  return words;
+  return element('div', [value || missingWords], !value || value === missingWords ? 'missing' : '');
 }
 
 function numberedLabel(label, number) {
@@ -313,12 +318,8 @@ function ticketItem(ticketAddress, ticketId) {
 }
 
 function recordSummary(record) {
-  const parts = [
-    record.group,
-    record.forgejo && `Forgejo ${record.forgejo.state ?? ''}`.trim(),
-    record.github ? `GitHub ${record.github.state ?? ''}`.trim() : 'Forgejo only',
-    record.head_commits,
-  ];
+  const forgejoState = record.forgejo && `Forgejo ${record.forgejo.state ?? ''}`.trim();
+  const parts = [record.group, forgejoState, record.github ? `GitHub ${record.github.state ?? ''}`.trim() : 'Forgejo only', record.head_commits];
   return [...new Set(parts.filter(Boolean))].join('; ');
 }
 
@@ -333,6 +334,8 @@ function rowFromRecord(record, entry) {
     kind: entry?.kind || record.kind || kindNotStatedWords,
     title: record.title || entry?.title || '',
     whereItStands: [recordSummary(record), entry?.whereItStands ?? ''],
+    throneOrDotfiles: isThroneOrDotfilesName(record.repository?.split('/').at(-1)) || (entry !== undefined && entryIsThroneOrDotfilesWork(entry)),
+    needsYou: isNeedsYouEntry(entry),
   };
 }
 
@@ -347,17 +350,14 @@ function rowFromEntry(entry) {
     kind: entry.kind || kindNotStatedWords,
     title: entry.title || entry.identity,
     whereItStands: [entry.sectionHeading, entry.whereItStands],
+    throneOrDotfiles: entryIsThroneOrDotfilesWork(entry), needsYou: isNeedsYouEntry(entry),
   };
 }
 
 function workRows(records, entries) {
-  const recordsWithEntries = (records?.rows ?? []).map((record) => ({
-    record,
-    entry: entries.find((entry) => entryNamesRecord(entry, record)),
-  }));
-  const mergedEntries = recordsWithEntries.map(({ entry }) => entry);
-  const ownEntries = entries.filter((entry) => !mergedEntries.includes(entry));
-  const isNeedsYouEntry = (entry) => entry.sectionHeading === needsYouHeading;
+  const currentEntries = entries.filter((entry) => !entry.superseded);
+  const recordsWithEntries = (records?.rows ?? []).map((record) => ({ record, entry: currentEntries.find((entry) => entryNamesRecord(entry, record)) }));
+  const ownEntries = currentEntries.filter((entry) => !recordsWithEntries.some((pair) => pair.entry === entry));
   return [
     ...ownEntries.filter(isNeedsYouEntry).map(rowFromEntry),
     ...recordsWithEntries.map(({ record, entry }) => rowFromRecord(record, entry)),
@@ -371,28 +371,35 @@ function tableCell(column, children) {
   return cell;
 }
 
-function renderWorkRow(row) {
-  const kind = element('div', [row.kind]);
-  kind.classList.add('kind');
-  const [linksColumn, kindColumn, whereColumn] = workColumns;
-  return element('tr', [
-    tableCell(linksColumn, row.links),
-    tableCell(kindColumn, [kind, ...(row.title ? [element('div', [row.title])] : [])]),
-    tableCell(whereColumn, row.whereItStands.filter(Boolean).map((words) => element('div', [words]))),
-  ]);
+function workCells(row) {
+  return [row.links, [element('div', [row.kind], 'kind'), ...(row.title ? [element('div', [row.title])] : [])], row.whereItStands.filter(Boolean).map((words) => element('div', [words]))];
 }
 
-function renderWorkTable(rows) {
-  if (rows.length === 0) return element('p', ['No pull requests or agent entries to show.']);
-  const head = element('thead', [element('tr', workColumns.map((column) => element('th', [column])))]);
-  return element('table', [head, element('tbody', rows.map(renderWorkRow))]);
+function pullRequestCellsByColumn(pullRequest) {
+  const { passing = 0, failing = 0, running = 0 } = pullRequest.checks ?? {};
+  const checks = [failing && `${failing} failing`, running && `${running} running`].filter(Boolean).join(', ') || (passing ? 'green' : 'no CI');
+  const state = [pullRequest.draft ? 'draft' : 'ready', (pullRequest.review ?? '').toLowerCase().replaceAll('_', ' ')].filter(Boolean).join(', ');
+  const link = linkItem(numberedLabel((pullRequest.repository ?? '').split('/').at(-1), pullRequest.number), pullRequest.url, '');
+  return { 'Pull request': [link], Title: [pullRequest.title], Author: [pullRequest.author], 'Waiting on': [pullRequest.waiting_on], CI: [checks],
+    State: [state], Age: [describeAge(pullRequest.created_at)], 'Last updated': [describeAge(pullRequest.updated_at)] };
+}
+
+function renderTable(columns, rows, emptyWords) {
+  if (rows.length === 0) return element('p', [emptyWords]);
+  const head = element('thead', [element('tr', columns.map((column) => element('th', [column])))]);
+  return element('table', [head, element('tbody', rows.map((cells) => element('tr', cells.map((children, index) => tableCell(columns[index], children)))))]);
+}
+
+function renderOtherPullRequestTables(records) {
+  return otherPullRequestTables.flatMap(({ heading, recordsKey, columns, emptyWords }) => {
+    const rows = (records?.[recordsKey] ?? []).map(pullRequestCellsByColumn).map((cells) => columns.map((column) => cells[column]));
+    return [element('h3', [heading]), renderTable(columns, rows, emptyWords)];
+  });
 }
 
 function renderProblems(problems) {
   if (problems.length === 0) return [];
-  const list = element('ul', problems.map((problem) => element('li', [`Could not read: ${problem}`])));
-  list.classList.add('problem');
-  return [list];
+  return [element('ul', problems.map((problem) => element('li', [`Could not read: ${problem}`])), 'problem')];
 }
 
 function renderChanges(changes) {
@@ -401,15 +408,19 @@ function renderChanges(changes) {
 }
 
 function renderWork(records, markdown) {
+  const rows = workRows(records, readEntries(markdown ?? ''));
+  const throneAndDotfilesRows = rows.filter((row) => row.throneOrDotfiles);
   return [
     ...renderProblems(records?.problems ?? []),
     ...renderChanges(records?.changes ?? []),
-    renderWorkTable(workRows(records, readEntries(markdown ?? ''))),
+    renderTable(workColumns, rows.filter((row) => !row.throneOrDotfiles).map(workCells), noWorkWords),
+    ...renderSpoiler('work', [renderTable(workColumns, throneAndDotfilesRows.map(workCells), noWorkWords)], throneAndDotfilesRows.map((row) => row.needsYou)),
+    ...renderOtherPullRequestTables(records),
   ];
 }
 
 function describeAge(time) {
-  const minutes = Math.round((Date.now() - time.getTime()) / 60000);
+  const minutes = Math.round((Date.now() - new Date(time).getTime()) / 60000);
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
   const hours = Math.round(minutes / 60);
@@ -429,14 +440,10 @@ function describeRecordsTime(records, recordsFetched) {
   return records === null ? problem : `${problem} Showing what was last fetched. ${describeReadTime(records)}`;
 }
 
-function addressNamesFolderWithoutTrailingSlash(pageAddress) {
-  return !pageAddress.pathname.endsWith('/') && !pageAddress.pathname.endsWith(pageFileExtension);
-}
-
 function folderThePageWasServedFrom() {
   const pageAddress = new URL(document.baseURI);
-  const folderPath = addressNamesFolderWithoutTrailingSlash(pageAddress) ? `${pageAddress.pathname}/` : '.';
-  return new URL(folderPath, pageAddress);
+  const namesFolderWithoutTrailingSlash = !pageAddress.pathname.endsWith('/') && !pageAddress.pathname.endsWith(pageFileExtension);
+  return new URL(namesFolderWithoutTrailingSlash ? `${pageAddress.pathname}/` : '.', pageAddress);
 }
 
 async function fetchFileBesideThePage(fileName) {
@@ -450,7 +457,7 @@ function showPage(markdown, recordsText, records) {
   if (markdown === shownMarkdown && recordsText === shownRecordsText) return;
   const scrollPosition = window.scrollY;
   workDetails.replaceChildren(...renderWork(records, markdown));
-  if (markdown !== shownMarkdown) pageContent.replaceChildren(...groupIntoSections(renderBlocks((markdown ?? '').split(/\r?\n/))));
+  if (markdown !== shownMarkdown) showEntries(markdown ?? '');
   window.scrollTo(0, scrollPosition);
   shownMarkdown = markdown;
   shownRecordsText = recordsText;
@@ -462,10 +469,7 @@ function describeTime(time) {
 }
 
 function showFileTime(lastModified) {
-  fileTime.textContent =
-    lastModified === null
-      ? 'The file did not say when it was last modified.'
-      : `File last modified ${describeTime(new Date(lastModified))}`;
+  fileTime.textContent = lastModified === null ? 'The file did not say when it was last modified.' : `File last modified ${describeTime(new Date(lastModified))}`;
 }
 
 function showFetchProblem() {
@@ -476,10 +480,9 @@ function showFetchProblem() {
 
 async function refreshPage() {
   const refreshNumber = (refreshesStarted += 1);
-  const [markdownFetch, recordsFetch] = await Promise.allSettled([
-    fetchFileBesideThePage(markdownFileName),
-    fetchFileBesideThePage(recordsFileName).then(({ text }) => ({ text, records: JSON.parse(text) })),
-  ]);
+  const markdownRead = fetchFileBesideThePage(markdownFileName);
+  const recordsRead = fetchFileBesideThePage(recordsFileName).then(({ text }) => ({ text, records: JSON.parse(text) }));
+  const [markdownFetch, recordsFetch] = await Promise.allSettled([markdownRead, recordsRead]);
   if (refreshNumber !== refreshesStarted) return;
   const recordsFetched = recordsFetch.status === 'fulfilled';
   const { text: recordsText, records } = recordsFetched ? recordsFetch.value : { text: shownRecordsText, records: shownRecords };
@@ -491,9 +494,7 @@ async function refreshPage() {
   showFileTime(markdownFetch.value.lastModified);
 }
 
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) refreshPage();
-});
+document.addEventListener('visibilitychange', () => document.hidden || refreshPage());
 setInterval(refreshPage, refreshIntervalMilliseconds);
 refreshPage();
 </script>

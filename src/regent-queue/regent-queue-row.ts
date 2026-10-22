@@ -2,6 +2,7 @@ import { RegentQueueItemStatus } from "./regent-queue-item-state.ts";
 import type { QueueLaunchEligibility } from "./regent-queue-launch-brief.ts";
 import type { ModelPair } from "../config.ts";
 import type { QueueOutcome, QueueOutcomeRecord } from "./regent-queue-outcome.ts";
+import { COMPANY_ACCOUNT, type QueueRowAccount } from "./queue-row-account.ts";
 
 export interface RegentQueueItemRow extends QueueOutcomeRecord {
   readonly id: string;
@@ -18,6 +19,7 @@ export interface RegentQueueItemRow extends QueueOutcomeRecord {
   readonly shadowless?: boolean;
   readonly sliceless?: boolean;
   readonly effort?: number | null;
+  readonly account?: QueueRowAccount | null;
   readonly launchEligibility?: QueueLaunchEligibility;
   readonly agentName: string | null;
   readonly targetRepo: string | null;
@@ -97,6 +99,7 @@ export interface QueueItemSqlRow {
   shadowless?: number | null;
   sliceless?: number | null;
   effort?: number | null;
+  account?: string | null;
 }
 
 export type QueueDeliveryMirrorVerdict =
@@ -122,7 +125,7 @@ export interface QueueAbsorption {
   readonly reason: string | null;
 }
 
-export const queueItemColumns = `id, objective_code, status, body, deferred_depends_on, deferred_reason, deferred_at, release_requested_by, released_by, release_reason, released_at, filed_by, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, deliverable_shape, shadowless, sliceless, effort, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, outcome, outcome_summary, pr_url, result_commit, completed_at, priority, created_at, updated_at`;
+export const queueItemColumns = `id, objective_code, status, body, deferred_depends_on, deferred_reason, deferred_at, release_requested_by, released_by, release_reason, released_at, filed_by, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, deliverable_shape, shadowless, sliceless, effort, account, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, outcome, outcome_summary, pr_url, result_commit, completed_at, priority, created_at, updated_at`;
 
 export function isQueueDeliveryMirrorVerdict(
   value: string,
@@ -254,6 +257,7 @@ export function toQueueItemRow(row: QueueItemSqlRow): RegentQueueItemRow {
     shadowless: row.shadowless === 1,
     sliceless: row.sliceless === 1,
     effort: row.effort ?? null,
+    account: row.account === COMPANY_ACCOUNT ? COMPANY_ACCOUNT : null,
     agentName: row.agent_name,
     targetRepo: row.target_repo,
     baseCommit: row.base_commit,

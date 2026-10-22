@@ -62,7 +62,7 @@ test('the services run the node version pinned in mise.toml', async () => {
 test('the services refuse to render when the pinned node is not installed', async () => {
   await useScratchHome('home-without-node');
   const unitSource = await readFile(
-    path.join(SYSTEMD_SOURCE_DIR, 'sweep-tmp-scratch-home.service'),
+    path.join(SYSTEMD_SOURCE_DIR, 'sweep-tmp-scratch-slash.service'),
     'utf8',
   );
 

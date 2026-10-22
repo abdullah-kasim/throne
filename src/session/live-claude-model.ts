@@ -6,12 +6,14 @@ import type { HerdrAgent } from "../herdr/herdr-identity-contracts.ts";
 
 export async function readLiveClaudeModel(
   agent: HerdrAgent,
+  claudeProjectsFolder?: string,
 ): Promise<string | undefined> {
   if (agent.agent !== HARNESS_NAMES.CLAUDE) return undefined;
   try {
     const transcriptPath = await claudeTranscriptPathFor(
       agent.cwd,
       agent.sessionId,
+      claudeProjectsFolder,
     );
     if (transcriptPath === undefined) return undefined;
     return latestObservedClaudeModel(await readFile(transcriptPath, "utf8"));

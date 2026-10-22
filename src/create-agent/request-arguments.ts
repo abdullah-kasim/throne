@@ -21,6 +21,7 @@ const BOOLEAN_FLAGS = new Set([
 ]);
 
 const FLAG_NAMES = new Set([
+  "account",
   "fork-of",
   "harness",
   "harness-executable",

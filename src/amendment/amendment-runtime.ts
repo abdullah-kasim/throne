@@ -1,17 +1,30 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
+import { getAgentStatusesRoster } from "../agent-statuses/agent-statuses-roster.ts";
+import { readAgentSpawnStillStarting } from "../agent-statuses/agent-statuses-registry.ts";
+import type { AgentStatusesRosterEntry } from "../agent-statuses/agent-statuses.types.ts";
 import {
   IdentityLineReadStatus,
   readAgentRole,
+  readAgentSupervisor,
+  type IdentityLineRead,
 } from "../agentdata/identity-data.service.ts";
-import { hasCompletionReportForAgent } from "../agentdata/ledger-data.service.ts";
+import { isDoneReport } from "../alpha-monitoring/alpha-monitoring.ts";
+import { isAlphaLiveOrStarting } from "../check-in-flight-rows/in-flight-rows-without-live-alpha.ts";
+import { sameAgentName } from "../herdr/herdr-identity-contracts.ts";
 import { resolveCurrentAgentName } from "../herdr/herdr-session.service.ts";
+import { MessageQueueWorkItemState } from "../message-queue/message-queue-work-item-state.ts";
+import {
+  openMessageQueueStore,
+  type MessageQueueStore,
+} from "../message-queue/message-queue.store.ts";
 import {
   openRegentQueueAmendments,
   type QueueAmendment,
   type RegentQueueAmendments,
 } from "../regent-queue/regent-queue-amendments.ts";
+import { RegentQueueItemStatus } from "../regent-queue/regent-queue-item-state.ts";
 import { findQueueItemByObjectiveCode } from "../regent-queue/regent-queue-lifecycle.ts";
 import {
   openRegentQueueStore,
@@ -19,6 +32,11 @@ import {
   type RegentQueueStore,
 } from "../regent-queue/regent-queue.store.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
+import { errorText } from "../shared-policy/error-text.ts";
+import {
+  MESSAGE_DELIVERY_WORK_ITEM_KIND,
+  type MessageDeliveryWorkItemPayload,
+} from "../send-agent/message-delivery-enqueue.ts";
 import { isQueueFilerRoleName } from "../shared-policy/objective-contract.ts";
 import {
   CANONICAL_REGENT_AUTHORITY,
@@ -47,7 +65,10 @@ export interface AmendmentDependencies {
   readonly openAmendments: () => RegentQueueAmendments;
   readonly currentAgentName: () => Promise<string>;
   readonly readRole: (name: string) => Promise<{ status: IdentityLineReadStatus; value?: string }>;
-  readonly hasWrittenItsReport: (agentName: string) => Promise<boolean>;
+  readonly readRoster: () => Promise<readonly AgentStatusesRosterEntry[]>;
+  readonly spawnIsStillStarting: (agentName: string) => Promise<boolean>;
+  readonly readSupervisor: (agentName: string) => Promise<IdentityLineRead>;
+  readonly openMessageStore: () => MessageQueueStore;
   readonly sendMessage: (recipient: string, message: string) => Promise<void>;
   readonly readTextFile: (filePath: string) => Promise<string>;
   readonly out: (message: string) => void;
@@ -61,7 +82,10 @@ export const REAL_AMENDMENT_DEPENDENCIES: AmendmentDependencies = {
   openAmendments: openRegentQueueAmendments,
   currentAgentName: resolveCurrentAgentName,
   readRole: (name) => readAgentRole(name),
-  hasWrittenItsReport: (agentName) => hasCompletionReportForAgent(agentName),
+  readRoster: () => getAgentStatusesRoster(),
+  spawnIsStillStarting: (agentName) => readAgentSpawnStillStarting(agentName),
+  readSupervisor: (agentName) => readAgentSupervisor(agentName),
+  openMessageStore: () => openMessageQueueStore(),
   sendMessage: async (recipient, message) => {
     await execFileAsync("throne", ["send-agent", recipient, message]);
   },
@@ -99,6 +123,78 @@ async function readAmendmentText(
   return text.trim();
 }
 
+const EVERY_WORK_ITEM_STATE = Object.values(MessageQueueWorkItemState);
+
+async function readFact<T>(question: string, read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    throw new Error(`could not read whether ${question}: ${errorText(error)}`);
+  }
+}
+
+function isDoneReportFromTo(
+  payload: MessageDeliveryWorkItemPayload,
+  senderName: string,
+  objectiveCode: string,
+  recipientName: string,
+): boolean {
+  return (
+    sameAgentName(payload.senderName, senderName) &&
+    sameAgentName(payload.recipientName, recipientName) &&
+    isDoneReport(payload.prompt, [senderName, objectiveCode])
+  );
+}
+
+async function hasReportedDoneToSupervisor(
+  alphaName: string,
+  objectiveCode: string,
+  dependencies: AmendmentDependencies,
+): Promise<boolean> {
+  const supervisor = await dependencies.readSupervisor(alphaName);
+  if (supervisor.status === IdentityLineReadStatus.ReadUnresolved) {
+    throw new Error(`the identity of ${alphaName} could not be read (${errorText(supervisor.error)})`);
+  }
+  if (supervisor.status === IdentityLineReadStatus.FieldAbsent) return false;
+  const store = dependencies.openMessageStore();
+  try {
+    return store
+      .listWorkItemsByStates(EVERY_WORK_ITEM_STATE)
+      .some(
+        (item) =>
+          item.kind === MESSAGE_DELIVERY_WORK_ITEM_KIND &&
+          isDoneReportFromTo(
+            item.payload as MessageDeliveryWorkItemPayload,
+            alphaName,
+            objectiveCode,
+            supervisor.value,
+          ),
+      );
+  } finally {
+    store.close();
+  }
+}
+
+async function readAlphaFacts(
+  row: RegentQueueItemRow,
+  objectiveCode: string,
+  dependencies: AmendmentDependencies,
+): Promise<{ alphaIsLive: boolean; alphaReportedDone: boolean }> {
+  const alphaName = row.agentName;
+  if (alphaName === null || row.status !== RegentQueueItemStatus.InFlight) {
+    return { alphaIsLive: false, alphaReportedDone: false };
+  }
+  const alphaIsLive = await readFact(`its Alpha ${alphaName} is live`, async () =>
+    isAlphaLiveOrStarting(await dependencies.readRoster(), alphaName, dependencies.spawnIsStillStarting),
+  );
+  const alphaReportedDone =
+    alphaIsLive &&
+    (await readFact(`its Alpha ${alphaName} has reported DONE to its supervisor`, () =>
+      hasReportedDoneToSupervisor(alphaName, objectiveCode, dependencies),
+    ));
+  return { alphaIsLive, alphaReportedDone };
+}
+
 async function readRowFacts(
   row: RegentQueueItemRow | undefined,
   dependencies: AmendmentDependencies,
@@ -110,8 +206,7 @@ async function readRowFacts(
     alphaName: row.agentName,
     deliveredCommit: row.deliveryCommit,
     deliveryBranch: row.prBranch ?? row.launchEligibility?.targetBranch ?? null,
-    alphaHasWrittenItsReport:
-      row.agentName !== null && (await dependencies.hasWrittenItsReport(row.agentName)),
+    ...(await readAlphaFacts(row, row.objectiveCode, dependencies)),
   };
 }
 
@@ -166,11 +261,17 @@ export async function run(
   if (callerRefusal !== undefined) return refuse(callerRefusal, dependencies);
 
   const store = dependencies.openStore();
-  let facts: AmendmentRowFacts | undefined;
+  let row: RegentQueueItemRow | undefined;
   try {
-    facts = await readRowFacts(findQueueItemByObjectiveCode(store, parsed.objectiveCode), dependencies);
+    row = findQueueItemByObjectiveCode(store, parsed.objectiveCode);
   } finally {
     store.close();
+  }
+  let facts: AmendmentRowFacts | undefined;
+  try {
+    facts = await readRowFacts(row, dependencies);
+  } catch (error) {
+    return refuse(`amendment: ${errorText(error)}. Retry once it can be read.`, dependencies);
   }
   const decision = decideAmendmentRoute(parsed.objectiveCode, facts);
   if (

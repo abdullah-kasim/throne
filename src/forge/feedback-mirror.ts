@@ -1,6 +1,6 @@
 import { readStagedFeedback } from "./carry-answers-back.ts";
 import { crossHostMediaLinksIn } from "./cross-host-media-links.ts";
-import { postForgejoConversationComment, postForgejoReviewComment } from "./forgejo-feedback.ts";
+import { postForgejoConversationComment, postForgejoReview } from "./forgejo-feedback.ts";
 import { pullRequestApiPath } from "./forgejo-pull-requests.ts";
 import type { GithubFeedbackItem } from "./github-feedback.ts";
 import { FORGE } from "./host-forge.ts";
@@ -64,7 +64,7 @@ async function mirroredCommentTextOf(staged: StagedPullRequest, item: GithubFeed
   if (isLineStillInDiff(item, shown)) {
     const place = { path: item.path!, line: item.line!, onOldSide: false };
     const reviewComment = mirroredBody(item, "");
-    await postForgejoReviewComment(staged.address, place, reviewComment, staged.api);
+    await postForgejoReview(staged.address, [{ place, body: reviewComment }], staged.api);
     return reviewComment;
   }
   const placeNote = item.path === null ? "" : `On \`${item.path}\` line ${item.line}, which is no longer in this pull request's diff. `;

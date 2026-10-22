@@ -6,7 +6,7 @@ function exclusionReason(state: LastMessageTagState | undefined): string | undef
     case 'reapable-failed': return 'its last message is REAPABLE_FAIL-marked; supervisor repair is required before reap';
     case 'reapable': return 'its last message carries a supported reapability JSON claim';
     case 'blocked': return 'its latest message is the standalone JSON {"blocked":true}';
-    case 'busy': return `its pane reports ${state.running} (herdr cannot see background work)`;
+    case 'busy': return `its harness is running ${state.running} (herdr cannot see background work)`;
     case 'unreadable': return 'its last message could not be read';
     case 'unmarked': return undefined;
   }

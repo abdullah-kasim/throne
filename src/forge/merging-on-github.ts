@@ -4,14 +4,16 @@ import { postForgejoConversationComment } from "./forgejo-feedback.ts";
 import { closeForgejoPullRequest, viewForgejoPullRequest } from "./forgejo-pull-requests.ts";
 import { githubSquashMergeArguments, runGithub } from "./github-pull-requests.ts";
 import { FORGE } from "./host-forge.ts";
+import { landPullRequestOnMain } from "./landing-on-main.ts";
 import {
   decideForgeHoldingPullRequest,
   githubProgramForHost,
   parsePullRequestTarget,
   type GithubProgram,
 } from "./pull-request-forge.ts";
-import type { ForgeContext } from "./pull-request-operations.ts";
+import { printedJson, type ForgeContext } from "./pull-request-operations.ts";
 import { PULL_REQUEST_STATE } from "./pull-request-shapes.ts";
+import { repositoryLandsOnMain } from "./repository-lands-on-main.ts";
 import { forgejoPullRequestFor, githubTwinOf, type StagedPullRequest } from "./staged-pair.ts";
 
 export const NOTHING_MERGES_IN_FORGEJO =
@@ -48,7 +50,10 @@ function notOnGithubYet(forgejoUrl: string): string {
 
 export async function squashMergePullRequestOnGithub(context: ForgeContext, targetText: string): Promise<ProcessResult> {
   const holder = await decideForgeHoldingPullRequest(parsePullRequestTarget(targetText), context.dependencies);
-  if (holder.forge === FORGE.forgejo) throw new ForgeRefusal(NOTHING_MERGES_IN_FORGEJO);
+  if (holder.forge === FORGE.forgejo) {
+    if (await repositoryLandsOnMain(context.repo, context.dependencies)) return printedJson(await landPullRequestOnMain(context, targetText));
+    throw new ForgeRefusal(NOTHING_MERGES_IN_FORGEJO);
+  }
   return runGithub(
     githubSquashMergeArguments(targetText),
     { program: holder.program, repo: context.repo, bypass: context.bypass },

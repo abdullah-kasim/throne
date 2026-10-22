@@ -20,6 +20,7 @@ import {
   type StageResult,
 } from "./create.types.ts";
 import { stderrWriter } from "./command-context.ts";
+import { COMPANY_ACCOUNT_WORD } from "../account/accounts-config.ts";
 
 const ledgerData = new LedgerDataService();
 
@@ -204,6 +205,21 @@ function explicitResumeConflicts(
     );
 }
 
+export function accountResumeConflict(
+  requestedAccount: string | undefined,
+  stored: Pick<SpawnSpec, "account" | "account_requirement">,
+): string | undefined {
+  if (requestedAccount === undefined) return undefined;
+  if (requestedAccount === COMPANY_ACCOUNT_WORD && stored.account_requirement === COMPANY_ACCOUNT_WORD) {
+    return undefined;
+  }
+  if (requestedAccount === stored.account) return undefined;
+  return (
+    `the requested --account ${requestedAccount} does not match its recorded ` +
+    `account "${stored.account ?? "none"}"; an agent keeps its account for life`
+  );
+}
+
 export async function resolveRegistration(
   request: CreateAgentRequest,
   deps: CreateAgentDeps,
@@ -280,6 +296,16 @@ export async function resolveRegistration(
     return { ok: false, code: 1 };
   }
 
+  const accountConflict = accountResumeConflict(request.flags.account, stored.evidence);
+  if (accountConflict !== undefined) {
+    writeStderr(
+      `create-agent: refusing to resume registered agent "${request.name}" because ` +
+        `${accountConflict}. Re-run without --account or tear it down with ` +
+        `./bin/throne-cli reap-agent ${request.name} --reason superseded.\n`,
+    );
+    return { ok: false, code: 1 };
+  }
+
   const customConflict = customRecipeResumeConflict({
     requestedExecutable: request.requestedExecutable,
     requestedPassthrough: request.passthrough,
@@ -329,6 +355,8 @@ export async function resolveRegistration(
       customExecutable: stored.evidence.harness_executable,
       customPassthrough: stored.evidence.passthrough_argv ?? [],
       emptyWorktree: stored.evidence.empty_worktree === true,
+      account: stored.evidence.account,
+      accountRequirement: stored.evidence.account_requirement,
     },
   };
 }

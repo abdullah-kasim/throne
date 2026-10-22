@@ -9,7 +9,7 @@ import { effortRoleForAgent } from "../src/config.ts";
 import {
   regentLaunchArgv,
   resolveConfiguredRegentLaunch,
-} from "../src/regent-state/regent-state.service.ts";
+} from "../src/regent-state/regent-launch-recipe.ts";
 import { resolveSpawnPolicy } from "../src/create-agent/policy.ts";
 import {
   baseDeps,

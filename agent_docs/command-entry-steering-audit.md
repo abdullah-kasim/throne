@@ -286,6 +286,10 @@ each requested entrance-failure mode. Each verdict is limited to the cited parse
 | `skill-extension` | missing argument | PASS | Executable evidence: `src/skill-extension/skill-extension.spec.ts` — `an unknown flag or a missing skill name is refused with the usage`. |
 | `skill-extension` | invalid value | PASS | Executable evidence: `src/skill-extension/skill-extension.spec.ts` — `a skill name that would reach outside the extensions folder is refused`. |
 | `skill-extension` | policy refusal | N/A | Read-only lookup with no entrance policy gate. |
+| `scratch-pane` | unknown flag | PASS | Executable evidence: `src/scratch-pane/scratch-pane.spec.ts` — `an unknown flag or a missing pane, owner or time is refused with the usage`. |
+| `scratch-pane` | missing argument | PASS | Executable evidence: `src/scratch-pane/scratch-pane.spec.ts` — `an unknown flag or a missing pane, owner or time is refused with the usage`. |
+| `scratch-pane` | invalid value | PASS | Executable evidence: `src/scratch-pane/scratch-pane.spec.ts` — `registering a scratch pane for an unknown owner or a past time is refused`. |
+| `scratch-pane` | policy refusal | PASS | Executable evidence: `src/scratch-pane/scratch-pane.spec.ts` — `registering a scratch pane for an unknown owner or a past time is refused`. |
 | `recall` | unknown flag | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `an unknown flag is a steered exit 2`. |
 | `recall` | missing argument | PASS | Executable evidence: `src/memory-recall/recall.command.spec.ts` — `recall without task text is refused with the usage`. A hand call with neither `--directory` nor `--memory-dir` is refused naming both flags and the current directory. |
 | `recall` | invalid value | PASS | Executable evidence: `src/memory-recall/recall-scope.spec.ts` — `a hand recall whose --directory has no findable memory directory is refused naming it`. A `--directory` whose memory directory cannot be resolved is refused naming that directory, never dropped to the global memory directories. |

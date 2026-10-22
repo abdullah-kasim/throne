@@ -4,6 +4,7 @@ import { Injectable } from "@nestjs/common";
 import { PERSONA_CONFIG } from "../application-config.service.ts";
 import { canonicalizeIdentityRole } from "../shared-policy/identity-role-casing.ts";
 import { DEFAULT_DATA_DIR } from "./spawn-data-contracts.ts";
+import { accountLine } from "./identity-account-line.ts";
 import { containsSupervisionPollingLoop } from "./identity-polling.ts";
 import { BACKGROUND_WAIT_INSTRUCTION, CHILD_WAIT_INSTRUCTION } from "./waiting-instructions.ts";
 import { formatReapabilityClaim } from "../reap-agent/reapability-claim.ts";
@@ -24,6 +25,7 @@ export interface AgentIdentity {
   sliceless?: true;
   campaignEffort?: number;
   forkedFrom?: string;
+  account?: string;
   /** The exact herdr tab label this agent was spawned with (persona-aware
    *  under a non-Default preset, canonical otherwise). Durable so restart
    *  recovery never has to reconstruct "which preset was active at spawn
@@ -359,6 +361,7 @@ export async function writeIdentity(
     ...(canonicalIdentity.forkedFrom === undefined
       ? []
       : [`${FORKED_FROM_LINE_PREFIX}${canonicalIdentity.forkedFrom}`]),
+    ...(canonicalIdentity.account === undefined ? [] : [accountLine(canonicalIdentity.account)]),
     ...(canonicalIdentity.spawnedTabLabel === undefined
       ? []
       : [`${SPAWNED_TAB_LABEL_LINE_PREFIX}${canonicalIdentity.spawnedTabLabel}`]),

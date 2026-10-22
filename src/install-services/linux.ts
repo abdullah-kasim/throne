@@ -53,8 +53,6 @@ export const LINUX_UNITS: readonly LinuxUnitSpec[] = [
   // shape exactly: the .service is never enabled directly (it has no
   // [Install] section of its own to act on), only its .timer is — the
   // timer is what systemd actually arms and what fires the service.
-  { basename: SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_SERVICE, enabledDirectly: false },
-  { basename: SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_TIMER, enabledDirectly: true },
   { basename: SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_SLASH_SERVICE, enabledDirectly: false },
   { basename: SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_SLASH_TIMER, enabledDirectly: true },
   { basename: SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_CLAUDE1000_SERVICE, enabledDirectly: false },
@@ -97,6 +95,8 @@ export const RETIRED_LINUX_UNITS: readonly string[] = [
   SYSTEMD_UNIT_NAMES.NO_IDLING_TIMER,
   SYSTEMD_UNIT_NAMES.NO_IDLING_SERVICE,
   SYSTEMD_UNIT_NAMES.THRONE_WORK,
+  SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_TIMER,
+  SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_SERVICE,
 ];
 
 /**

@@ -7,6 +7,7 @@ import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.
 import type { SubmitToAgentOptions } from '../herdr/herdr-send.types.ts';
 import type { BlockedPageLedgerEntry } from './blocked-agent-escalation-ledger.ts';
 import type { BlockedMarkerLedger } from '../no-idling/idle-family.ts';
+import type { HarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
 
 export interface BlockedAgentPagingDependencies {
   readonly herdrClient: HerdrClientService;
@@ -16,6 +17,7 @@ export interface BlockedAgentPagingDependencies {
   readonly getRoster: (dataDir: string) => Promise<AgentStatusesRosterEntry[]>;
   readonly readAgentSupervisor: (name: string, dataDir: string) => Promise<string>;
   readonly readAgent: (name: string) => Promise<string>;
+  readonly readHarnessBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>;
   readonly readVisiblePaneText: (paneId: string) => Promise<string>;
   readonly blockedMarkerLedger: BlockedMarkerLedger;
   readonly resolveAgent: (name: string) => Promise<HerdrAgent>;

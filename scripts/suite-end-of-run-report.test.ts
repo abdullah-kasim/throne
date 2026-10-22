@@ -70,3 +70,16 @@ test("an enabled group that lists no test files succeeds and says so, while a de
   assert.equal(reportRun(0, "ℹ tests 0\n").exitCode, ZERO_TESTS_EXECUTED_EXIT_CODE);
   assert.equal(reportRun(0, "no summary at all\n").exitCode, ZERO_TESTS_EXECUTED_EXIT_CODE);
 });
+
+test("the outcome line names a test file the watchdog killed past its time limit, and not one that exited before the kill", () => {
+  const suiteOutput = [
+    "suite-test-file-watchdog: test file past its time limit: test/hangs.test.ts ran 300.4s against a 300.0s limit",
+    "suite-test-file-watchdog: killed test file: test/hangs.test.ts",
+    "suite-test-file-watchdog: test file past its time limit: test/slow-start.test.ts ran 300.1s against a 300.0s limit",
+    "suite-test-file-watchdog: test/slow-start.test.ts exited on its own before it could be killed",
+    "ℹ tests 3",
+  ].join("\n");
+
+  assert.match(reportRun(1, suiteOutput).output, /outcome: tests failed \(exit 1\); ten-second law kept; killed past the per-file time limit: test\/hangs\.test\.ts\n/);
+  assert.match(reportRun(1, "ℹ tests 3\n").output, /outcome: tests failed \(exit 1\); ten-second law kept\n/);
+});

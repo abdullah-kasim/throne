@@ -17,6 +17,7 @@ import {
 } from '../src/user-config-loader.ts';
 import { NTFY_FIELDS } from '../src/shared-policy/ntfy-user-config.ts';
 import { PLAN_PRESET_NAMES } from '../src/steering-user-config.ts';
+import { ACCOUNTS_CONFIG_KEYS, ACCOUNT_KEYS, COMPANY_LOGIN_KEYS } from '../src/account/accounts-config.ts';
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -35,6 +36,13 @@ test('docs/CONFIG.md documents every key the loader knows', async () => {
   ];
   const missing = expected.filter((key) => !doc.includes(`\`${key}\``) && !doc.includes(`'${key}'`) && !doc.includes(`${key}:`));
   assert.deepEqual(missing, [], `undocumented config.user.ts keys: ${missing.join(', ')}`);
+});
+
+test('docs/CONFIG.md documents every accounts.json key', async () => {
+  const doc = await readFile(path.join(REPO_ROOT, 'docs', 'CONFIG.md'), 'utf8');
+  const expected = [...ACCOUNTS_CONFIG_KEYS, ...ACCOUNT_KEYS, ...COMPANY_LOGIN_KEYS];
+  const missing = expected.filter((key) => !doc.includes(`\`${key}\``));
+  assert.deepEqual(missing, [], `undocumented accounts.json keys: ${missing.join(', ')}`);
 });
 
 test('README links to docs/CONFIG.md', async () => {

@@ -5,6 +5,7 @@ import {
   isAlphaRole,
 } from './idle-family.ts';
 import type { ReapabilityProtocolViolation } from './reapability-protocol.ts';
+import type { ScratchPaneReport } from './unnamed-agent-confirmation.ts';
 
 export interface NoIdlingFamilyNotice {
   readonly alpha: string;
@@ -289,11 +290,17 @@ export function buildStrandedSpawnsMessage(params: StrandedSpawnsMessageParams):
   return `No-idling detected live agent(s) stranded during spawn, never a dead tab: ${details}. Each is correctly provisioned and mid-campaign; never close its tab. Recover it directly: answer the modal for MODAL_BLOCKING, redeliver opening-prompt.md for STRANDED_SPAWN, or press Enter in the composer for PROMPT_UNSUBMITTED — never redeliver the prompt to a PROMPT_UNSUBMITTED agent, that would double it.`;
 }
 
+export interface ScratchPaneNotice {
+  readonly report: ScratchPaneReport;
+  readonly owner: string;
+}
+
 export interface UnnamedAgentPane {
   readonly paneId: string;
   readonly tabLabel?: string;
   readonly harness: string;
   readonly likelyOwner?: string;
+  readonly scratchPane?: ScratchPaneNotice;
 }
 
 export interface UnnamedAgentsMessageParams {
@@ -304,7 +311,12 @@ function agentRenameCommand(paneId: string, ownerName: string): string {
   return `herdr agent rename ${paneId} ${ownerName}`;
 }
 
-function describeUnnamedAgentRepair({ paneId, likelyOwner }: UnnamedAgentPane): string {
+function describeScratchPane({ report, owner }: ScratchPaneNotice): string {
+  return `${report} scratch pane, owner ${owner}, ask ${owner} to close its tab or register it again`;
+}
+
+function describeUnnamedAgentRepair({ paneId, likelyOwner, scratchPane }: UnnamedAgentPane): string {
+  if (scratchPane !== undefined) return describeScratchPane(scratchPane);
   return likelyOwner === undefined
     ? 'owner unknown, inspect the pane to find which agent it belongs to'
     : `likely owner ${likelyOwner}, repair with ${agentRenameCommand(paneId, likelyOwner)}`;

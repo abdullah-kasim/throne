@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import { PageElement, pageScriptsInOrder } from './where-i-stand-page-scripts.support.ts';
 
-const PAGE_FILE = resolve(import.meta.dirname, '..', '.claude/skills/where-i-stand/page/index.html');
 const PAGE_ADDRESS = 'http://127.0.0.1:8080/where-i-stand/';
 const RECORDS_FILE_NAME = 'where-i-stand-prs.json';
 const MINUTES_SINCE_THE_RECORDS_WERE_READ = 5;
@@ -14,6 +12,9 @@ const STOREFRONT_GITHUB_ADDRESS = 'https://github.com/shop/storefront/pull/41';
 const STOREFRONT_TICKET_ADDRESS = 'https://tracker.example.com/ABC-12';
 const GIFT_CARD_FORGEJO_ADDRESS = 'https://forge.example.com/shop/storefront/pulls/8';
 const BASKET_TOUR_ADDRESS = 'https://videos.example.com/basket-tour.mp4';
+const THRONE_FORGEJO_ADDRESS = 'https://forge.example.com/court/throne-mirror/pulls/3';
+const DOTFILES_GITHUB_ADDRESS = 'https://github.com/court/dotfiles/pull/9';
+const THRONE_AND_DOTFILES_SUMMARY = 'Throne and dotfiles';
 
 const SAMPLE_RECORDS = {
   read_at: new Date(Date.now() - MINUTES_SINCE_THE_RECORDS_WERE_READ * 60000).toISOString(),
@@ -72,53 +73,6 @@ const SAMPLE_MARKDOWN = `## Needs you
 - Restarted the bakery's backend.
 `;
 
-class PageElement {
-  readonly tagName: string;
-  childNodes: (PageElement | string)[] = [];
-  readonly classes = new Set<string>();
-  readonly classList = { add: (name: string) => this.classes.add(name) };
-  private readonly attributes = new Map<string, string>();
-
-  constructor(tagName: string) {
-    this.tagName = tagName.toUpperCase();
-  }
-
-  append(...nodes: (PageElement | string)[]): void {
-    this.childNodes.push(...nodes);
-  }
-
-  replaceChildren(...nodes: (PageElement | string)[]): void {
-    this.childNodes = [...nodes];
-  }
-
-  setAttribute(name: string, value: string): void {
-    this.attributes.set(name, value);
-  }
-
-  getAttribute(name: string): string | null {
-    return this.attributes.get(name) ?? null;
-  }
-
-  get textContent(): string {
-    return this.childNodes.map((node) => (typeof node === 'string' ? node : node.textContent)).join('');
-  }
-
-  set textContent(text: string) {
-    this.childNodes = [text];
-  }
-
-  elementChildren(): PageElement[] {
-    return this.childNodes.filter((node): node is PageElement => typeof node !== 'string');
-  }
-
-  descendantsNamed(tagName: string): PageElement[] {
-    return this.elementChildren().flatMap((child) => [
-      ...(child.tagName === tagName.toUpperCase() ? [child] : []),
-      ...child.descendantsNamed(tagName),
-    ]);
-  }
-}
-
 interface RenderedPage {
   recordsTime: PageElement;
   workDetails: PageElement;
@@ -146,13 +100,12 @@ async function openPage(answer: () => FileAnswer): Promise<RenderedPage> {
       getElementById: elementWithId,
       addEventListener: () => undefined,
     },
-    window: { scrollY: 0, scrollTo: () => undefined },
+    window: { location: new URL(PAGE_ADDRESS), scrollY: 0, scrollTo: () => undefined },
     URL,
     setInterval: () => 0,
     fetch: (address: string) => answer()(address),
   });
-  const page = await readFile(PAGE_FILE, 'utf8');
-  await vm.runInContext(/<script>([\s\S]*?)<\/script>/.exec(page)?.[1] ?? '', browser);
+  for (const script of await pageScriptsInOrder()) await vm.runInContext(script, browser);
   return {
     recordsTime: elementWithId('records-time'),
     workDetails: elementWithId('work-details'),
@@ -165,9 +118,9 @@ const renderPage = (markdown: string, recordsText: string | null) => openPage(()
 
 function tableRows(page: RenderedPage): PageElement[][] {
   return page.workDetails
-    .descendantsNamed('tbody')
-    .flatMap((body) => body.descendantsNamed('tr'))
-    .map((row) => row.descendantsNamed('td'));
+    .find('tbody')
+    .flatMap((body) => body.find('tr'))
+    .map((row) => row.find('td'));
 }
 
 function linesOf(cell: PageElement): string[] {
@@ -175,7 +128,7 @@ function linesOf(cell: PageElement): string[] {
 }
 
 function linksOf(cell: PageElement): Record<string, string | null> {
-  return Object.fromEntries(cell.descendantsNamed('a').map((link) => [link.textContent, link.getAttribute('href')]));
+  return Object.fromEntries(cell.find('a').map((link) => [link.textContent, link.getAttribute('href')]));
 }
 
 function rowTitled(page: RenderedPage, title: string): PageElement[] {
@@ -233,19 +186,43 @@ test("the where-i-stand table merges an agent's entry into the row for the same 
   );
 });
 
+test('the page draws no row for a superseded entry', async () => {
+  const supersededEntries = `## In flight
+
+### alpha-oldgiftcard
+- Links: Forgejo ${GIFT_CARD_FORGEJO_ADDRESS} · GitHub not on GitHub yet · Ticket no ticket
+- Kind: old page — Gift card page, first try
+- Where it stands: abandoned
+- Superseded by \`### alpha-giftcard\` on 2026-10-20
+
+### alpha-oldtour
+- Links: no pull request · ${BASKET_TOUR_ADDRESS} · Ticket ABC-12
+- Kind: explainer video — Basket tour, first cut
+- Where it stands: replaced
+Superseded by \`### stager-tour\` on 2026-10-20
+
+`;
+  const page = await renderPage(supersededEntries + SAMPLE_MARKDOWN, JSON.stringify(SAMPLE_RECORDS));
+  const titles = tableRows(page).map((cells) => linesOf(cells[1])[1]);
+  assert.deepEqual(titles, ['Basket tour', 'Fix the basket total rounding', 'Add a gift card page', 'Teach the menu skill to sort', 'regent']);
+  assert.deepEqual(linesOf(rowTitled(page, 'Add a gift card page')[1]), ['new page', 'Add a gift card page']);
+  assert.match(page.pageContent.textContent, /alpha-oldgiftcard/);
+  assert.match(page.pageContent.textContent, /alpha-oldtour/);
+});
+
 test('the where-i-stand page says when the records were read and names a host that could not be read', async () => {
   const page = await renderSamplePage();
   assert.match(page.recordsTime.textContent, new RegExp(`^Pull requests read .+, ${MINUTES_SINCE_THE_RECORDS_WERE_READ} minutes ago\\.$`));
   assert.deepEqual(
-    page.workDetails.descendantsNamed('li').map((item) => item.textContent),
+    page.workDetails.find('li').map((item) => item.textContent),
     ['Could not read: forge.example.com: the server answered 502', 'new: storefront #41: waiting on review (ready, CI green)'],
   );
 });
 
 test('the where-i-stand page shows the changes since the last refresh', async () => {
   const page = await renderSamplePage();
-  assert.deepEqual(page.workDetails.descendantsNamed('h3').map((heading) => heading.textContent), ['Changed since the last refresh']);
-  const [changeLink] = page.workDetails.descendantsNamed('ul')[1].descendantsNamed('a');
+  assert.equal(page.workDetails.find('h3')[0].textContent, 'Changed since the last refresh');
+  const [changeLink] = page.workDetails.find('ul')[1].find('a');
   assert.equal(changeLink.getAttribute('href'), STOREFRONT_GITHUB_ADDRESS);
 });
 
@@ -257,7 +234,7 @@ test("the where-i-stand page still shows the entries' rows and the agents' secti
       tableRows(page).map((cells) => linesOf(cells[1])[1]),
       ['Add a gift card page', 'Basket tour', 'Teach the menu skill to sort', 'regent'],
     );
-    assert.deepEqual(page.pageContent.descendantsNamed('h2').map((heading) => heading.textContent), ['Needs you', 'Done']);
+    assert.deepEqual(page.pageContent.find('h2').map((heading) => heading.textContent), ['Needs you', 'Done']);
   }
 });
 
@@ -293,4 +270,204 @@ test("the where-i-stand table links a bare ticket id with the ticket address the
   const markdown = `## On GitHub\n\n### alpha-basket\n- Links: Forgejo ${STOREFRONT_FORGEJO_ADDRESS} · GitHub ${STOREFRONT_GITHUB_ADDRESS} · Ticket ${STOREFRONT_TICKET_ADDRESS}\n`;
   const [links] = rowTitled(await renderPage(markdown, JSON.stringify(records)), 'Fix the basket total rounding');
   assert.equal(linksOf(links)['Ticket ABC-12'], STOREFRONT_TICKET_ADDRESS);
+});
+
+const THRONE_AND_DOTFILES_RECORDS = {
+  ...SAMPLE_RECORDS,
+  rows: [
+    ...SAMPLE_RECORDS.rows,
+    { group: 'Forgejo only', repository: 'court/throne-mirror', title: 'Teach the court to bow', forgejo: { url: THRONE_FORGEJO_ADDRESS, number: 3, state: 'open' }, github: null },
+    { group: 'Waiting on review', repository: 'court/dotfiles', title: 'Shorter shell prompt', forgejo: null, github: { url: DOTFILES_GITHUB_ADDRESS, number: 9, state: 'ready' } },
+    { group: 'Forgejo only', repository: 'court/scratch-throne-forge-test', title: 'Try the forge', forgejo: { url: 'https://forge.example.com/court/scratch-throne-forge-test/pulls/1', number: 1, state: 'open' }, github: null },
+  ],
+};
+
+const THRONE_AND_DOTFILES_MARKDOWN = `## Needs you
+
+### alpha-bow
+- Links: Forgejo ${THRONE_FORGEJO_ADDRESS} · GitHub not on GitHub yet · Ticket no ticket
+- Kind: new feature — Teach the court to bow
+- Where it stands: waiting for your word
+
+### alpha-giftcard
+- Links: Forgejo ${GIFT_CARD_FORGEJO_ADDRESS} · GitHub not on GitHub yet · Ticket no ticket
+- Kind: new page — Add a gift card page
+
+## In flight
+
+### alpha-connectors
+- Links: no pull request · throne main 7e60aced · Ticket no ticket
+- Kind: fix — Keep the connectors
+
+### alpha-prompt
+- Links: no pull request · not started · Ticket no ticket
+- Kind: dotfiles — Colour the shell prompt
+
+### alpha-oven
+- Links: no pull request · local main a5bdedd7 · Ticket no ticket
+- Kind: change — Warm the oven earlier
+
+## Done
+`;
+
+function mainTableTitles(page: RenderedPage): string[] {
+  const tables = page.workDetails.elementChildren().filter((child) => child.tagName === 'TABLE');
+  return tables.flatMap((table) => table.find('tr').slice(1)).map((row) => linesOf(row.find('td')[1])[1]);
+}
+
+function spoilersIn(container: PageElement): PageElement[] {
+  return container.find('details');
+}
+
+function spoilerTitles(page: RenderedPage): string[] {
+  const [spoiler] = spoilersIn(page.workDetails);
+  return spoiler.find('tbody').flatMap((body) => body.find('tr')).map((row) => linesOf(row.find('td')[1])[1]);
+}
+
+const summaryOf = (spoiler: PageElement) => spoiler.find('summary')[0].textContent;
+const renderThroneAndDotfilesPage = () => renderPage(THRONE_AND_DOTFILES_MARKDOWN, JSON.stringify(THRONE_AND_DOTFILES_RECORDS));
+
+test('throne and dotfiles pull requests move out of the main work table into a collapsed section', async () => {
+  const page = await renderPage('## Done\n', JSON.stringify(THRONE_AND_DOTFILES_RECORDS));
+  assert.deepEqual(spoilerTitles(page), ['Teach the court to bow', 'Shorter shell prompt']);
+  assert.equal(summaryOf(spoilersIn(page.workDetails)[0]), `${THRONE_AND_DOTFILES_SUMMARY} (2)`);
+  assert.deepEqual(mainTableTitles(page), ['Fix the basket total rounding', 'Add a gift card page', 'Try the forge']);
+});
+
+test('a dotfiles entry with no pull request is sorted by its Kind line', async () => {
+  const page = await renderThroneAndDotfilesPage();
+  assert.ok(spoilerTitles(page).includes('Colour the shell prompt'));
+  assert.ok(!mainTableTitles(page).includes('Colour the shell prompt'));
+});
+
+test('a no-pull-request entry whose commit names the throne repository is sorted with throne work', async () => {
+  const page = await renderThroneAndDotfilesPage();
+  assert.ok(spoilerTitles(page).includes('Keep the connectors'));
+  assert.ok(!mainTableTitles(page).includes('Keep the connectors'));
+});
+
+test('work for other repositories stays in the main work table', async () => {
+  const page = await renderThroneAndDotfilesPage();
+  assert.deepEqual(mainTableTitles(page), ['Fix the basket total rounding', 'Add a gift card page', 'Try the forge', 'Warm the oven earlier']);
+});
+
+test("a throne entry that needs the Lord is counted in the collapsed section's summary", async () => {
+  const page = await renderThroneAndDotfilesPage();
+  assert.deepEqual(spoilerTitles(page), ['Teach the court to bow', 'Shorter shell prompt', 'Keep the connectors', 'Colour the shell prompt']);
+  assert.equal(summaryOf(spoilersIn(page.workDetails)[0]), `${THRONE_AND_DOTFILES_SUMMARY} (4, 1 needs you)`);
+  assert.equal(summaryOf(spoilersIn(page.pageContent)[0]), `${THRONE_AND_DOTFILES_SUMMARY} (3, 1 needs you)`);
+});
+
+test('throne and dotfiles entries move out of their sections into one collapsed section that names where each came from', async () => {
+  const sections = (await renderThroneAndDotfilesPage()).pageContent.elementChildren();
+  const headingsIn = (container: PageElement, level: string) => container.find(level).map((heading) => heading.textContent);
+  assert.deepEqual(sections.map((section) => headingsIn(section, 'h2')), [['Needs you'], ['In flight'], ['Done'], []]);
+  assert.deepEqual(sections.slice(0, 3).map((section) => headingsIn(section, 'h3')), [['alpha-giftcard'], ['alpha-oven'], []]);
+  const [spoiler] = spoilersIn(sections[3]);
+  assert.deepEqual(headingsIn(spoiler, 'h3'), ['alpha-bow', 'alpha-connectors', 'alpha-prompt']);
+  assert.deepEqual(headingsIn(spoiler, 'p'), ['Section: Needs you', 'Section: In flight', 'Section: In flight']);
+  assert.ok(sections[0].classes.has('needs-you'));
+});
+
+test('the throne and dotfiles sections are collapsed when the page opens', async () => {
+  const page = await renderThroneAndDotfilesPage();
+  const spoilers = [...spoilersIn(page.workDetails), ...spoilersIn(page.pageContent)];
+  assert.equal(spoilers.length, 2);
+  assert.deepEqual(spoilers.map((spoiler) => [spoiler.open ?? false, spoiler.getAttribute('open')]), [[false, null], [false, null]]);
+});
+
+test('a throne and dotfiles section the Lord opened stays open when the page refreshes', async () => {
+  let markdown = THRONE_AND_DOTFILES_MARKDOWN;
+  const page = await openPage(() => answerWith(markdown, JSON.stringify(THRONE_AND_DOTFILES_RECORDS)));
+  const openedSpoilers = [...spoilersIn(page.workDetails), ...spoilersIn(page.pageContent)];
+  openedSpoilers.forEach((spoiler) => (spoiler.open = true));
+  markdown = `${THRONE_AND_DOTFILES_MARKDOWN}\n- Baked the first loaf.\n`;
+  await page.refresh();
+  const refreshedSpoilers = [...spoilersIn(page.workDetails), ...spoilersIn(page.pageContent)];
+  assert.ok(refreshedSpoilers.every((spoiler, index) => spoiler !== openedSpoilers[index]), 'the refresh rendered the sections again');
+  assert.deepEqual(refreshedSpoilers.map((spoiler) => spoiler.open), [true, true]);
+});
+
+test('a no-pull-request entry whose address ends in .git is sorted with throne and dotfiles work', async () => {
+  const markdown = `## In flight\n\n### alpha-clone\n- Links: no pull request · https://github.com/court/dotfiles.git main cece0c80 · Ticket no ticket\n- Kind: change — Clone the dotfiles\n`;
+  const page = await renderPage(markdown, JSON.stringify({ ...SAMPLE_RECORDS, rows: [] }));
+  assert.deepEqual(spoilerTitles(page), ['Clone the dotfiles']);
+});
+
+test('a throne and dotfiles section that empties and fills again comes back collapsed', async () => {
+  let markdown = THRONE_AND_DOTFILES_MARKDOWN;
+  let recordsText = JSON.stringify(THRONE_AND_DOTFILES_RECORDS);
+  const page = await openPage(() => answerWith(markdown, recordsText));
+  [...spoilersIn(page.workDetails), ...spoilersIn(page.pageContent)].forEach((spoiler) => (spoiler.open = true));
+  [markdown, recordsText] = ['## Done\n', JSON.stringify(SAMPLE_RECORDS)];
+  await page.refresh();
+  assert.equal(spoilersIn(page.workDetails).length + spoilersIn(page.pageContent).length, 0);
+  [markdown, recordsText] = [THRONE_AND_DOTFILES_MARKDOWN, JSON.stringify(THRONE_AND_DOTFILES_RECORDS)];
+  await page.refresh();
+  assert.deepEqual([...spoilersIn(page.workDetails), ...spoilersIn(page.pageContent)].map((spoiler) => spoiler.open ?? false), [false, false]);
+});
+
+const OVENS_ADDRESS = 'https://github.com/bakery/ovens/pull/12';
+const RISE_TIMES_ADDRESS = 'https://github.com/bakery/ovens/pull/14';
+const DAYS_AGO = (days: number) => new Date(Date.now() - days * 24 * 3600000).toISOString();
+
+const OTHER_PEOPLES_RECORDS = {
+  ...SAMPLE_RECORDS,
+  waiting_for_review: [
+    { host: 'github.com', repository: 'bakery/ovens', number: 12, url: OVENS_ADDRESS, title: 'Raise the oven limit', author: 'baker-two', waiting_on: 'you', checks: { passing: 3, failing: 0, running: 1 }, created_at: DAYS_AGO(3) },
+    { host: 'github.com', repository: 'bakery/flour', number: 5, url: 'https://github.com/bakery/flour/pull/5', title: 'Sift twice', author: 'baker-four', waiting_on: 'Pastry', checks: { passing: 0, failing: 0, running: 0 }, created_at: DAYS_AGO(2) },
+  ],
+  teammates: [
+    { host: 'github.com', repository: 'bakery/ovens', number: 14, url: RISE_TIMES_ADDRESS, title: 'Rise times', author: 'baker-three', draft: false, review: 'APPROVED', checks: { passing: 5, failing: 1, running: 0 }, updated_at: DAYS_AGO(4) },
+    { host: 'github.com', repository: 'bakery/ovens', number: 15, url: 'https://github.com/bakery/ovens/pull/15', title: 'Crust colour', author: 'baker-two', draft: true, review: '', checks: { passing: 2, failing: 0, running: 0 }, updated_at: DAYS_AGO(5) },
+  ],
+};
+
+function tableAfterHeading(page: RenderedPage, heading: string): PageElement {
+  const children = page.workDetails.elementChildren();
+  const headingIndex = children.findIndex((child) => child.tagName === 'H3' && child.textContent === heading);
+  assert.notEqual(headingIndex, -1, `the page has a ${heading} heading`);
+  return children[headingIndex + 1];
+}
+
+function cellWords(table: PageElement): string[][] {
+  return table.find('tbody')[0].find('tr').map((row) => row.find('td').map((cell) => cell.textContent));
+}
+
+const renderOtherPeoplesPage = () => renderPage(SAMPLE_MARKDOWN, JSON.stringify(OTHER_PEOPLES_RECORDS));
+
+test('the where-i-stand page lists the pull requests waiting for the review of the Lord or his team under his work', async () => {
+  const table = tableAfterHeading(await renderOtherPeoplesPage(), 'Waiting for your review');
+  assert.deepEqual(table.find('th').map((column) => column.textContent), ['Pull request', 'Title', 'Author', 'Waiting on', 'CI', 'Age']);
+  assert.deepEqual(cellWords(table), [
+    ['ovens #12', 'Raise the oven limit', 'baker-two', 'you', '1 running', '3 days ago'],
+    ['flour #5', 'Sift twice', 'baker-four', 'Pastry', 'no CI', '2 days ago'],
+  ]);
+  assert.equal(table.find('a')[0].getAttribute('href'), OVENS_ADDRESS);
+  assert.equal(table.find('td')[3].getAttribute('data-label'), 'Waiting on');
+});
+
+test("the where-i-stand page lists his teammates' pull requests with their state, CI and last update", async () => {
+  const table = tableAfterHeading(await renderOtherPeoplesPage(), "Your teammates' pull requests");
+  assert.deepEqual(table.find('th').map((column) => column.textContent), ['Author', 'Pull request', 'Title', 'State', 'CI', 'Last updated']);
+  assert.deepEqual(cellWords(table), [
+    ['baker-three', 'ovens #14', 'Rise times', 'ready, approved', '1 failing', '4 days ago'],
+    ['baker-two', 'ovens #15', 'Crust colour', 'draft', 'green', '5 days ago'],
+  ]);
+  assert.equal(table.find('a')[0].getAttribute('href'), RISE_TIMES_ADDRESS);
+});
+
+test("the review and teammates' tables say so when they have nothing, including for records written before they existed", async () => {
+  for (const records of [{ ...OTHER_PEOPLES_RECORDS, waiting_for_review: [], teammates: [] }, SAMPLE_RECORDS]) {
+    const page = await renderPage(SAMPLE_MARKDOWN, JSON.stringify(records));
+    assert.equal(tableAfterHeading(page, 'Waiting for your review').textContent, 'No pull requests are waiting for your review.');
+    assert.equal(tableAfterHeading(page, "Your teammates' pull requests").textContent, 'No open pull requests from your teammates.');
+  }
+});
+
+test("the review and teammates' tables come after the work table and do not join it", async () => {
+  const page = await renderOtherPeoplesPage();
+  const tags = page.workDetails.elementChildren().map((child) => child.tagName);
+  assert.deepEqual(tags.slice(-4), ['H3', 'TABLE', 'H3', 'TABLE']);
+  assert.deepEqual(mainTableTitles(page).slice(0, 2), ['Basket tour', 'Fix the basket total rounding']);
 });

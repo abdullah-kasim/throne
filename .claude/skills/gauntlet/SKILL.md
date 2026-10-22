@@ -45,11 +45,8 @@ a rebuild.
 
 Copy every reference file to `~/.throne/references/<project>/` and point both
 bodies at that copy, never at a Downloads folder the Lord may clean while the
-campaign runs. Never freeze it under `~/tmp`: the `~/tmp` sweep
-(`sweep-tmp-scratch`, on a user timer) deletes every directory there idle for
-more than two hours that no live agent holds, and a campaign runs far longer.
-Loose files in `~/tmp` survive the sweep; directories do not. Capture folders
-under `~/tmp` stay where they are, because every run regenerates them. Record
+campaign runs. Capture folders under `~/tmp` stay where they are, because
+every run regenerates them. Record
 each reference file's sha256 in `VERIFIED-NOUNS:`. A reference URL behind a
 login is unusable by agents; name the local copy as the reference of record
 and say the URL is not to be used.

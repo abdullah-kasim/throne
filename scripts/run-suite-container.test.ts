@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { suiteContainerPlatform } from "./container-runtime.mjs";
 import {
   createSuiteContainerCommand,
   createSuiteContainerMountArguments,
@@ -88,7 +89,7 @@ test("the container command seeds the tmpfs config home from the read-only host 
 test("the suite run container is named after the run and mapped to the host uid per runtime", () => {
   const podman = createSuiteContainerRunArguments("podman", "abc123", { uid: 1000, gid: 1000 });
   const docker = createSuiteContainerRunArguments("docker", "abc123", { uid: 1000, gid: 1000 });
-  assert.deepEqual(podman.slice(0, 6), ["run", "--rm", "--name", "throne-suite-app-abc123", "--platform", "linux/amd64"]);
+  assert.deepEqual(podman.slice(0, 6), ["run", "--rm", "--name", "throne-suite-app-abc123", "--platform", suiteContainerPlatform()]);
   assert.ok(podman.includes("--userns=keep-id"));
   assert.ok(!podman.includes("--user"));
   assert.deepEqual(docker.slice(0, 6), podman.slice(0, 6));

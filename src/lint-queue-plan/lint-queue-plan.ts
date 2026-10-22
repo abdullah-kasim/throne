@@ -1,3 +1,5 @@
+import { accountLineFailureIn } from "../regent-queue/queue-row-account.ts";
+
 // Pure structural lint for a launch-ready consolidated plan body — the
 // mechanical half of the Stager consolidation checklist (AGENTS.md, "The
 // Stager", Lord-ordered 2026-08-19). The chain downstream of the Lord runs
@@ -68,5 +70,7 @@ export function lintQueuePlanBody(body: string): string[] {
       `missing ${marker} section — add a ${marker} marker followed by ${whatBelongs}. Example: ${example}`,
     );
   }
+  const accountFailure = accountLineFailureIn(body);
+  if (accountFailure !== undefined) failures.push(accountFailure);
   return failures;
 }

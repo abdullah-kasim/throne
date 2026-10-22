@@ -42,6 +42,7 @@ export async function pageRoom(t: TestContext, overrides: Partial<WhereIStandDep
       err: (message) => void complaints.push(message),
       waitForRelease: async () => undefined,
       tellRegent: async (message) => void regentNotices.push(message),
+      readStandardInput: async () => "",
       ...overrides,
     },
   };

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, test } from "node:test";
+import { withoutStagingRecords } from "../src/forge/staging-records.ts";
 import { runForgeCapturing, TEST_TAILNET_ADDRESS } from "./forge-test-support.ts";
 import {
   answerFile,
@@ -15,7 +16,7 @@ import {
   type StagingHost,
 } from "./forge-staging-test-support.ts";
 
-const ANY_STAGING_RECORD = /<!-- (?:forgejo-twin|github-twin|github-feedback|forgejo-answer|forgejo-comment|staging-sync):/;
+const ANY_STAGING_RECORD = /<!-- (?:forgejo-twin|github-twin|github-feedback|forgejo-answer|forgejo-comment|staging-sync|pr-review):/;
 
 let host: StagingHost;
 let forgejoUrl: string;
@@ -161,4 +162,22 @@ test("editing a GitHub pull request body that names the Forgejo host is refused 
 
 test("commenting on a GitHub pull request that names the Forgejo host is refused with nothing sent to GitHub", async () => {
   await refusedGithubWrite("comment");
+});
+
+test("the copy-paste comment and the exported findings never name Forgejo once bound for GitHub", async () => {
+  await promote(host, forgejoUrl);
+  const findings = [{ path: "feature.txt", line: 2, body: "Name the oven here.\n<!-- forgejo-answer: 3 -->\n<!-- staging-sync: {} -->" }];
+  const commentsFile = await answerFile(host, JSON.stringify(findings));
+  const namingHost = await answerFile(host, JSON.stringify([{ ...findings[0], body: `Compare ${host.forgejo.rootUrl}court-admin/staging-demo/pulls/1` }]));
+  const exportFile = path.join(host.checkout.repo, "exported-findings.json");
+
+  const refused = await runForgeCapturing(["pr", "review", forgejoUrl, "--comments-file", namingHost], stagingDependencies, host.checkout.repo);
+  await forge(host, ["pr", "review", forgejoUrl, "--comments-file", commentsFile]);
+  await forge(host, ["pr", "review-findings", forgejoUrl, "--out", exportFile]);
+
+  assert.equal(refused.exitCode, 1);
+  assert.match(refused.stderr, /names the Forgejo host, which must never reach GitHub/);
+  const copyComment = host.forgejo.comments.find((comment) => comment.body.includes("<!-- pr-review: copy -->"))!;
+  assertGithubKnowsNothingOfForgejo([withoutStagingRecords(copyComment.body), await readFile(exportFile, "utf8")].join("\n"));
+  assert.equal(host.forgejo.reviews.length, 1);
 });

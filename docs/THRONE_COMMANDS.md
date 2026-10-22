@@ -98,6 +98,7 @@ and each table keeps its family's own order.
 | `codex-usage-remaining` | Report the Codex plan usage remaining. |
 | `resource-pressure` | Report host capacity pressure: the admission gate's pressure verdict plus load, IO and memory context. |
 | `token-balance` | Report the token-lane load balancer's verdict: which lane new balanced-role spawns should use, or why neither is usable. |
+| `account` | Manage the Claude account folders agents run on: `list` shows each account's login, usage, live agents, MCP servers and link drift; `add <name>` sets up an account folder and prints its login command; `switch-long-running <name>` moves the Stagers and the Regent to another account. |
 | `campaign-evidence` | Generate campaign evidence. |
 | `sweep-tmp-scratch` | Sweep aged scratch directories nothing holds; a dry run by default. |
 | `migrate-home` | Move the old settings and browser sign-ins into the throne home once, backing up first; an item whose two copies differ is refused and its difference printed. `throne-startup` runs it with `--keep-old-copies`, which only copies and leaves the old files. |
@@ -105,6 +106,7 @@ and each table keeps its family's own order.
 | `forge` | Work with pull requests on this host's forge: which forge, the lazy Forgejo copy of a repository and keeping its branches in step with GitHub, pushing a branch, and creating, viewing, editing, listing, diffing and commenting on pull requests, merging them only on GitHub (never in Forgejo), attaching files and rendering markdown; opening a pull request in an editor from a reused or detached review worktree; staging an existing GitHub pull request in Forgejo; promoting a Forgejo pull request to GitHub, mirroring, listing and answering its review feedback in Forgejo, and closing it once its GitHub twin is merged. Forgejo when it is installed and answering, otherwise GitHub through `gh`. |
 | `memory-dir` | Print the durable cross-session memory directory for the project containing a directory, deferring to any memory convention already in force. |
 | `skill-extension` | Print the operator's own extension to a named skill, kept outside the repository in the throne home's `skill-extensions` folder, or nothing when there is none; `--list` names every extension present. |
+| `scratch-pane` | Register an unnamed herdr pane a live agent opened on purpose, with its owner and a time it may stay until, so the unnamed-agent sweep stays silent about it until the time passes or the owner is gone. |
 | `recall` | Print the recorded memories that apply to a task, most relevant first and capped in size, from the named repositories or memory directories plus the global memories; also serves the prompt-submit hook. |
 | `rank` | Rank files or input items by how likely each answers yes to a question, most likely first, so only the top few get opened; never prints item contents. |
 | `locate` | Print the files most likely to matter for a stated task, each ranked with a probability and a one-line reason. |

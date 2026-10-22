@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { mkdir, rm, symlink } from 'node:fs/promises';
+import path from 'node:path';
 import { test } from 'node:test';
 import { buildDeliveryNotice } from '../delivery-notice/delivery-notice.ts';
 import { HARNESS_NAMES } from '../harness-routing/harness.ts';
@@ -16,6 +18,7 @@ import {
 } from './delivery-receipt-check.ts';
 import {
   DELIVERED_AT_MS,
+  RECIPIENT_SESSION_ID,
   SENDER_NAME,
   deliverMessageTypedAs,
   noticePrompts,
@@ -28,6 +31,7 @@ import {
   typedTextCheckedFor,
   withReceiptCheckScene,
   writeRecipientTranscript,
+  writeRecipientTranscriptBeforeDelivery,
   type ReceiptCheckScene,
 } from './delivery-receipt-check-test-fixtures.ts';
 
@@ -39,6 +43,7 @@ const TRANSCRIPT_OF_OTHER_MESSAGES: RecordedCase = [
   'scratch-pane-two-messages-queued-during-a-reply',
   990008,
 ];
+const RELAUNCHED_SESSION_ID = 'relaunched-session';
 
 interface DeliveredRecordedMessage {
   readonly message: WorkItemRow;
@@ -86,12 +91,24 @@ async function deliverMessageMissingFromTheTranscript(
   return message;
 }
 
+async function transcriptOfOtherMessages(): Promise<string> {
+  const [fixtureName, recordedMessageId] = TRANSCRIPT_OF_OTHER_MESSAGES;
+  return (await recordedDelivery(fixtureName, recordedMessageId, recordedMessageId)).transcript;
+}
+
 async function assertEndsUnobservedWithNobodyNotified(
   scene: ReceiptCheckScene,
   millisecondsSinceDelivery: number = FIRST_RECEIPT_CHECK_DELAY_MS,
 ): Promise<void> {
   const check = await runReceiptCheckAfter(scene, millisecondsSinceDelivery);
   assert.equal(outcomeOf(scene, check), 'unobserved');
+  assert.deepEqual(noticesIn(scene), []);
+}
+
+async function assertFoundWholeWithNobodyNotifiedOnceIdle(scene: ReceiptCheckScene): Promise<void> {
+  scene.recipientStatus = 'idle';
+  const check = await runReceiptCheckAfter(scene, ABSENT_NOTICE_WAIT_MS);
+  assert.equal(outcomeOf(scene, check), 'intact');
   assert.deepEqual(noticesIn(scene), []);
 }
 
@@ -193,7 +210,77 @@ test('a recipient with no transcript is recorded as unobserved and nobody is not
   await withReceiptCheckScene(async (scene) => {
     await registerRecipient(scene);
     await deliverRecordedMessage(scene, ARRIVED_CUT_SHORT);
-    await assertEndsUnobservedWithNobodyNotified(scene);
+    await assertEndsUnobservedWithNobodyNotified(scene, RECEIPT_OBSERVATION_WINDOW_MS);
+  });
+});
+
+test('a message that reached a relaunched recipient is not called missing when its spawn record still names the old session', async () => {
+  await withReceiptCheckScene(async (scene) => {
+    await registerRecipient(scene);
+    const { transcript } = await deliverRecordedMessage(scene, ARRIVED_WHOLE);
+    await writeRecipientTranscriptBeforeDelivery(
+      scene,
+      await transcriptOfOtherMessages(),
+      RECIPIENT_SESSION_ID,
+    );
+    await writeRecipientTranscript(scene, transcript, RELAUNCHED_SESSION_ID);
+    await assertFoundWholeWithNobodyNotifiedOnceIdle(scene);
+  });
+});
+
+test('a recipient whose project folder has written nothing since the delivery is never sent a notice', async () => {
+  await withReceiptCheckScene(async (scene) => {
+    await registerRecipient(scene);
+    await deliverRecordedMessage(scene, ARRIVED_WHOLE);
+    await writeRecipientTranscriptBeforeDelivery(scene, await transcriptOfOtherMessages());
+    scene.recipientStatus = 'idle';
+    assertLooksAgainAMinuteLater(scene, await runReceiptCheckAfter(scene, ABSENT_NOTICE_WAIT_MS));
+    await assertEndsUnobservedWithNobodyNotified(scene, RECEIPT_OBSERVATION_WINDOW_MS);
+  });
+});
+
+test('a transcript last written before the delivery cannot decide whether the message arrived', async () => {
+  await withReceiptCheckScene(async (scene) => {
+    await registerRecipient(scene);
+    const { transcript } = await deliverRecordedMessage(scene, ARRIVED_WHOLE);
+    await writeRecipientTranscriptBeforeDelivery(scene, transcript);
+    const check = await runReceiptCheckAfter(scene, FIRST_RECEIPT_CHECK_DELAY_MS);
+    assertLooksAgainAMinuteLater(scene, check);
+  });
+});
+
+test('a message found whole in any transcript written since delivery needs nothing further, even if another fresh transcript lacks it', async () => {
+  await withReceiptCheckScene(async (scene) => {
+    await registerRecipient(scene);
+    const { transcript } = await deliverRecordedMessage(scene, ARRIVED_WHOLE);
+    await writeRecipientTranscript(scene, await transcriptOfOtherMessages(), RECIPIENT_SESSION_ID);
+    await writeRecipientTranscript(scene, transcript, RELAUNCHED_SESSION_ID);
+    await assertFoundWholeWithNobodyNotifiedOnceIdle(scene);
+  });
+});
+
+test('a transcript deleted while the project folder is being read does not stop the check finding the message', async () => {
+  await withReceiptCheckScene(async (scene) => {
+    await registerRecipient(scene);
+    const { transcript } = await deliverRecordedMessage(scene, ARRIVED_WHOLE);
+    const transcriptPath = await writeRecipientTranscript(scene, transcript, RELAUNCHED_SESSION_ID);
+    await symlink(
+      path.join(path.dirname(transcriptPath), 'deleted-session-target.jsonl'),
+      path.join(path.dirname(transcriptPath), 'deleted-session.jsonl'),
+    );
+    const check = await runReceiptCheckAfter(scene, FIRST_RECEIPT_CHECK_DELAY_MS);
+    assert.equal(outcomeOf(scene, check), 'intact');
+  });
+});
+
+test('a transcript that cannot be read leaves the check looking again a minute later', async () => {
+  await withReceiptCheckScene(async (scene) => {
+    await registerRecipient(scene);
+    await deliverRecordedMessage(scene, ARRIVED_WHOLE);
+    const transcriptPath = await writeRecipientTranscript(scene, '', RELAUNCHED_SESSION_ID);
+    await rm(transcriptPath);
+    await mkdir(transcriptPath);
+    assertLooksAgainAMinuteLater(scene, await runReceiptCheckAfter(scene, FIRST_RECEIPT_CHECK_DELAY_MS));
   });
 });
 

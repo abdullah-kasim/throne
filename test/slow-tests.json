@@ -40,6 +40,11 @@
     "reason": "one test runs the python guard hook's whole unit test suite as a child python process; slowest test 5.3 seconds in the suite container alone, 10.1 seconds with two other suites running"
   },
   {
+    "file": "test/forge-forgejo-review.test.ts",
+    "seconds": 7.4,
+    "reason": "the first test carries the file's one-time opening and promoting of a Forgejo pull request through git http-backend; every other test is under 0.6 seconds on the host"
+  },
+  {
     "file": "test/forge-forgejo-pull-requests.test.ts",
     "seconds": 2.1,
     "reason": "one test opens the first pull request in a brand-new Forgejo copy that registers the pushed branch late, so it waits on the forge's own branch-registration poll by design"
@@ -70,6 +75,11 @@
     "reason": "its slow tests open a real Forgejo pull request through git http-backend before checking which host was chosen; slowest test 10.2 seconds in the suite container alone, 18.4 seconds with two other suites running"
   },
   {
+    "file": "test/forge-land-on-main.test.ts",
+    "seconds": 2.7,
+    "reason": "the first test carries the file's one-time staging host setup, and every test lands a Forgejo pull request through git http-backend, a scratch worktree and a signed squash commit; 0.4 to 2.7 seconds per test on the host"
+  },
+  {
     "file": "test/forge-merge-on-github.test.ts",
     "seconds": 16.3,
     "reason": "the test stages a pull request into Forgejo and then merges it on GitHub, pushing through git http-backend on both sides; slowest test 16.3 seconds in the suite container alone, 29.4 seconds with two other suites running"
@@ -78,6 +88,11 @@
     "file": "test/forge-promote.test.ts",
     "seconds": 7.2,
     "reason": "in the suite container every test that promotes still opens its own Forgejo pull request, pushing through git http-backend, and runs the pull request media publish script as a node process; 2.6 to 7.2 seconds per test there, 0.6 to 1.6 seconds on the host"
+  },
+  {
+    "file": "test/forge-self-review-record.test.ts",
+    "seconds": 8.4,
+    "reason": "each test opens a Forgejo pull request through git http-backend, and the merge tests also commit, merge and push a second time; slowest test 8.4 seconds on the host at a load average of 10"
   },
   {
     "file": "test/forge-stage.test.ts",

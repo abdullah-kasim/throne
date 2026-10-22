@@ -1,0 +1,7 @@
+    1     0     1 /sbin/launchd
+ 1200     1  1200 herdr server
+52148  1200 52148 -zsh
+52785 52148 52785 node /Users/theuser/throne/vendor/node_modules/.bin/codex --dangerously-bypass-approvals-and-sandbox
+52790 52785 52785 /Users/theuser/throne/vendor/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex --dangerously-bypass-approvals-and-sandbox
+52801 52790 52801 /Users/theuser/.codex/packages/app-server-daemon/releases/0.161.0-aarch64-apple-darwin/bin/codex app-server --listen unix:// --analytics-default-enabled --managed-daemon
+52802 52790 52802 /Users/theuser/.codex/packages/app-server-daemon/releases/0.161.0-aarch64-apple-darwin/bin/codex app-server daemon pid-update-loop

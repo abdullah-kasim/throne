@@ -132,6 +132,7 @@ function reconciliationContract(court: FakeCourt): StartupReconciliationContract
   };
   const restartDeps: RestartHarnessesDeps = {
     ...RESTART_HARNESSES_REAL_DEPS,
+    readAccountsConfig: () => null,
     getPaneProcessInfo,
     signalProcess: (pid, signal) => {
       court.signals.push({ pid, signal });
@@ -161,6 +162,8 @@ function reconciliationContract(court: FakeCourt): StartupReconciliationContract
         return { kind: 'restored-tab-takeover', tabId: agent.tabId, paneId: agent.paneId };
       },
       deliverOpeningPrompt: async () => {},
+      readAccountsConfig: () => null,
+      readAgentRole: async () => undefined,
       log: () => {},
       warn: () => {},
     }),

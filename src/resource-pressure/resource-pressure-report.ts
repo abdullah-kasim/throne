@@ -87,7 +87,7 @@ function gradingSummaryOf(source: ResourcePressureSnapshot['source']): string {
   return (
     `threshold ${AT_CAPACITY_THRESHOLD} on cpu avg10+avg60, ${loadGrading}; ` +
     `memory graded separately at ${MEMORY_AT_CAPACITY_THRESHOLD}; ` +
-    `io-full graded separately at ${IO_AT_CAPACITY_THRESHOLD}`
+    `disk-busy graded separately at ${IO_AT_CAPACITY_THRESHOLD}%`
   );
 }
 
@@ -108,7 +108,7 @@ export function formatResourcePressureReport(
     );
   } else {
     // TWO thresholds, deliberately: the figure carries what 70 governs
-    // (cpu/memory PSI and load-per-core x100), while io-full is graded at its
+    // (cpu/memory PSI and load-per-core x100), while disk-busy is graded at its
     // own higher 90. Putting a 90-graded term inside a 70-graded number
     // rendered as "75.05 -- take-more-work", which reads as a bug. The verdict
     // inputs are printed beneath because max() hides which signal won.
@@ -131,7 +131,7 @@ export function formatResourcePressureReport(
     lines.push(formatWindows('cpu', snapshot.cpu));
     lines.push(formatWindows('memory', snapshot.memory));
     lines.push(
-      `${formatWindows('io', snapshot.io)}  [some shown; the verdict grades io FULL at ${IO_AT_CAPACITY_THRESHOLD}]`,
+      `${formatWindows('io', snapshot.io)}  [context only; the verdict grades disk-busy at ${IO_AT_CAPACITY_THRESHOLD}%, not io PSI]`,
     );
   }
   const [load1, load5, load15] = snapshot.loadAverages;

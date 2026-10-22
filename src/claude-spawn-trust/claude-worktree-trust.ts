@@ -1,16 +1,17 @@
 // Grants Claude Code's per-project trust for a throne worktree by writing
-// directly into the REAL `~/.claude.json`, so a throne-spawned agent runs
-// against the account's own config instead of a private per-spawn
-// `CLAUDE_CONFIG_DIR`.
+// directly into the config file of the account folder the agent launches on:
+// `~/.claude.json` for the primary folder `~/.claude`, `<folder>/.claude.json`
+// for any other account folder. Each account is ONE shared folder used by
+// every agent on that account; there are no per-agent config folders.
 //
-// WHY THIS REPLACED THE PER-SPAWN CONFIG SEED. Two claims, deliberately kept
-// apart, because only one of them is established and the removal rests on the
+// WHY THERE ARE NO PER-AGENT FOLDERS. Two claims, deliberately kept apart,
+// because only one of them is established and the refusal rests on the
 // established one:
 //
-//   MEASURED, and sufficient on its own: THE SEED MADE RECOVERY FROM AN AUTH
-//   EXPIRY IMPOSSIBLE. A seed held a private copy of the credential, so a
-//   re-authentication could not reach a live agent — the refreshed file lands
-//   in the account's home while the agent keeps reading its snapshot.
+//   MEASURED, and sufficient on its own: A PER-AGENT SEED MADE RECOVERY FROM
+//   AN AUTH EXPIRY IMPOSSIBLE. A seed held a private copy of the credential,
+//   so a re-authentication could not reach a live agent — the refreshed file
+//   lands in the account's folder while the agent keeps reading its snapshot.
 //   Observed repeatedly on 2026-08-15/16: agents wedged on `Login expired`
 //   while a valid credential sat on disk, one holding a copy taken at 00:53
 //   against a re-auth at 01:21. Whatever causes an expiry, the seed converted
@@ -22,17 +23,17 @@
 //   live at once — but throne has no visibility into why a session expired,
 //   and the observed expiries are equally consistent with ordinary expiry.
 //
-// Stated this way so that if the second claim is ever disproved, the removal
-// still stands on the first. Using the real config also makes every agent the
-// same installation the human is, which is what the account expects.
+// Stated this way so that if the second claim is ever disproved, the refusal
+// still stands on the first. A shared account folder holds one login that
+// every agent on it reads, so a re-authentication reaches all of them.
 //
 // WHY THE WRITE IS UNAVOIDABLE. Claude Code gates its untrusted-folder modal
 // on `projects.<absolute path>.hasTrustDialogAccepted`. It creates a project
 // entry when it opens a directory but never sets that flag on its own: at the
-// time of this change `~/.claude.json` held 151 project entries, 84 of them
-// under the throne worktrees folder, and NONE of the 84 were trusted. So a spawn
-// with no trust grant blocks on a modal nobody can see — a total court
-// outage, not a degradation. The seed was granting it; something still must.
+// time of the 2026-08 change `~/.claude.json` held 151 project entries, 84 of
+// them under the throne worktrees folder, and NONE of the 84 were trusted. So
+// a spawn with no trust grant blocks on a modal nobody can see — a total court
+// outage, not a degradation.
 
 import {
   mkdirSync,
@@ -80,8 +81,19 @@ export const REAL_CLAUDE_WORKTREE_TRUST_DEPS: ClaudeWorktreeTrustDeps = {
   sleepMs,
 };
 
+export interface ClaudeConfigTarget {
+  readonly configPath: string;
+  readonly dismissesAutoModeNudge: boolean;
+}
+
 export function claudeConfigPath(deps: ClaudeWorktreeTrustDeps): string {
   return path.join(deps.homedir(), ".claude.json");
+}
+
+export function primaryClaudeConfigTarget(
+  deps: ClaudeWorktreeTrustDeps = REAL_CLAUDE_WORKTREE_TRUST_DEPS,
+): ClaudeConfigTarget {
+  return { configPath: claudeConfigPath(deps), dismissesAutoModeNudge: false };
 }
 
 /** Resolves symlinks when the path exists, and returns it unchanged when it
@@ -105,9 +117,10 @@ function resolvedOrRaw(deps: ClaudeWorktreeTrustDeps, target: string): string {
  */
 function withConfigLock<T>(
   deps: ClaudeWorktreeTrustDeps,
+  configPath: string,
   body: () => T,
 ): T {
-  const lockPath = `${claudeConfigPath(deps)}.throne-lock`;
+  const lockPath = `${configPath}.throne-lock`;
   for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
     try {
       deps.mkdirSync(lockPath);
@@ -133,8 +146,10 @@ function withConfigLock<T>(
   );
 }
 
-function readConfigOrThrow(deps: ClaudeWorktreeTrustDeps): Record<string, unknown> {
-  const configPath = claudeConfigPath(deps);
+function readConfigOrThrow(
+  deps: ClaudeWorktreeTrustDeps,
+  configPath: string,
+): Record<string, unknown> {
   let text: string;
   try {
     text = deps.readFileSync(configPath, "utf8");
@@ -185,9 +200,17 @@ function throneOwnedProjectPaths(
   return owned.includes(worktreeRealPath) ? owned : [...owned, worktreeRealPath];
 }
 
+function needsAutoModeNudgeDismissed(
+  config: Record<string, unknown>,
+  target: ClaudeConfigTarget,
+): boolean {
+  return target.dismissesAutoModeNudge && config.hasSeenAutoDefaultNudge !== true;
+}
+
 /**
  * Ensures `worktreePath` (and every other throne worktree already present in
- * the config) is marked trusted, then returns whether anything changed.
+ * the config) is marked trusted in `target`, then returns whether anything
+ * changed.
  *
  * Idempotent and lock-free on the common path: a spawn into an
  * already-trusted worktree reads, finds nothing to do, and returns without
@@ -196,11 +219,12 @@ function throneOwnedProjectPaths(
 export function grantThroneWorktreeTrust(
   worktreePath: string,
   deps: ClaudeWorktreeTrustDeps = REAL_CLAUDE_WORKTREE_TRUST_DEPS,
+  target: ClaudeConfigTarget = primaryClaudeConfigTarget(deps),
 ): boolean {
   const worktreeRealPath = deps.realpathSync(worktreePath);
-  const configPath = claudeConfigPath(deps);
+  const { configPath } = target;
 
-  const needsWrite = (config: Record<string, unknown>): string[] => {
+  const untrustedPaths = (config: Record<string, unknown>): string[] => {
     const projects = (config.projects ?? {}) as Record<
       string,
       Record<string, unknown>
@@ -209,28 +233,30 @@ export function grantThroneWorktreeTrust(
       (projectPath) => projects[projectPath]?.hasTrustDialogAccepted !== true,
     );
   };
+  const needsWrite = (config: Record<string, unknown>): boolean =>
+    untrustedPaths(config).length > 0 || needsAutoModeNudgeDismissed(config, target);
 
-  if (needsWrite(readConfigOrThrow(deps)).length === 0) return false;
+  if (!needsWrite(readConfigOrThrow(deps, configPath))) return false;
 
-  return withConfigLock(deps, () => {
+  return withConfigLock(deps, configPath, () => {
     // Re-read INSIDE the lock. The check above raced by construction, and
     // acting on the pre-lock snapshot would reintroduce the lost update the
     // lock exists to prevent.
-    const config = readConfigOrThrow(deps);
-    const pending = needsWrite(config);
-    if (pending.length === 0) return false;
+    const config = readConfigOrThrow(deps, configPath);
+    if (!needsWrite(config)) return false;
 
     const projects = (config.projects ?? {}) as Record<
       string,
       Record<string, unknown>
     >;
-    for (const projectPath of pending) {
+    for (const projectPath of untrustedPaths(config)) {
       projects[projectPath] = {
         ...(projects[projectPath] ?? {}),
         hasTrustDialogAccepted: true,
       };
     }
     config.projects = projects;
+    if (target.dismissesAutoModeNudge) config.hasSeenAutoDefaultNudge = true;
 
     // Write-then-rename: a crash mid-write leaves the original config intact
     // rather than a truncated one. Losing the human's real config is a far

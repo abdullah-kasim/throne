@@ -1,5 +1,6 @@
 import type { ForgejoApi } from "./forgejo-api.ts";
 import { issueApiPath, pullRequestApiPath, type ForgejoPullRequestAddress } from "./forgejo-pull-requests.ts";
+import { forgejoRepositoryApiPath } from "./forgejo-repository.ts";
 import { forgejoAnswerIn, githubFeedbackKeyIn } from "./staging-records.ts";
 
 export const FEEDBACK_KIND = { reviewComment: "review-comment", comment: "comment", review: "review" } as const;
@@ -24,10 +25,25 @@ export interface ForgejoFeedbackItem {
   readonly answers: number | null;
 }
 
+export interface ForgejoReviewComment {
+  readonly place: FeedbackPlace;
+  readonly body: string;
+}
+
+export interface PostedForgejoItem {
+  readonly id: number;
+  readonly url: string;
+}
+
 export interface ForgejoConversationComment {
   readonly id: number;
   readonly author: string;
   readonly body: string;
+}
+
+interface ForgejoPostedRecord {
+  readonly id: number;
+  readonly html_url: string;
 }
 
 interface ForgejoUserRecord {
@@ -124,20 +140,35 @@ export async function readForgejoFeedback(address: ForgejoPullRequestAddress, ap
   return items.map(({ resolvedOnForgejo, ...item }) => ({ ...item, resolved: isResolved({ resolvedOnForgejo, ...item }, items) }));
 }
 
-export async function postForgejoReviewComment(
+export async function postForgejoReview(
   address: ForgejoPullRequestAddress,
-  place: FeedbackPlace,
-  body: string,
+  comments: readonly ForgejoReviewComment[],
   api: ForgejoApi,
-): Promise<void> {
-  const line = place.onOldSide ? { old_position: place.line } : { new_position: place.line };
-  await api.sendJson("POST", `${pullRequestApiPath(address)}/reviews`, {
+  body = "",
+): Promise<PostedForgejoItem> {
+  const review = await api.sendJson<ForgejoPostedRecord>("POST", `${pullRequestApiPath(address)}/reviews`, {
     event: "COMMENT",
-    body: "",
-    comments: [{ path: place.path, body, ...line }],
+    body,
+    comments: comments.map(({ place, body }) => ({
+      path: place.path,
+      body,
+      ...(place.onOldSide ? { old_position: place.line } : { new_position: place.line }),
+    })),
   });
+  return { id: review.id, url: review.html_url };
 }
 
-export async function postForgejoConversationComment(address: ForgejoPullRequestAddress, body: string, api: ForgejoApi): Promise<void> {
-  await api.sendJson("POST", `${issueApiPath(address)}/comments`, { body });
+export async function postForgejoConversationComment(address: ForgejoPullRequestAddress, body: string, api: ForgejoApi): Promise<PostedForgejoItem> {
+  const comment = await api.sendJson<ForgejoPostedRecord>("POST", `${issueApiPath(address)}/comments`, { body });
+  return { id: comment.id, url: comment.html_url };
+}
+
+export async function editForgejoConversationComment(
+  address: ForgejoPullRequestAddress,
+  commentId: number,
+  body: string,
+  api: ForgejoApi,
+): Promise<PostedForgejoItem> {
+  const comment = await api.sendJson<ForgejoPostedRecord>("PATCH", `${forgejoRepositoryApiPath(address.repository)}/issues/comments/${commentId}`, { body });
+  return { id: commentId, url: comment.html_url };
 }

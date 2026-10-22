@@ -1,11 +1,11 @@
-import { readForgejoFeedback, type ForgejoFeedbackItem } from "./forgejo-feedback.ts";
+import { FEEDBACK_KIND, readForgejoFeedback, type ForgejoFeedbackItem } from "./forgejo-feedback.ts";
 import { GITHUB_FEEDBACK_KIND, readGithubFeedback, type GithubFeedback, type GithubFeedbackItem } from "./github-feedback.ts";
 import { textSafeForGithub } from "./github-bound-text.ts";
 import { replyOnGithub, resolveGithubThread } from "./github-feedback-replies.ts";
 import type { ForgeContext } from "./pull-request-operations.ts";
 import type { StagedPullRequest } from "./staged-pair.ts";
 import { readStagingMetadataComment, writeStagingMetadataComment } from "./staging-metadata.ts";
-import { withoutStagingRecords } from "./staging-records.ts";
+import { holdsReviewRecord, REVIEW_RECORD_FORM, withoutStagingRecords } from "./staging-records.ts";
 
 export interface CarriedAnswers {
   readonly replied: readonly number[];
@@ -28,10 +28,17 @@ function carriedAnswerTexts(forgejoItems: readonly ForgejoFeedbackItem[], carrie
   return new Set(forgejoItems.filter((item) => carried.has(item.id)).map((item) => withoutStagingRecords(item.body)));
 }
 
+function reviewFindingTexts(forgejoItems: readonly ForgejoFeedbackItem[]): string[] {
+  return forgejoItems
+    .filter((item) => item.kind === FEEDBACK_KIND.reviewComment && holdsReviewRecord(item.body, REVIEW_RECORD_FORM.finding))
+    .map((item) => withoutStagingRecords(item.body));
+}
+
 export async function readStagedFeedback(staged: StagedPullRequest): Promise<StagedFeedback> {
   const forgejoItems = await readForgejoFeedback(staged.address, staged.api);
   const carriedAnswers = (await readStagingMetadataComment(staged.address, staged.api))?.sync.carriedAnswers ?? [];
-  const github = await readGithubFeedback(staged.githubUrl, carriedAnswerTexts(forgejoItems, carriedAnswers));
+  const textsSentFromForgejo = new Set([...carriedAnswerTexts(forgejoItems, carriedAnswers), ...reviewFindingTexts(forgejoItems)]);
+  const github = await readGithubFeedback(staged.githubUrl, textsSentFromForgejo);
   return { github, forgejoItems, carriedAnswers };
 }
 

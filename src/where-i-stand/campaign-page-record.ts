@@ -13,7 +13,7 @@ import { fileIsMissing } from "./file-presence.ts";
 import { entryHeadingOf, listEntries, PageSection, sectionHeadingOf, type PageEntry } from "./page-frame.ts";
 import { readJournal, type JournalRecord } from "./page-journal.ts";
 import { showPage } from "./page-store.ts";
-import { entriesAboutTheSameWork, lineToFixIn, readLinksLine, saysItIsSuperseded } from "./same-work-entries.ts";
+import { entriesAboutTheSameWork, readLinksLine, saysItIsSuperseded, stillSays } from "./same-work-entries.ts";
 
 export interface PageRecordPlaces {
   readonly dataHome: string;
@@ -94,10 +94,6 @@ function staleEntriesAbout(
     }
   }
   return [...stale.values()];
-}
-
-function stillSays(entry: PageEntry): string {
-  return `"${entryHeadingOf(entry.identity)}" still says "${lineToFixIn(entry)}"`;
 }
 
 function refusal(alphaName: string, whatToDo: string): PageRecordVerdict {

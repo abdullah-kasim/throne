@@ -29,9 +29,22 @@ export const MEMORY_AT_CAPACITY_THRESHOLD = 80;
 // where there is real concurrency to saturate; below that it is an artifact,
 // and at 70 the artifact refused every spawn on an idle machine.
 //
-// 90 is the Lord's value. It keeps io in the admission decision, as he
-// originally ordered, while sitting above the artifact band this box floats in
-// (io-full measured between 27 and 75 across the session, at rest).
+// 90 was the Lord's value for io full PSI, sitting above the artifact band
+// this box floated in then (io full PSI measured between 27 and 75 at rest).
+//
+// THE LORD'S RULING OF 2026-10-11 retired io PSI as the input: "uh, autoscalr
+// keepd saying it is at-capacity. fix it. note that mac also uses the throne",
+// then, picked from options, "Measure real disk use". The artifact had climbed
+// above 90: throne-backend logged 704 `skip: pressure verdict is
+// "at-capacity"` sweeps in 3 days while /proc/pressure/io full ranged avg10
+// 66-94, the disks were busy 41 ms out of 5000 ms, and no thread was in D
+// state. All of that pressure sat in user.slice and system.slice read 0: idle
+// io_uring waits held by long-lived processes are counted as iowait, which
+// inflates io PSI on a box doing no disk work at all.
+//
+// The 90 survives, but it now measures disk busy percent: the share of a
+// one-second /proc/diskstats sample the busiest physical disk spent doing I/O.
+// macOS has no such figure and keeps grading io as 0.
 export const IO_AT_CAPACITY_THRESHOLD = 90;
 
 // THE LORD'S RULING OF 2026-08-27: "we also need to take oversubscription into
@@ -87,9 +100,9 @@ export interface PressureClassification {
  * pressure figure graded against `AT_CAPACITY_THRESHOLD`, and grades IO
  * SEPARATELY against its own, higher `IO_AT_CAPACITY_THRESHOLD`:
  *
- *   pressure = max(cpu.avg10, cpu.avg60,
- *                  loadPerCore × 100)          graded at 70
- *   io-full  = max(io.avg10, io.avg60)          graded at 90
+ *   pressure  = max(cpu.avg10, cpu.avg60,
+ *                   loadPerCore × 100)          graded at 70
+ *   disk-busy = max(io.avg10, io.avg60)          graded at 90
  *
  * so 0.8x per core still scores 80 and 1.8x scores 180. Either limit alone is
  * enough to say `at-capacity`.
@@ -100,11 +113,9 @@ export interface PressureClassification {
  * The figure therefore carries only what 70 governs, and io is reported beside
  * it with its own threshold. This is the one place two thresholds beat one.
  *
- * IO IS THE `full` LINE, NOT `some`, and that choice is load-bearing. Measured
- * 2026-08-27: io `some` was 93.49/95.70 while io `full` was 27.10/49.43. `some`
- * means "at least one task was stalled", the normal condition of any box doing
- * concurrent work; grading it would refuse everything, permanently. The caller
- * passes the `full` reading — see `readPsiFullPressure`.
+ * IO IS HOW BUSY THE DISKS WERE, NOT IO PSI. Both io PSI lines read high on a
+ * box doing no disk work, so the caller passes the busiest physical disk's
+ * busy percent — see `readLinuxDiskBusyPressure`.
  *
  * Fails closed on every input: any reading being `unknown` makes the verdict
  * `unknown` rather than falling back to the others. An `unknown` verdict is not
@@ -138,7 +149,7 @@ export function classifyPressure(
         ...(memory.state === "unknown"
           ? ["memory pressure reading unknown"]
           : []),
-        ...(io.state === "unknown" ? ["io pressure reading unknown"] : []),
+        ...(io.state === "unknown" ? ["disk-busy reading unknown"] : []),
         ...(load.state === "unknown" ? ["load reading unknown"] : []),
       ],
     };
@@ -160,11 +171,11 @@ export function classifyPressure(
   const cpuMax = Math.max(cpu.avg10, cpu.avg60);
   const memoryMax = Math.max(memory.avg10, memory.avg60);
   const pressure = loadLimit.gradedIn === "pressure-figure" ? Math.max(cpuMax, loadPressure) : cpuMax;
-  const ioFull = Math.max(io.avg10, io.avg60);
+  const diskBusy = Math.max(io.avg10, io.avg60);
 
   const pressureAtCapacity = pressure >= AT_CAPACITY_THRESHOLD;
   const memoryAtCapacity = memoryMax >= MEMORY_AT_CAPACITY_THRESHOLD;
-  const ioAtCapacity = ioFull >= IO_AT_CAPACITY_THRESHOLD;
+  const ioAtCapacity = diskBusy >= IO_AT_CAPACITY_THRESHOLD;
   const loadAtItsOwnLimit =
     loadLimit.gradedIn === "its-own-limit" && loadPerCore >= loadLimit.loadPerCoreAtCapacity;
   const verdict: PressureVerdict =
@@ -179,7 +190,7 @@ export function classifyPressure(
       `pressure ${pressure.toFixed(2)} ${pressureAtCapacity ? ">=" : "<"} ${AT_CAPACITY_THRESHOLD} (cpu ${cpuMax.toFixed(2)})`,
       `memory ${memoryMax.toFixed(2)} ${memoryAtCapacity ? ">=" : "<"} ${MEMORY_AT_CAPACITY_THRESHOLD}`,
       loadReasonOf(loadPerCore, loadPressure, loadLimit),
-      `io-full ${ioFull.toFixed(2)} ${ioAtCapacity ? ">=" : "<"} ${IO_AT_CAPACITY_THRESHOLD}`,
+      `disk-busy ${diskBusy.toFixed(2)}% ${ioAtCapacity ? ">=" : "<"} ${IO_AT_CAPACITY_THRESHOLD}`,
     ],
   };
 }

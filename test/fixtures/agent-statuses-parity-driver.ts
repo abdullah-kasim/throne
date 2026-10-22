@@ -118,7 +118,7 @@ export function nestAgentStatusesParityRoster(
     listCompletedAgentNames: async () => [...scenario.completed],
     readAgentStatusRole: async (name) => scenario.roles[name] ?? '',
     loadAgentStatusesRegentTitle: async () => 'Regent',
-    readAgentPaneTail: async () => '',
+    readHarnessBackgroundWork: async () => ({ kind: 'none' }),
   });
 }
 

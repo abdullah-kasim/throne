@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { NTFY_USER_CONFIG } from '../application-config.service.ts';
+import type { NtfyUserConfig } from '../shared-policy/ntfy-user-config.ts';
 import {
   readAgentRole,
   IdentityLineReadStatus,
@@ -40,6 +41,7 @@ export interface NotifyConfig {
   topic: string;
   timeoutMs: number;
   notifyShadows: boolean;
+  sendingEnabled: boolean;
 }
 
 /**
@@ -47,18 +49,23 @@ export interface NotifyConfig {
  * `THRONE_NOTIFY_SHADOWS=1` to opt into internal Shadow completion pushes;
  * completed Alphas remain the only default notification source.
  */
-export const NOTIFY_CONFIG: Readonly<NotifyConfig> = Object.freeze({
-  serverUrl: envValue(
-    process.env.THRONE_NTFY_SERVER_URL,
-    NTFY_USER_CONFIG.serverUrl ?? DEFAULT_SERVER_URL,
-  ),
-  topic: envValue(
-    process.env.THRONE_NTFY_TOPIC,
-    NTFY_USER_CONFIG.topic ?? DEFAULT_TOPIC,
-  ),
-  timeoutMs: DEFAULT_TIMEOUT_MS,
-  notifyShadows: process.env.THRONE_NOTIFY_SHADOWS === "1",
-});
+export function notifyConfigFrom(ntfySection: NtfyUserConfig | undefined): NotifyConfig {
+  return {
+    serverUrl: envValue(
+      process.env.THRONE_NTFY_SERVER_URL,
+      ntfySection?.serverUrl ?? DEFAULT_SERVER_URL,
+    ),
+    topic: envValue(
+      process.env.THRONE_NTFY_TOPIC,
+      ntfySection?.topic ?? DEFAULT_TOPIC,
+    ),
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+    notifyShadows: process.env.THRONE_NOTIFY_SHADOWS === "1",
+    sendingEnabled: ntfySection?.enabled ?? true,
+  };
+}
+
+export const NOTIFY_CONFIG: Readonly<NotifyConfig> = Object.freeze(notifyConfigFrom(NTFY_USER_CONFIG));
 
 export function shouldNotify(input: {
   reason: ReapReason;
@@ -196,15 +203,23 @@ export interface PostNtfyMessageOptions {
   fetchImpl?: FetchLike;
 }
 
+export type NtfySendingConfig = Pick<NotifyConfig, "serverUrl" | "topic" | "timeoutMs"> &
+  Partial<Pick<NotifyConfig, "sendingEnabled">>;
+
 export type NotificationTransport = (
   message: string,
-  config: Pick<NotifyConfig, "serverUrl" | "topic" | "timeoutMs">,
+  config: NtfySendingConfig,
   options: PostNtfyMessageOptions,
 ) => Promise<void>;
 
 const COMPLETION_NOTIFICATION_TITLE = "Throne campaign completed";
 const MAX_REJECTION_REASON_BYTES = 512;
 const realFetch: FetchLike = (url, init) => fetch(url, init);
+const NTFY_HEALTH_PATH = "v1/health";
+
+function serverBase(serverUrl: string): string {
+  return `${serverUrl.replace(/\/+$/, "")}/`;
+}
 
 async function readRejectionReason(response: {
   text: () => Promise<string>;
@@ -221,27 +236,42 @@ async function readRejectionReason(response: {
 
 export async function postNtfyMessage(
   message: string,
-  config: Pick<
-    NotifyConfig,
-    "serverUrl" | "topic" | "timeoutMs"
-  > = NOTIFY_CONFIG,
+  config: NtfySendingConfig = NOTIFY_CONFIG,
   options: PostNtfyMessageOptions = {},
 ): Promise<void> {
-  const base = `${config.serverUrl.replace(/\/+$/, "")}/`;
-  const url = new URL(encodeURIComponent(config.topic), base).toString();
-  const response = await (options.fetchImpl ?? realFetch)(url, {
-    method: "POST",
-    body: message,
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      Title: options.title ?? COMPLETION_NOTIFICATION_TITLE,
-    },
-    signal: AbortSignal.timeout(config.timeoutMs),
-  });
+  if (config.sendingEnabled === false) return;
+  const url = new URL(encodeURIComponent(config.topic), serverBase(config.serverUrl)).toString();
+  let response: Awaited<ReturnType<FetchLike>>;
+  try {
+    response = await (options.fetchImpl ?? realFetch)(url, {
+      method: "POST",
+      body: message,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        Title: options.title ?? COMPLETION_NOTIFICATION_TITLE,
+      },
+      signal: AbortSignal.timeout(config.timeoutMs),
+    });
+  } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error);
+    throw new Error(`ntfy POST to ${config.serverUrl} failed: ${cause}`, { cause: error });
+  }
   if (!response.ok) {
     const reason = await readRejectionReason(response);
     const detail = reason === undefined ? "" : `: ${reason}`;
-    throw new Error(`ntfy POST failed with HTTP ${response.status}${detail}`);
+    throw new Error(`ntfy POST to ${config.serverUrl} failed with HTTP ${response.status}${detail}`);
+  }
+}
+
+export async function ntfyServerAnswers(serverUrl: string, timeoutMs: number): Promise<boolean> {
+  try {
+    const response = await realFetch(new URL(NTFY_HEALTH_PATH, serverBase(serverUrl)).toString(), {
+      method: "GET",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }
 
@@ -256,7 +286,7 @@ export interface NotifyDeps {
   renderQueue: (excludeObjectiveCode?: string) => Promise<string>;
   postMessage: (
     message: string,
-    config: Pick<NotifyConfig, "serverUrl" | "topic" | "timeoutMs">,
+    config: NtfySendingConfig,
   ) => Promise<void>;
 }
 
@@ -283,6 +313,7 @@ export async function notifyAgentCompletion(
   deps: NotifyDeps = REAL_DEPS,
   config: Readonly<NotifyConfig> = NOTIFY_CONFIG,
 ): Promise<boolean> {
+  if (config.sendingEnabled === false) return false;
   const roleRead = await deps.readAgentRole(name);
   // An unresolved role read must never silently suppress the completion
   // push -- the same "never suppress on a degraded read" precedent the

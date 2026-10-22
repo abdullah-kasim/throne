@@ -95,6 +95,10 @@ async function replaceFileAtomically(file: string, content: string): Promise<voi
   }
 }
 
+export async function replacePageContent(dataHome: string, content: string): Promise<void> {
+  await replaceFileAtomically(pagePathIn(dataHome), content);
+}
+
 export async function withPageLock<Result>(
   dataHome: string,
   work: () => Promise<Result>,
@@ -122,7 +126,7 @@ export async function addEventToLockedPage(writer: PageWriter, event: string): P
   if (faults.length > 0) return { outcome: PageWriteOutcome.FrameBroken, faults };
   const next = withEventOnTop(current.content, event);
   await keepPreviousCopy(writer.dataHome);
-  await replaceFileAtomically(pagePathIn(writer.dataHome), next);
+  await replacePageContent(writer.dataHome, next);
   const record = await recordInJournal(
     writer.dataHome,
     { at: writer.now().toISOString(), writer: writer.name, action: JournalAction.Note },

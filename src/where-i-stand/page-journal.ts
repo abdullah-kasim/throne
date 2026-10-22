@@ -7,6 +7,7 @@ export const JOURNAL_FILE_NAME = "where-i-stand.journal.jsonl";
 
 export const JOURNALED_PAGE_FILE_NAME = "where-i-stand.journaled.md";
 export const UNRECORDED_WRITER = "unknown";
+export const LORD_WRITER = "Lord";
 
 export const JournalAction = {
   Write: "write",
@@ -28,6 +29,10 @@ export interface JournalRecord extends EntryChanges {
   readonly writer: string;
   readonly action: JournalActionName;
   readonly version: string;
+}
+
+export function isTheLordsName(name: string): boolean {
+  return name.toLowerCase() === LORD_WRITER.toLowerCase();
 }
 
 export function journalPathIn(dataHome: string): string {

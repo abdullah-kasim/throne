@@ -59,88 +59,14 @@ const STATUS_FOOTER_LINE = /^[ \t]+\S.*\s·\s\//;
 // correctly and is still swept. Verified against a LIVE pane on 2026-08-08.
 const PROGRESS_LINE = /^[ \t]*✻[ \t]/;
 
-// Herdr's Claude-pane detector reports `agent_status: idle` whenever the model is
-// not generating a token — it cannot see WORK the agent is waiting on. A Claude
-// agent that launched a background shell (a multi-minute `npm test`, say) and is
-// waiting for it therefore looks IDLE to herdr while being anything but, and
-// no-idling flags its whole family every sweep. The pane itself says otherwise:
-// the live progress line carries a running-work suffix, e.g.
-//   ✻ Cooked for 42s · 1 shell still running
-//   ✻ Worked for 3m 21s · 2 monitors still running
-// A bare `✻ Brewed for 5s` has no such suffix and is NOT busy — that is an agent
-// genuinely waiting on nothing. Observed live 2026-08-08 on shadow-sakey-99a,
-// which herdr reported idle while it held a running test shell.
-//
-// Scanned only in the TAIL of the capture: the progress line is live pane chrome
-// at the bottom, so an identical string further up is stale scrollback from a
-// finished run and must not count.
-// Two shapes, because the pane words background work differently depending on
-// WHAT it is waiting on:
-//   ✻ Cooked for 42s · 1 shell still running      (background shell/monitor)
-//   ✻ Waiting for 1 background agent to finish   (a spawned sub-agent/fork)
-// The second carries no `· N ... still running` suffix at all, so the first
-// pattern alone reported an agent blocked on a fork as NOT busy and its family
-// was swept. Found by reading a live pane after the initial fix shipped — the
-// synthetic fixtures only ever exercised the shell wording.
-//
-// A pane holding more than one kind of resource lists them comma-separated
-// before the shared suffix, e.g. `1 shell, 1 monitor still running`. Observed
-// live in the 2026-08-11 escalation for shadow-nia-99c's pane. One resource
-// item repeated an arbitrary number of times, joined by `, ` or ` and `.
-const RUNNING_WORK_RESOURCE_ITEM = '\\d+[ \\t]+(?:shell|monitor|task|command)s?';
-const RUNNING_WORK_RESOURCE_LIST =
-  `${RUNNING_WORK_RESOURCE_ITEM}(?:(?:,[ \\t]*|[ \\t]+and[ \\t]+)${RUNNING_WORK_RESOURCE_ITEM})*`;
-const RUNNING_WORK_SUFFIX = new RegExp(
-  `✻[^\\n]*·[ \\t]*(${RUNNING_WORK_RESOURCE_LIST}[ \\t]+still[ \\t]+running)`,
-);
-const AWAITING_AGENT_LINE =
-  /✻[ \t]*(Waiting[ \t]+for[ \t]+\d+[ \t]+background[ \t]+agents?[ \t]+to[ \t]+finish)/i;
-const LIVE_TAIL_LINES = 15;
-
-const INDENTED_LINE = /^[ \t]+\S/;
-
-function isWrappedProgressContinuation(line: string): boolean {
-  return (
-    INDENTED_LINE.test(line) &&
-    !TURN_BOUNDARY_LINE.test(line) &&
-    !STATUS_FOOTER_LINE.test(line) &&
-    !PROGRESS_LINE.test(line)
-  );
-}
-
-function joinWrappedProgressLines(lines: readonly string[]): string[] {
-  const joined: string[] = [];
-  for (const line of lines) {
-    const previous = joined[joined.length - 1];
-    if (previous !== undefined && PROGRESS_LINE.test(previous) && isWrappedProgressContinuation(line)) {
-      joined[joined.length - 1] = `${previous} ${line.trim()}`;
-    } else {
-      joined.push(line);
-    }
-  }
-  return joined;
-}
-
-/** The live background work a pane reports, or undefined when it reports none. */
-export function liveBackgroundWork(output: string): string | undefined {
-  const tail = joinWrappedProgressLines(output.split('\n').slice(-LIVE_TAIL_LINES)).join('\n');
-  return (
-    RUNNING_WORK_SUFFIX.exec(tail)?.[1] ?? AWAITING_AGENT_LINE.exec(tail)?.[1]
-  );
-}
-
 const TAG_KINDS_DECLARED_BY_A_TASKED_AGENT: ReadonlySet<LastMessageTagState['kind']> = new Set([
   'blocked',
   'reapable',
   'reapable-failed',
 ]);
 
-function latestMessageDeclaresBlockedOrReapable(output: string): boolean {
+export function latestMessageDeclaresBlockedOrReapable(output: string): boolean {
   return TAG_KINDS_DECLARED_BY_A_TASKED_AGENT.has(classifyLastMessageTags(lastMessageBlock(output)).kind);
-}
-
-export function paneShowsTheAgentHasActed(output: string): boolean {
-  return liveBackgroundWork(output) !== undefined || latestMessageDeclaresBlockedOrReapable(output);
 }
 
 /** Every assistant-turn message block found in `output`, oldest first. Each

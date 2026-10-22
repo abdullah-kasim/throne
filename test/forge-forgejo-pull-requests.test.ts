@@ -141,6 +141,17 @@ test("pull request view, edit, list, diff and comment work against Forgejo", asy
   assert.deepEqual(dependencies.githubCalls, []);
 });
 
+test("a Forgejo pull request's title can be changed with throne forge pr edit --title, leaving its body as it was", async () => {
+  const url = await createDraftPullRequest();
+
+  const edited = await forge(["pr", "edit", url, "--title", "[GH-##] Add the feature"]);
+
+  assert.equal(edited.stdout, `${url}\n`);
+  assert.equal(forgejo.pullRequests[0]!.title, "[GH-##] Add the feature");
+  assert.equal(forgejo.pullRequests[0]!.body, "Adds the feature.\n");
+  assert.deepEqual(dependencies.githubCalls, []);
+});
+
 test("attaching a file returns its URL and the markdown that shows it inline in Forgejo", async () => {
   const url = await createDraftPullRequest();
   const video = await writeFileInRepo("checkout-flow.mp4", new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112]));

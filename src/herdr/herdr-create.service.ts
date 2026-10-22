@@ -11,7 +11,6 @@ import {
 import os from "node:os";
 import path from "node:path";
 import type { SupportedComposerHarness } from "../codex-screen/composer/composer.types.ts";
-import { HARNESS_NAMES, runtimeHarness } from "../harness-routing/harness.ts";
 import { AgentResolutionError, sameAgentName } from "./herdr-identity-contracts.ts";
 import { argvExecutableCandidates, executableName, isLiveHarnessProcess, paneHasLiveHarnessProcess } from "./herdr-process-detection.ts";
 import { getPaneProcessInfo, listNameOwners, listPanes, listTabs, resolveAgent, renameAgent } from "./herdr-runtime.service.ts";
@@ -347,20 +346,6 @@ export async function reconcileIndeterminateAgentStart(
     deps,
   );
 }
-
-interface LaunchContext {
-  argv: string[];
-  env?: NodeJS.ProcessEnv;
-  stagedArtifactPaths?: string[];
-  binaryResolution?: HarnessBinaryResolution;
-}
-
-interface HarnessBinaryResolution {
-  executableName: typeof HARNESS_NAMES.CLAUDE;
-  overrideVariable: "CLAUDE_BIN";
-  wrapperName: "claudey-all";
-}
-
 
 import { startInTab } from "./herdr-launch.ts";
 import {

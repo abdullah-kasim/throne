@@ -50,6 +50,8 @@ import {
   ensurePaneCarriesName,
   stopHarnessInPane,
 } from "../restart-harnesses/restart-harnesses-runtime.ts";
+import { readAccountsConfig } from "../account/accounts-config.ts";
+import { launchAccountOption, readRecordedAgentRole, type ReadAccountsConfig, type ReadAgentRole } from "../account/agent-account.ts";
 
 export type StartupOrphanAction =
   | "resume"
@@ -134,6 +136,8 @@ export interface StartupResumeContract {
   log: (message: string) => void;
   warn: (message: string) => void;
   exactResumePrompt?: (name: string, harness: string) => string;
+  readAccountsConfig: ReadAccountsConfig;
+  readAgentRole: ReadAgentRole;
 }
 
 export function buildResumePrompt(name: string, throneRoot: string): string {
@@ -204,6 +208,8 @@ export const REAL_RESUME_CONTRACT: StartupResumeContract = {
   deliverOpeningPrompt,
   pathExists,
   throneRoot: THRONE_ROOT,
+  readAccountsConfig,
+  readAgentRole: readRecordedAgentRole,
   log: (message) => process.stdout.write(message),
   warn: (message) => process.stderr.write(message),
 };
@@ -212,10 +218,8 @@ export async function resumeOrphan(
   name: string,
   contract: StartupResumeContract = REAL_RESUME_CONTRACT,
 ): Promise<void> {
-  const spec = normalizeSpec(
-    await contract.readSpawnSpec(name),
-    contract.throneRoot,
-  );
+  const recordedSpec = await contract.readSpawnSpec(name);
+  const spec = normalizeSpec(recordedSpec, contract.throneRoot);
   let cwd = spec.cwd;
   let sessionId = spec.sessionId;
   if (!(await contract.pathExists(cwd))) {
@@ -239,6 +243,7 @@ export async function resumeOrphan(
   const result = await contract.resumeRegisteredAgentInRestoredTab(name, {
     cwd,
     argv,
+    ...(await launchAccountOption(name, recordedSpec?.account, contract.readAccountsConfig, contract.readAgentRole)),
   });
   if (result.kind === "already-live") return;
   const harness = spec.harness === HARNESS_NAMES.CLAUDE ? "Claude" : "Codex";

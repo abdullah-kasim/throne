@@ -23,6 +23,7 @@ import type {
   KeyedSubmissionWindowStore,
 } from '../herdr/keyed-submission-token.ts';
 import type { SubmitToAgentDeps } from '../herdr/herdr-send.types.ts';
+import { HARNESS_BACKGROUND_WORK_KINDS } from '../process-inspection/harness-background-work.ts';
 
 export interface SubmitCall {
   readonly target: HerdrAgent;
@@ -85,6 +86,7 @@ export function deps(overrides: Partial<NoIdlingDependencies> = {}): {
         submitCalls.push({ target, sender, prompt, options });
       },
       readAgent: async () => '',
+      readHarnessBackgroundWork: async () => ({ kind: HARNESS_BACKGROUND_WORK_KINDS.NONE }),
       blockedMarkerLedger: {
         readBlockedMarker: async () => null,
         writeBlockedMarker: async () => {},

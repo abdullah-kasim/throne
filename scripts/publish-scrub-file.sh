@@ -1,4 +1,4 @@
-NEVER_PUBLISHED_PATHS=(publish.sh publish-scrub.sed import-from-public.sh current_public_commit.txt bots .claude/skills/publish)
+NEVER_PUBLISHED_PATHS=(publish.sh publish-scrub.sed import-from-public.sh current_public_commit.txt bots .claude/skills/publish scripts/qst-reconcile-queue-status.ts)
 
 publish_scrub_file() {
   printf '%s\n' "${PUBLISH_SCRUB_FILE:-$1/publish-scrub.sed}"

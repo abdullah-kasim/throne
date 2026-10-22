@@ -41,8 +41,18 @@ export function githubViewArguments(target: string, fields: string = PULL_REQUES
   return ["pr", "view", target, "--json", fields];
 }
 
-export function githubEditBodyArguments(target: string, bodyFile: string): string[] {
-  return ["pr", "edit", target, "--body-file", bodyFile];
+export function githubEditArguments(target: string, change: { readonly title?: string; readonly bodyFile?: string }): string[] {
+  return [
+    "pr",
+    "edit",
+    target,
+    ...(change.title === undefined ? [] : ["--title", change.title]),
+    ...(change.bodyFile === undefined ? [] : ["--body-file", change.bodyFile]),
+  ];
+}
+
+export function githubReadyArguments(target: string): string[] {
+  return ["pr", "ready", target];
 }
 
 export function githubListOpenArguments(limit: number): string[] {

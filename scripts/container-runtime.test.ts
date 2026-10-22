@@ -7,6 +7,7 @@ import {
   normalizeContainerRow,
   parseContainerListJson,
   resolveContainerRuntimeName,
+  suiteContainerPlatform,
 } from "./container-runtime.mjs";
 
 test("the runtime is the explicit override, else docker, else podman", () => {
@@ -81,4 +82,10 @@ test("listing containers by name prefix passes the filter through and normalizes
     () => listContainersMatchingName("docker", "x", ((() => ({ status: null, stdout: "", stderr: "" })) as never)),
     /docker ps failed while listing containers named x\*/,
   );
+});
+
+test("the suite container runs on the host's own architecture so node is not emulated", () => {
+  assert.equal(suiteContainerPlatform("arm64"), "linux/arm64");
+  assert.equal(suiteContainerPlatform("x64"), "linux/amd64");
+  assert.throws(() => suiteContainerPlatform("ppc64"), /ppc64/);
 });

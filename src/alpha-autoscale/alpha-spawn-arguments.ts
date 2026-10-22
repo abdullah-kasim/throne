@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { LaunchQueueCandidate } from "../alpha-launch-queue/ready-queue.ts";
 import { queueRowEffortFlags } from "./queue-row-effort-flags.ts";
+import { COMPANY_ACCOUNT } from "../regent-queue/queue-row-account.ts";
 
 export function publishedCliEntrypoint(repoRoot: string): string {
   return path.join(repoRoot, "dist", "src", "tools.js");
@@ -47,6 +48,7 @@ export function createAlphaArguments(
       : ["--deliverable-shape", candidate.deliverableShape]),
     ...(candidate.sliceless === true ? ["--sliceless"] : []),
     ...(candidate.shadowless === true || candidate.sliceless === true ? ["--shadowless"] : []),
+    ...(candidate.account === COMPANY_ACCOUNT ? ["--account", COMPANY_ACCOUNT] : []),
     "--role",
     "Alpha",
     "--supervisor",

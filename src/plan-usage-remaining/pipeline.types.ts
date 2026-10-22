@@ -1,4 +1,3 @@
-import type { UsageCacheIo } from './telemetry-core/cache.ts';
 import type { UsageLogRow } from './telemetry-core/log.ts';
 
 export interface HttpJsonRequest {
@@ -19,7 +18,7 @@ export interface PlanUsageDeps {
   now: () => Date;
   out: (line: string) => void;
   errOut: (line: string) => void;
-  cacheIo?: UsageCacheIo;
+  usageCacheFile?: string;
   appendUsageLog?: (rows: UsageLogRow[]) => Promise<void>;
   readUsageLog?: () => Promise<string>;
 }

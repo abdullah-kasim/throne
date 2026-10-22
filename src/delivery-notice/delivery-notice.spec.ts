@@ -20,6 +20,7 @@ import {
   isDeliveryNotice,
   type UndeliveredMessage,
 } from "./delivery-notice.ts";
+import { NO_IDLING_SENDER } from "../no-idling/no-idling-sender.ts";
 
 const EVERY_WORK_ITEM_STATE = Object.values(MessageQueueWorkItemState);
 
@@ -65,6 +66,30 @@ test("a recipient whose message may not have arrived is told to read it", () => 
     buildDeliveryNotice("absent", 10981, "alpha-example-01"),
     "Message 10981 from alpha-example-01 may not have reached you. Read it: throne read-message 10981",
   );
+});
+
+test("a delivery notice for a message with no recorded sender names the throne as its sender", async () => {
+  await withStore((store) => {
+    for (const senderName of ["", "   "]) {
+      const notice = enqueueDeliveryNotice(store, { ...UNDELIVERED_MESSAGE, messageId: senderName.length, senderName }, "absent");
+      assert.ok(notice);
+      assert.equal(
+        payloadOf(notice).prompt,
+        `Message ${senderName.length} from the throne may not have reached you. Read it: throne read-message ${senderName.length}`,
+      );
+    }
+  });
+});
+
+test("a delivery notice names the sweep that sent the message", async () => {
+  await withStore((store) => {
+    const notice = enqueueDeliveryNotice(store, { ...UNDELIVERED_MESSAGE, senderName: NO_IDLING_SENDER }, "absent");
+    assert.ok(notice);
+    assert.equal(
+      payloadOf(notice).prompt,
+      "Message 10981 from no-idling may not have reached you. Read it: throne read-message 10981",
+    );
+  });
 });
 
 test("a delivery notice ends with the command that reads the message", async () => {

@@ -23,12 +23,19 @@ import {
 import { HerdrCommandError, runHerdr } from "./herdr-client.ts";
 import { errorText } from "../shared-policy/error-text.ts";
 import { grantThroneWorktreeTrust } from "../claude-spawn-trust/claude-worktree-trust.ts";
+import {
+  claudeAccountLaunch,
+  realAccountHome,
+  type AccountHome,
+} from "../account/claude-launch-environment.ts";
 import type { HerdrAgent } from "./herdr-inventory.service.ts";
 import type { StartInTabDeps, StartOptions } from "./herdr-create.contracts.ts";
 import type { SupportedComposerHarness } from "../codex-screen/composer/composer.types.ts";
 interface LaunchContext {
   argv: string[];
   env?: NodeJS.ProcessEnv;
+  unsetVariables?: readonly string[];
+  prependedPath?: string;
   stagedArtifactPaths?: string[];
   binaryResolution?: HarnessBinaryResolution;
 }
@@ -164,41 +171,65 @@ export function launcherHarnessKind(
 // path (never a human running `claudey`/`claude` by hand outside it — see
 // `startInTab`'s callers), reaches this function; a human launch never does.
 //
-// It sets NO `CLAUDE_CONFIG_DIR`: a throne-spawned agent uses the account's
-// REAL config, exactly as the human's own sessions do. Per-spawn config
-// directories were removed because each one presents as a separate client
-// installation on a single credential, which expires logins aggressively
-// (2026-08-15/16: three agents wedged on `Login expired`, seven seed
-// directories live at once). What the seed was actually buying is now
-// obtained without it — the two permission modals are already suppressed by
-// the account's own `settings.json`, and the untrusted-folder modal is
-// suppressed by granting per-project trust in the real config below.
-function claudeyLaunchContext(opts: StartOptions): LaunchContext {
+// An agent runs on its account's ONE shared folder: `~/.claude` with no
+// `CLAUDE_CONFIG_DIR` for the primary, `CLAUDE_CONFIG_DIR=<folder>` for any
+// other account, many agents per folder. Per-agent config folders stay
+// refused because each one presents as a separate client installation on a
+// single credential, which expires logins aggressively (2026-08-15/16: three
+// agents wedged on `Login expired`, seven seed directories live at once).
+// The two permission modals are suppressed by the folder's `settings.json`,
+// and the untrusted-folder modal by granting per-project trust in that
+// folder's own config below.
+async function claudeyLaunchContext(
+  opts: StartOptions,
+  accountHome: AccountHome,
+): Promise<LaunchContext> {
+  const accountLaunch =
+    opts.account === undefined
+      ? null
+      : await claudeAccountLaunch(opts.account, accountHome);
   const argv = [
     ...sanitizedLaunchArgs(opts.argv),
     "--settings",
     CLAUDE_RUNTIME_MODEL_SETTINGS,
+    ...(accountLaunch?.argv ?? []),
   ];
+  const launch: LaunchContext =
+    accountLaunch === null
+      ? { argv }
+      : {
+          argv,
+          env: accountLaunch.env,
+          unsetVariables: accountLaunch.unsetVariables,
+          ...(accountLaunch.prependedPath !== undefined
+            ? { prependedPath: accountLaunch.prependedPath }
+            : {}),
+        };
   if (opts.cwd === undefined) {
-    return { argv };
+    return launch;
   }
   // Fails loudly rather than launching into an invisible modal: a spawn whose
   // trust grant did not land blocks on a dialog no operator can see or answer.
-  grantThroneWorktreeTrust(opts.cwd);
-  return { argv };
+  grantThroneWorktreeTrust(opts.cwd, undefined, accountLaunch?.trustTarget);
+  return launch;
 }
 
-export function translatedLaunchContext(
+export async function translatedLaunchContext(
   opts: StartOptions,
   pinnedBinaryEnv: NodeJS.ProcessEnv = {},
-): LaunchContext {
-  return { ...untranslatedLaunchContext(opts), env: pinnedBinaryEnv };
+  accountHome: AccountHome = realAccountHome(),
+): Promise<LaunchContext> {
+  const launch = await untranslatedLaunchContext(opts, accountHome);
+  return { ...launch, env: { ...pinnedBinaryEnv, ...launch.env } };
 }
 
-function untranslatedLaunchContext(opts: StartOptions): LaunchContext {
+async function untranslatedLaunchContext(
+  opts: StartOptions,
+  accountHome: AccountHome,
+): Promise<LaunchContext> {
   const launcher = opts.argv[0]?.split("/").at(-1);
   if (launcher === "claudey") {
-    return claudeyLaunchContext(opts);
+    return claudeyLaunchContext(opts, accountHome);
   }
   if (launcher !== "claudey-all") {
     return { argv: sanitizedLaunchArgs(opts.argv) };
@@ -298,6 +329,18 @@ function harnessLifetimeCleanupScript(
   ];
 }
 
+function unsetVariablesScript(variables: readonly string[] | undefined): string[] {
+  return variables === undefined || variables.length === 0
+    ? []
+    : [`unset ${variables.join(" ")}`];
+}
+
+function prependedPathScript(prependedPath: string | undefined): string[] {
+  return prependedPath === undefined
+    ? []
+    : [`export PATH=${shellQuote(prependedPath)}:"$PATH"`];
+}
+
 function harnessBinaryResolutionScript(
   resolution: HarnessBinaryResolution | undefined,
 ): string[] {
@@ -337,6 +380,8 @@ export function launchScriptText(
     "#!/usr/bin/env bash",
     "set -e",
     ...environment,
+    ...unsetVariablesScript(launch.unsetVariables),
+    ...prependedPathScript(launch.prependedPath),
     ...harnessLifetimeCleanupScript(stagedArtifactPaths),
     ...harnessBinaryResolutionScript(launch.binaryResolution),
     harnessLaunchCommand(launch),

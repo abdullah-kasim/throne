@@ -24,6 +24,7 @@ import type { PullRequestTarget, PullRequestUrlTarget } from "./pull-request-for
 export const FORGEJO_PAGE_LIMIT = 50;
 const FORGEJO_OPEN_STATE = "open";
 const FORGEJO_CLOSED_STATE = "closed";
+const FORGEJO_MANUAL_MERGE_STYLE = "manually-merged";
 const INLINE_VIDEO_EXTENSIONS = new Set([".mp4", ".webm", ".mov"]);
 
 export interface ForgejoPullRequestRecord {
@@ -153,15 +154,15 @@ export async function readForgejoPullRequestIfFound(
   return record === undefined ? undefined : { ...pullRequestViewOf(record), headSha: record.head.sha };
 }
 
-export async function editForgejoPullRequestBody(
+export async function editForgejoPullRequest(
   repo: string,
   target: PullRequestTarget,
-  body: string,
+  fields: { readonly title?: string; readonly body?: string },
   api: ForgejoApi,
   dependencies: ForgeDependencies,
 ): Promise<PullRequestView> {
   const address = await forgejoPullRequestAddressOf(repo, target, api, dependencies);
-  return pullRequestViewOf(await api.sendJson<ForgejoPullRequestRecord>("PATCH", pullRequestApiPath(address), { body }));
+  return pullRequestViewOf(await api.sendJson<ForgejoPullRequestRecord>("PATCH", pullRequestApiPath(address), fields));
 }
 
 export async function nameGithubTwinInForgejoTitle(address: ForgejoPullRequestAddress, githubUrl: string, api: ForgejoApi): Promise<void> {
@@ -204,6 +205,11 @@ export async function diffForgejoPullRequest(
 
 export async function closeForgejoPullRequest(address: ForgejoPullRequestAddress, api: ForgejoApi): Promise<void> {
   await api.sendJson("PATCH", pullRequestApiPath(address), { state: FORGEJO_CLOSED_STATE });
+}
+
+export async function recordForgejoPullRequestAsMerged(address: ForgejoPullRequestAddress, commit: string, api: ForgejoApi): Promise<void> {
+  await api.sendJson("PATCH", forgejoRepositoryApiPath(address.repository), { allow_manual_merge: true });
+  await api.sendJson("POST", `${pullRequestApiPath(address)}/merge`, { Do: FORGEJO_MANUAL_MERGE_STYLE, MergeCommitID: commit });
 }
 
 export async function commentOnForgejoPullRequest(

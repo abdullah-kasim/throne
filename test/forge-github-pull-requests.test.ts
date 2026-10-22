@@ -100,3 +100,25 @@ test("forge refuses an unknown operation, a missing value and a bad limit before
   }
   assert.deepEqual(dependencies.githubCalls, []);
 });
+
+test("a GitHub pull request's title can be changed with throne forge pr edit --title", async () => {
+  const dependencies = forgeDependenciesWithFakeGithub(() => ({ exitCode: 0, stdout: "from gh\n", stderr: "" }));
+
+  const result = await runForgeCapturing(["pr", "edit", "12", "--title", "Add the feature", "--bypass"], dependencies, checkout.repo);
+
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.deepEqual(
+    dependencies.githubCalls.map((call) => [call.program, ...call.args]),
+    [["gh", "--bypass", "pr", "edit", "12", "--title", "Add the feature"]],
+  );
+});
+
+test("throne forge pr edit with neither a title nor a body file is refused", async () => {
+  const dependencies = forgeDependenciesWithFakeGithub();
+
+  const result = await runForgeCapturing(["pr", "edit", "12", "--bypass"], dependencies, checkout.repo);
+
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stderr, /forge pr edit requires --title or --body-file/);
+  assert.deepEqual(dependencies.githubCalls, []);
+});

@@ -91,7 +91,7 @@ test("without an explicit order to merge, /pr-merge gets the pull request ready 
   assert.ok(!skill.includes("three things"));
   assert.deepEqual(
     missingPhrases(readSection(skill, "2. Ask the Lord two things, and only these"), [
-      'Without an explicit order to merge ("merge it", "squash and merge", "land it"), the row gets the pull request ready (roll up, update, prove, repromote) and does not merge; the root stays open, ready for merge.',
+      'Without an explicit order to merge ("merge it", "squash and merge", "land it"), the row gets the pull request ready (roll up, update, prove, answer the automated reviews, repromote) and does not merge; the root stays open, ready for merge.',
       "The Stager does not ask whether it may merge.",
     ]),
     [],
@@ -104,7 +104,7 @@ test("the row merges only when its RULINGS quote an explicit merge order, and ot
   assert.deepEqual(
     missingPhrases(readBullet(skill, "Ready"), [
       "when the root has a Forgejo twin, repromote it with `/pr-promote`",
-      'Without an explicit merge order in the RULINGS, the row ends here: the root stays open, ready for merge, and REPORT.md records "ready for merge" plus the head sha.',
+      'Without an explicit merge order in the RULINGS, the row ends here: the root stays open, ready for merge and out of draft, and REPORT.md records "ready for merge" plus the head sha.',
     ]),
     [],
   );
@@ -118,7 +118,7 @@ test("with an explicit merge order the row gets the pull request ready and then 
   assert.ok(proveAt < readyAt && readyAt < mergeAt, "Ready sits after Prove and before Merge");
   assert.ok(
     readSection(skill, "2. Ask the Lord two things, and only these").includes(
-      "With an explicit order to merge, quoted under `RULINGS:`, the row does both: every ready step, then the **Answer** and **Merge** steps.",
+      "With an explicit order to merge, quoted under `RULINGS:`, the row does both: every ready step, **Answer** among them, then the **Merge** step.",
     ),
   );
   assert.ok(readBullet(skill, "Merge").includes("it comes after every ready step above"));

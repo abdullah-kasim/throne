@@ -1,0 +1,4 @@
+      1       0       1 ps -A -o pid=,ppid=,pgid=,command=
+      3       1       1 bash -c sleep 30 & nohup sleep 31 >/dev/null 2>&1 & wait
+      5       3       1 sleep 30
+      6       3       1 sleep 31

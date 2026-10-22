@@ -101,7 +101,7 @@ test("a pull request that matches its ticket has no Ticket Status section", asyn
 
 test("the reference example opens with the ticket line and ends with a Ticket Status section after Agents", async () => {
   const example = (await readReferenceExample()).trimStart();
-  assert.match(example, /^````markdown\nTicket: .+\n\n## What\n/);
+  assert.match(example, /^````markdown\nTicket: .+\n\n## What \(human\)\n/);
   assert.ok(!example.includes("[!WARNING]\n> **This PR differs"), "the reference example still opens with an alert");
   const closing = /\n## Agents\n\n<details>\n[\s\S]*\n<\/details>\n\n## Ticket Status\n\n<details>\n<summary>⚠️ This PR differs from the ticket in (\d+) ways<\/summary>\n\n\*\*This PR differs from the ticket\.\*\* Reviewers, check these before approving:\n\n((?:.+\n)+)\n<\/details>\n````\s*$/.exec(example);
   assert.ok(closing, "the reference example does not end with a Ticket Status spoiler after Agents");

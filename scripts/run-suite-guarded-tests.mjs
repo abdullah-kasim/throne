@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { SuitePhase, formatPhaseStartMark } from "./suite-phase-timings.mjs";
+import { runWatchedTestCommand } from "./suite-test-file-watchdog.mjs";
 
 const USAGE = "usage: run-suite-guarded-tests.mjs [--pre-guard <command...>] --guard <command...> --test <command...>";
 const COMMAND_LIST_FLAGS = { "--pre-guard": "preGuards", "--guard": "guards" };
@@ -46,14 +47,19 @@ function runUntilOneFails(commands) {
   return 0;
 }
 
-const { preGuards, guards, testCommand } = parseCommands(process.argv.slice(2));
-process.stdout.write(formatPhaseStartMark(SuitePhase.GUARDS));
-const preGuardFailure = runUntilOneFails(preGuards);
-if (preGuardFailure !== 0) process.exit(preGuardFailure);
-process.stdout.write(formatPhaseStartMark(SuitePhase.TESTS));
-const testStatus = runCommand(testCommand);
-process.stdout.write(formatPhaseStartMark(SuitePhase.POST_GUARDS));
-const guardStatuses = guards.map(runCommand);
-const guardFailure = guardStatuses.find((status) => status !== 0) ?? 0;
+export async function runGuardedTests(argumentsList, watchOptions) {
+  const { preGuards, guards, testCommand } = parseCommands(argumentsList);
+  process.stdout.write(formatPhaseStartMark(SuitePhase.GUARDS));
+  const preGuardFailure = runUntilOneFails(preGuards);
+  if (preGuardFailure !== 0) return preGuardFailure;
+  process.stdout.write(formatPhaseStartMark(SuitePhase.TESTS));
+  const testStatus = await runWatchedTestCommand(testCommand, watchOptions);
+  process.stdout.write(formatPhaseStartMark(SuitePhase.POST_GUARDS));
+  const guardStatuses = guards.map(runCommand);
+  const guardFailure = guardStatuses.find((status) => status !== 0) ?? 0;
+  return testStatus !== 0 ? testStatus : guardFailure;
+}
 
-process.exitCode = testStatus !== 0 ? testStatus : guardFailure;
+if (import.meta.url === `file://${process.argv[1]}`) {
+  process.exitCode = await runGuardedTests(process.argv.slice(2));
+}

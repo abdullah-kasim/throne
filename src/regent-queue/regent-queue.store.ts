@@ -46,6 +46,7 @@ import type {
   RegentQueueItemRow,
 } from "./regent-queue-row.ts";
 import type { EligibleQueueLaunchMetadata } from "./regent-queue-launch-brief.ts";
+import { queueRowAccountOf } from "./queue-row-account.ts";
 export { isQueueDeliveryMirrorVerdict } from "./regent-queue-row.ts";
 export type {
   QueueAbsorption,
@@ -366,6 +367,7 @@ export class RegentQueueSqliteStore
              completed_at = ?,
              priority = ?,
              effort = ?,
+             account = ?,
              updated_at = ?
          WHERE id = ?
          RETURNING ${queueItemColumns}`,
@@ -412,6 +414,7 @@ export class RegentQueueSqliteStore
           ...outcomeColumnsAfterMutation(current, mutation, nextStatus, timestamp),
           priority,
           mutation.effort === undefined ? current.effort ?? null : mutation.effort,
+          queueRowAccountOf(mutation.body ?? current.body),
           timestamp,
           id,
         ) as unknown as QueueItemSqlRow;

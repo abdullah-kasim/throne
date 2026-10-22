@@ -149,8 +149,8 @@ export const ALPHA_AUTOSCALE_DEFAULT_DEPENDENCIES: AlphaAutoscaleDependencies = 
   log: (message) => console.log(`[alpha-autoscale] ${message}`),
   acquireSweepLock: () => acquireSweepLock({ lockPath: ALPHA_AUTOSCALE_SWEEP_LOCK_PATH }),
   notifyOfFloorBreach: REAL_ALPHA_FLOOR_BREACH_NOTIFY_DEPS,
-  // The admission gate reads cpu PSI, memory PSI, io PSI (`full` line) and the
-  // run queue, merged into one figure inside `classifyPressure`, so
+  // The admission gate reads cpu PSI, memory PSI, the busiest physical disk's
+  // busy time and the run queue, graded inside `classifyPressure`, so
   // `decideAutoscaleAction`'s existing "skip unless positively take-more-work"
   // rule enforces every one of them with no change of its own. Routed through
   // the SHARED `readCapacityPressure` rather than assembling the inputs here:

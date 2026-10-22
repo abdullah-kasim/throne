@@ -745,7 +745,7 @@ before these new-spawn checks.
 and dead registered resumes targeting `claude/fable` or `claude/opus` evaluate
 that exact model through `src/create-agent/native-availability.ts`. Fresh authoritative
 `exhausted` evidence hard-refuses and names the native model, exhausted window,
-remaining percentage, and reset time. Usage steering cannot clear that refusal. `stale-unknown`, `unknown`, and `source-failure` warn exactly once and
+remaining percentage, and reset time. Usage steering cannot clear that refusal. `unknown` and `source-failure` warn exactly once and
 proceed because stale, malformed, missing, or failed telemetry is not proof of
 exhaustion. The `5h` window applies to both models; a matching model-scoped
 weekly window overrides aggregate weekly for that model. If routing and the
@@ -1802,6 +1802,7 @@ date.
 ./bin/throne-cli where-i-stand show
 ./bin/throne-cli where-i-stand lock --checksum <checksum> [--ttl <duration>]
 ./bin/throne-cli where-i-stand note "<one line>"
+./bin/throne-cli where-i-stand save < {"loaded": "<unit as loaded>", "edited": "<its new text>"}
 ```
 
 Guards the Lord's page, `<THRONE_DATA_HOME or ~/.throne>/where-i-stand.md`.
@@ -1835,11 +1836,29 @@ hold the lock; the command never writes, reformats or moves an entry itself.
   blocks the release: the lock prints every missing, repeated, unknown or
   out-of-order heading and the kept copy's path, tells the Regent, leaves the
   page as it is, and exits 3, so the holder takes the lock again and fixes
-  it.
+  it. Two current entries about the same work are reported the same way,
+  naming each entry's heading and the line to fix.
 - **`note "<one line>"`** puts `- <one line>` at the top of `## Just happened`
   and keeps the newest 15 events, keeping the previous page as `lock` does. It
   needs no checksum. It refuses at once while a lock is held, naming the
   holder, and refuses a page whose frame is broken, naming the faults.
+- **`save`** is the Lord's own edit from the page in his browser; only the
+  page server runs it, never an agent. It reads one JSON object from standard
+  input, `{"loaded": ..., "edited": ...}`: one unit of the page exactly as the
+  page loaded it, and its new text, both as whole lines joined with `\n` and
+  no trailing newline. A unit is a `### ` entry from its heading line to its
+  last non-blank line, or one `- ` line of `## Just happened`. `edited` `""`
+  removes the unit and one blank line beside it, so its neighbours keep one
+  blank line between them. It replaces only those lines, under the edit lock
+  as `lock` does (previous copy, journal, frame), journaled with the writer
+  `Lord` and the action `edit`; it never asks who the caller is. It prints
+  exactly one JSON line, `{"outcome": ..., "message": ...}`, the message one
+  plain sentence for the Lord: `saved` and `unchanged` (`edited` equals
+  `loaded`: no lock, nothing written or journaled) exit 0; `entry-changed`
+  (`loaded` is not on the page exactly once, as whole lines), `lock-held`
+  (naming the holder), `frame-broken` (the page after the change would break
+  the frame) and `failed` exit 1 and write nothing; input that is not that
+  JSON shape is `failed` with exit 2.
 - **`write`** no longer writes. It refuses, changes nothing, and prints the
   whole flow above, so an agent following older instructions can finish from
   that message alone.
@@ -1869,11 +1888,12 @@ leaves the page as it is, though the unrecorded change it found first is
 still journaled.
 
 The writer's name is the caller's agent identity; `lock` and `note` refuse a
-caller with none. Exit 0 shown, noted, or released with the frame intact; 1
+caller with none, and a caller whose name is `Lord` in any letter case, since
+that name belongs to the Lord's saves from the page. Exit 0 shown, noted, or released with the frame intact; 1
 refused (another checksum, a held lock, a broken frame on `note`, no identity,
 or no `flock`: on macOS run `brew install flock`), and `write` always; 2 an
-unknown action or flag, a missing argument, or a TTL that is not a duration,
-is zero, or is over 15 minutes; 3 a lock released with a broken frame.
+unknown action or flag, a missing argument, a TTL that is not a duration,
+is zero, or is over 15 minutes, or `save` input that is not its JSON; 3 a lock released with a broken frame or with two current entries about the same work.
 
 ## check-where-i-stand
 
@@ -2109,7 +2129,7 @@ go into the DONE report and into any PR-delivery report.
 ./bin/throne-cli forge sync-branches [--repo <path>]
 ./bin/throne-cli forge pr create --title <title> --body-file <path> --base <branch> --head <branch> [--draft] [--repo <path>] [--bypass]
 ./bin/throne-cli forge pr view <number|url|branch> [--repo <path>] [--bypass]
-./bin/throne-cli forge pr edit <number|url|branch> --body-file <path> [--repo <path>] [--bypass]
+./bin/throne-cli forge pr edit <number|url|branch> [--title <title>] [--body-file <path>] [--repo <path>] [--bypass]
 ./bin/throne-cli forge pr list [--limit <n>] [--repo <path>] [--bypass]
 ./bin/throne-cli forge pr diff <number|url|branch> [--repo <path>] [--bypass]
 ./bin/throne-cli forge pr merge <number|url|branch> --squash [--repo <path>] [--bypass]
@@ -2119,8 +2139,12 @@ go into the DONE report and into any PR-delivery report.
 ./bin/throne-cli forge render-markdown --file <path> [--repo <path>] [--bypass]
 ./bin/throne-cli forge pr feedback <number|url|branch> [--repo <path>]
 ./bin/throne-cli forge pr answer <number|url|branch> --comment <id> --body-file <path> [--resolve] [--repo <path>]
+./bin/throne-cli forge pr review <forgejo url|staged github url> --comments-file <path> [--repo <path>]
+./bin/throne-cli forge pr review-findings <forgejo url|staged github url> --out <path> [--repo <path>]
+./bin/throne-cli forge pr self-reviewed <forgejo url|staged github url> --head <sha> [--repo <path>]
 ./bin/throne-cli forge mirror-feedback <number|url|branch> [--repo <path>]
 ./bin/throne-cli forge promote <number|url|branch> [--repo <path>]
+./bin/throne-cli forge land <number|url|branch> [--repo <path>]
 ./bin/throne-cli forge stage <github pull request url> [--repo <path>]
 ./bin/throne-cli forge close-merged-twin <number|url|branch> [--repo <path>]
 ```
@@ -2191,7 +2215,8 @@ bare number or a branch. With `--json` it prints one object:
   "publishTo": "forgejo"|"github",
   "mergeTarget": { "url","program": "gh"|"ghe","forgejoUrl" } | null,
   "mergeTargetRefusal": "<text>" | null,
-  "crossHostMediaLinks": { "forgejo": ["<link>"], "github": ["<link>"] }
+  "crossHostMediaLinks": { "forgejo": ["<link>"], "github": ["<link>"] },
+  "selfReview": { "reviewedHead": "<sha>" | null, "coversHead": true|false }
 }
 ```
 
@@ -2230,7 +2255,9 @@ where it looked.
   `<forgejo url> is not on GitHub yet: it has no metadata comment linking a
   GitHub pull request (it was never staged or promoted), and nothing is merged
   in Forgejo. It must be promoted first with /pr-promote on the Lord's word.`
-  `mergeTargetRefusal` is `null` whenever `mergeTarget` is set.
+  `mergeTargetRefusal` is `null` whenever `mergeTarget` is set. In a
+  repository that lands on main every Forgejo pull request has this `null`
+  `mergeTarget`, and it lands through `land` instead (below).
 - **`crossHostMediaLinks`** lists, for each side, the image and video links
   in that side's body that point at the other forge and so do not load
   there: GitHub-hosted media in the Forgejo body, and attachment or media
@@ -2238,6 +2265,18 @@ where it looked.
   pull request or to a commit is not listed. A side that does not exist has
   an empty list. The plain output prints one `crossHostMediaLinks.<side>.<n>`
   line per link and none when a list is empty.
+- **`selfReview`** says whether the self-review recorded with
+  `pr self-reviewed` still covers the Forgejo head. `reviewedHead` is the
+  recorded head, `null` when none is recorded or there is no Forgejo pull
+  request. `coversHead` is `true` when the recorded head is the head, or when
+  it is an ancestor of the head and every commit since it that is not on the
+  default branch (`refs/remotes/origin/HEAD`) is a merge with two parents, one
+  of them on the default branch, whose tree is exactly what `git merge-tree
+  --write-tree` gives for those two parents: a merge of the default branch
+  that needed no conflict resolution. Anything else is `false`: no record, a
+  force push past the recorded head, a fix, a hand-resolved conflict, or a
+  merged-in upper pull request. The plain output prints it as
+  `selfReview.reviewedHead` and `selfReview.coversHead` lines.
 
 **`check-media-links`** reads both sides of a pull request exactly as
 `status` does, from either side's URL, and prints only that finding: one
@@ -2347,13 +2386,13 @@ runs the `gh` command the skills ran before this command existed. A caller's
 | operation | Forgejo | GitHub argv | prints |
 | --- | --- | --- | --- |
 | `push-branch` | ensure the copy, push the base branch as `ensure-repository` chooses it, then `git push forgejo refs/heads/<branch>:refs/heads/<branch>` | `git push -u origin <branch>` | Forgejo: `{"owner","name","created","branch"}`; GitHub: git's output |
-| `pr create` | ensure the copy, push `--base` and `--head` as `push-branch` does, then return the open pull request with the same head and base, or open one (`POST /repos/{o}/{r}/pulls`) titled with `[GH-##]` after any `WIP: ` | `gh pr create [--draft] --base <b> --head <h> --title <t> --body-file <f>` | the pull request URL |
+| `pr create` | ensure the copy, push `--base` and `--head` as `push-branch` does, then return the open pull request with the same head and base, or open one (`POST /repos/{o}/{r}/pulls`) titled with `[GH-##]` after any `WIP: ` | `gh pr create [--draft] --base <b> --head <h> --title <t> --body-file <f>`; in a repository that lands on main, refused before any GitHub call | the pull request URL |
 | `pr view` | `GET /repos/{o}/{r}/pulls/{n}` | `gh pr view <target> --json number,url,title,body,state,isDraft,headRefName,baseRefName` | JSON with those fields; `state` is `OPEN`, `CLOSED` or `MERGED` |
-| `pr edit` | `PATCH …/pulls/{n}` with the body | `gh pr edit <target> --body-file <f>` | the pull request URL |
+| `pr edit` | `PATCH …/pulls/{n}` with only the fields given: the title from `--title`, taken verbatim, and the body from `--body-file`, keeping the current body's self-review record when the new body carries none; at least one is required | `gh pr edit <target>` with `--title <title>` and/or `--body-file <f>`; in a repository that lands on main, refused before any GitHub call | the pull request URL |
 | `pr list` | open pull requests (`GET …/pulls?state=open`) and each one's files; `[]` when the repository has no Forgejo copy | `gh pr list --state open --limit <n> --json number,title,headRefName,url,files` (default limit 30) | JSON array with those fields, `files` as `[{"path"}]` |
 | `pr diff` | `GET …/pulls/{n}.diff` | `gh pr diff <target>` | the diff |
-| `pr merge --squash` | refused before any write: nothing is merged in Forgejo, which is only the staging area; the refusal says to promote with `/pr-promote` on the Lord's word and merge the GitHub pull request. A staged GitHub URL is not sent to its twin; it merges on GitHub | `gh pr merge <target> --squash --delete-branch=false` | GitHub: gh's output |
-| `pr comment` | `POST /repos/{o}/{r}/issues/{n}/comments` | `gh pr comment <target> --body-file <f>` | the comment URL |
+| `pr merge --squash` | in a repository that lands on main, the `land` landing (below), with no GitHub call. Anywhere else refused before any write: nothing is merged in Forgejo, which is only the staging area; the refusal says to promote with `/pr-promote` on the Lord's word and merge the GitHub pull request. A staged GitHub URL is not sent to its twin; it merges on GitHub | `gh pr merge <target> --squash --delete-branch=false` | GitHub: gh's output; a landing prints `land`'s JSON line |
+| `pr comment` | `POST /repos/{o}/{r}/issues/{n}/comments` | `gh pr comment <target> --body-file <f>`; in a repository that lands on main, refused before any GitHub call | the comment URL |
 | `attach` | `POST /repos/{o}/{r}/issues/{n}/assets` (multipart field `attachment`) | refused: GitHub has no upload that returns a URL; GitHub media goes through `pr-media`'s `gh pr edit --attach` publish | `{"url","markdown"}` |
 | `detach` | the attachment of `GET /repos/{o}/{r}/issues/{n}/assets` whose `browser_download_url` is `--url`, deleted with `DELETE …/issues/{n}/assets/{id}`; nothing when the pull request has no such attachment | refused: GitHub has no API that removes an uploaded file | `{"detached"}`, `true` when an attachment was deleted |
 | `render-markdown` | `POST /api/v1/markdown` with `{"Mode":"gfm","Text":…,"Context":"<admin>/<name>"}` | `gh api -X POST /markdown -f mode=gfm -f text=<file contents>` | the HTML |
@@ -2424,14 +2463,35 @@ body file `pr edit` and `pr comment` send to a GitHub pull request.
 
 | operation | what it does | prints |
 | --- | --- | --- |
-| `promote <forgejo pr>` | Reads the Forgejo pull request live. Downloads every Forgejo attachment its body embeds (`GET …/issues/{n}/assets`, a `pr-media` anchor's name or the attachment's own name), and puts a `<!-- drop <name> here -->` placeholder where each was. Refuses before any GitHub write when the title or that body still names the Forgejo host or holds a record. Runs `git push -u origin <head>`. The first time, it runs `gh --bypass pr create [--draft] --base --head --title --body-file`, with the title without `WIP: ` or its `[GH-...]` marker and the body as it is, then writes the metadata comment with the GitHub URL and the pushed head as `promotedHead`, and sets the Forgejo title's marker to `[GH-<github number>]` (`PATCH …/pulls/{n}` with `{"title"}`, only when the title differs). Last, it runs `pr-media`'s `publish.mjs <github url> --folder <downloads>` (with `--stills-only` when there is no video), which uploads the files to GitHub and fills the placeholders. Then it reads the GitHub body back with `gh pr view <github url> --json …` (`ghe` on GitHub Enterprise) and refuses with exit 1, printing nothing on stdout, while it still holds a `<!-- drop <name> here -->` placeholder or an image or video link to the Forgejo host (the `check-media-links` finding); the refusal names the placeholders, each such link and `throne forge promote <forgejo url>` as the one command that finishes it. When the publish failed because nobody signed in within the wait, the refusal says so and names the same command; when it failed because the page fell back to `--wizard`, it keeps the downloads in `~/tmp/pr-media-<github number>/` (a fresh sibling folder when that exists) and names `node <pr-media>/publish.mjs <github url> --folder <kept folder> --wizard`. | `{"forgejoUrl","githubUrl","created","mergedOnGithub","answers"}` |
-| `promote` again (repromote) | Finds the metadata comment and opens nothing. Pushes the head, replaces the GitHub body through `gh --bypass pr edit <url> --body-file`, records the pushed head as `promotedHead`, sets `[GH-<github number>]` on the Forgejo title when it does not already carry it, and re-hosts the media the same way. Then carries back every Forgejo answer to a mirrored item that GitHub does not yet hold: in a thread through `gh --bypass api repos/{o}/{r}/pulls/{n}/comments -f body=… -F in_reply_to=<first comment id>`, otherwise through `gh --bypass api repos/{o}/{r}/issues/{n}/comments -f body=…`. The answer goes with its records removed and nothing added. After each reply the answer's Forgejo id joins `carriedAnswers` in the metadata comment, which is how a later run knows it was sent; `mirror-feedback` likewise skips a GitHub comment whose text is exactly a carried answer, so it is never mirrored back as new feedback. Finally it resolves, with the `resolveReviewThread` GraphQL mutation, each GitHub thread whose Forgejo twin is resolved. Running it again sends nothing twice. | the same; `answers` is `{"replied":[forgejo ids],"resolved":[thread ids]}` |
+| `promote <forgejo pr>` | In a repository that lands on main, runs the `land` landing (below) instead of everything in this row and the two after it, with no GitHub call, and prints `land`'s JSON line. Otherwise it reads the Forgejo pull request live. Downloads every Forgejo attachment its body embeds (`GET …/issues/{n}/assets`, a `pr-media` anchor's name or the attachment's own name), and puts a `<!-- drop <name> here -->` placeholder where each was. Refuses before any GitHub write when the title or that body still names the Forgejo host or holds a record. Runs `git push -u origin <head>`. The first time, it runs `gh --bypass pr create [--draft] --base --head --title --body-file`, with the title without `WIP: ` or its `[GH-...]` marker and the body as it is, then writes the metadata comment with the GitHub URL and the pushed head as `promotedHead`, and sets the Forgejo title's marker to `[GH-<github number>]` (`PATCH …/pulls/{n}` with `{"title"}`, only when the title differs). Last, it runs `pr-media`'s `publish.mjs <github url> --folder <downloads>` (with `--stills-only` when there is no video), which uploads the files to GitHub and fills the placeholders. Then it reads the GitHub body back with `gh pr view <github url> --json …` (`ghe` on GitHub Enterprise) and refuses with exit 1, printing nothing on stdout, while it still holds a `<!-- drop <name> here -->` placeholder or an image or video link to the Forgejo host (the `check-media-links` finding); the refusal names the placeholders, each such link and `throne forge promote <forgejo url>` as the one command that finishes it. When the publish failed because nobody signed in within the wait, the refusal says so and names the same command; when it failed because the page fell back to `--wizard`, it keeps the downloads in `~/tmp/pr-media-<github number>/` (a fresh sibling folder when that exists) and names `node <pr-media>/publish.mjs <github url> --folder <kept folder> --wizard`. | `{"forgejoUrl","githubUrl","created","mergedOnGithub","answers"}` |
+| `promote` again (repromote) | Finds the metadata comment and opens nothing. Pushes the head, replaces the GitHub body through `gh --bypass pr edit <url> --body-file`, records the pushed head as `promotedHead`, sets `[GH-<github number>]` on the Forgejo title when it does not already carry it, and re-hosts the media the same way. Then carries back every Forgejo answer to a mirrored item that GitHub does not yet hold: in a thread through `gh --bypass api repos/{o}/{r}/pulls/{n}/comments -f body=… -F in_reply_to=<first comment id>`, otherwise through `gh --bypass api repos/{o}/{r}/issues/{n}/comments -f body=…`. The answer goes with its records removed and nothing added. After each reply the answer's Forgejo id joins `carriedAnswers` in the metadata comment, which is how a later run knows it was sent; `mirror-feedback` likewise skips a GitHub comment whose text is exactly a carried answer, so it is never mirrored back as new feedback. Repromote never carries a `pr review` review or its copy-paste comment; those reach GitHub only through `pr review-findings`. Finally it resolves, with the `resolveReviewThread` GraphQL mutation, each GitHub thread whose Forgejo twin is resolved. Running it again sends nothing twice. | the same; `answers` is `{"replied":[forgejo ids],"resolved":[thread ids]}` |
 | `promote` once the GitHub twin is merged | Finds the metadata comment and reads `gh pr view <url> --json state`. When it is `MERGED` (someone merged it on GitHub directly), it does not repromote: it pushes nothing and opens or edits nothing on GitHub. It closes the Forgejo pull request as `close-merged-twin` does. | the same, with `"mergedOnGithub": true` and empty `answers`; every other run prints `false` |
 | `stage <github pr>` | Stages an existing GitHub pull request in Forgejo, on a Forgejo host only. Reads it with `gh pr view <url> --json number,url,title,body,state,isDraft,headRefName,baseRefName`. When it already has an open Forgejo twin, it only writes the metadata comment (rewriting an older shape in place), sets `[GH-<github number>]` on the twin's title when it does not already carry it, runs the media link check below on the twin's body, and stops. Otherwise it refuses, changing nothing, unless the head branch exists locally as `refs/heads/<head>`, and names `git fetch origin <head>:<head>`. It opens the twin as `pr create` does: ensures the copy, pushes the base and the head, and opens the Forgejo pull request titled `[GH-<github number>] <github title>` (`WIP: [GH-<github number>] <github title>` for a draft) and the live GitHub body with its records removed. When the push is refused by a review pre-push hook that names `AI_REVIEW_HOOK_BASE`, the refusal names `git fetch origin +refs/heads/<base>:refs/remotes/origin/<base>` and the rerun `AI_REVIEW_HOOK_BASE=origin/<base> throne forge stage <url>`. Every GitHub-hosted image and video the body embeds (`<any GitHub host>/user-attachments/assets/…`, `user-images.githubusercontent.com/…`) is downloaded with `gh api <url>` (`ghe api` on GitHub Enterprise), replaced by a `<!-- drop <name> here -->` placeholder, and attached to the twin through `pr-media`'s `publish.mjs <forgejo url> --folder <downloads>`; a link whose download is refused stays in the body as it was. Then it writes the metadata comment (`promotedHead` `null`) and runs `mirror-feedback` once. Last, it reads the twin's body back and refuses with exit 1, printing nothing on stdout, while it still holds a GitHub-hosted image or video link (the `check-media-links` finding): the twin stays open with everything above done, and the refusal names the twin, each link and `/pr-media publish <twin url>` as the one command that repairs it, followed by `mirror-feedback`'s report line for each media link in a comment that run mirrored. Writes nothing to GitHub. | `{"githubUrl","twinUrl","created","mediaLinksInMirroredComments"}`; `created` is `false` when the twin already existed; the last field is `mirror-feedback`'s, empty when nothing was mirrored |
 | `close-merged-twin <github or forgejo pr>` | The one operation that closes a Forgejo pull request whose GitHub twin is merged; `pr-merge` runs it right after merging a staged root, and `promote` uses it when it finds the twin merged. Takes a staged pull request by either URL; a pull request with no metadata comment is refused. Reads `gh pr view <github url> --json state` and refuses unless it is `MERGED`. Then, only when the Forgejo pull request is still open, it posts `This pull request has been merged on the GitHub side: <github url>` (`POST …/issues/{n}/comments`) and closes it (`PATCH …/pulls/{n}` with `{"state":"closed"}`), never merging it. An already closed twin gets no second comment. Writes nothing to GitHub. | `{"forgejoUrl","githubUrl","closed"}`; `closed` is `false` when it was already closed |
 | `mirror-feedback <github or forgejo pr>` | Takes a staged pull request by either URL; a Forgejo one with no metadata comment is refused. Reads the GitHub feedback with `threads.mjs`'s `dumpFeedback`, so the given pull request and its rolled-in layers are covered. It mirrors every unresolved thread, every conversation comment, every review body and each bot's latest report that the twin does not already hold, with `<!-- github-feedback: <kind> <pr> <id> -->`. A thread whose line is in the twin's diff becomes a review comment on that file and line (`POST …/pulls/{n}/reviews`, event `COMMENT`). Any other item becomes a conversation comment, and a thread's comment names its file and line. A GitHub-hosted image or video link in a comment it mirrored does not load in Forgejo and no command re-hosts a comment's media, so each one is reported, in the printed JSON and as one stderr line naming the link and the GitHub comment where it can be seen, and the exit status stays 0. Writes nothing to GitHub. | `{"githubUrl","twinUrl","mirrored","alreadyMirrored","mediaLinksInMirroredComments"}`; the first two lists hold GitHub keys, the last `{"link","githubCommentUrl"}` |
 | `pr feedback <pr>` | Lists the Forgejo pull request's conversation comments, review bodies and review comments (`GET …/issues/{n}/comments`, `…/pulls/{n}/reviews`, `…/reviews/{id}/comments`). A staged GitHub URL reads its twin; a GitHub pull request that was never staged is refused, because `threads.mjs` reads those. | JSON array of `{"id","kind","author","place","reviewId","resolved","url","body","githubKey","answers"}`; `kind` is `comment`, `review` or `review-comment`; `place` is `{"path","line","onOldSide"}` and `reviewId` the review holding the comment, both `null` for anything but a review comment |
+| `pr review <pr> --comments-file <f>` | Posts a code review on the Forgejo pull request; a staged GitHub URL posts on its twin, and a GitHub pull request that was never staged is refused, naming `throne forge stage <url>`. `<f>` is the `[{"path","line","body","start_line"?}]` array `pr-review`'s `pending-review.mjs` takes, checked by that script's own `validateComments`; an empty or invalid file is refused before any write. Every body goes through the GitHub-bound check first (records removed, refused when it names the Forgejo host), so a finding that could not reach GitHub is refused with nothing written. Then one review, event `COMMENT`, holds every finding as a line comment on the new side (`POST …/pulls/{n}/reviews`), each body ending with `<!-- pr-review: finding -->`; Forgejo's review API has no line range, so a range is commented on its last line. Last, it writes the one copy-paste conversation comment: for each finding a bold `` `path:line` `` heading (`path:start_line-line` for a range) and the body, findings separated by `---`, ending with `<!-- pr-review: copy -->`. A later run rewrites that comment in place (`PATCH …/issues/comments/{id}`) instead of adding a second. Writes nothing to GitHub. | `{"reviewId","reviewUrl","copyCommentUrl","head"}`; `head` is the Forgejo pull request's head commit |
+| `pr review-findings <pr> --out <f>` | In a repository that lands on main, refused with nothing written, naming the key. Otherwise takes a staged pull request by either URL; one with no metadata comment is refused. Reads the line comments holding `<!-- pr-review: finding -->` of the latest such review as they stand now, so an edit the Lord made in Forgejo is kept and a comment he deleted is gone, and writes them to `<f>` as the array `pending-review.mjs` takes, each body through the GitHub-bound check. A range comes back as its last line only. A pull request with no such review is refused with nothing written. `mirror-feedback` and `stage` skip a GitHub comment whose text is exactly one of these findings, so a review the Lord submitted on GitHub is never mirrored back as new feedback. Writes nothing to GitHub. | `{"count","githubUrl"}` |
+| `pr self-reviewed <pr> --head <sha>` | Records that a self-review covered `<sha>` (a full 40-character commit sha; anything else is refused with nothing written) on the Forgejo pull request; a staged GitHub URL records on its twin, and a GitHub pull request that was never staged is refused, naming `throne forge stage <url>`. The record is the hidden `<!-- self-review: <sha> -->` in the Forgejo pull request's own body, written through the same body `PATCH` as `pr edit`: a later run replaces it in place, and the rest of the body is left exactly as it was. No conversation comment and no review is posted, so a reader sees nothing. It needs no GitHub twin; `promote` strips it from the body it sends GitHub, as it strips every staging record, and never rewrites the Forgejo body, so the record survives the first promote and every later one. `pr edit` on a Forgejo pull request keeps it when the new body carries none. `status` reads it back as `selfReview`. Writes nothing to GitHub. | `{"url","reviewedHead"}` |
 | `pr answer <pr> --comment <id> --body-file <f> [--resolve]` | Answers one item with `<!-- forgejo-answer: <id>[ resolved] -->`: a review comment as a reply in its own conversation, anything else as a conversation comment. A reply signs in to Forgejo's web as the admin (`POST /user/login` with `admin-password` from the state directory, mode 0600, keeping the last of the two `session` cookies Forgejo sets) and posts `…/{o}/{r}/pulls/{n}/files/reviews/comments` with `reply=<review id>` and the comment's file, line and side, because Forgejo 16's API only opens new reviews. Forgejo then gives the reply the first comment's commit and diff, so it joins that conversation even after a fix commit moved the head. `--resolve` on a review comment then posts `…/{o}/{r}/pulls/resolve_conversation` in the same session, because the API has no resolve route either. Then it re-reads the item and refuses if it is still open. On any other item the `resolved` in the record is the resolution. Writes nothing to GitHub. | `{"answered","resolved"}` |
+
+**Landing on main.** A repository whose git config sets
+`throne.forge.landsOnMain` to `true` (read with
+`git config --type=bool --get throne.forge.landsOnMain` in the checkout
+`--repo` names; linked worktrees share it) keeps its pull requests only in
+Forgejo and never gets a GitHub pull request, review or comment from the
+seam. `land`, `promote` and `pr merge --squash` on a Forgejo pull request
+there run one landing; the order of its steps is in `agent_docs/forgejo.md`,
+"Repositories that land on main". `pr create`, `pr edit` and `pr comment`
+whenever they would reach GitHub, and `pr review-findings`, refuse there
+with `forge <operation>: <message>`: the message names
+`throne.forge.landsOnMain`, says the repository's pull requests live only in
+Forgejo and land through `throne forge land` (/pr-merge or /pr-promote), and
+that nothing was sent to GitHub. Their Forgejo branches are unchanged.
+
+| operation | what it does | prints |
+| --- | --- | --- |
+| `land <forgejo pr>` | Refuses, naming `throne.forge.landsOnMain` and ending "Nothing was changed.", in a repository without the key, and refuses a pull request whose base is not the default branch. Fetches `main` from `origin` and the head from Forgejo, runs `git merge --squash` of the head in a scratch worktree of `origin/main` outside the checkout, and commits it with `git commit -S`: the title without `WIP: ` or its `[GH-...]` marker is the subject, and the body's `## What (human)` text, or else its first paragraph, without records or `<details>`/`<summary>` tags, is the body (none when that is empty). A conflict refuses, listing every conflicting path and ending "Nothing was changed.", with nothing pushed or commented. Pushes the commit to `origin` `main`, then to the `forgejo` remote's `main`, never forced. Comments `Landed on main as <full sha>` on the Forgejo pull request (`POST …/issues/{n}/comments`) and closes it as merged: it turns on the copy's manual merges (`PATCH repos/{o}/{r}` with `{"allow_manual_merge":true}`) and posts Forgejo's manual-merge mark (`POST …/pulls/{n}/merge` with `{"Do":"manually-merged","MergeCommitID":"<sha>"}`), so Forgejo reports `merged: true` with `merge_commit_sha` the landed commit and makes no commit itself; no merge style that makes a commit is ever requested. A refused mark refuses, naming the commit that already landed on both mains and saying the pull request was commented on but not recorded as merged; nothing is pushed again. The scratch worktree is always removed, and the local checkout's working tree and branches are never touched. | `{"forgejoUrl","landedCommit","base":"main","closed":true}` |
 
 Exit status: 0 on success; 2 for an unknown operation, flag or missing value
 (the usage and an entrance refusal go to stderr); 1 for a refusal (Forgejo not
@@ -2526,6 +2586,33 @@ name that is not a plain segment, another tool or event, malformed stdin)
 prints nothing and exits 0, and the registered command line always exits 0, so
 the hook never blocks a skill or a prompt. It finds the CLI the way the
 SessionStart hook does, so it serves the live checkout's build.
+
+## scratch-pane
+
+```bash
+./bin/throne-cli scratch-pane register <pane> --owner <agent> --until <ISO-8601 time>
+```
+
+Records that a live agent owns an unnamed herdr pane it opened on purpose, such
+as a scratch Claude or Codex session for a measurement, until a time. Register
+the pane before opening it and close its tab when done. The marker is one JSON
+file per pane in `<throne home>/scratch-panes/`, which is
+`~/.throne/scratch-panes/` unless `THRONE_DATA_HOME` moves the throne home, so
+it never lands in a repository. Registering the same pane again replaces its
+marker.
+
+No-idling's unnamed-agent sweep reads the markers. While the owner is a live
+agent and the time has not passed, it says nothing about the pane. Once the
+time passes it reports the pane to the Regent once as
+`expired scratch pane, owner <agent>`; when the owner is no longer a live agent
+it reports it once as `orphaned scratch pane, owner <agent>` on the first sweep
+that sees it, without the two-sweep confirmation an unregistered pane waits
+for. An unnamed pane without a marker is reported as before.
+
+The command refuses, with exit 2 and nothing written, an owner that has no
+ledger registration, a time that does not parse or has already passed, an
+unknown flag, and a missing pane, owner or time. Source:
+`src/scratch-pane/`.
 
 ## recall
 
@@ -3093,7 +3180,7 @@ the owned pinned herdr client, the public attach seam, and the isolated
 named-session herdr service.
 
 Linux installs and enables `throne-backend.service`, `ntfy.service` and the
-three `sweep-tmp-scratch-*` timer pairs and `throne-herdr.service`; these are rendered into
+two `sweep-tmp-scratch-*` timer pairs (for `/tmp` and `/tmp/claude-1000`; `~/tmp` is never swept) and `throne-herdr.service`; these are rendered into
 `$XDG_CONFIG_HOME/systemd/user` (fallback `~/.config/systemd/user`). macOS
 installs and bootstraps `com.throne.throne-backend`, `com.throne.ntfy` and
 `com.throne.throne-herdr` in `~/Library/LaunchAgents`. The sweep timers have no mac counterpart: they
@@ -3574,6 +3661,74 @@ whose status is `working` unless `--force`, and unnamed panes. Reported
 session id. `--dry-run` prints the plan and changes nothing. Exit `0` when no
 restart failed, `1` when one did, `2` on a bad argument.
 
+## account
+
+```bash
+./bin/throne-cli account list
+./bin/throne-cli account add <name>
+./bin/throne-cli account switch-long-running <name>
+```
+
+Manages the Claude account folders agents run on, as listed in
+`~/.throne/config/accounts.json` (keys `accounts`, `longRunningAccount`,
+`companyLogin` and `mcpServersAllowedOnEveryAccount`; see `docs/CONFIG.md`).
+
+- `list` prints, per account in list order: its folder; its login (logged in
+  or out, the email domain and organisation from that folder's own
+  `.claude.json`, never the email's local part, and whether it matches
+  `companyLogin`); its 5-hour and weekly used percentages with the reading's
+  age and source, for example `(read 3 min ago, last good after a 429)`, the
+  source being `fresh`, `cached`, or `last good after a 429` (see
+  `plan-usage-remaining` for the cache); the live agents on
+  it (from each live agent's `spawn.json` `account`, the primary when absent);
+  the MCP servers from `~/.claude.json` it gets at launch and the ones it is
+  denied (the company login gets all; any other account only
+  `mcpServersAllowedOnEveryAccount`); whether its claude.ai connectors are
+  `on at launch` (the company login, launched without `--strict-mcp-config`)
+  or `switched off at launch` (any other account, launched with
+  `--strict-mcp-config` and `ENABLE_CLAUDEAI_MCP_SERVERS=false`); and, for a
+  non-primary folder, link drift (a shared link missing, pointing elsewhere,
+  or a real file in its place). The last line names the long-running account. Without
+  `accounts.json` it prints one line saying the throne runs on `~/.claude`.
+- `add <name>` creates `~/.throne/accounts/claude/<name>/` (mode 700) and links
+  `CLAUDE.md`, `skills`, `hooks`, `plugins`, and `agents` and `commands` when
+  present, to `~/.claude/<item>`; `settings.json` links straight to the real
+  file `~/.claude/settings.json` points at, so a fresh folder's settings
+  migrations never replace the primary's own link. It writes the folder's
+  `.claude.json` (only when absent) with the settings-migration state from
+  `~/.claude.json` (`migrationVersion` and every `*MigrationComplete` key)
+  and `hasSeenAutoDefaultNudge: true`; never a login, `projects` or
+  `mcpServers`. It installs the Keychain stand-in
+  (`src/account/security-stand-in`) as `~/.throne/accounts/claude/bin/security`
+  when missing, records the account in `accounts.json` (creating the file with
+  `primary` = `~/.claude` first), and prints the login command. A folder that
+  already holds a Claude config is registered, not recreated; correct links
+  are left alone, a link pointing elsewhere is replaced, and a real file where
+  a link belongs is reported and left. A non-empty folder that is not a Claude
+  account folder is refused. Logging in stays the Lord's act: run the printed
+  command, type `/login`, sign in, then `/exit`.
+- `switch-long-running <name>` refuses an unknown or logged-out account,
+  naming the configured ones. Otherwise it records `longRunningAccount`, so
+  every Stager and Regent spawned or resumed afterwards starts on it, and moves
+  each live Stager and the Regent there: it copies the agent's session
+  transcript (`projects/<project folder>/<session>.jsonl` and the session's
+  same-named folder) from its current account folder into the target's (the
+  original stays), sets its `spawn.json` `account`, then restarts it in place
+  through `restart-harnesses` (forced; the invoking agent last, the Regent
+  under its lock). An agent with no `spawn.json` is moved from the primary
+  the same way and relaunches on the long-running account, as every Stager
+  and the Regent with no recorded account does. One line per agent: `moved`,
+  `unchanged` (already on the target), or `failed` (no session id, a session
+  transcript that cannot be found, or a failed restart).
+  The balancer never moves Stagers or the Regent; only this command does.
+
+`check-config` adds one line per configured account: name, folder, logged in
+or out.
+
+Exit codes: `0` done; `1` an agent could not be moved or an unexpected error;
+`2` a bad argument or a refusal (unknown or logged-out account, a foreign
+folder, an invalid accounts file).
+
 ## plan-usage-remaining
 
 ```bash
@@ -3618,24 +3773,42 @@ rather than fabricated as zero.
 
 It is a pure reader of `~/.claude/.credentials.json` (the macOS Keychain
 item on darwin): it never writes the store and it NEVER refreshes the token.
-An expired access token is reported as an honest failure and the last-good
-cache serves the numbers marked stale until a Claude Code session refreshes
-it on its own next request. The refresh it used to perform "only in memory"
+An expired access token is reported as an honest failure until a Claude Code
+session refreshes it on its own next request. The refresh it used to perform "only in memory"
 was the cause of the Lord's recurring logouts (found 2026-09-10): Anthropic
 rotates the refresh token on every grant, the throne never wrote the rotated
 token back, so every Claude Code session was left holding a dead refresh
 token and was logged out at its next refresh. The same rule the Codex reader
 always followed now binds this one.
 
-A successful read is cached at `~/.throne/usage-cache/claude.json` (the same
-shared last-good cache `codex-usage-remaining` below uses, one file per
-harness). A repeat call within the cache's TTL (2 minutes) reuses that reading
-without hitting the endpoint. On a live-fetch error, instead of failing, the
-last-good cached reading is returned marked `stale: true`, retaining its
-original `as_of` and carrying the live error. Human mode adds `(stale — last
-good <as_of>)`; JSON exposes the fields directly; the command still exits 0.
-Availability policy always returns `stale-unknown` for this payload, including
-a cached zero — stale telemetry is never fresh proof of exhaustion. This same
+Every Claude usage read, for every account and every caller (`create-agent`,
+`account list`, this command, the harness steer), goes through one cache file
+per account folder:
+`<throne data home>/usage-cache/claude-accounts/<folder path with / as ->.json`,
+under `THRONE_DATA_HOME` (default `~/.throne`). The file holds the account's
+last good reading and its back-off; it is written to a temporary file and
+renamed into place, so concurrent writers never leave a torn file, and no
+reader ever waits on another process.
+
+- A reading younger than `USAGE_READING_FRESH_MS` (2 minutes) is reused
+  without a request and marked `cached`.
+- An older reading is refreshed by one process: it claims the refresh with an
+  exclusive `<file>.refreshing` (a claim older than a minute is treated as
+  abandoned), and every other process at that moment returns the last good
+  reading marked `cached` at once. With no last good reading there is nothing
+  to share, so each reader asks the endpoint.
+- An HTTP 429 starts a back-off of 5 minutes, doubling on each further 429 to
+  at most 30; no request is sent while it lasts, and a successful read clears
+  it. During a back-off, or on the 429 itself, the last good reading is
+  returned marked `last good after a 429`, with its original `as_of`. An
+  account that never had a good reading stays unreadable.
+- A live read is marked `fresh`. Only fresh readings are appended to the
+  usage log.
+
+The payload's `reading_source` field (in `--json`) carries `fresh`, `cached`
+or `last good after a 429`; human mode adds `(<source>, read <as_of>)` to a
+reused reading. A cached or last-good reading keeps its real numbers and
+counts as a usable reading for the account balancer and the harness steer. This same
 cache-backed, at-most-one-read source is exported as `getUsagePayload`; the
 availability adapter converts a rejected call or `source: "error"` payload to
 `source-failure`. The live source persists a bounded JSONL history at
@@ -3662,10 +3835,11 @@ Codex (ChatGPT) plan-usage headroom remains, read from `~/.codex/auth.json`,
 in the same `source`/`harness`/`as_of`/`windows[]` shape (the codex response
 may omit the `5h` session window entirely — an absent window means
 unconstrained on that axis, never exhausted). Same read-only guarantee (never
-writes `~/.codex/auth.json`), and the identical shared last-good cache
-described above — its own file at `~/.throne/usage-cache/codex.json`, same
-2-minute TTL, same `stale`-marked error-fallback and exit-0-on-stale
-semantics, same `getUsagePayload` reuse seam. The command is owned by the Nest
+writes `~/.codex/auth.json`), and its own last-good cache at
+`~/.throne/usage-cache/codex.json`: a reading younger than 30 minutes is
+reused, a live-fetch error returns the last good reading marked `stale: true`
+with the live error, the command still exits 0 on a stale reading, and the
+same `getUsagePayload` reuse seam applies. The command is owned by the Nest
 `UsageAdaptersService`; the legacy pipeline root remains an internal
 implementation boundary until its zero-reference proof is complete.
 

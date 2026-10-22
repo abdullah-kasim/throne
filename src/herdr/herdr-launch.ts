@@ -27,7 +27,7 @@ export async function startInTab(
   deps: StartInTabDeps = REAL_START_IN_TAB_DEPS,
 ): Promise<string> {
   const expectedKind = launcherHarnessKind(opts);
-  const launch = translatedLaunchContext(
+  const launch = await translatedLaunchContext(
     opts,
     pinnedHarnessBinaryEnv(
       expectedKind,

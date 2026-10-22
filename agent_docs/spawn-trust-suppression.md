@@ -6,22 +6,38 @@
 > This document's analysis of the three modals and what gates each one remains
 > accurate and was re-confirmed. **What changed is the delivery mechanism.**
 >
-> **Throne no longer sets `CLAUDE_CONFIG_DIR` and no longer builds a per-spawn
-> config seed.** Each seed presented to the account as a separate client
-> installation on one credential, which expired logins aggressively — three
-> agents wedged on `Login expired` in a single evening, seven seed directories
-> live at once. A throne-spawned agent now runs against the account's REAL
-> config, exactly as a human session does.
+> **Throne never builds a per-spawn config seed.** Each seed presented to the
+> account as a separate client installation on one credential, which expired
+> logins aggressively — three agents wedged on `Login expired` in a single
+> evening, seven seed directories live at once. That measurement is why an
+> agent never gets a Claude folder of its own.
 >
-> The two permission modals (1 and 2 below) are already suppressed by the
-> account's own `~/.claude/settings.json`, which carries
-> `skipDangerousModePermissionPrompt` and `skipAutoPermissionPrompt`.
+> A throne-spawned agent runs on one of the operator's Claude account folders,
+> shared by every agent on that account and logged in once by the operator's
+> own `/login` (AGENTS.md, "Claude account folders"). The primary folder is
+> `~/.claude`, launched exactly as a human session is, with no
+> `CLAUDE_CONFIG_DIR`. Every other account folder is launched with
+> `CLAUDE_CONFIG_DIR` set to it and the `security` stand-in first on `PATH`,
+> which keeps that folder's login in its own `.credentials.json` instead of the
+> macOS Keychain (recipe and evidence: acctspike's report,
+> `~/.throne/data/.reaped/alpha-acctspike-01/REPORT.md`, "Recommended launch recipe per
+> account"). With no `~/.throne/config/accounts.json`, the only folder is
+> `~/.claude`.
+>
+> The two permission modals (1 and 2 below) are suppressed by the shared
+> `settings.json`, which carries `skipDangerousModePermissionPrompt` and
+> `skipAutoPermissionPrompt`; every other account folder links its
+> `settings.json` to the same file the primary uses. A fresh folder also needs
+> `hasSeenAutoDefaultNudge: true` in its own `.claude.json`, or its first launch
+> sits on the auto-mode modal (acctspike's report, same section).
 >
 > The untrusted-folder modal (3 below) is still gated per project path, and is
-> now granted by writing `projects.<path>.hasTrustDialogAccepted` into the real
-> `~/.claude.json` at launch — see `src/claude-spawn-trust/claude-worktree-trust.ts`.
-> That write is locked, atomic (write-then-rename), idempotent, and refuses
-> rather than launching an agent into a modal nobody can see.
+> granted by writing `projects.<path>.hasTrustDialogAccepted` at launch into the
+> `.claude.json` of the account the agent launches on: `~/.claude.json` for the
+> primary, `<account folder>/.claude.json` for any other — see
+> `src/claude-spawn-trust/claude-worktree-trust.ts`. That write is locked,
+> atomic (write-then-rename), idempotent, and refuses rather than launching an
+> agent into a modal nobody can see.
 >
 > **Sections below describing a seeded `CLAUDE_CONFIG_DIR` as the remedy
 > describe history, not current behaviour.** Read them for what they establish

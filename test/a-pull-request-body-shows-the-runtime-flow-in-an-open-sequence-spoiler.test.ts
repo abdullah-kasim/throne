@@ -101,7 +101,7 @@ test('the reference example carries an invented sequence diagram between How and
   const example = await readPullRequestReferenceExample();
   assert.match(
     example,
-    /\n## How\n\n(?:- .+\n)+\n## Sequence\n\n<details open>\n<summary>Sequence diagram<\/summary>\n\n```mermaid\nsequenceDiagram\n(?: {4}participant .+\n){2,8}(?: {4}\w+--?>>\w+: .+\n){1,20}```\n\n<\/details>\n\n## Testing\n/,
+    /\n## How\n\n<details>\n<summary>How<\/summary>\n\n(?:- .+\n)+\n<\/details>\n\n## Sequence\n\n<details open>\n<summary>Sequence diagram<\/summary>\n\n```mermaid\nsequenceDiagram\n(?: {4}participant .+\n){2,8}(?: {4}\w+--?>>\w+: .+\n){1,20}```\n\n<\/details>\n\n## Testing\n/,
   );
 });
 

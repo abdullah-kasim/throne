@@ -1,4 +1,4 @@
-import type { FakeAttachment, FakeConversationComment, FakePullRequest, FakeReview, FakeReviewComment } from "./forge-fake-forgejo.ts";
+import type { FakeAttachment, FakeConversationComment, FakeManualMerge, FakePullRequest, FakeRepository, FakeReview, FakeReviewComment } from "./forge-fake-forgejo.ts";
 
 export interface FakeForgejoSnapshot {
   readonly records: FakeForgejoRecords;
@@ -6,7 +6,7 @@ export interface FakeForgejoSnapshot {
 }
 
 export interface FakeForgejoState {
-  readonly repositories: Map<string, { readonly private: boolean }>;
+  readonly repositories: Map<string, FakeRepository>;
   readonly pullRequests: FakePullRequest[];
   readonly comments: FakeConversationComment[];
   readonly attachments: FakeAttachment[];
@@ -16,6 +16,7 @@ export interface FakeForgejoState {
   readonly adminSignIns: string[];
   readonly markdownRequests: unknown[];
   readonly merges: unknown[];
+  readonly manualMerges: FakeManualMerge[];
   readonly gitAuthorizations: string[];
   readonly pullRequestCreateRequests: string[];
 }
@@ -38,6 +39,7 @@ export const EMPTY_SNAPSHOT: FakeForgejoSnapshot = {
     adminSignIns: [],
     markdownRequests: [],
     merges: [],
+    manualMerges: [],
     gitAuthorizations: [],
     pullRequestCreateRequests: [],
     branchReads: new Map(),

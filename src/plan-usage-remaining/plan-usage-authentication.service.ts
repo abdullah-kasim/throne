@@ -8,6 +8,20 @@ function isJsonRecord(value: unknown): value is Record<string, unknown> {
 import { PlanUsagePlatformService } from './plan-usage-platform.service.ts';
 
 const USAGE_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
+const HTTP_TOO_MANY_REQUESTS = 429;
+
+export class UsageRequestFailedError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`Claude usage request failed (HTTP ${status})`);
+    this.status = status;
+  }
+}
+
+export function isRateLimitedUsageRequest(error: unknown): boolean {
+  return error instanceof UsageRequestFailedError && error.status === HTTP_TOO_MANY_REQUESTS;
+}
 
 interface OauthCredentials {
   accessToken: string;
@@ -80,13 +94,13 @@ export class PlanUsageAuthenticationService {
       return credentials.accessToken;
     }
     throw new Error(
-      `Claude access token expired at ${expiresAt.toISOString()}; the throne never refreshes it, because a refresh rotates the refresh token shared with every Claude Code session and logs them all out. Any Claude Code session refreshes it on its next request; until then the last-good usage numbers are served as stale.`,
+      `Claude access token expired at ${expiresAt.toISOString()}; the throne never refreshes it, because a refresh rotates the refresh token shared with every Claude Code session and logs them all out. Any Claude Code session refreshes it on its next request; until then the account's usage reads as unreadable once its cached reading is two minutes old.`,
     );
   }
 
   private usageResponseBody(response: HttpJsonResponse): Record<string, unknown> {
     if (response.status !== 200) {
-      throw new Error(`Claude usage request failed (HTTP ${response.status})`);
+      throw new UsageRequestFailedError(response.status);
     }
     if (!isJsonRecord(response.json)) {
       throw new Error('Claude usage response was not a JSON object');

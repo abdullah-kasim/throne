@@ -15,6 +15,14 @@ export interface UnreadableUsageWindow {
   issue: 'invalid-percentage' | 'unexpected-shape';
 }
 
+export const USAGE_READING_SOURCES = {
+  FRESH: 'fresh',
+  CACHED: 'cached',
+  LAST_GOOD_AFTER_RATE_LIMIT: 'last good after a 429',
+} as const;
+
+export type UsageReadingSource = (typeof USAGE_READING_SOURCES)[keyof typeof USAGE_READING_SOURCES];
+
 export interface UsagePayload {
   source: 'api' | 'error';
   harness: 'claude';
@@ -22,5 +30,5 @@ export interface UsagePayload {
   windows?: UsageWindow[];
   unreadable_windows?: UnreadableUsageWindow[];
   error?: string;
-  stale?: boolean;
+  reading_source?: UsageReadingSource;
 }

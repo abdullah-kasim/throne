@@ -26,6 +26,11 @@ pushes nowhere until that section is filled in. Precedence, highest first:
 `THRONE_NTFY_SERVER_URL` / `THRONE_NTFY_TOPIC` env vars, then `config.user.ts`,
 then the committed default.
 
+`throne check-config` checks this setup: it says when sending is off, fails
+naming this file when the section is missing, and otherwise asks the server
+it would post to for `/v1/health`, failing with that server URL when it does
+not answer. A failed post names the same server URL, never the topic.
+
 ## Lord handoff
 
 Read the live values out of `config.user.ts`, then relay this block with them
@@ -169,6 +174,11 @@ may come up after the user manager, so the wrapper waits for both and the
 service manager keeps retrying.
 
 ## Push sources
+
+`enabled: false` in the `ntfy` section turns off every push below at once;
+the server keeps running, and `notify-lord` prints that nothing was sent.
+Omit it, or set `true`, to send.
+
 
 ### Explicit Lord messages
 

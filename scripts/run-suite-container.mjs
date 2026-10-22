@@ -25,10 +25,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildBoundedSuiteAppImage } from "./suite-owned-build.mjs";
 import {
-  SUITE_CONTAINER_PLATFORM,
   containerImageExists,
   containerRunUserArguments,
   containerRuntime,
+  suiteContainerPlatform,
 } from "./container-runtime.mjs";
 import { verifySuiteRunTornDown } from "./suite-container-leak-guard.mjs";
 import { reportEndOfSuiteRun } from "./suite-end-of-run-report.mjs";
@@ -115,7 +115,7 @@ export function buildSuiteAppImage(
 ) {
   const build = spawnSync(
     runtime,
-    ["build", "--platform", SUITE_CONTAINER_PLATFORM, "-f", dockerfile, "-t", imageReference, context],
+    ["build", "--platform", suiteContainerPlatform(), "-f", dockerfile, "-t", imageReference, context],
     { stdio: "inherit" },
   );
   if (build.status !== 0) {
@@ -297,7 +297,7 @@ export function createSuiteContainerRunArguments(
     "--name",
     resolveSuiteContainerName(runId),
     "--platform",
-    SUITE_CONTAINER_PLATFORM,
+    suiteContainerPlatform(),
     // podman: `--userns=keep-id` keeps this container's process at the same
     // uid as the host; docker: `--user <uid>:<gid>` does the same job. The
     // tmpfs concurrency guard accounts quota by host uid, so neither runtime

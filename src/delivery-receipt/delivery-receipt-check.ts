@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
+import path from 'node:path';
 import {
   listLiveAgentStatusesAcrossSessions,
   type LiveAgentStatus,
@@ -18,8 +19,12 @@ import {
   type WorkItemRow,
 } from '../message-queue/message-queue.store.ts';
 import type { MessageDeliveryWorkItemPayload } from '../send-agent/message-delivery-enqueue.ts';
-import { claudeTranscriptPathFor } from '../session/runtime-model-acceptance.ts';
-import { deliveryReceiptVerdict } from './delivery-receipt-verdict.ts';
+import { claudeProjectDirectory } from '../session/runtime-model-acceptance.ts';
+import { claudeProjectsFolderOf } from '../account/agent-account.ts';
+import {
+  deliveryReceiptVerdict,
+  type DeliveryReceiptVerdict,
+} from './delivery-receipt-verdict.ts';
 
 export const DELIVERY_RECEIPT_CHECK_WORK_ITEM_KIND = 'delivery-receipt-check';
 
@@ -71,20 +76,64 @@ export function scheduleDeliveryReceiptCheck(
   });
 }
 
-async function readObservableTranscript(
+async function transcriptPathsIn(projectDirectory: string): Promise<string[]> {
+  try {
+    return (await readdir(projectDirectory))
+      .filter((entry) => entry.endsWith('.jsonl'))
+      .map((entry) => path.join(projectDirectory, entry));
+  } catch {
+    return [];
+  }
+}
+
+async function modifiedTimeOf(transcriptPath: string): Promise<number | undefined> {
+  try {
+    return (await stat(transcriptPath)).mtimeMs;
+  } catch {
+    return undefined;
+  }
+}
+
+async function transcriptTextOf(transcriptPath: string): Promise<string> {
+  try {
+    return await readFile(transcriptPath, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+async function transcriptPathsWrittenSince(
   recipientName: string,
+  deliveredAtMs: number,
   deps: DeliveryReceiptCheckDeps,
-): Promise<string | undefined> {
+): Promise<string[] | undefined> {
   const spawnRecord = await readSpawnSpec(recipientName, deps.spawnRecordsDirectory);
   if (spawnRecord === null || !isClaudeBranchHarness(spawnRecord.harness)) {
     return undefined;
   }
-  const transcriptPath = await claudeTranscriptPathFor(
+  const projectDirectory = claudeProjectDirectory(
     spawnRecord.cwd,
-    spawnRecord.session_id,
-    deps.claudeProjectsDirectory,
+    deps.claudeProjectsDirectory ?? claudeProjectsFolderOf(spawnRecord.account),
   );
-  return transcriptPath === undefined ? undefined : readFile(transcriptPath, 'utf8');
+  const transcriptPaths = await transcriptPathsIn(projectDirectory);
+  const modifiedTimes = await Promise.all(transcriptPaths.map(modifiedTimeOf));
+  return transcriptPaths.filter((_, index) => (modifiedTimes[index] ?? -Infinity) >= deliveredAtMs);
+}
+
+async function receiptVerdictAcross(
+  typedText: string,
+  messageId: number,
+  transcriptPaths: readonly string[],
+): Promise<DeliveryReceiptVerdict | 'cannot tell'> {
+  if (transcriptPaths.length === 0) return 'cannot tell';
+  let anyTruncated = false;
+  for (const transcriptPath of transcriptPaths) {
+    const transcript = await transcriptTextOf(transcriptPath);
+    const verdict = deliveryReceiptVerdict(typedText, messageId, transcript);
+    if (verdict === 'intact') return 'intact';
+    if (verdict === 'truncated') anyTruncated = true;
+  }
+  return anyTruncated ? 'truncated' : 'absent';
 }
 
 async function isRecipientIdle(
@@ -130,17 +179,21 @@ export async function checkDeliveryReceipt(
   const message = store.readWorkItem(messageId);
   if (message === undefined) return concludeCheck(store, check, 'unobserved');
   const { recipientName } = message.payload as MessageDeliveryWorkItemPayload;
-  const transcript = await readObservableTranscript(recipientName, deps);
-  if (transcript === undefined) return concludeCheck(store, check, 'unobserved');
+  const transcriptPaths = await transcriptPathsWrittenSince(recipientName, deliveredAtMs, deps);
+  if (transcriptPaths === undefined) return concludeCheck(store, check, 'unobserved');
 
-  const verdict = deliveryReceiptVerdict(typedText, messageId, transcript);
+  const verdict = await receiptVerdictAcross(typedText, messageId, transcriptPaths);
   if (verdict === 'intact') return concludeCheck(store, check, 'intact');
   if (verdict === 'truncated') {
     notifyRecipient(store, message, 'truncated');
     return concludeCheck(store, check, 'truncated');
   }
   const waitedMs = deps.now() - deliveredAtMs;
-  if (waitedMs >= ABSENT_NOTICE_WAIT_MS && (await isRecipientIdle(recipientName, deps))) {
+  if (
+    verdict === 'absent' &&
+    waitedMs >= ABSENT_NOTICE_WAIT_MS &&
+    (await isRecipientIdle(recipientName, deps))
+  ) {
     notifyRecipient(store, message, 'absent');
     return concludeCheck(store, check, 'absent-notified');
   }

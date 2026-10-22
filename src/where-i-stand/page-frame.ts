@@ -25,6 +25,8 @@ const SECTIONS_HOLDING_ENTRIES: readonly string[] = [
   PageSection.OnGitHub,
 ];
 
+const SECTIONS_HOLDING_ENTRIES_AND_QUESTIONS: readonly string[] = [PageSection.NeedsYou, ...SECTIONS_HOLDING_ENTRIES];
+
 const SECTION_HEADING_PREFIX = "## ";
 const ENTRY_HEADING_PREFIX = "### ";
 const EVENT_LINE_PREFIX = "- ";
@@ -100,11 +102,8 @@ interface EntryBeingRead {
   readonly bodyLines: string[];
 }
 
-function holdsEntries(section: string | undefined): section is string {
-  return section !== undefined && SECTIONS_HOLDING_ENTRIES.includes(section);
-}
-
-export function listEntries(content: string): PageEntry[] {
+function entriesInSections(content: string, sectionsRead: readonly string[]): PageEntry[] {
+  const isRead = (section: string | undefined): section is string => section !== undefined && sectionsRead.includes(section);
   const entries: EntryBeingRead[] = [];
   let section: string | undefined;
   let entryBeingRead: EntryBeingRead | undefined;
@@ -113,7 +112,7 @@ export function listEntries(content: string): PageEntry[] {
     if (namedSection !== undefined) {
       section = namedSection;
       entryBeingRead = undefined;
-    } else if (line.startsWith(ENTRY_HEADING_PREFIX) && holdsEntries(section)) {
+    } else if (line.startsWith(ENTRY_HEADING_PREFIX) && isRead(section)) {
       entryBeingRead = { identity: line.slice(ENTRY_HEADING_PREFIX.length).trim(), section, bodyLines: [] };
       entries.push(entryBeingRead);
     } else {
@@ -125,6 +124,14 @@ export function listEntries(content: string): PageEntry[] {
     section: entry.section,
     body: entry.bodyLines.join("\n"),
   }));
+}
+
+export function listEntries(content: string): PageEntry[] {
+  return entriesInSections(content, SECTIONS_HOLDING_ENTRIES);
+}
+
+export function listEntriesAndQuestions(content: string): PageEntry[] {
+  return entriesInSections(content, SECTIONS_HOLDING_ENTRIES_AND_QUESTIONS);
 }
 
 function isEventLine(line: string): boolean {

@@ -219,6 +219,8 @@ function reuseEffects(court: FakeCourt): StagerReuseEffects {
       },
       pathExists,
       throneRoot: court.worktreesDir,
+      readAccountsConfig: () => null,
+      readAgentRole: async () => undefined,
       log: () => {},
       warn: () => {},
     },

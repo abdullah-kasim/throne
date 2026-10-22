@@ -18,6 +18,7 @@ import type {
 } from './stranded-spawn-classification.ts';
 import type { StrandedSpawnRecoveryResult } from './stranded-spawn-recovery.ts';
 import type { DeferredRowPingQueue } from '../regent-queue/regent-queue.store.ts';
+import type { HarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
 
 export interface NoIdlingDependencies {
   resolveLiveRoot: () => Promise<string>;
@@ -31,6 +32,7 @@ export interface NoIdlingDependencies {
     options?: SubmitToAgentOptions,
   ) => Promise<void>;
   readAgent: (name: string, opts?: ReadOptions) => Promise<string>;
+  readHarnessBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>;
   blockedMarkerLedger: BlockedMarkerLedger;
   readSpawnSpec: (name: string, dataDir: string) => Promise<SpawnSpec | null>;
   hasFutureScheduledDelivery?: (name: string, nowMs: number) => Promise<boolean>;

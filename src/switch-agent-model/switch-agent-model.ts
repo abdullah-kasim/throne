@@ -24,6 +24,7 @@ import {
   type SwitchTransactionResult,
 } from "./transaction/transaction.types.ts";
 import { PhaseLog } from "./transaction/phase-log.ts";
+import { launchAccountOption, type LaunchAccountOption } from "../account/agent-account.ts";
 import {
   cwdMismatchReason,
   runningCwdMatches,
@@ -125,6 +126,12 @@ export async function switchAgentModel(
       "unsupported-recipe",
       `${input.agentName} has no registered cwd to verify a resume against`,
     );
+  }
+  let launchAccount: LaunchAccountOption;
+  try {
+    launchAccount = await launchAccountOption(input.agentName, spawn.account);
+  } catch (error) {
+    return refuse("validate-recipe", "unsupported-recipe", errorText(error));
   }
   const previous: LaunchRecipe = {
     harness: spawn.harness,
@@ -323,6 +330,7 @@ export async function switchAgentModel(
     started = await deps.startAgent(input.agentName, {
       cwd: spawn.cwd,
       argv: buildResumeArgv(target, sessionId),
+      ...launchAccount,
     });
     log.ok("start-target", started.phase);
   } catch (error) {

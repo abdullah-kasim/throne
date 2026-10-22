@@ -1,16 +1,23 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, realpath } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
+import {
+  readHarnessBackgroundWork,
+  type HarnessBackgroundWorkHost,
+} from '../process-inspection/harness-background-work.ts';
+import { harnessProcessHost, processTableCapture } from '../process-inspection/harness-background-work-test-fixtures.ts';
 import { runNoIdling } from './no-idling-run.ts';
 import { deps, rosterEntry } from './no-idling-command-test-fixtures.ts';
 
-const PANE_SHOWING_QUEUED_SUITE_RUNS = await readFile(
-  path.join(import.meta.dirname, 'fixtures', 'claude-pane-waiting-on-queued-suite-runs.txt'),
-  'utf8',
-);
+const WORKTREE = await realpath(await mkdtemp(path.join(tmpdir(), 'find-untasked-agents-')));
+const HOLD_SCRIPT_HOST = harnessProcessHost({
+  processTable: await processTableCapture('macos-claude-harness-with-background-hold-script'),
+  harnessDirectory: WORKTREE,
+});
 const PANE_AT_ITS_IDENTITY_PROMPT = [
   '❯ You are shadow-bakery-01-oven (Shadow). Your supervisor is alpha-bakery-01.',
   '',
@@ -55,19 +62,23 @@ const SPAWNED_TWELVE_MINUTES_EARLIER_AND_NEVER_TASKED: SpawnSpec = {
 };
 const UNTASKED_NOTICE = /spawned but never tasked/;
 
-async function untaskedNoticesForAShadowShowing(pane: () => Promise<string>): Promise<string[]> {
+async function untaskedNoticesForAShadowShowing(
+  pane: () => Promise<string>,
+  processHost?: HarnessBackgroundWorkHost,
+): Promise<string[]> {
   const { dependencies, submitCalls } = deps({
     getRoster: async () => [rosterEntry('shadow-bakery-01-oven', 'Shadow', 'idle')],
     readSpawnSpec: async () => SPAWNED_TWELVE_MINUTES_EARLIER_AND_NEVER_TASKED,
     readAgent: pane,
+    ...(processHost === undefined ? {} : { readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId, processHost) }),
     now: () => NOW_MS,
   });
   await runNoIdling(dependencies, { notify: true });
   return submitCalls.map((call) => call.prompt).filter((prompt) => UNTASKED_NOTICE.test(prompt));
 }
 
-test('an agent that read its own assignment and is waiting on background work is not reported as untasked', async () => {
-  assert.deepEqual(await untaskedNoticesForAShadowShowing(async () => PANE_SHOWING_QUEUED_SUITE_RUNS), []);
+test('an agent whose harness is running tool work counts as having acted', async () => {
+  assert.deepEqual(await untaskedNoticesForAShadowShowing(async () => PANE_AT_ITS_IDENTITY_PROMPT, HOLD_SCRIPT_HOST), []);
 });
 
 test('an agent that never spoke after its identity prompt is still reported as untasked', async () => {

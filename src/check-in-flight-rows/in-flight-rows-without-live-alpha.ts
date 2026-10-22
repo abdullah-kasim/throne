@@ -45,6 +45,15 @@ function rosterEntryNamed(
   return roster.find((entry) => entry.name === name);
 }
 
+export async function isAlphaLiveOrStarting(
+  roster: readonly AgentStatusesRosterEntry[],
+  agentName: string,
+  spawnIsStillStarting: (name: string) => Promise<boolean>,
+): Promise<boolean> {
+  if (rosterEntryNamed(roster, agentName)?.lifecycle === AGENT_LIFECYCLE_STATES.LIVE) return true;
+  return spawnIsStillStarting(agentName);
+}
+
 async function stateOfMissingAlpha(
   rosterEntry: AgentStatusesRosterEntry | undefined,
   agentName: string,
@@ -61,9 +70,10 @@ async function findingForRow(
   evidence: InFlightRowEvidence,
 ): Promise<InFlightRowWithoutLiveAlpha | undefined> {
   const agentName = row.agentName ?? NO_AGENT_RECORDED;
+  if (await isAlphaLiveOrStarting(evidence.roster, agentName, evidence.spawnIsStillStarting)) {
+    return undefined;
+  }
   const rosterEntry = rosterEntryNamed(evidence.roster, agentName);
-  if (rosterEntry?.lifecycle === AGENT_LIFECYCLE_STATES.LIVE) return undefined;
-  if (await evidence.spawnIsStillStarting(agentName)) return undefined;
   return {
     objectiveCode: row.objectiveCode ?? row.id,
     agentName,

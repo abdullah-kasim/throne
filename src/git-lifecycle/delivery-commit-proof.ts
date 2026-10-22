@@ -102,7 +102,7 @@ export async function hasDeliveryCommit(
  * Resolves the repo `hasDeliveryCommit` should search for a given agent: its
  * recorded `tree-base.json` `repo` field, canonicalized via `repoRoot`
  * (`git rev-parse --show-toplevel`) so a cross-repo delivery (e.g. a Shadow
- * whose target was gabledge, not the throne) is found in the repo it
+ * whose target was another project, not the throne) is found in the repo it
  * actually landed in, instead of being structurally invisible to a search
  * that always defaults to the throne's own history.
  *

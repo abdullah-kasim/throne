@@ -158,7 +158,7 @@ async function stateShownByAgentStatuses(
         listCompletedAgentNames: () => listCompletedAgentNames(ledgerDirectory),
         readAgentStatusRole: (agentName) => readAgentStatusRole(agentName, ledgerDirectory),
         loadAgentStatusesRegentTitle: async () => "Regent",
-        readAgentPaneTail: async () => "",
+        readHarnessBackgroundWork: async () => ({ kind: "none" }),
       }),
     readAgentSpawnStillStarting: (agentName) =>
       readAgentSpawnStillStarting(agentName, ledgerDirectory),

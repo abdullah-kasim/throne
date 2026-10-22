@@ -52,7 +52,7 @@ the live checkout.
 
 ```bash
 systemd-analyze --user verify ~/.config/systemd/user/throne-backend.service
-systemd-analyze --user verify ~/.config/systemd/user/sweep-tmp-scratch-home.timer
+systemd-analyze --user verify ~/.config/systemd/user/sweep-tmp-scratch-slash.timer
 ```
 
 Validates unit syntax and directives without installing or enabling anything.

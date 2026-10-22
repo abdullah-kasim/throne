@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
 
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
+import { readHarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
+import { harnessProcessHost, processTableCapture } from '../process-inspection/harness-background-work-test-fixtures.ts';
 import { classifyLastMessageTags } from './idle-pane-tag-classification.ts';
 import { runNoIdling } from './no-idling-run.ts';
 import { deps, rosterEntry } from './no-idling-command-test-fixtures.ts';
@@ -159,4 +162,27 @@ test('the no-idling log does not say it reported a waiting agent as fully idle',
   assert.ok(noticeLog, `no notice log in: ${logLines.join('')}`);
   assert.doesNotMatch(noticeLog, /fully-idle/);
   assert.match(noticeLog, new RegExp(WAITING_SHADOW));
+});
+
+test("the Regent's notice names the background processes an agent waits on", async () => {
+  const worktree = await realpath(await mkdtemp(path.join(tmpdir(), 'waiting-agent-notice-')));
+  const hostsInReadOrder = [
+    harnessProcessHost({ processTable: await processTableCapture('macos-claude-idle-harness'), harnessDirectory: worktree }),
+    harnessProcessHost({
+      processTable: await processTableCapture('macos-claude-harness-with-background-hold-script'),
+      harnessDirectory: worktree,
+    }),
+  ];
+  const { dependencies, submitCalls } = deps({
+    getRoster: async () => [rosterEntry(WAITING_SHADOW, 'Shadow', 'idle')],
+    readAgent: async () => ['⏺ The crust is in.', '', '✻ Baked for 9s', ''].join('\n'),
+    readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId, hostsInReadOrder.shift() ?? hostsInReadOrder[0]!),
+    now: () => NOW_MS,
+  });
+
+  await runNoIdling(dependencies, { notify: true });
+
+  const notice = submitCalls.map((call) => call.prompt).find((text) => text.includes('waiting on background work'));
+  assert.ok(notice, submitCalls.map((call) => call.prompt).join('\n'));
+  assert.match(notice, new RegExp(`${WAITING_SHADOW} — waiting on background work: [^\\n]*sh \\./hold\\.sh; sleep 600`));
 });

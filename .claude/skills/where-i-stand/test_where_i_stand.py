@@ -2,12 +2,11 @@ import contextlib
 import io
 import json
 import os
-import shutil
-import tempfile
 import unittest
 from unittest import mock
 
 import where_i_stand
+from test_review_requests_and_teammates import ReviewRequestsAndTeammatesTest, ScratchCacheAndHostsTest
 
 
 def pull_request(number, state="OPEN", draft=False, review="", approvals=(), conflicting=False, failing=0, repository="shop/storefront"):
@@ -79,23 +78,11 @@ def read_page_data():
         return json.load(page_data_file)
 
 
-class WhereIStandTest(unittest.TestCase):
-    def setUp(self):
-        self.cache_home = tempfile.mkdtemp()
-        self.environment = mock.patch.dict(os.environ, {"XDG_CACHE_HOME": self.cache_home})
-        self.environment.start()
-        self.hosts_file = mock.patch.object(where_i_stand, "HOSTS_FILE", os.path.join(self.cache_home, "no-hosts-file"))
-        self.hosts_file.start()
-
-    def tearDown(self):
-        self.hosts_file.stop()
-        self.environment.stop()
-        shutil.rmtree(self.cache_home)
-
+class WhereIStandTest(ScratchCacheAndHostsTest):
     def run_main(self, arguments, prs=None, problems=()):
         fetch = mock.Mock(return_value=(prs or [], list(problems)))
         output = io.StringIO()
-        with mock.patch.object(where_i_stand, "collect", fetch), contextlib.redirect_stdout(output):
+        with mock.patch.object(where_i_stand, "collect", fetch), mock.patch.object(where_i_stand, "collect_others", return_value=([], [], [])), contextlib.redirect_stdout(output):
             exit_status = where_i_stand.main(arguments)
         return exit_status, output.getvalue(), fetch
 
@@ -232,6 +219,18 @@ class WhereIStandTest(unittest.TestCase):
             self.assertEqual(where_i_stand.configured_forges(), [("https://forge.example.com:8443", "/keys/forge-token")])
             self.assertEqual(where_i_stand.host_names(), ["github.com", "git.example.com", "forge.example.com:8443"])
 
+    def test_the_readers_search_on_a_host_carries_only_the_owners_its_owner_lines_name(self):
+        hosts_file = os.path.join(self.cache_home, "hosts")
+        with open(hosts_file, "w") as hosts:
+            hosts.write("git.example.com ghe\nowner github.com bakery\nowner github.com pastry-shop\n")
+        search = mock.Mock(return_value=([], None))
+        with mock.patch.object(where_i_stand, "HOSTS_FILE", hosts_file), mock.patch.object(where_i_stand, "run_json", search):
+            where_i_stand.collect(14)
+        searches = {command[0]: command for command, in (call.args for call in search.call_args_list)}
+        self.assertEqual(search.call_count, 2)
+        self.assertIn("--owner bakery --owner pastry-shop", " ".join(searches["gh"]))
+        self.assertNotIn("--owner", searches["ghe"])
+
     def test_a_forgejo_host_whose_token_file_is_missing_is_reported_as_unreadable(self):
         prs, problems = where_i_stand.collect_forgejo("https://forge.example.com", os.path.join(self.cache_home, "no-token"), "2026-01-01")
         self.assertEqual(prs, [])
@@ -242,7 +241,7 @@ class WhereIStandTest(unittest.TestCase):
         hosts_file = os.path.join(self.cache_home, "hosts")
         with open(hosts_file, "w") as hosts:
             hosts.write(f"forgejo https://forge.example.com {missing_token_file}\n")
-        with mock.patch.object(where_i_stand, "HOSTS_FILE", hosts_file), mock.patch.object(where_i_stand, "run_json", return_value=([], None)), contextlib.redirect_stdout(io.StringIO()):
+        with mock.patch.object(where_i_stand, "HOSTS_FILE", hosts_file), mock.patch.object(where_i_stand, "run_json", return_value=([], None)), mock.patch.object(where_i_stand, "collect_others", return_value=([], [], [])), contextlib.redirect_stdout(io.StringIO()):
             where_i_stand.main([])
         with open(where_i_stand.page_data_path()) as page_data_file:
             page_data_text = page_data_file.read()

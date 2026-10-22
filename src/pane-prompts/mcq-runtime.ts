@@ -6,7 +6,7 @@ import type { HerdrAgent } from '../herdr/herdr-identity-contracts.ts';
 import { readVisibleText, resolveAgent } from '../herdr/herdr-runtime.service.ts';
 import { isQueueFilerRoleName } from '../shared-policy/objective-contract.ts';
 import { canonicalRegentAuthority } from '../shared-policy/regent-authority.ts';
-import { submitToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
+import { submitUnattributedToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
 import { submitPageToRegent } from '../blocked-paging/blocked-agent-regent-page.ts';
 import { buildMcqTakeOverPagingMessage } from '../blocked-paging/blocked-agent-paging-message.ts';
 import {
@@ -63,7 +63,7 @@ export const REAL_MCQ_DEPENDENCIES: McqDependencies = {
   sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   now: () => Date.now(),
   pageRegent: (message, pageKey) =>
-    submitPageToRegent(message, pageKey, { resolveAgent, submitToAgent: submitToAgentViaQueue }),
+    submitPageToRegent(message, pageKey, { resolveAgent, submitToAgent: submitUnattributedToAgentViaQueue }),
   appendLedger: (entry) => appendMcqAnswerLedgerEntry(entry),
   out: (text) => void process.stdout.write(text),
   err: (text) => void process.stderr.write(text),

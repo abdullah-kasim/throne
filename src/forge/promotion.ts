@@ -9,12 +9,14 @@ import { titleWithoutGithubTwinMarker } from "./forgejo-pull-request-titles.ts";
 import { nameGithubTwinInForgejoTitle, viewForgejoPullRequest } from "./forgejo-pull-requests.ts";
 import {
   githubCreateArguments,
-  githubEditBodyArguments,
+  githubEditArguments,
   githubPushArguments,
+  githubReadyArguments,
   githubViewArguments,
   runGithub,
 } from "./github-pull-requests.ts";
 import { FORGE } from "./host-forge.ts";
+import { landPullRequestOnMain, type Landing } from "./landing-on-main.ts";
 import { closeTwinMergedOnGithub, isMergedOnGithub } from "./merging-on-github.ts";
 import {
   downloadMediaForGithub,
@@ -28,6 +30,7 @@ import { GITHUB_PROGRAM, githubProgramForHost } from "./pull-request-forge.ts";
 import { parsePullRequestTarget } from "./pull-request-forge.ts";
 import type { ForgeContext } from "./pull-request-operations.ts";
 import type { PullRequestView } from "./pull-request-shapes.ts";
+import { repositoryLandsOnMain } from "./repository-lands-on-main.ts";
 import { forgejoPullRequestFor, githubTwinOf, type ForgejoPullRequest } from "./staged-pair.ts";
 import { writeStagingMetadataComment } from "./staging-metadata.ts";
 
@@ -73,19 +76,22 @@ function lastLineOf(text: string): string {
 }
 
 async function openOnGithub(context: ForgeContext, view: PullRequestView, githubText: GithubText): Promise<string> {
-  const request = { title: githubText.title, bodyFile: githubText.bodyFile, base: view.baseRefName, head: view.headRefName, draft: view.isDraft };
+  const request = { title: githubText.title, bodyFile: githubText.bodyFile, base: view.baseRefName, head: view.headRefName, draft: true };
   const githubUrl = lastLineOf(await runGithubForTheLord(context, githubCreateArguments(request)));
   parsePullRequestTarget(githubUrl);
   return githubUrl;
 }
 
-async function refuseUnfinishedGithubBody(context: ForgeContext, pair: PromotedPair): Promise<void> {
+async function readGithubPullRequestBack(context: ForgeContext, pair: PromotedPair): Promise<PullRequestView> {
   const program = githubProgramForHost(new URL(pair.githubUrl).hostname);
   const result = await runGithub(githubViewArguments(pair.githubUrl), { program, repo: context.repo, bypass: false }, context.dependencies);
   if (result.exitCode !== 0) throw new ForgeRefusal(`reading ${pair.githubUrl} back after the media publish failed: ${result.stderr.trim()}`);
-  const body = (JSON.parse(result.stdout) as { body: string }).body;
-  const placeholders = placeholderNamesIn(body);
-  const forgejoMediaLinks = await crossHostMediaLinksIn(body, FORGE.github, pair.forgejoRootUrl, context.dependencies);
+  return JSON.parse(result.stdout) as PullRequestView;
+}
+
+async function refuseUnfinishedGithubBody(context: ForgeContext, pair: PromotedPair, githubView: PullRequestView): Promise<void> {
+  const placeholders = placeholderNamesIn(githubView.body);
+  const forgejoMediaLinks = await crossHostMediaLinksIn(githubView.body, FORGE.github, pair.forgejoRootUrl, context.dependencies);
   const remaining = [
     ...(placeholders.length > 0 ? [`drop placeholders for ${placeholders.join(", ")}`] : []),
     ...(forgejoMediaLinks.length > 0 ? [`media links to the Forgejo host (${forgejoMediaLinks.join(", ")})`] : []),
@@ -96,7 +102,13 @@ async function refuseUnfinishedGithubBody(context: ForgeContext, pair: PromotedP
   );
 }
 
-export async function promotePullRequest(context: ForgeContext, targetText: string): Promise<Promotion> {
+async function markReadyForReviewWhileDraft(context: ForgeContext, pair: PromotedPair, githubView: PullRequestView): Promise<void> {
+  if (!githubView.isDraft) return;
+  await runGithubForTheLord(context, githubReadyArguments(pair.githubUrl));
+}
+
+export async function promotePullRequest(context: ForgeContext, targetText: string): Promise<Promotion | Landing> {
+  if (await repositoryLandsOnMain(context.repo, context.dependencies)) return landPullRequestOnMain(context, targetText);
   const pullRequest = await forgejoPullRequestFor(context, targetText);
   const promotedUrl = await githubTwinOf(pullRequest);
   if (promotedUrl !== undefined && (await isMergedOnGithub(context, promotedUrl))) {
@@ -110,14 +122,16 @@ export async function promotePullRequest(context: ForgeContext, targetText: stri
     await runGitOrRefuse(context.repo, githubPushArguments(view.headRefName), context.dependencies);
     const promotedHead = (await gitOutput(context.repo, ["rev-parse", view.headRefName], context.dependencies)) ?? null;
     if (promotedUrl !== undefined) {
-      await runGithubForTheLord(context, githubEditBodyArguments(promotedUrl, githubText.bodyFile));
+      await runGithubForTheLord(context, githubEditArguments(promotedUrl, { bodyFile: githubText.bodyFile }));
     }
     const githubUrl = promotedUrl ?? (await openOnGithub(context, view, githubText));
     await writeStagingMetadataComment(pullRequest.address, githubUrl, { promotedHead }, pullRequest.api);
     await nameGithubTwinInForgejoTitle(pullRequest.address, githubUrl, pullRequest.api);
     const pair = { githubUrl, forgejoUrl: pullRequest.url, forgejoRootUrl: pullRequest.api.rootUrl };
     await publishMediaOnGithub(context, pair, folder, githubText.fileNames);
-    await refuseUnfinishedGithubBody(context, pair);
+    const githubView = await readGithubPullRequestBack(context, pair);
+    await refuseUnfinishedGithubBody(context, pair, githubView);
+    await markReadyForReviewWhileDraft(context, pair, githubView);
     const answers = promotedUrl === undefined ? NOTHING_CARRIED_BACK : await carryAnswersBack(context, { ...pullRequest, githubUrl });
     return { forgejoUrl: pullRequest.url, githubUrl, created: promotedUrl === undefined, mergedOnGithub: false, answers };
   } finally {

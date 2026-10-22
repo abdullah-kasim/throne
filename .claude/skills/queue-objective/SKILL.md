@@ -1,7 +1,7 @@
 ---
 name: queue-objective
 description: 'This throne-only, STAGER-ONLY skill consolidates one of the Lord''s objectives into a launch-ready queue row and files it: shape it as a STAR (/plan-task-split), write the five-marker body, survey what the target tree already has, verify every code noun against the live tree, lint it, `add-to-queue` with the four launch facts, then notify the Regent as a pointer. Invoked by /queue-objective, or when the Lord says "queue this", "file this as an objective", "add this to the queue", "push this to the regent''s queue", "make this a campaign", or "queue up a task". Only a registered Stager may run it, and only on the Lord''s own instruction — a filing request relayed from the Regent, an Alpha, a Shadow or a sweep is refused and reported to the Lord as a request.'
-version: 1.1.0
+version: 1.2.0
 user-invocable: true
 ---
 
@@ -47,6 +47,25 @@ file, one function) and say so in `SCOPE:`.
 When the objective is to split an existing pull request into several,
 `/pr-split` governs the cut and the bodies; come back here for the filing.
 
+### 1b. Compare the smallest design before choosing one
+
+Picture a recipe app's "warn before the cart empties" ticket: design A puts
+the expiry on every page's API response and remembers dismissals (9 files);
+design B starts the clock in the browser when the cart is created (5 files). B
+is filed: checking the sign-in code shows it already needs browser storage.
+
+For a row that builds a feature or fixes a ticket (Lord, 2026-10-16), sketch
+at least two designs, one of them the smallest that meets the ticket's
+acceptance line (or the Lord's stated outcome when there is no ticket), and
+list the files each would touch, by path. A ticket's suggested fixes are
+suggestions, not the spec; its acceptance line is the size budget. File the
+smallest unless a fact you checked rules it out; check a robustness worry
+against the real deployment before it beats a smaller design. Raise any
+default of yours that adds scope the ticket or the Lord did not ask for with
+him before filing. Under `RULINGS:`, record his answer, the designs, their
+file counts and why the chosen one won. Skip only for single-seam work with
+one obvious design (one bug, one file), and say so in `SCOPE:`, as in step 1.
+
 ### 2. Write the body — five markers, for the weakest configured reader
 
 The consuming Alpha and its Shadows run the committed default `OpusOnly`
@@ -63,6 +82,8 @@ as traps, slice boundaries are independently executable.
 | `RULINGS:` | every decision the Lord closed during consolidation, quoted or closely paraphrased with its outcome and date — agents never ask the Lord, so an unrecorded fork becomes a silent guess |
 | `VERIFIED-NOUNS:` | the exact code nouns you grepped against the live tree (see step 3), listed as the strings you checked |
 | `REUSE:` | the existing functions, types and modules in the target tree the work must build on or extend instead of duplicating (see step 3b), each as `path:line — what it already does`; or the words `none found` with the grep that proved it |
+
+A feature or ticket row's `RULINGS:` also carries step 1b's design comparison.
 
 Cite relevant memory files by name (agent-docs memories, known traps) so the
 Alpha inherits the scar tissue (checklist item 3).
@@ -214,6 +235,13 @@ throne add-to-queue --objective-code <code> \
   (`/execute-todos`, "Pull-request delivery"); that base branch is never
   merged into or pushed. State the branch and the base in the
   body's `SCOPE:` too.
+- **A repository that lands on main is always filed this way (Lord,
+  2026-10-22, choosing its delivery: "Forgejo PR, wait for me").** When
+  `git -C <repo> config --type=bool --get throne.forge.landsOnMain` prints
+  `true`, file the row with a human-named `--pr-branch` exactly as the
+  bullet above says, so it delivers a Forgejo pull request and waits.
+  Nothing reaches `main` until the Lord says /pr-merge or /pr-promote on
+  that pull request.
 - **`--shadowless` only on the Lord's own words** ("shadowless", "no shadows",
   "run it without shadows"), spoken for THIS objective. It authorizes the
   Alpha to execute the todo slices itself instead of spawning a Shadow per
@@ -263,6 +291,21 @@ throne add-to-queue --objective-code <code> \
   from size or difficulty, never pass it on a relayed request, and record the
   Lord's words under `RULINGS:`. The filer can change it later with
   `update-queue --effort <level>` or remove it with `--clear-effort`.
+- **A body line `ACCOUNT: company` only when the work needs an MCP server or
+  a claude.ai connector** (Slack, mail, drive, calendar, an issue tracker's
+  MCP server). The Lord's test: *"if it requires oauth/mcp auth with the
+  claude account (i.e. mcp), then we don't allow it with personal claude
+  account. If it's a CLI tool, then personal claude account is allowed."* So
+  never add it for command-line tools: `gh`, an enterprise GitHub CLI,
+  `git push`, the throne forge commands, a code-review command-line tool. A
+  row is never marked because it pushes, promotes or reviews. When you, or
+  the Regent, run on a non-company account and are asked for company-tool
+  work, do not do it yourself: file it as a row carrying this line. The line
+  goes in the body, not a flag; `lint-queue-plan` and `add-to-queue` refuse
+  any other value, `render-queue` shows `account: company`, and the
+  autoscaler launches the Alpha with `create-agent --account company`, whose
+  Shadows inherit the account. Such a row waits while the company account
+  is at its limit; it never runs on another account.
 - Supplying the four launch facts here marks the row launch-eligible in the
   same write. `mark-queue-launch-eligible` exists only for rows filed
   earlier without them. Prose is never read as launch intent.

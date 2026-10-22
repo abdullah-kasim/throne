@@ -65,7 +65,7 @@ function checkDependencies(databasePath: string): InFlightRowCheckDependencies {
         listCompletedAgentNames: () => listCompletedAgentNames(ledgerDirectory),
         readAgentStatusRole: (name) => readAgentStatusRole(name, ledgerDirectory),
         loadAgentStatusesRegentTitle: async () => "Regent",
-        readAgentPaneTail: async () => "",
+        readHarnessBackgroundWork: async () => ({ kind: "none" }),
       }),
     dataDirectory: ledgerDirectory,
     now: Date.now,

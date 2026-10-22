@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from "node:util";
 import { access } from "node:fs/promises";
 import type { CapabilityEvidence } from "../harness-routing/policy/capabilities.ts";
 import type { ModelPair } from "../config.ts";
+import { COMPANY_ACCOUNT_WORD } from "../account/accounts-config.ts";
 export const DEFAULT_DATA_DIR = THRONE_DATA_DIR;
 export async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -94,6 +95,8 @@ export interface SpawnSpec {
   sliceless?: true;
   campaign_effort?: number;
   forked_from?: string;
+  account?: string;
+  account_requirement?: typeof COMPANY_ACCOUNT_WORD;
 }
 
 /** Historical records remain readable while score evidence is retired. */
@@ -211,6 +214,10 @@ function isSpawnSpec(value: unknown): value is SpawnSpec {
         record.campaign_effort <= 6)) &&
     (record.forked_from === undefined ||
       (typeof record.forked_from === "string" && record.forked_from !== "")) &&
+    (record.account === undefined ||
+      (typeof record.account === "string" && record.account !== "")) &&
+    (record.account_requirement === undefined ||
+      record.account_requirement === COMPANY_ACCOUNT_WORD) &&
     (record.token_balance_lane === undefined ||
       typeof record.token_balance_lane === "string") &&
     (record.token_balance_mandate === undefined ||

@@ -11,6 +11,7 @@ import {
   BLOCKED_TRANSITION_VERDICTS,
   OWN_BACKGROUND_RUN_WAITS,
   ownBackgroundRunWait,
+  waitsOnOwnBackgroundRun,
   type OwnBackgroundRunWait,
 } from './classify-blocked-transition.ts';
 import {
@@ -35,7 +36,7 @@ import {
 import { readAgent, readVisibleText } from '../herdr/herdr-runtime.service.ts';
 import { clearBlockedMarker, readBlockedMarker, writeBlockedMarker } from '../agentdata/blocked-marker.service.ts';
 import { resolveAgent } from '../herdr/herdr-runtime.service.ts';
-import { submitToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
+import { submitUnattributedToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
 import { listLiveAgentStatuses } from '../agent-statuses/agent-statuses-herdr.ts';
 import { runNotifyLord } from '../notify-lord/notify-lord.command.ts';
 import {
@@ -50,6 +51,7 @@ import {
   readBlockedPageLedger,
 } from './blocked-agent-escalation-ledger.ts';
 import { pageRegentWithinEscalationBound, submitPageToRegent } from './blocked-agent-regent-page.ts';
+import { readHarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
 
 export const BLOCKED_AGENT_PAGING_HOSTED_WORKER_NAME = 'blocked-agent-paging';
 /** How long a genuine `blocked` transition waits for a fresh confirming
@@ -164,6 +166,7 @@ interface PagingPaneRead {
 
 async function readPaneTagAndWait(
   agentName: string,
+  paneId: string,
   deps: BlockedAgentPagingDependencies,
 ): Promise<PagingPaneRead> {
   const output = await deps.readAgent(agentName);
@@ -173,16 +176,19 @@ async function readPaneTagAndWait(
       async () => classifyLastMessageTags(lastMessageBlock(output)),
       deps.blockedMarkerLedger,
     ),
-    ownBackgroundRun: ownBackgroundRunWait(output),
+    ownBackgroundRun: waitsOnOwnBackgroundRun(output)
+      ? ownBackgroundRunWait(await deps.readHarnessBackgroundWork(paneId))
+      : undefined,
   };
 }
 
 async function readPaneForPaging(
   agentName: string,
+  paneId: string,
   deps: BlockedAgentPagingDependencies,
 ): Promise<PagingPaneRead | undefined> {
   try {
-    return await readPaneTagAndWait(agentName, deps);
+    return await readPaneTagAndWait(agentName, paneId, deps);
   } catch (error) {
     (deps.stderr ?? ((text: string) => process.stderr.write(text)))(
       `blocked-agent-paging: could not read ${agentName} to look for a blocked marker: ${errText(error)}\n`,
@@ -193,10 +199,11 @@ async function readPaneForPaging(
 
 async function readOwnBackgroundRunWait(
   agentName: string,
+  paneId: string,
   deps: BlockedAgentPagingDependencies,
 ): Promise<OwnBackgroundRunWait | undefined> {
   try {
-    return (await readPaneTagAndWait(agentName, deps)).ownBackgroundRun;
+    return (await readPaneTagAndWait(agentName, paneId, deps)).ownBackgroundRun;
   } catch {
     return undefined;
   }
@@ -230,7 +237,7 @@ async function pageRegentUnlessWaitingOnItsOwnRun(
   roster: readonly AgentStatusesRosterEntry[],
   deps: BlockedAgentPagingDependencies,
 ): Promise<void> {
-  if (wait === OWN_BACKGROUND_RUN_WAITS.RUNNING) {
+  if (wait === OWN_BACKGROUND_RUN_WAITS.RUNNING || wait === OWN_BACKGROUND_RUN_WAITS.UNREADABLE) {
     return;
   }
   if (wait === OWN_BACKGROUND_RUN_WAITS.NONE_RUNNING) {
@@ -260,7 +267,7 @@ async function pageRegentForNamelessBlock(
   if (Number.isNaN(blockedForMilliseconds) || blockedForMilliseconds < DELAY_BEFORE_TELLING_THE_REGENT_MS) {
     return;
   }
-  const pane = await readPaneForPaging(entry.name, deps);
+  const pane = await readPaneForPaging(entry.name, paneId, deps);
   if (
     pane === undefined ||
     pane.blockedTag.kind !== 'blocked' ||
@@ -279,6 +286,10 @@ async function pageRegentForNamelessBlock(
     async () => buildNamelessBlockPagingMessage({ agentName: entry.name, cwd: entry.cwd, paneId }),
     deps,
   );
+}
+
+function herdrReportsThePaneWorking(entry: AgentStatusesRosterEntry): boolean {
+  return entry.liveStatus === 'working';
 }
 
 export async function reconcileBlockedAgentPages(
@@ -300,13 +311,16 @@ export async function reconcileBlockedAgentPages(
     }
     let wait: OwnBackgroundRunWait | undefined;
     if (entry.liveStatus === 'blocked') {
-      wait = await readOwnBackgroundRunWait(entry.name, deps);
+      wait = await readOwnBackgroundRunWait(entry.name, entry.paneId, deps);
     } else {
-      const pane = await readPaneForPaging(entry.name, deps);
+      const pane = await readPaneForPaging(entry.name, entry.paneId, deps);
       if (pane?.blockedTag.kind !== 'blocked') {
         continue;
       }
       wait = pane.ownBackgroundRun;
+      if (wait === OWN_BACKGROUND_RUN_WAITS.NONE_RUNNING && herdrReportsThePaneWorking(entry)) {
+        continue;
+      }
     }
     await pageRegentUnlessWaitingOnItsOwnRun(
       entry.name,
@@ -374,7 +388,7 @@ export async function handlePaneAgentStatusChangedEvent(
   }
   await pageRegentUnlessWaitingOnItsOwnRun(
     agentName,
-    await readOwnBackgroundRunWait(agentName, deps),
+    await readOwnBackgroundRunWait(agentName, event.paneId, deps),
     event,
     confirmationRoster,
     deps,
@@ -387,6 +401,7 @@ export const REAL_BLOCKED_AGENT_PAGING_DEPENDENCIES: BlockedAgentPagingDependenc
   getRoster: async () => getAgentStatusesRoster(),
   readAgentSupervisor: resolvedSupervisorNameForPaging,
   readAgent: async (name) => readAgent(name, { lines: 200 }),
+  readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId),
   readVisiblePaneText: readVisibleText,
   blockedMarkerLedger: {
     readBlockedMarker: (name) => readBlockedMarker(name),
@@ -397,7 +412,7 @@ export const REAL_BLOCKED_AGENT_PAGING_DEPENDENCIES: BlockedAgentPagingDependenc
   // Regent pages route through the same durable queue no-idling already
   // uses -- a busy Regent composer becomes a server-side retry, not a
   // dropped page. See `enqueue-heartbeat-message.ts`.
-  submitToAgent: submitToAgentViaQueue,
+  submitToAgent: submitUnattributedToAgentViaQueue,
   sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   readEscalationLedger: () => readBlockedPageLedger(),
   appendEscalationLedger: (entry) => appendBlockedPageLedgerEntry(entry),

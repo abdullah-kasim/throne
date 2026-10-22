@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Herdr"
+  short_description: "Check, rehearse and apply a herdr release for the throne"
+  default_prompt: "Use $update-herdr to check for, rehearse or apply a herdr release for the throne."

@@ -8,6 +8,7 @@ import type { UsageWindow } from '../../plan-usage-remaining/telemetry.types.ts'
 
 export const SESSION_FLOOR_PCT = 20;
 export const CLAUDE_PROJECTION_LEAD_THRESHOLD_PCT = 20;
+export const ACCOUNT_SWITCH_REMAINING_PCT = 10;
 
 export interface HarnessUsage {
   weeklyPct?: number;

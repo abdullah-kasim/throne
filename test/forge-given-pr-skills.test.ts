@@ -19,7 +19,6 @@ interface StackScript {
 }
 
 interface PendingReviewScript {
-  readonly forgejoHasNoPendingReview: string;
   leavePendingReview(
     url: string,
     commentsPath: string,
@@ -86,7 +85,7 @@ function recordingGithub(answers: (args: readonly string[]) => string) {
   return { calls, runGithub };
 }
 
-test("a GitHub pull request handed to the review skill still uses GitHub", async () => {
+test("promoting the review to GitHub leaves a pending review there", async () => {
   const url = REVIEWED_GITHUB_PULL_REQUEST_URL;
   const github = recordingGithub((args) => {
     if (args[0] === "pr") return `${REVIEWED_HEAD_SHA}\n`;
@@ -96,7 +95,7 @@ test("a GitHub pull request handed to the review skill still uses GitHub", async
   });
   let output = "";
 
-  await pendingReviewScript.leavePendingReview(url, await writeReviewComments(), [], {
+  await pendingReviewScript.leavePendingReview(url, await writeReviewComments(), ["--to-github"], {
     runSeam: runSeamInProcess,
     runGithub: github.runGithub,
     writeOutput: (text) => void (output += text),
@@ -138,10 +137,10 @@ test("a Forgejo pull request is never merged in Forgejo", async () => {
   assert.deepEqual(dependencies.githubCalls, []);
 });
 
-test("an operation Forgejo cannot do stops with a plain statement instead of half-working", async () => {
-  const url = await openForgejoPullRequest("add/feature", "main", "Add the basket store");
+test("a review of an unstaged GitHub pull request is refused before anything is written and names the stage command", async () => {
+  const url = REVIEWED_GITHUB_PULL_REQUEST_URL;
   const github = recordingGithub(() => {
-    throw new Error("GitHub must not be called for a Forgejo pull request");
+    throw new Error("GitHub must not be written for a review that is not promoted");
   });
   let output = "";
 
@@ -151,13 +150,31 @@ test("an operation Forgejo cannot do stops with a plain statement instead of hal
       runGithub: github.runGithub,
       writeOutput: (text) => void (output += text),
     }),
-    { message: pendingReviewScript.forgejoHasNoPendingReview },
+    { message: `${url} is not staged in Forgejo, so nothing was written: stage it first with \`throne forge stage ${url}\`, then leave the review on its Forgejo twin.` },
   );
 
-  assert.equal(
-    pendingReviewScript.forgejoHasNoPendingReview,
-    "A Forgejo pull request cannot get a pending review: the forge seam has no review operation, so nothing was written.",
+  assert.deepEqual(github.calls, []);
+  assert.equal(output, "");
+  assert.equal(forgejo.repositories.size, 0);
+  assert.deepEqual(dependencies.githubCalls.map((call) => call.args.slice(0, 2)), [["pr", "view"]]);
+});
+
+test("a Forgejo pull request cannot be sent to GitHub as a pending review", async () => {
+  const url = await openForgejoPullRequest("add/feature", "main", "Add the basket store");
+  const github = recordingGithub(() => {
+    throw new Error("GitHub must not be called for a Forgejo pull request");
+  });
+  let output = "";
+
+  await assert.rejects(
+    pendingReviewScript.leavePendingReview(url, await writeReviewComments(), ["--to-github"], {
+      runSeam: runSeamInProcess,
+      runGithub: github.runGithub,
+      writeOutput: (text) => void (output += text),
+    }),
+    { message: `${url} is a Forgejo pull request, so nothing was written: a GitHub pending review goes on the GitHub twin's url.` },
   );
+
   assert.deepEqual(github.calls, []);
   assert.equal(output, "");
   assert.deepEqual([forgejo.comments, forgejo.merges], [[], []]);

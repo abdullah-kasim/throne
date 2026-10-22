@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, realpath } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { buildScratchHolderIndex } from "../tmp-scratch-lifecycle/scratch-dir-holders.ts";
@@ -16,7 +16,7 @@ const USAGE =
   "  --min-age-ms N   minimum directory age, in milliseconds, to be eligible " +
   `(default ${DEFAULT_MIN_AGE_MS})\n` +
   "  --apply          actually remove eligible directories; default is dry-run report only\n" +
-  "  --tmp-root PATH  scratch root to scan (default ~/tmp)\n";
+  "  --tmp-root PATH  scratch root to scan (default /tmp; ~/tmp is refused)\n";
 
 interface SweepOptions {
   minAgeMs: number;
@@ -25,7 +25,7 @@ interface SweepOptions {
 }
 
 function help(): string {
-  return `sweep-tmp-scratch — deliberate backlog sweep for ~/tmp campaign scratch\n\n${USAGE}`;
+  return `sweep-tmp-scratch — deliberate backlog sweep for /tmp campaign scratch\n\n${USAGE}`;
 }
 
 function takeFlagValue(args: string[], index: number, flag: string): string {
@@ -39,7 +39,7 @@ function takeFlagValue(args: string[], index: number, flag: string): string {
 function parseSweepArgs(args: string[], homedir: string): SweepOptions {
   let minAgeMs = DEFAULT_MIN_AGE_MS;
   let apply = false;
-  let tmpRoot = path.join(homedir, "tmp");
+  let tmpRoot = "/tmp";
   const singleFlags = new Set<string>();
 
   for (let index = 0; index < args.length; index += 1) {
@@ -164,6 +164,14 @@ export async function runSweepTmpScratch(
     return 2;
   }
 
+  const homeScratch = await realpath(path.join(homedir, "tmp")).catch(() => null);
+  const sweptRoot = await realpath(options.tmpRoot).catch(() => null);
+  if (homeScratch !== null && sweptRoot === homeScratch) {
+    process.stderr.write(
+      `sweep-tmp-scratch: --tmp-root ${options.tmpRoot} resolves to ${homeScratch}, the Lord's kept scratch, which is never swept\n`,
+    );
+    return 2;
+  }
   const entries = await sweepScratchDirs(options);
   process.stdout.write(renderReport(entries, options));
   return 0;

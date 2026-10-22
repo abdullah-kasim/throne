@@ -26,15 +26,12 @@ import {
   classifyPressure,
   type LoadReading,
 } from "./classify-pressure.ts";
-import { readPsiFullPressure, type PsiReading } from "./psi-pressure-reader.ts";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import type { PsiReading } from "./psi-pressure-reader.ts";
 
 /** PSI well under the threshold, so only the load term can move the figure. */
 const CALM_PSI: PsiReading = { state: "ok", avg10: 10, avg60: 10 };
 const CALM_LOAD: LoadReading = { state: "ok", load1: 1.2, cpuCount: 12 };
-/** io `full` well under the threshold, so it never drives the figure here. */
+/** Disk busy well under the threshold, so it never drives the figure here. */
 const CALM_IO: PsiReading = { state: "ok", avg10: 5, avg60: 5 };
 
 test("0.8x per core reads as 80 pressure", () => {
@@ -167,10 +164,8 @@ test("an unreadable load reading is never treated as an idle box", () => {
 
 // ---------------------------------------------------------------------------
 // IO. The Lord, 2026-08-27: "give io the same treatment - it should be included
-// in the autoscaler's threshold". Which LINE is read decides whether the gate
-// works at all: measured that moment, io `some` was 93.49/95.70 while io `full`
-// was 27.10/49.43. Merging `some` would have held the figure above every
-// threshold permanently.
+// in the autoscaler's threshold". The io term is the busiest physical disk's
+// busy percent, graded at its own 90.
 // ---------------------------------------------------------------------------
 
 test("a box that cannot make progress on disk refuses more work", () => {
@@ -181,16 +176,16 @@ test("a box that cannot make progress on disk refuses more work", () => {
   }, LOAD_GRADED_IN_PRESSURE_FIGURE);
   assert.equal(ioStalled.verdict, "at-capacity");
   assert.ok(
-    ioStalled.reasons.some((reason) => reason.includes("io-full 91.00 >= 90")),
+    ioStalled.reasons.some((reason) => reason.includes("disk-busy 91.00% >= 90")),
     `expected a reason naming the io term and its own threshold, got ${JSON.stringify(ioStalled.reasons)}`,
   );
 });
 
 test("io is graded at 90, not at the 70 the other signals share", () => {
   assert.equal(IO_AT_CAPACITY_THRESHOLD, 90);
-  // THE FALSE REFUSAL THIS EXISTS TO PREVENT, measured 2026-08-27: io-full
-  // 75.05 while the disk moved 0.8 MB/s with ZERO processes blocked on it. At
-  // the shared 70 that refused every spawn on an idle box.
+  // THE FALSE REFUSAL THIS EXISTS TO PREVENT, measured 2026-08-27: an io
+  // reading of 75.05 while the disk moved 0.8 MB/s with ZERO processes blocked
+  // on it. At the shared 70 that refused every spawn on an idle box.
   const artifact = classifyPressure(CALM_PSI, CALM_PSI, CALM_LOAD, {
     state: "ok",
     avg10: 75.05,
@@ -202,9 +197,6 @@ test("io is graded at 90, not at the 70 the other signals share", () => {
 });
 
 test("ordinary disk contention does not refuse work", () => {
-  // The measured io `full` reading from the live box: high, but not stalling.
-  // If this ever starts returning at-capacity, someone has switched the gate
-  // to the `some` line and the court will stop spawning entirely.
   const busyDisk = classifyPressure(CALM_PSI, CALM_PSI, CALM_LOAD, {
     state: "ok",
     avg10: 27.1,
@@ -222,22 +214,7 @@ test("an unreadable io reading is never treated as an idle disk", () => {
   }, LOAD_GRADED_IN_PRESSURE_FIGURE);
   assert.equal(unreadable.verdict, "unknown");
   assert.equal(unreadable.pressure, null);
-  assert.ok(unreadable.reasons.some((reason) => reason.includes("io")));
-});
-
-test("the io term is read from the full line, not some", () => {
-  // Guards the decision itself against a well-meaning future edit: a real PSI
-  // file body where the two lines differ sharply, parsed through the reader the
-  // gate actually calls.
-  const body =
-    "some avg10=93.49 avg60=95.70 avg300=95.44 total=845084869688\n" +
-    "full avg10=27.10 avg60=49.43 avg300=44.26 total=685083727311\n";
-  const path = join(mkdtempSync(join(tmpdir(), "throne-psi-")), "io");
-  writeFileSync(path, body);
-  const full = readPsiFullPressure(path);
-  assert.equal(full.state, "ok");
-  assert.equal(full.avg10, 27.1);
-  assert.equal(full.avg60, 49.43);
+  assert.ok(unreadable.reasons.includes("disk-busy reading unknown"));
 });
 
 test("memory is graded at its own 80 while cpu stays at 70", () => {

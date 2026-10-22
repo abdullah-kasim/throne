@@ -68,6 +68,10 @@ async function answerGithubCall(state: FakeGithubState, args: readonly string[],
     pull.body = body;
     return printed(pull.url);
   }
+  if (command === "pr" && sub === "ready") {
+    pullRequestOf(rest[2])!.draft = false;
+    return "";
+  }
   if (command === "pr" && sub === "list") return printed([]);
   if (command === "pr" && sub === "merge") {
     pullRequestOf(rest[2])!.state = "MERGED";

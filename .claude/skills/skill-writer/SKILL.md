@@ -52,7 +52,9 @@ values, tokens, and internal URLs. Then run the project's own
 generalization and leak-detection gates when they exist, and report the hit
 count rather than asserting the result is clean:
 
-- Inside this throne: `./publish.sh --dry-run` against the staged content,
+- Inside this throne: `./publish.sh --dry-run` against the staged content
+  (add `--any-commit` when your tree is not the throne's own `main` checkout,
+  since a dry run otherwise refuses any HEAD that is not main's tip),
   and grep the content directly against every `# verify:` pattern in
   `publish-scrub.sed`.
 - Outside this throne: grep against every `# verify:` pattern in the
@@ -131,8 +133,9 @@ there if that file exists, or name the exact line that belongs there if it
 does not.
 
 Prove the appended line actually gates something: run `./publish.sh
---dry-run` against a tree that still contains the old term somewhere and
-confirm it refuses, citing the newly appended line as the reason.
+--dry-run` (with `--any-commit` outside the throne's own `main` checkout)
+against a tree that still contains the old term somewhere and confirm it
+refuses, citing the newly appended line as the reason.
 
 ## Every throne skill opens with the operator-extension step
 

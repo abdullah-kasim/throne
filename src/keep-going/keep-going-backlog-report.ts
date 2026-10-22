@@ -9,7 +9,7 @@
 // Measured fact (2026-08-16, KGQ campaign): of 201 open items, agent_name is
 // populated on ZERO; across all 460 rows, agent_name/target_repo/base_commit/
 // delivery_commit are each populated on exactly TWO, including rows from five
-// gabledge campaigns that demonstrably ran real Alphas and delivered real
+// other-project campaigns that demonstrably ran real Alphas and delivered real
 // commits. Those provenance columns exist in the schema but are essentially
 // never written -- counting by them would silently undercount every
 // campaign that actually launched. `status`, by contrast, is the field the

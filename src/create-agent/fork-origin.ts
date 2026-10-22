@@ -5,6 +5,7 @@ import { DEFAULT_DATA_DIR } from "../agentdata/spawn-data-contracts.ts";
 import { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import { resolveAgent } from "../herdr/herdr-runtime.service.ts";
 import { readLiveClaudeModel } from "../session/live-claude-model.ts";
+import { claudeProjectsFolderOf } from "../account/agent-account.ts";
 
 export const FORK_PARENT_ROLE = "Stager";
 export const FORK_BRIEF_BASENAME = "brief.md";
@@ -60,7 +61,9 @@ export async function readForkParentEvidenceFromLedger(
   const ledgerRole = await readAgentStatusRole(parentName, baseDir);
   const spawnSpec = await readSpawnSpec(parentName, baseDir);
   const liveModel =
-    liveAgent === undefined ? undefined : await readLiveClaudeModel(liveAgent);
+    liveAgent === undefined
+      ? undefined
+      : await readLiveClaudeModel(liveAgent, claudeProjectsFolderOf(spawnSpec?.account));
   return {
     live: liveAgent !== undefined,
     ledgerRole,

@@ -46,6 +46,7 @@
 import { cpus as osCpus } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import type { PsiReading } from './psi-pressure-reader.ts';
+import { sleepSync } from './synchronous-sleep.ts';
 
 const UNKNOWN: PsiReading = { state: 'unknown', avg10: null, avg60: null };
 
@@ -57,13 +58,6 @@ export const DARWIN_CPU_SAMPLE_MS = 500;
 export type CpuTimesSample = ReadonlyArray<{
   readonly times: Readonly<Record<string, number>>;
 }>;
-
-/** Synchronous sleep: the pressure readers are called from synchronous
- *  dependency seams (`readPressure: () => PressureClassification`), so the
- *  sample window cannot await. `Atomics.wait` blocks without spinning. */
-function sleepSync(milliseconds: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
-}
 
 /**
  * Utilisation percentage between two `os.cpus()` samples: 100 x (1 - idle /

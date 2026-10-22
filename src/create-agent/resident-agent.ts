@@ -6,6 +6,8 @@ import {
   reconcileIndeterminateAgentStart,
 } from "../herdr/herdr-create.service.ts";
 import { PERSONA_CONFIG } from "../application-config.service.ts";
+import { readAccountsConfig } from "../account/accounts-config.ts";
+import { launchAccountOption } from "../account/agent-account.ts";
 import { REGENT_NAME } from "../regent-state/regent-state.service.ts";
 import {
   type CreateAgentDeps,
@@ -98,18 +100,22 @@ async function startOrResumeAgent(
   spawnedTabLabel?: string,
 ): Promise<StageResult<boolean>> {
   const writeStderr = stderrWriter(deps);
+  const launch = {
+    cwd: request.cwd,
+    argv,
+    ...(await launchAccountOption(request.name, request.account, deps.readAccountsConfig ?? readAccountsConfig)),
+  };
   let harnessWasLaunched = true;
   try {
     if (request.resuming) {
       const result = await deps.resumeRegisteredAgentInRestoredTab(
         request.name,
-        { cwd: request.cwd, argv },
+        launch,
       );
       harnessWasLaunched = result.kind !== "already-live";
     } else {
       await deps.startAgent(request.name, {
-        cwd: request.cwd,
-        argv,
+        ...launch,
         tabLabel: spawnedTabLabel,
       });
     }
@@ -119,7 +125,7 @@ async function startOrResumeAgent(
         const result = await (
           deps.reconcileIndeterminateAgentStart ??
           reconcileIndeterminateAgentStart
-        )(request.name, error.tabId, error.paneId, { cwd: request.cwd, argv });
+        )(request.name, error.tabId, error.paneId, launch);
         if (result.kind === "already-live") {
           harnessWasLaunched = false;
         } else {
@@ -182,6 +188,8 @@ function reportResidentAgent(
     policyOverrideNote === ""
       ? ""
       : ` — policy override: ${policyOverrideNote}`;
+  const account =
+    request.account === undefined ? "" : ` — account ${request.account} (${request.accountReason})`;
   const action = request.resuming ? "Resumed" : "Spawned";
   const supervisor = request.flags.supervisor as string;
   const escalation =
@@ -191,7 +199,7 @@ function reportResidentAgent(
   write(
     `${action} "${request.name}" (${request.role}) via ${request.launchHarness} ` +
       `[${request.launchModel} / effort ${request.launchEffort}] ` +
-      `— supervisor ${supervisor}, escalation ${escalation}${routed}${policy}.\n`,
+      `— supervisor ${supervisor}, escalation ${escalation}${account}${routed}${policy}.\n`,
   );
   write(`Spawn tasking: ${taskingOutcome}.\n`);
 }

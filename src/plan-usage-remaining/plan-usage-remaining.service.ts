@@ -10,7 +10,11 @@ import {
   WeeklyResetService,
 } from './plan-usage-telemetry.service.ts';
 import type { UsagePayload } from "./telemetry.types.ts";
-import { PlanUsageAuthenticationService } from './plan-usage-authentication.service.ts';
+import type { LiveUsageReading } from './account-usage-cache.ts';
+import {
+  isRateLimitedUsageRequest,
+  PlanUsageAuthenticationService,
+} from './plan-usage-authentication.service.ts';
 import { PlanUsagePlatformService } from './plan-usage-platform.service.ts';
 import { PlanUsageHistoryService } from './plan-usage-history.service.ts';
 
@@ -30,16 +34,16 @@ export class PlanUsageRemainingService {
   }
 
   async getUsagePayload(): Promise<UsagePayload> {
-    const payload = await this.computeLiveUsagePayload();
+    const payload = await this.telemetry.cache.readThrough(() => this.readLiveUsage());
     return this.telemetry.enrich(payload);
   }
 
-  private async computeLiveUsagePayload(): Promise<UsagePayload> {
+  private async readLiveUsage(): Promise<LiveUsageReading> {
     const asOf = this.runtime.now().toISOString();
     try {
       const usage = await this.authentication.fetchUsage();
       const { windows, unreadableWindows } = mapUsageWindows(usage);
-      return {
+      const payload: UsagePayload = {
         source: "api",
         harness: HARNESS_NAMES.CLAUDE,
         as_of: asOf,
@@ -48,13 +52,15 @@ export class PlanUsageRemainingService {
           ? { unreadable_windows: unreadableWindows }
           : {}),
       };
+      return { payload, rateLimited: false };
     } catch (error) {
-      return {
+      const payload: UsagePayload = {
         source: "error",
         harness: HARNESS_NAMES.CLAUDE,
         as_of: asOf,
         error: errorText(error),
       };
+      return { payload, rateLimited: isRateLimitedUsageRequest(error) };
     }
   }
 }

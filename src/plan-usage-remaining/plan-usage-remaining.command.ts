@@ -2,6 +2,7 @@ import { Command as CommanderCommand } from 'commander';
 import { Command, CommandRunner } from 'nest-commander';
 import { PlanUsageRemainingService } from './plan-usage-remaining.service.ts';
 import { PlanUsagePresentationService } from './plan-usage-presentation.service.ts';
+import { planUsageCommandResult } from './plan-usage-accounts.ts';
 
 @Command({
   name: 'plan-usage-remaining',
@@ -28,10 +29,7 @@ export class PlanUsageRemainingCommand extends CommandRunner {
   }
 
   async run(passedParams: string[]): Promise<void> {
-    const result = this.presentation.commandResult(
-      passedParams,
-      await this.usage.getUsagePayload(),
-    );
+    const result = await planUsageCommandResult(passedParams, this.usage, this.presentation);
     if (result.stdout !== undefined) process.stdout.write(result.stdout);
     if (result.stderr !== undefined) process.stderr.write(result.stderr);
     process.exitCode = result.exitCode;

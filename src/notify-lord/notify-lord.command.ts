@@ -25,6 +25,7 @@ export interface NotifyLordDependencies {
   writeStdout: (text: string) => void;
   writeStderr: (text: string) => void;
   addressTitle?: string;
+  sendingEnabled?: boolean;
 }
 
 const PRODUCTION_DEPENDENCIES: NotifyLordDependencies = {
@@ -50,6 +51,13 @@ export async function runNotifyLord(
       })}\n`,
     );
     return 1;
+  }
+
+  if (!(dependencies.sendingEnabled ?? NOTIFY_CONFIG.sendingEnabled)) {
+    dependencies.writeStdout(
+      'notify-lord: phone notifications are off (ntfy.enabled is false in config.user.ts); nothing was sent.\n',
+    );
+    return 0;
   }
 
   try {

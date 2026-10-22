@@ -35,6 +35,14 @@ function anchoredUrlsIn(body: string): Map<string, string> {
   return urls;
 }
 
+function isReadyForReviewCall(call: readonly string[]): boolean {
+  return call[1] === "pr" && call[2] === "ready";
+}
+
+async function readyForReviewCalls(): Promise<string[][]> {
+  return (await host.github.read()).calls.filter(isReadyForReviewCall);
+}
+
 const PUBLISH_THAT_UPLOADS_NOTHING = async (): Promise<ProcessResult> => ({ exitCode: 0, stdout: "", stderr: "" });
 
 async function refusedPromotion(forgejoUrl: string, publish: () => Promise<ProcessResult>): Promise<string> {
@@ -56,7 +64,7 @@ test("promoting a Forgejo pull request opens the same pull request on GitHub wit
   assert.equal(promotion.githubUrl, `https://github.com/${FAKE_GITHUB_REPOSITORY}/pull/7`);
   assert.deepEqual(
     { title: githubPullRequest!.title, base: githubPullRequest!.base, head: githubPullRequest!.head, draft: githubPullRequest!.draft },
-    { title: "Add the feature", base: "main", head: "add/feature", draft: true },
+    { title: "Add the feature", base: "main", head: "add/feature", draft: false },
   );
   assert.match(githubPullRequest!.body, /^## Summary\n\nAdds the feature\.\n/);
   const hosted = anchoredUrlsIn(githubPullRequest!.body);
@@ -67,6 +75,11 @@ test("promoting a Forgejo pull request opens the same pull request on GitHub wit
   assert.equal(await git(host.checkout.origin, ["rev-parse", "refs/heads/add/feature"]), promotedHead);
   const createCall = (await host.github.read()).calls.find((call) => call.includes("create"))!;
   assert.deepEqual(createCall.slice(0, 4), ["--bypass", "pr", "create", "--draft"]);
+  const calls = (await host.github.read()).calls;
+  const mediaPublishAt = calls.findIndex((call) => call.includes("--attach"));
+  assert.ok(mediaPublishAt >= 0, JSON.stringify(calls));
+  assert.deepEqual(calls.filter(isReadyForReviewCall), [["--bypass", "pr", "ready", promotion.githubUrl]]);
+  assert.ok(calls.findIndex(isReadyForReviewCall) > mediaPublishAt, JSON.stringify(calls));
   assert.deepEqual(
     host.forgejo.comments.map((comment) => comment.body),
     [stagingMetadataCommentBody({ githubUrl: promotion.githubUrl, sync: { promotedHead, carriedAnswers: [] } })],
@@ -105,6 +118,40 @@ test("promoting the same pull request twice opens nothing new", async () => {
   assert.equal((await host.github.read()).pullRequests.length, 1);
   assert.equal((await host.github.read()).calls.filter((call) => call.includes("create")).length, 1);
   assert.equal(host.forgejo.comments.length, 1);
+});
+
+test("a repromote marks a GitHub pull request that is still a draft ready for review", async () => {
+  const forgejoUrl = await openForgejoDraftPullRequest(host);
+  await promote(host, forgejoUrl);
+  const state = await host.github.read();
+  state.pullRequests[0]!.draft = true;
+  await host.github.write(state);
+
+  await promote(host, forgejoUrl);
+
+  assert.equal((await host.github.read()).pullRequests[0]!.draft, false);
+  assert.equal((await readyForReviewCalls()).length, 2);
+});
+
+test("a repromote of a pull request that is already ready for review asks GitHub nothing more", async () => {
+  const forgejoUrl = await openForgejoDraftPullRequest(host);
+  await promote(host, forgejoUrl);
+
+  await promote(host, forgejoUrl);
+
+  assert.equal((await host.github.read()).pullRequests[0]!.draft, false);
+  assert.equal((await readyForReviewCalls()).length, 1);
+});
+
+test("promoting a pull request asks nobody for a review", async () => {
+  const forgejoUrl = await openForgejoDraftPullRequest(host);
+
+  await promote(host, forgejoUrl);
+  await promote(host, forgejoUrl);
+
+  const calls = (await host.github.read()).calls;
+  assert.ok(calls.some(isReadyForReviewCall), JSON.stringify(calls));
+  assert.deepEqual(calls.filter((call) => call.some((value) => /reviewer/i.test(value))), []);
 });
 
 test("promote records the promoted head in the one metadata comment instead of posting a second comment", async () => {
@@ -159,6 +206,15 @@ test("a promote whose media publish leaves drop placeholders on GitHub fails and
   const message = await refusedPromotion(forgejoUrl, PUBLISH_THAT_UPLOADS_NOTHING);
 
   assert.match(message, /still holds drop placeholders for diagram\.png, 01-feature-page\.png, 02-feature-click\.mp4 after the media publish/);
+});
+
+test("a promotion whose media is unfinished leaves the GitHub pull request a draft", async () => {
+  const forgejoUrl = await openForgejoPullRequestWithMedia(host);
+
+  await refusedPromotion(forgejoUrl, PUBLISH_THAT_UPLOADS_NOTHING);
+
+  assert.equal((await host.github.read()).pullRequests[0]!.draft, true);
+  assert.deepEqual(await readyForReviewCalls(), []);
 });
 
 test("a promote that leaves a media link to the Forgejo host in the GitHub body fails and names the promote command that finishes it", async () => {

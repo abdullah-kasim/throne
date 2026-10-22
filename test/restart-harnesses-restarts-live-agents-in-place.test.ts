@@ -96,6 +96,7 @@ function fakeDeps(
     resume: async (name) => {
       recorder.resumed.push(name);
     },
+    readAccountsConfig: () => null,
     configuredEffort: async (name, role) => options.configuredEfforts?.[role ?? name],
     renameAgent: async (paneId, name) => {
       recorder.renamed.push({ paneId, name });

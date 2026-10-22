@@ -12,6 +12,7 @@ import {
   type AlphaInspectionRequest,
   type AlphaInspectionState,
 } from "./alpha-monitoring.types.ts";
+import { sameAgentName } from "../herdr/herdr-identity-contracts.ts";
 import { acquireAtomicMkdirLock } from "./atomic-mkdir-lock.ts";
 
 export const ALPHA_INSPECTION_MINIMUM_INTERVAL_MS = 30 * 60 * 1000;
@@ -275,6 +276,17 @@ export interface DeliveredSupervisionEvent {
   readonly prompt: string;
 }
 
+function isFirstWordDone(word: string): boolean {
+  return /^DONE\b/i.test(word);
+}
+
+export function isDoneReport(messageText: string, senderNames: readonly string[]): boolean {
+  const [firstWord = "", secondWord = ""] = messageText.trim().split(/\s+/);
+  if (isFirstWordDone(firstWord)) return true;
+  const leadingName = firstWord.replace(/:$/, "");
+  return senderNames.some((name) => sameAgentName(leadingName, name)) && isFirstWordDone(secondWord);
+}
+
 export async function recordDeliveredSupervisionEvent(
   delivery: DeliveredSupervisionEvent,
   dependencies: AlphaMonitoringDependencies,
@@ -286,7 +298,7 @@ export async function recordDeliveredSupervisionEvent(
     delivery.senderRole === "Shadow" &&
     delivery.senderSupervisor === delivery.recipient
   ) {
-    if (/^\s*DONE\b/i.test(delivery.prompt)) context = "completion";
+    if (isDoneReport(delivery.prompt, [delivery.sender])) context = "completion";
     else if (/\bblock(?:ed|er|ing)?\b/i.test(delivery.prompt))
       context = "blocker";
   } else if (

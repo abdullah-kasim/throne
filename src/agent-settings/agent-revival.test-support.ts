@@ -176,6 +176,8 @@ export async function court(): Promise<Court> {
       deliverOpeningPrompt: async () => {},
       pathExists: async () => true,
       throneRoot: agentDataRoot,
+      readAccountsConfig: () => null,
+      readAgentRole: async () => undefined,
       log: () => {},
       warn: () => {},
     },

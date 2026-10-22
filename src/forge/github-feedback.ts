@@ -82,8 +82,8 @@ function githubLink(repository: GithubRepository, kind: GithubFeedbackKind, pull
   return `https://${repository.host}/${repository.owner}/${repository.repo}/pull/${pullRequestNumber}#${GITHUB_ANCHOR_PREFIX[kind]}${id}`;
 }
 
-function isCarriedAnswer(comment: DumpedComment, carriedAnswerTexts: ReadonlySet<string>): boolean {
-  return carriedAnswerTexts.has(withoutStagingRecords(comment.body ?? ""));
+function isSentFromForgejo(comment: DumpedComment, textsSentFromForgejo: ReadonlySet<string>): boolean {
+  return textsSentFromForgejo.has(withoutStagingRecords(comment.body ?? ""));
 }
 
 function isAutomatedAuthor(author: string): boolean {
@@ -103,7 +103,7 @@ function quotedComment(comment: DumpedComment): GithubFeedbackComment {
 function threadItems(
   repository: GithubRepository,
   pullRequest: DumpedPullRequest,
-  carriedAnswerTexts: ReadonlySet<string>,
+  textsSentFromForgejo: ReadonlySet<string>,
 ): GithubFeedbackItem[] {
   return pullRequest.threads
     .filter((thread) => thread.comments.length > 0)
@@ -119,7 +119,7 @@ function threadItems(
         path: thread.path,
         line: thread.line ?? thread.originalLine,
         url: githubLink(repository, GITHUB_FEEDBACK_KIND.thread, pullRequest.number, first.id),
-        comments: thread.comments.filter((comment) => !isCarriedAnswer(comment, carriedAnswerTexts)).map(quotedComment),
+        comments: thread.comments.filter((comment) => !isSentFromForgejo(comment, textsSentFromForgejo)).map(quotedComment),
       };
     });
 }
@@ -127,11 +127,11 @@ function threadItems(
 function conversationItems(
   repository: GithubRepository,
   pullRequest: DumpedPullRequest,
-  carriedAnswerTexts: ReadonlySet<string>,
+  textsSentFromForgejo: ReadonlySet<string>,
 ): GithubFeedbackItem[] {
   const latestAutomated = latestEntryIdPerAutomatedAuthor(pullRequest.conversation);
   return pullRequest.conversation
-    .filter((entry) => !isCarriedAnswer(entry, carriedAnswerTexts))
+    .filter((entry) => !isSentFromForgejo(entry, textsSentFromForgejo))
     .filter((entry) => !isAutomatedAuthor(entry.author) || latestAutomated.has(entry.id))
     .map((entry) => {
       const kind = entry.kind === GITHUB_FEEDBACK_KIND.comment ? GITHUB_FEEDBACK_KIND.comment : GITHUB_FEEDBACK_KIND.review;
@@ -168,14 +168,14 @@ async function dumpGithubFeedback(githubUrl: string): Promise<ThreadsDump> {
   }
 }
 
-export async function readGithubFeedback(githubUrl: string, carriedAnswerTexts: ReadonlySet<string>): Promise<GithubFeedback> {
+export async function readGithubFeedback(githubUrl: string, textsSentFromForgejo: ReadonlySet<string>): Promise<GithubFeedback> {
   const dump = await dumpGithubFeedback(githubUrl);
   const repository = { host: dump.host, owner: dump.owner, repo: dump.repo };
   return {
     ...repository,
     items: dump.pullRequests.flatMap((pullRequest) => [
-      ...threadItems(repository, pullRequest, carriedAnswerTexts),
-      ...conversationItems(repository, pullRequest, carriedAnswerTexts),
+      ...threadItems(repository, pullRequest, textsSentFromForgejo),
+      ...conversationItems(repository, pullRequest, textsSentFromForgejo),
     ]),
   };
 }

@@ -28,7 +28,7 @@ function githubTwinMarker(githubUrl: string | undefined): string {
   return `[GH-${githubUrl === undefined ? UNKNOWN_GITHUB_NUMBER : githubNumberIn(githubUrl)}]`;
 }
 
-function titleAfterDraftPrefixAndMarker(title: string): string {
+export function titleAfterDraftPrefixAndMarker(title: string): string {
   return titleWithoutDraftPrefix(title).replace(GITHUB_TWIN_MARKER_PATTERN, "");
 }
 

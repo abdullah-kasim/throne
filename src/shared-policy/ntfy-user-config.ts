@@ -12,9 +12,11 @@ export interface NtfyUserConfig {
   readonly serverUrl?: string;
   /** The topic to publish to. Treat it as a shared secret. */
   readonly topic?: string;
+  readonly enabled?: boolean;
 }
 
-export const NTFY_FIELDS = ['serverUrl', 'topic'] as const;
+export const NTFY_FIELDS = ['serverUrl', 'topic', 'enabled'] as const;
+const NTFY_TEXT_FIELDS = ['serverUrl', 'topic'] as const;
 
 /**
  * Validates a user file's `ntfy` section. `invalid` and `requireNonEmptyString`
@@ -41,11 +43,17 @@ export function validateNtfy(
       );
     }
   }
-  const ntfy: { -readonly [K in keyof NtfyUserConfig]?: string } = {};
-  for (const field of NTFY_FIELDS) {
+  const ntfy: { -readonly [K in keyof NtfyUserConfig]?: NtfyUserConfig[K] } = {};
+  for (const field of NTFY_TEXT_FIELDS) {
     if (field in value) {
       ntfy[field] = requireNonEmptyString(value[field], `ntfy.${field}`);
     }
+  }
+  if ('enabled' in value) {
+    if (typeof value.enabled !== 'boolean') {
+      throw invalid('ntfy.enabled', `must be true or false (got ${describeValue(value.enabled)})`);
+    }
+    ntfy.enabled = value.enabled;
   }
   return ntfy;
 }

@@ -45,7 +45,7 @@ no "WIP", no agent or tool names, and no `[GH-...]` marker: on Forgejo,
 ## Body — six sections, in this order
 
 When the work traces to a ticket, the body opens with one line before
-`## What`, so a reader lands on the ticket from the top of the PR and the
+`## What (human)`, so a reader lands on the ticket from the top of the PR and the
 ticket's own view of the PR carries the backlink:
 
 ```markdown
@@ -56,6 +56,36 @@ Resolve the URL from the tracker, never by hand: a tracker's own API or MCP
 server can return the canonical link with its slug. Several tickets get
 several links on the same line. No ticket means no line; never invent
 one, and never write a bare identifier that does not link.
+
+### `## What (human)`
+
+The first section of every body, left for a person to write what the
+pull request does in their own words. You write its heading and one
+placeholder line under it, and nothing else:
+
+```markdown
+## What (human)
+
+Human text goes here.
+```
+
+The placeholder stays visible, so a reader sees the section is waiting
+for a person and a person sees where to write. Never fill the section, never
+summarise your own `## What` into it, and never leave it out. When you
+edit a body that already exists, edit from the live body as "Keep the
+description in sync" says, and keep whatever a person wrote here word
+for word.
+
+### What, Why and How each sit in a closed spoiler
+
+`## What`, `## Why` and `## How` follow `## What (human)` in that order.
+Each keeps its heading visible, outside its own spoiler, and wraps only
+its content in a collapsible spoiler hidden by default, the same way
+`## Screenshots` and `## Testing` do: `<details><summary>What</summary>`
+(`Why`, `How` for the other two), a blank line, the content, a blank
+line, `</details>`. Never put the three in one shared spoiler, and never
+put a heading inside a spoiler. Both blank lines are mandatory: GitHub
+only renders markdown inside an HTML block when blank lines surround it.
 
 ### `## What`
 
@@ -156,7 +186,7 @@ By default the section's content is wrapped in a collapsible spoiler:
 blank line, `</details>`. The `## Screenshots` heading itself stays
 outside the wrapper and unchanged. GitHub only renders markdown inside
 an HTML block when blank lines surround it, so both blank lines are
-mandatory. `## What`, `## Why` and `## How` are never collapsed.
+mandatory.
 
 ### `## Testing`
 
@@ -169,8 +199,7 @@ By default the section's content is wrapped in a collapsible spoiler:
 `<details><summary>Steps to test</summary>`, a blank line, the content
 below, a blank line, `</details>`. The `## Testing` heading itself stays
 outside the wrapper and unchanged; both blank lines are mandatory for
-GitHub to render the markdown inside the block. `## What`, `## Why` and
-`## How` are never collapsed.
+GitHub to render the markdown inside the block.
 
 Layout, top to bottom:
 
@@ -522,20 +551,39 @@ Paste `/ticket-check`'s block exactly as it prints it. A PR delivered by
 ````markdown
 Ticket: [ABC-540](https://issues.example.test/browse/ABC-540)
 
+## What (human)
+
+Human text goes here.
+
 ## What
+
+<details>
+<summary>What</summary>
 
 `scripts/deploy --dry-run` prints the files a deploy would change without applying them, so a reviewer can check a deploy's scope before running it for real. The README gains a section documenting the flag.
 
+</details>
+
 ## Why
+
+<details>
+<summary>Why</summary>
 
 `scripts/deploy` always applied its changes immediately; there was no way to preview what a deploy would touch before committing to it. Anyone who wanted to check a deploy's scope first had to read the diff by hand or run it against a throwaway environment.
 
+</details>
+
 ## How
+
+<details>
+<summary>How</summary>
 
 - Reads the same manifest the real deploy reads and diffs it against the target environment's current state.
 - Prints each file that would change, added, or removed, with a summary count, then exits without writing anything.
 - Reuses the existing manifest-validation and target-resolution code paths so a dry run and a real run agree on scope.
 - Refuses early with a clear message when the target environment does not exist or credentials are missing, the same as a real deploy would.
+
+</details>
 
 ## Sequence
 

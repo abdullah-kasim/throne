@@ -1,12 +1,12 @@
 import type { ForgejoApi } from "./forgejo-api.ts";
-import { readForgejoConversation, type ForgejoConversationComment } from "./forgejo-feedback.ts";
+import { editForgejoConversationComment, readForgejoConversation, type ForgejoConversationComment } from "./forgejo-feedback.ts";
 import {
   FORGEJO_PAGE_LIMIT,
   issueApiPath,
   readOpenPullRequestRecords,
   type ForgejoPullRequestAddress,
 } from "./forgejo-pull-requests.ts";
-import { forgejoCopyNamed, forgejoRepositoryApiPath, forgejoTokenUserLogin } from "./forgejo-repository.ts";
+import { forgejoCopyNamed, forgejoTokenUserLogin } from "./forgejo-repository.ts";
 import {
   EMPTY_STAGING_SYNC,
   githubTwinIn,
@@ -58,10 +58,6 @@ export async function readStagingMetadataComment(
   return readStagingMetadataCommentWrittenBy(address, await forgejoTokenUserLogin(api), api);
 }
 
-function issueCommentApiPath(address: ForgejoPullRequestAddress, commentId: number): string {
-  return `${forgejoRepositoryApiPath(address.repository)}/issues/comments/${commentId}`;
-}
-
 export async function writeStagingMetadataComment(
   address: ForgejoPullRequestAddress,
   githubUrl: string,
@@ -74,7 +70,7 @@ export async function writeStagingMetadataComment(
   if (recorded === undefined) {
     return (await api.sendJson<{ id: number }>("POST", `${issueApiPath(address)}/comments`, { body })).id;
   }
-  await api.sendJson("PATCH", issueCommentApiPath(address, recorded.id), { body });
+  await editForgejoConversationComment(address, recorded.id, body, api);
   return recorded.id;
 }
 

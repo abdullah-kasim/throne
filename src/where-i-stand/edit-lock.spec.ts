@@ -234,14 +234,14 @@ test("a broken frame at release is reported with the saved copy and the Regent i
     dependenciesThatEditWhileHeld(room, () => broken),
   );
 
-  assert.equal(exitCode, WhereIStandExitCode.ReleasedWithBrokenFrame);
+  assert.equal(exitCode, WhereIStandExitCode.ReleasedWithFaults);
   assert.equal(await readPageOrEmptyFrame(room), broken);
   const savedCopy = previousCopyPathIn(room.dataHome, 1);
   assert.equal(await readFile(savedCopy, "utf8"), atLockTime);
   assert.match(room.complaints.join(""), /the heading "## Needs you" is missing/);
   assert.match(room.complaints.join(""), new RegExp(`the copy saved when the lock was taken is ${savedCopy}`));
   assert.equal(room.regentNotices.length, 1);
-  assert.match(room.regentNotices[0] ?? "", new RegExp(`${WRITER} released the page's edit lock with a broken frame`));
+  assert.match(room.regentNotices[0] ?? "", new RegExp(`${WRITER} released the page's edit lock with faults to fix`));
   assert.match(room.regentNotices[0] ?? "", /the heading "## Needs you" is missing/);
   assert.equal((await readJournal(room.dataHome)).at(-1)?.action, JournalAction.Edit);
 });
@@ -255,6 +255,100 @@ test("a Regent who cannot be told never changes how the lock ends", async (t) =>
 
   const exitCode = await lockEditAndRelease(room, () => EMPTY_FRAME.replace("## Needs you\n", ""));
 
-  assert.equal(exitCode, WhereIStandExitCode.ReleasedWithBrokenFrame);
+  assert.equal(exitCode, WhereIStandExitCode.ReleasedWithFaults);
   assert.match(room.complaints.join(""), /the Regent could not be told \(send-agent is not reachable\)/);
+});
+
+const FORGEJO_PULL_REQUEST = "https://forge.example/bakery/till/pulls/7";
+const GITHUB_PULL_REQUEST = "https://github.com/bakery/till/pull/7";
+
+function workEntry(identity: string, links: string, whereItStands: string, extra = ""): string {
+  return entry(identity, `- Links: ${links} · Ticket BAKE-12\n- Where it stands: ${whereItStands}${extra}`);
+}
+
+test("a release after an edit that leaves two current entries about one pull request exits 3 and names both headings", async (t) => {
+  const room = await pageRoom(t);
+  const atLockTime = pageWith({ "## In flight": workEntry("ovenqueue", `GitHub ${GITHUB_PULL_REQUEST}`, "baking.") });
+  await lockEditAndRelease(room, () => atLockTime);
+  const withDuplicate = pageWith({
+    "## In flight": workEntry("ovenqueue", `GitHub ${GITHUB_PULL_REQUEST}`, "baking."),
+    "## On GitHub": workEntry("ovenretry", `GitHub ${GITHUB_PULL_REQUEST}`, "out of the oven."),
+  });
+
+  const exitCode = await lockEditAndRelease(room, () => withDuplicate);
+
+  assert.equal(exitCode, WhereIStandExitCode.ReleasedWithFaults);
+  assert.equal(await readPageOrEmptyFrame(room), withDuplicate);
+  const report = room.complaints.join("");
+  assert.match(report, /"### ovenqueue" still says "- Where it stands: baking\." and "### ovenretry" still says "- Where it stands: out of the oven\."/);
+  assert.match(report, /Superseded by `### <identity>` on <date>/);
+  assert.equal(room.regentNotices.length, 1);
+  assert.match(room.regentNotices[0] ?? "", new RegExp(`${WRITER} released the page's edit lock with faults to fix`));
+  assert.match(room.regentNotices[0] ?? "", /"### ovenretry"/);
+  assert.equal((await readJournal(room.dataHome)).at(-1)?.action, JournalAction.Edit);
+});
+
+test("a superseded entry, and a Needs you question beside the work's own entry, are not reported", async (t) => {
+  const room = await pageRoom(t);
+  const links = `GitHub ${GITHUB_PULL_REQUEST}`;
+
+  const exitCode = await lockEditAndRelease(room, () =>
+    pageWith({
+      "## Needs you": workEntry("ovenretry — one stale reply on #7", links, "waiting on you."),
+      "## In flight": workEntry("ovenretry", links, "baking."),
+      "## On GitHub": workEntry("ovenqueue", links, "replaced.", "\n\nSuperseded by `### ovenretry` on 2026-10-14"),
+    }),
+  );
+
+  assert.equal(exitCode, WhereIStandExitCode.Done);
+  assert.deepEqual(room.complaints, []);
+  assert.deepEqual(room.regentNotices, []);
+});
+
+test("two Needs you questions about the same work are reported", async (t) => {
+  const room = await pageRoom(t);
+  const links = `GitHub ${GITHUB_PULL_REQUEST}`;
+
+  const exitCode = await lockEditAndRelease(room, () =>
+    pageWith({
+      "## Needs you":
+        workEntry("ovenretry — one stale reply on #7", links, "waiting on you.") +
+        workEntry("ovenretry — the second reply on #7", links, "waiting on you too."),
+    }),
+  );
+
+  assert.equal(exitCode, WhereIStandExitCode.ReleasedWithFaults);
+  assert.match(room.complaints.join(""), /"### ovenretry — one stale reply on #7" still says .* and "### ovenretry — the second reply on #7"/);
+});
+
+test("a Forgejo pull request and its GitHub twin written as two entries are one piece of work", async (t) => {
+  const room = await pageRoom(t);
+
+  const exitCode = await lockEditAndRelease(room, () =>
+    pageWith({
+      "## Needs you": workEntry("ovenretry — one stale reply", `Forgejo ${FORGEJO_PULL_REQUEST} · GitHub ${GITHUB_PULL_REQUEST}`, "waiting on you."),
+      "## Delivered, not on GitHub": workEntry("ovenqueue", `Forgejo ${FORGEJO_PULL_REQUEST}`, "delivered."),
+      "## On GitHub": workEntry("ovenretry", `GitHub ${GITHUB_PULL_REQUEST}`, "promoted."),
+    }),
+  );
+
+  assert.equal(exitCode, WhereIStandExitCode.ReleasedWithFaults);
+  const report = room.complaints.join("");
+  assert.match(report, /These entries are about the same work: "### ovenqueue" still says "- Where it stands: delivered\." and "### ovenretry" still says "- Where it stands: promoted\."\./);
+  assert.doesNotMatch(report, /one stale reply/);
+});
+
+test("an entry written again under the same heading in another section is reported", async (t) => {
+  const room = await pageRoom(t);
+  const links = `GitHub ${GITHUB_PULL_REQUEST}`;
+
+  const exitCode = await lockEditAndRelease(room, () =>
+    pageWith({
+      "## In flight": workEntry("ovenqueue", links, "baking."),
+      "## On GitHub": workEntry("ovenqueue", links, "out of the oven."),
+    }),
+  );
+
+  assert.equal(exitCode, WhereIStandExitCode.ReleasedWithFaults);
+  assert.match(room.complaints.join(""), /"### ovenqueue" still says "- Where it stands: baking\." and "### ovenqueue" still says "- Where it stands: out of the oven\."/);
 });

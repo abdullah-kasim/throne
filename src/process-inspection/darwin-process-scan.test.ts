@@ -13,9 +13,12 @@ import path from 'node:path';
 import {
   listProcessesUnderPathDarwin,
   parseLsofCwdRecords,
+  parseProcessTable,
   parsePsCommandLines,
+  readProcessTable,
   type RunHostCommand,
 } from './darwin-process-scan.ts';
+import { processTableCapture } from './harness-background-work-test-fixtures.ts';
 import { listProcessesUnderPath } from './proc-scan.ts';
 
 // Real directories, because path containment compares realpath identity.
@@ -109,5 +112,25 @@ test('listProcessesUnderPath routes darwin to the lsof/ps scan and linux to /pro
   if (process.platform === 'darwin') {
     const listed = await listProcessesUnderPath(worktree, missingProcRoot, 'darwin');
     assert.deepEqual(listed, []);
+  }
+});
+
+test('the process table is read the same way from macOS and Linux ps output', async () => {
+  for (const capture of ['macos-shell-with-nohup-child', 'linux-procps-shell-with-nohup-child']) {
+    const output = await processTableCapture(capture);
+    const askedFor: string[] = [];
+    const table = await readProcessTable(async (file, args) => {
+      askedFor.push([file, ...args].join(' '));
+      return output;
+    });
+    const shell = table.find((row) => row.command.startsWith('bash -c sleep 30'));
+    assert.deepEqual(askedFor, ['ps -A -o pid=,ppid=,pgid=,command='], capture);
+    assert.deepEqual(table, parseProcessTable(output), capture);
+    assert.ok(shell !== undefined, capture);
+    assert.deepEqual(
+      table.filter((row) => row.parentPid === shell.pid).map((row) => [row.command, row.processGroupId]),
+      [['sleep 30', shell.processGroupId], ['sleep 31', shell.processGroupId]],
+      capture,
+    );
   }
 });

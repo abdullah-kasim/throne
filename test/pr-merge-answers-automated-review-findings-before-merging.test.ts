@@ -10,19 +10,21 @@ function assertSaysAll(text: string, phrases: string[]): void {
   assert.deepEqual(missingPhrases(text, phrases), []);
 }
 
-test("a merge-ordered /pr-merge answers automated review findings in an Answer step between Ready and Merge", async () => {
+test("every /pr-merge row answers automated review findings in an Answer step after Prove and before Ready", async () => {
   const skill = await readSkill("pr-merge");
-  const readyAt = skill.indexOf("- **Ready**");
+  const proveAt = skill.indexOf("- **Prove**");
   const answerAt = skill.indexOf("- **Answer**");
+  const readyAt = skill.indexOf("- **Ready**");
   const mergeAt = skill.indexOf("- **Merge**");
-  assert.ok(readyAt !== -1 && readyAt < answerAt && answerAt < mergeAt, "Answer sits after Ready and before Merge");
-  assert.ok((await readStep("Answer")).startsWith("- **Answer**: runs only when the RULINGS quote an explicit merge order, after **Ready** and before **Merge**."));
+  assert.ok(proveAt !== -1 && proveAt < answerAt && answerAt < readyAt && readyAt < mergeAt, "Answer sits after Prove and before Ready");
+  assert.ok((await readStep("Answer")).startsWith("- **Answer**: runs on every row, with or without a merge order, after **Prove** and before **Ready**, so the repromote and the ready state carry its fixes and answers"));
+  assert.ok((await readStep("Ready")).startsWith("- **Ready**: after **Answer**,"));
   assert.ok((await readStep("Merge")).includes("it comes after every ready step above and after **Answer**."));
 });
 
 test("a fix through Fail goes back through Answer before the merge", async () => {
   assertSaysAll(await readStep("Fail"), [
-    "then go on to **Ready** and, on an explicit merge order, **Answer** and **Merge**.",
+    "then go on to **Answer** and **Ready** and, on an explicit merge order, **Merge**.",
   ]);
 });
 
@@ -46,11 +48,12 @@ test("the Answer step waits a bounded time for an automated reviewer that runs o
 
 test("each automated finding is fixed through Update and Fail or answered with its evidence, and never merged over unanswered", async () => {
   assertSaysAll(await readStep("Answer"), [
-    "Each automated finding is then either fixed or answered.",
+    "Each automated finding is then judged against the code and the evidence, and either fixed or answered.",
+    "A finding from an earlier review of an older head counts too, unless a later review lists it as resolved.",
     "A fix goes in its own commit through **Update** and **Fail**, exactly as a red check does, and the reviews are read again for the new head.",
     "when the finding is rejected, carries the evidence: which test, which engines, what was observed.",
     "When the reviewer documents its own reply form, the answer uses that form; an operator's private extension of this skill may supply those forms.",
-    "Never merge over an automated finding that has neither a fix nor an answer.",
+    "Never merge over an automated finding that has neither a fix nor an answer, and never end a row without a merge order while one remains.",
   ]);
 });
 
@@ -60,10 +63,14 @@ test("REPORT.md lists every automated finding on the final head with its fate, a
   ]);
 });
 
-test("without a merge order the row ends at Ready and answers nothing", async () => {
-  assertSaysAll(await readStep("Ready"), [
+test("without a merge order the row still answers the automated findings, then ends at Ready", async () => {
+  const ready = await readStep("Ready");
+  assertSaysAll(ready, [
     "Without an explicit merge order in the RULINGS, the row ends here",
-    "It answers nothing: it reads the root's reviews and comments as **Answer** does, and lists the automated findings and people's comments on the final head in REPORT.md for the Lord.",
+  ]);
+  assert.ok(!ready.includes("It answers nothing"));
+  assertSaysAll(await readStep("Answer"), [
+    "The Lord's /pr-merge order, with or without a merge in it, authorizes `--bypass` on `pr comment` on the root for these answers, and nothing else.",
   ]);
 });
 
@@ -76,7 +83,7 @@ test("a person's review or comment is never answered by the Answer step", async 
 
 test("a person's comment posted after the row launched stops the merge, checked at the start of Answer and again immediately before the merge command", async () => {
   assertSaysAll(await readStep("Answer"), [
-    "It opens with the person check: a review, review comment or conversation comment on the root by a person, created after the row launched, stops the merge (**Stop**).",
+    "On a merge order it opens with the person check: a review, review comment or conversation comment on the root by a person, created after the row launched, stops the merge (**Stop**).",
     "A person is any account GitHub does not report as automated, the operator's own account included.",
     "The window is the whole run, from the row launching until the merge command runs: the check runs again immediately before the merge command in **Merge**, and that last check closes the window",
   ]);

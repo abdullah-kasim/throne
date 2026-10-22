@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { AgentStatus, LiveAgentStatus } from '../agent-statuses/agent-statuses-herdr.ts';
@@ -34,7 +34,7 @@ import {
 export const SENDER_NAME = 'alpha-example-01';
 export const RECIPIENT_NAME = 'shadow-example-02';
 export const DELIVERED_AT_MS = 1_000_000;
-const RECIPIENT_SESSION_ID = 'recipient-session';
+export const RECIPIENT_SESSION_ID = 'recipient-session';
 const FIXTURES_DIRECTORY = path.join(import.meta.dirname, 'fixtures');
 const EVERY_WORK_ITEM_STATE = Object.values(MessageQueueWorkItemState);
 
@@ -113,13 +113,26 @@ export async function registerRecipient(
 export async function writeRecipientTranscript(
   scene: ReceiptCheckScene,
   transcript: string,
-): Promise<void> {
+  sessionId: string = RECIPIENT_SESSION_ID,
+): Promise<string> {
   const projectDirectory = claudeProjectDirectory(
     recipientWorkingDirectory(scene),
     scene.checkDeps.claudeProjectsDirectory!,
   );
   await mkdir(projectDirectory, { recursive: true });
-  await writeFile(path.join(projectDirectory, `${RECIPIENT_SESSION_ID}.jsonl`), transcript);
+  const transcriptPath = path.join(projectDirectory, `${sessionId}.jsonl`);
+  await writeFile(transcriptPath, transcript);
+  return transcriptPath;
+}
+
+export async function writeRecipientTranscriptBeforeDelivery(
+  scene: ReceiptCheckScene,
+  transcript: string,
+  sessionId: string = RECIPIENT_SESSION_ID,
+): Promise<void> {
+  const transcriptPath = await writeRecipientTranscript(scene, transcript, sessionId);
+  const beforeDelivery = new Date(DELIVERED_AT_MS - 1_000);
+  await utimes(transcriptPath, beforeDelivery, beforeDelivery);
 }
 
 export function userTurn(text: string): string {

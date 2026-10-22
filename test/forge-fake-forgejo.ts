@@ -50,6 +50,17 @@ export interface FakeConversationComment {
   readonly author?: string;
 }
 
+export interface FakeManualMerge {
+  readonly repository: string;
+  readonly number: number;
+  readonly commit: string;
+}
+
+export interface FakeRepository {
+  readonly private: boolean;
+  allowManualMerge?: boolean;
+}
+
 export interface FakePullRequest {
   number: number;
   html_url: string;
@@ -57,6 +68,7 @@ export interface FakePullRequest {
   body: string;
   state: string;
   merged: boolean;
+  merge_commit_sha?: string;
   head: { ref: string };
   base: { ref: string };
   repository: string;
@@ -87,7 +99,7 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
   const projectRoot = await mkdtemp(path.join(tmpdir(), "fake-forgejo-git-"));
   const fake = {
     rootUrl: "",
-    repositories: new Map<string, { private: boolean }>(),
+    repositories: new Map<string, FakeRepository>(),
     pullRequests: [] as FakePullRequest[],
     comments: [] as FakeConversationComment[],
     attachments: [] as FakeAttachment[],
@@ -97,6 +109,7 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
     adminSignIns: [] as string[],
     markdownRequests: [] as unknown[],
     merges: [] as unknown[],
+    manualMerges: [] as FakeManualMerge[],
     gitAuthorizations: [] as string[],
     pullRequestCreateRequests: [] as string[],
     bareRepositoryPath: (repository: string) => path.join(projectRoot, `${repository}.git`),
@@ -163,6 +176,11 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
     const repository = `${owner}/${name}`;
     if (!fake.repositories.has(repository)) return sendJson(response, 404, { message: "repository does not exist" });
     const bare = fake.bareRepositoryPath(repository);
+    if (collection === undefined && method === "PATCH") {
+      const { allow_manual_merge } = JSON.parse((await readBody(request)).toString("utf8")) as { allow_manual_merge?: boolean };
+      if (allow_manual_merge !== undefined) fake.repositories.get(repository)!.allowManualMerge = allow_manual_merge;
+      return sendJson(response, 200, { name, owner: { login: owner } });
+    }
     if (collection === undefined) return sendJson(response, 200, { name, owner: { login: owner } });
     if (collection === "pulls" && numberText === undefined && method === "GET") {
       const open = fake.pullRequests.filter((pull) => pull.repository === repository && pull.state === query.get("state"));
@@ -209,7 +227,9 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
       return void response.end((await gitInBare(bare, ["diff", range])).stdout);
     }
     if (suffix === "/merge") {
-      fake.merges.push(JSON.parse((await readBody(request)).toString("utf8")));
+      const input = JSON.parse((await readBody(request)).toString("utf8")) as { Do: string; MergeCommitID?: string };
+      if (input.Do === "manually-merged") return answerManualMerge(response, pull, input.MergeCommitID ?? "");
+      fake.merges.push(input);
       pull.merged = true;
       pull.state = "closed";
       response.writeHead(200);
@@ -257,11 +277,26 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
     return sendJson(response, 404, { message: `no route ${method} ${apiPath}` });
   }
 
+  async function answerManualMerge(response: ServerResponse, pull: FakePullRequest, commit: string): Promise<void> {
+    if (fake.repositories.get(pull.repository)!.allowManualMerge !== true) {
+      return sendJson(response, 405, { message: "manually-merged is not an allowed merge style for this repository" });
+    }
+    if (pull.state !== "open") return sendJson(response, 404, TARGET_NOT_FOUND);
+    if (!(await gitInBare(fake.bareRepositoryPath(pull.repository), ["merge-base", "--is-ancestor", commit, `refs/heads/${pull.base.ref}`])).ok) {
+      return sendJson(response, 422, { message: "Wrong commit ID" });
+    }
+    fake.manualMerges.push({ repository: pull.repository, number: pull.number, commit });
+    Object.assign(pull, { merged: true, merge_commit_sha: commit, state: "closed" });
+    response.writeHead(200);
+    return void response.end();
+  }
+
   async function answerCommentEdit(request: IncomingMessage, response: ServerResponse, repository: string, commentId: number): Promise<void> {
     const comment = fake.comments[commentId - 1];
     if (comment === undefined || comment.repository !== repository) return sendJson(response, 404, { message: "comment does not exist" });
     comment.body = (JSON.parse((await readBody(request)).toString("utf8")) as { body: string }).body;
-    return sendJson(response, 200, { id: commentId, body: comment.body, user: { login: comment.author ?? FAKE_FORGEJO_ADMIN } });
+    const pull = fake.pullRequests.find((candidate) => candidate.repository === repository && candidate.number === comment.number);
+    return sendJson(response, 200, { id: commentId, body: comment.body, user: { login: comment.author ?? FAKE_FORGEJO_ADMIN }, html_url: `${pull?.html_url}#issuecomment-${commentId}` });
   }
 
   async function answerReviewApi(
@@ -314,7 +349,7 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
           resolved: false,
         });
       }
-      return sendJson(response, 200, { id: review.id, state: input.event });
+      return sendJson(response, 200, { id: review.id, state: input.event, html_url: `${pull.html_url}#pullrequestreview-${review.id}` });
     }
     return sendJson(response, 404, { message: `no route ${method} ${suffix}` });
   }
@@ -422,8 +457,8 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
     const bareRepositoriesCopy = await mkdtemp(path.join(tmpdir(), "fake-forgejo-snapshot-"));
     snapshotDirectories.push(bareRepositoriesCopy);
     await cp(projectRoot, bareRepositoriesCopy, { recursive: true });
-    const { repositories, pullRequests, comments, attachments, reviews, reviewComments, attachmentContents, adminSignIns, markdownRequests, merges, gitAuthorizations, pullRequestCreateRequests } = fake;
-    const records = structuredClone({ repositories, pullRequests, comments, attachments, reviews, reviewComments, attachmentContents, adminSignIns, markdownRequests, merges, gitAuthorizations, pullRequestCreateRequests, branchReads });
+    const { repositories, pullRequests, comments, attachments, reviews, reviewComments, attachmentContents, adminSignIns, markdownRequests, merges, manualMerges, gitAuthorizations, pullRequestCreateRequests } = fake;
+    const records = structuredClone({ repositories, pullRequests, comments, attachments, reviews, reviewComments, attachmentContents, adminSignIns, markdownRequests, merges, manualMerges, gitAuthorizations, pullRequestCreateRequests, branchReads });
     return { records: { ...records, nextAttachmentId, readsBeforeBranchRegisters }, bareRepositoriesCopy };
   }
 
@@ -437,6 +472,7 @@ export async function startFakeForgejo(token: string, adminPassword = FAKE_FORGE
     replaceContents(fake.adminSignIns, records.adminSignIns);
     replaceContents(fake.markdownRequests, records.markdownRequests);
     replaceContents(fake.merges, records.merges);
+    replaceContents(fake.manualMerges, records.manualMerges);
     replaceContents(fake.gitAuthorizations, records.gitAuthorizations);
     replaceContents(fake.pullRequestCreateRequests, records.pullRequestCreateRequests);
     replaceEntries(fake.repositories, records.repositories);

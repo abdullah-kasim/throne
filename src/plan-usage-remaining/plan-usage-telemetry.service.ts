@@ -3,20 +3,21 @@ import {
   isFableWeeklyReading,
 } from './telemetry-core/weekly-reset.ts';
 import {
-  cachedUsage,
-  USAGE_CACHE_TTL_MS,
-  type CacheablePayload,
-} from './telemetry-core/cache.ts';
+  liveUsagePayload,
+  readUsageThroughCache,
+  type LiveUsageReading,
+} from './account-usage-cache.ts';
 import {
   getBoundedForecastSamples,
   parseUsageLog,
 } from './telemetry-core/log.ts';
 import { forecastUsageAtReset } from './telemetry-core/forecast.ts';
 import type { PlanUsageDeps } from './pipeline.types.ts';
-import type {
-  UnreadableUsageWindow,
-  UsagePayload,
-  UsageWindow,
+import {
+  USAGE_READING_SOURCES,
+  type UnreadableUsageWindow,
+  type UsagePayload,
+  type UsageWindow,
 } from './telemetry.types.ts';
 import { PlanUsageHistoryService } from './plan-usage-history.service.ts';
 import { MODEL_NAMES } from '../harness-routing/harness.ts';
@@ -116,8 +117,11 @@ export function mapUsageWindows(usage: Record<string, unknown>): MappedUsageWind
 export class UsageCacheService {
   private readonly runtime: TelemetryRuntime;
   constructor(runtime: TelemetryRuntime) { this.runtime = runtime; }
-  readThrough<T extends CacheablePayload>(fetchLive: () => Promise<T>): Promise<T> {
-    return this.runtime.cacheIo === undefined ? fetchLive() : cachedUsage(fetchLive, this.runtime.cacheIo, USAGE_CACHE_TTL_MS);
+  async readThrough(readLive: () => Promise<LiveUsageReading>): Promise<UsagePayload> {
+    const cacheFile = this.runtime.usageCacheFile;
+    return cacheFile === undefined
+      ? liveUsagePayload(await readLive())
+      : readUsageThroughCache(readLive, cacheFile, this.runtime.now());
   }
 }
 
@@ -156,7 +160,7 @@ export class PlanUsageTelemetryService {
   }
   async enrich(payload: UsagePayload): Promise<UsagePayload> {
     await this.log.addForecasts(payload);
-    await this.log.append(payload);
+    if (payload.reading_source === USAGE_READING_SOURCES.FRESH) await this.log.append(payload);
     return payload;
   }
 }

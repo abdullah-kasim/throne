@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { tryExclusiveFileLock, type HeldFileLock } from "../shared-policy/exclusive-file-lock.ts";
 import { readTextFileIfPresent } from "./file-presence.ts";
-import { frameFaultsOf } from "./page-frame.ts";
+import { frameFaultsOf, type PageEntry } from "./page-frame.ts";
 import { JournalAction, type JournalRecord } from "./page-journal.ts";
 import {
   addEventToLockedPage,
@@ -14,6 +14,7 @@ import {
   type PageWriter,
   type PageWriteResult,
 } from "./page-store.ts";
+import { groupsOfTheSameWork } from "./same-work-entries.ts";
 import { journalUnrecordedEdit, pageHasAnUnrecordedEdit, type UnrecordedEdit } from "./unrecorded-edit.ts";
 
 const EDIT_LOCK_FILE_NAME = "where-i-stand.edit.lock";
@@ -47,6 +48,7 @@ export type EditLockAttempt =
 export interface ReleasedEditLock {
   readonly edit: JournalRecord | undefined;
   readonly frameFaults: readonly string[];
+  readonly sameWorkGroups: readonly (readonly PageEntry[])[];
   readonly savedCopy: string;
 }
 
@@ -125,7 +127,12 @@ export async function releaseEditLock(writer: PageWriter, taken: TakenEditLock):
                 taken.lockTimeContent,
                 current.content,
               );
-        return { edit, frameFaults: frameFaultsOf(current.content), savedCopy: taken.savedCopy };
+        return {
+          edit,
+          frameFaults: frameFaultsOf(current.content),
+          sameWorkGroups: groupsOfTheSameWork(current.content),
+          savedCopy: taken.savedCopy,
+        };
       },
       writer.flockExecutable,
     );

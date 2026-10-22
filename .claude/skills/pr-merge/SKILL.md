@@ -1,6 +1,6 @@
 ---
 name: pr-merge
-description: 'This throne-only, STAGER-ONLY skill gets a stack of pull requests ready for merge the way the Lord prefers, and lands it only on his explicit order to merge: identify the whole stack from any one pull request in it, roll every upper pull request into the root, bring it up to date, prove the human scenario the Lord names on the rolled branch, and repromote it, leaving the root open and ready for merge. Only when his words explicitly order a merge ("merge it", "squash and merge", "land it") does the row then squash-merge the root on GitHub so the feature lands as one revertable commit, after answering every automated reviewer's finding on the final head; a person's comment posted during the run stops the merge. Nothing is merged in Forgejo: a pull request staged there merges on GitHub, and after an actual merge its Forgejo pull request is closed with a comment saying so. Invoked by /pr-merge <pull request url>, or when the Lord says "roll up this stack", "merge this stack", "land these PRs", "roll all PRs stacked on N into it", or "squash and merge N once scenario M passes". It asks the Lord two things (which pull request, the criteria that allow the merge), never whether it may merge, and then files one queue row; only the Lord orders a merge.'
+description: 'This throne-only, STAGER-ONLY skill gets a stack of pull requests ready for merge the way the Lord prefers, and lands it only on his explicit order to merge: identify the whole stack from any one pull request in it, roll every upper pull request into the root, bring it up to date, self-review it with /pr-review unless an earlier self-review already covers its head, prove the human scenario the Lord names on the rolled branch, and repromote it, leaving the root open and ready for merge. Only when his words explicitly order a merge ("merge it", "squash and merge", "land it") does the row then squash-merge the root on GitHub so the feature lands as one revertable commit, after answering every automated reviewer's finding on the final head; a person's comment posted during the run stops the merge. Forgejo never merges a pull request itself: a pull request staged there merges on GitHub, and after an actual merge its Forgejo pull request is closed with a comment saying so. In a repository whose git config sets throne.forge.landsOnMain to true there is no GitHub pull request at all: the /pr-merge order is itself the order to merge, and the Forgejo pull request lands on main as one signed squash commit. Invoked by /pr-merge <pull request url>, or when the Lord says "roll up this stack", "merge this stack", "land these PRs", "roll all PRs stacked on N into it", or "squash and merge N once scenario M passes". It asks the Lord two things (which pull request, the criteria that allow the merge), never whether it may merge, and then files one queue row; only the Lord orders a merge.'
 version: 1.3.0
 user-invocable: true
 ---
@@ -19,6 +19,12 @@ land a stack; `/pr-split` describes how the stack is cut, this skill how it
 lands.
 
 ## 1. Identify the stack from any pull request in it
+
+First check whether the repository lands on main:
+`git -C <repo> config --type=bool --get throne.forge.landsOnMain`. When it
+prints `true`, its pull requests live only in Forgejo and the script below
+stops on every one of them; follow "### When the repository lands on main"
+instead, which replaces this step and every GitHub step after it.
 
 ```bash
 node .claude/skills/pr-merge/stack.mjs <pull request url>
@@ -78,10 +84,11 @@ Every invocation records the Lord's answers under `RULINGS:` in his words:
 
 Whether the row merges is not asked; it has a stated default. Without an
 explicit order to merge ("merge it", "squash and merge", "land it"), the row
-gets the pull request ready (roll up, update, prove, repromote) and does not
-merge; the root stays open, ready for merge. The Stager does not ask whether
+gets the pull request ready (roll up, update, prove, answer the automated
+reviews, repromote) and does not merge; the root stays open, ready for merge. The Stager does not ask whether
 it may merge. With an explicit order to merge, quoted under `RULINGS:`, the
-row does both: every ready step, then the **Answer** and **Merge** steps.
+row does both: every ready step, **Answer** among them, then the **Merge**
+step.
 
 When the Lord already said both in the order that invoked this skill
 ("roll everything on N into it, make sure scenario 4 of M works, if it works
@@ -114,6 +121,20 @@ The body carries this shape, filled in from the script's output:
   Monitor until-loop, never chained sleeps. Fix a failing check in its own
   commit and wait again. A moved default branch, a conflict, or a red check
   is work to do, never a reason to stop and ask.
+- **Self-review**: after **Roll** and **Update**, before **Prove**, read
+  `throne forge status <root url> --json` and its `selfReview`. When
+  `selfReview.coversHead` is `true`, an earlier self-review already covered
+  this code, whichever row or agent ran it, because the record lives hidden
+  in the Forgejo pull request's body: skip this step, and REPORT.md names that earlier
+  self-review by its recorded head (`selfReview.reviewedHead`). Otherwise
+  run /pr-review's "Self-review mode" on the current head (on a root the
+  Lord did not author it refuses, and REPORT.md says so); it records the
+  head it reviewed, so a later repromote in this row on an unchanged head
+  does not repeat it. A fix that touches files the pull request changes
+  re-runs the proof as **Prove** says. It posts nothing on either forge,
+  and it runs beside any code review an operator extension of this skill
+  adds, not instead of it. REPORT.md lists each finding with its fixing
+  commit or the reason it was rejected.
 - **Prove**: run the criteria (the Lord's answer to the second question)
   exactly as the named pull request's body states it, every step, with the
   browser steps through the `agent-browser` skill and one screenshot per
@@ -121,21 +142,12 @@ The body carries this shape, filled in from the script's output:
   committed; media commits need the Lord's explicit approval). Re-run the
   criteria on the new head when the update or a fix touched files the PR
   changes; otherwise the last proof stands.
-- **Ready**: after Prove, when the root has a Forgejo twin, repromote it
-  with `/pr-promote` so both sides carry the final state; a root with no
-  Forgejo twin skips this. The repromote checks the GitHub body it wrote for
-  image and video links that point at the Forgejo host, which do not load on
-  GitHub, and refuses while one remains. A refusal means the body was copied
-  and the root is not ready: run the one repair command the refusal names,
-  repeat the repromote, and go on only when it succeeds and
-  `throne forge check-media-links <root url>` exits 0. Without an explicit
-  merge order in the RULINGS, the row ends here: the root stays open, ready
-  for merge, and REPORT.md records "ready for merge" plus the head sha. It
-  answers nothing: it reads the root's reviews and comments as **Answer**
-  does, and lists the automated findings and people's comments on the final
-  head in REPORT.md for the Lord.
-- **Answer**: runs only when the RULINGS quote an explicit merge order,
-  after **Ready** and before **Merge**. It opens with the person check: a
+- **Answer**: runs on every row, with or without a merge order, after
+  **Prove** and before **Ready**, so the repromote and the ready state carry
+  its fixes and answers (Lord, 2026-10-20: a /pr-merge resolves every
+  automated review finding that makes sense before it repromotes or calls
+  the root ready, merge order or not). On a merge order it opens with the
+  person check: a
   review, review comment or conversation comment on the root by a person,
   created after the row launched, stops the merge (**Stop**). A person is
   any account GitHub does not report as automated, the operator's own
@@ -160,18 +172,53 @@ The body carries this shape, filled in from the script's output:
   operator's private extension of this skill names it, that has not yet
   reviewed the final head is waited for with a Monitor until-loop, as
   **Update** waits for CI, bounded at 30 minutes by default; if it never
-  arrives, REPORT.md says so. Each automated finding is then either fixed or
-  answered. A fix goes in its own commit through **Update** and **Fail**,
+  arrives, REPORT.md says so. Each automated finding is then judged against
+  the code and the evidence, and either fixed or answered. A finding from an
+  earlier review of an older head counts too, unless a later review lists it
+  as resolved. A fix goes in its own commit through **Update** and **Fail**,
   exactly as a red check does, and the reviews are read again for the new
   head. An answer is a `pr comment` on the root that quotes or links the
   finding and, when the finding is rejected, carries the evidence: which
   test, which engines, what was observed. When the reviewer documents its
   own reply form, the answer uses that form; an operator's private extension
-  of this skill may supply those forms. Never merge over an automated
-  finding that has neither a fix nor an answer. REPORT.md carries a table of
+  of this skill may supply those forms. The Lord's /pr-merge order, with or
+  without a merge in it, authorizes `--bypass` on `pr comment` on the root
+  for these answers, and nothing else. Never merge over an automated finding
+  that has neither a fix nor an answer, and never end a row without a merge
+  order while one remains. REPORT.md carries a table of
   every automated finding on the final head with its fate (fixed: the
   commit; answered: the comment URL), and lists people's comments on the
   final head with their URLs, unanswered.
+- **Ready**: after **Answer**, when the root has a Forgejo twin, repromote it
+  with `/pr-promote` so both sides carry the final state; a root with no
+  Forgejo twin skips this. The repromote checks the GitHub body it wrote for
+  image and video links that point at the Forgejo host, which do not load on
+  GitHub, and refuses while one remains. A refusal means the body was copied
+  and the root is not ready: run the one repair command the refusal names,
+  repeat the repromote, and go on only when it succeeds and
+  `throne forge check-media-links <root url>` exits 0. Once Prove has
+  passed, the repromote has succeeded, that check exits 0 and CI is green on
+  the final head, and only then, a draft root leaves draft on both forges,
+  so the next repromote does not disagree. Read
+  `<gh> pr view <root> --json isDraft`; when it is a draft, run
+  `<gh> --bypass pr ready <root>`, with `--bypass` right after the program
+  name because the throne gh guard reads it only there, then read it back
+  with the same `pr view` and confirm `isDraft` is false. That is the one
+  GitHub write this step makes, on the root only, and the Lord's /pr-merge
+  order authorizes it with or without a merge order. When the root has a
+  Forgejo twin, read it with `throne forge pr view <twin url>`; a Forgejo
+  draft is a title that starts with `WIP: `, and the view reports it as
+  `isDraft` and prints the title without that prefix. When it is a draft,
+  set that printed title, its `[GH-<n>]` marker and the rest kept exactly,
+  with `throne forge pr edit <twin url> --title "<title>"`, then read it
+  back with the same `pr view` and confirm `isDraft` is false and the
+  marker is still there. A repromote copies the draft state from Forgejo
+  only when it first opens the GitHub pull request. REPORT.md records
+  "moved out of draft" with the forges it changed, or says the root was
+  already ready. A merge-ordered row passes through this step too, on its
+  way to **Merge**. Without an explicit merge order in the
+  RULINGS, the row ends here: the root stays open, ready for merge and out
+  of draft, and REPORT.md records "ready for merge" plus the head sha.
 - **Merge**: runs only when the RULINGS quote an explicit merge order; it
   comes after every ready step above and after **Answer**. Immediately
   before the merge command, run the person check from **Answer** again; a
@@ -185,7 +232,9 @@ The body carries this shape, filled in from the script's output:
   and `--admin` covers ONLY the missing-approval requirement. A failing
   required check is never bypassed: it is made to pass through **Update**
   and **Fail**. The throne gh guard denies mutations by default; the Lord's
-  merge order authorizes `--bypass` on `pr merge`, `pr close` (each rolled
+  /pr-merge order, with or without a merge order, authorizes `--bypass` on
+  `pr ready` on the root only (in **Ready**), and his merge order
+  authorizes `--bypass` on `pr merge`, `pr close` (each rolled
   pull request, with its one comment naming the merge commit), and
   `pr comment` on the root pull request, the last only for the refusal
   comments this skill prescribes at a **Stop** and for replies to automated
@@ -202,8 +251,8 @@ The body carries this shape, filled in from the script's output:
   lapsed cache, a stub not running) from bugs in the rolled code; correct
   the former and re-run; fix the latter on the root branch in its own
   commit with a test, push, wait for CI as **Update** says, re-run the
-  failing step and every step after it, then go on to **Ready** and, on
-  an explicit merge order, **Answer** and **Merge**. An Expect or a check
+  failing step and every step after it, then go on to **Answer** and
+  **Ready** and, on an explicit merge order, **Merge**. An Expect or a check
   that still fails after a genuine fix is a refusal no fix can clear: no
   merge, a comment on the root naming the step, the output and the fix
   attempted, campaign complete, supervisor told. The comment is two or
@@ -246,9 +295,10 @@ The body carries this shape, filled in from the script's output:
 
 ### When the root is staged in Forgejo
 
-Forgejo is only the staging area, and nothing is merged there (Lord,
-2026-10-07: "nothing gets merged in forgejo"). `throne forge pr merge`
-refuses a Forgejo pull request. A staged root is the same row as above,
+Outside a repository that lands on main (below), Forgejo is only the
+staging area, and nothing is merged there (Lord, 2026-10-07: "nothing gets
+merged in forgejo"). There, `throne forge pr merge` refuses a Forgejo pull
+request. A staged root is the same row as above,
 entirely on GitHub: roll, prove and, on an explicit merge order, merge the
 GitHub pull request with the `gh` flow above. Only after an actual merge,
 right after reading it back as `MERGED`, close its Forgejo twin:
@@ -262,6 +312,77 @@ comments "This pull request has been merged on the GitHub side: <root url>"
 on the Forgejo pull request and closes it, never merges it. A twin that is
 already closed gets no second comment, so running it twice is safe. The
 Lord's merge order covers this one Forgejo write.
+
+### When the repository lands on main
+
+A repository whose git config sets `throne.forge.landsOnMain` to `true`
+keeps its pull requests only in Forgejo; GitHub only ever holds its `main`
+(Lord, 2026-10-22: "when we /pr-merge, changes go straight to main ... so no
+oull requests on github"). Check it in the local checkout:
+
+```bash
+git -C <repo> config --type=bool --get throne.forge.landsOnMain
+```
+
+`true` means this section applies; no output means it does not. Linked
+worktrees share the key with their main checkout.
+
+For such a repository the Lord's /pr-merge is itself the order to merge:
+`RULINGS:` quote it as the merge order, and the row always ends with
+**Merge**. The criteria is asked and defaulted as in step 2.
+
+`stack.mjs` reads a stack only on GitHub, so find the stack in Forgejo:
+`throne forge pr view <url>` prints a pull request's `baseRefName`; follow
+it upward until the base is the default branch to find the root, and
+`throne forge pr list --repo <repo>` with a `pr view` of each pull request
+lists the open ones based on a branch in the stack. Roll-up order is the
+same: nearest layer first.
+
+The row then runs as above, with these changes:
+
+- **Roll**, **Update**, **Self-review** and **Prove** run as above. The
+  root branch is pushed to Forgejo with
+  `throne forge push-branch --branch <root branch>`, never to GitHub. Each
+  rolled pull request gets its one comment naming the merge commit through
+  `throne forge pr comment`; no forge operation closes it, so it stays open
+  and REPORT.md lists it for the Lord to close. There is no GitHub check:
+  the build, tests and lint the row runs on the final head are what "CI
+  green" means here.
+- **Answer** and **Ready** do not run: there are no GitHub reviews to
+  answer, no GitHub twin to repromote and no draft to clear. The `gh`
+  grants above do not apply, because nothing is sent to GitHub.
+- **Merge** is the landing, in place of every `gh` command and of
+  `close-merged-twin`:
+
+  ```bash
+  throne forge pr merge <forgejo root url> --squash
+  ```
+
+  `throne forge land <forgejo root url>` is the same landing. It refuses a
+  pull request whose base is not the default branch. It fetches `main` from
+  `origin` and the head from Forgejo, squashes the head into one commit on
+  top of `origin/main` in a scratch worktree outside the checkout, and
+  signs that commit (`git commit -S`), with the pull request's title, its
+  `WIP: ` prefix and `[GH-…]` marker removed, as the subject and a plain
+  summary of its body as the body. It pushes the commit to `origin` `main`
+  and then to Forgejo's `main`, never forced, comments
+  `Landed on main as <sha>` on the Forgejo pull request and closes it as
+  merged: Forgejo's manual-merge mark records the landed commit as the
+  merge, and Forgejo makes no commit of its own. It prints
+  `{"forgejoUrl","landedCommit","base":"main","closed":true}`. Read it
+  back: `git -C <repo> ls-remote origin main` names `landedCommit` and
+  `throne forge pr view <forgejo root url>` shows the pull request
+  `MERGED`.
+  REPORT.md records the landed commit.
+- **A refusal is reported, never forced.** A squash that conflicts with
+  `main` refuses, listing every conflicting path, and ends "Nothing was
+  changed.": nothing was pushed or commented. Report it to the supervisor
+  with those paths, as a **Stop**.
+- **Signing stays on.** The landed commit is signed with the repository's
+  own signing settings, and a signing failure refuses with nothing pushed.
+  Never pass `--no-gpg-sign` or turn `commit.gpgsign` off to get past it;
+  a pinentry that times out in a terminal with no desktop display is fixed
+  by restarting the gpg agent from the desktop session.
 
 ## 4. After the merge
 
@@ -287,5 +408,6 @@ so the criteria is Scenario 1 and the merge is ordered. The row merges the
 top's head into the root (it already contains the second), runs Scenario 1,
 squash-merges the root, closes the other two with a pointer comment. One
 commit on `main`; one revert if the feature is ever unwanted. Had he said
-only "roll it up", the row would end at **Ready** after Scenario 1, with
-the root open and ready for merge.
+only "roll it up", the row would end at **Ready** after Scenario 1 and
+**Answer**, with
+the root open, ready for merge and out of draft.
