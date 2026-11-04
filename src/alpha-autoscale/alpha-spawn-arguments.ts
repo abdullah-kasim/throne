@@ -46,8 +46,7 @@ export function createAlphaArguments(
     ...(candidate.deliverableShape === null || candidate.deliverableShape === undefined
       ? []
       : ["--deliverable-shape", candidate.deliverableShape]),
-    ...(candidate.sliceless === true ? ["--sliceless"] : []),
-    ...(candidate.shadowless === true || candidate.sliceless === true ? ["--shadowless"] : []),
+    ...(candidate.singleSlice === true ? ["--single-slice"] : []),
     ...(candidate.account === COMPANY_ACCOUNT ? ["--account", COMPANY_ACCOUNT] : []),
     "--role",
     "Alpha",

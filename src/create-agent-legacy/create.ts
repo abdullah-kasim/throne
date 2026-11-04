@@ -10,7 +10,7 @@ import {
   readSpawnSpec,
   writeSpawnSpec,
 } from "./legacy-spawn-data-contracts.ts";
-import { LedgerDataService } from "./legacy-ledger-data.service.ts";
+import { DEFAULT_DATA_DIR, LedgerDataService } from "./legacy-ledger-data.service.ts";
 import {
   ensureCodexTrust,
   probeCodexTrustPrompt,
@@ -58,6 +58,7 @@ import {
 import { promisify } from "node:util";
 import type { TreeBase } from "../agentdata/tree-base-data.service.ts";
 import { validateHydratedDependencies } from "../git-lifecycle/dependency-hydration.ts";
+import { singleSliceShadowSpawnRefusal } from "../single-slice/single-slice-shape.ts";
 
 const REPO_ROOT = RUNTIME_THRONE_ROOT;
 const REAL_USAGE_READERS = new UsageReadersService(
@@ -299,6 +300,8 @@ const REAL_DEPS: CreateAgentDeps = {
   writeStderr: (text) => process.stderr.write(text),
   validateAlphaTree,
   validateShadowTree,
+  refuseSingleSliceShadowSpawn: (shadowName, alphaName) =>
+    singleSliceShadowSpawnRefusal(shadowName, alphaName, DEFAULT_DATA_DIR),
   writeQueueLaunchLinkage,
 };
 
@@ -323,6 +326,19 @@ export async function runCreateAgent(
       dependencies.writeStderr?.(
         `create-agent-legacy: refusing exact empty-workspace resume — ${refusal}. Nothing was registered or launched.\n`,
       );
+      return 1;
+    }
+  }
+  if (
+    !registration.value.resuming &&
+    registration.value.role.trim().toLowerCase() === "shadow"
+  ) {
+    const refusal = await dependencies.refuseSingleSliceShadowSpawn?.(
+      registration.value.name,
+      request.value.flags.supervisor ?? "",
+    );
+    if (refusal !== undefined) {
+      dependencies.writeStderr?.(`create-agent-legacy: ${refusal}\n`);
       return 1;
     }
   }
@@ -419,5 +435,7 @@ export async function run(
       readStagerRouteAuthorizationRegistry(dataDir),
     readModelAllowlist: (ownerAlphaName) =>
       readModelAllowlist(ownerAlphaName, dataDir),
+    refuseSingleSliceShadowSpawn: (shadowName, alphaName) =>
+      singleSliceShadowSpawnRefusal(shadowName, alphaName, dataDir),
   });
 }

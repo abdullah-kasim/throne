@@ -65,7 +65,7 @@ route around.
 - **Admitted to some pool:** the reviewer request to the Regent may name a
   normal Alpha/Shadow spawn shape.
 - **Admitted to no pool, but obtainable as an ad-hoc Agent:** the documented
-  resolution — proven live by `agent-fable-runner-critic` — is that the
+  resolution, proven live, is that the
   **Regent spawns the reviewer as an ad-hoc Agent**
   (`--bypass-preset-agent --model <reviewer>`), requested by the loop Alpha
   through the same `send-agent` path as a fixer request, supervisor set to

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { LINUX_UNITS } from './linux.ts';
+import { LINUX_UNITS, linuxUnitsForHost, RETIRED_LINUX_UNITS } from './linux.ts';
 import {
   renderUnitSource,
   SYSTEMD_SOURCE_DIR,
@@ -91,4 +91,27 @@ test("the rendered forgejo.service runs this checkout's forgejo-serve with the a
   for (const bootRaceRetry of [/^StartLimitIntervalSec=.*$/m, /^StartLimitBurst=.*$/m, /^RestartSec=.*$/m, /^TimeoutStartSec=.*$/m]) {
     assert.equal(rendered.match(bootRaceRetry)?.[0], ntfySource.match(bootRaceRetry)?.[0]);
   }
+});
+
+test('the ~/tmp cache cleaner timer is installed and enabled and nothing retires it', async () => {
+  const hostUnits = linuxUnitsForHost(false);
+  const service = hostUnits.find(
+    (unit) => unit.basename === SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_SERVICE,
+  );
+  const timer = hostUnits.find(
+    (unit) => unit.basename === SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_TIMER,
+  );
+  assert.equal(service?.enabledDirectly, false);
+  assert.equal(timer?.enabledDirectly, true);
+  assert.ok(!RETIRED_LINUX_UNITS.includes(SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_SERVICE));
+  assert.ok(!RETIRED_LINUX_UNITS.includes(SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_TIMER));
+  const source = await readFile(
+    path.join(SYSTEMD_SOURCE_DIR, SYSTEMD_UNIT_NAMES.SWEEP_TMP_SCRATCH_HOME_SERVICE),
+    'utf8',
+  );
+  const rendered = renderUnitSource(source, TOKENS);
+  assert.match(
+    rendered,
+    /^ExecStart=\/srv\/mise\/node\/24\.19\.0\/bin\/node \/srv\/throne\/dist\/src\/tools\.js sweep-tmp-scratch --apply --tmp-root %h\/tmp --min-age-ms 2592000000 --min-free-bytes 100000000000$/m,
+  );
 });

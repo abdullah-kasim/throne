@@ -277,7 +277,7 @@ applies), `scope` (`global` or the project memory directory's name), `kind`
 
 ## `agentSettings` — the colour and name each agent's pane carries
 
-The backend's `agent-settings` worker checks every five minutes that each
+The backend's `agent-settings` worker checks every minute that each
 Claude Code agent shows the colour of its kind and carries its herdr tab's name
 as its session name, and corrects what differs (`agent_docs/commands.md`,
 `agent-settings-tick`).

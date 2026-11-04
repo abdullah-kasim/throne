@@ -51,7 +51,7 @@ test("only the Alpha autoscale worker resets the spawn cooldown, so a Shadow cre
     .map((file) => path.relative(sourceRoot, file))
     .sort();
   assert.deepEqual(resetters, [
+    "alpha-autoscale/alpha-autoscale-default-dependencies.ts",
     "alpha-autoscale/alpha-autoscale-schedule-dedupe.ts",
-    "alpha-autoscale/alpha-autoscale.hosted-worker.ts",
   ]);
 });

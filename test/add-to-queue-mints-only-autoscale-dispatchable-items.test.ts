@@ -190,8 +190,8 @@ test("add-to-queue refuses an --alpha-name that does not carry the item's object
 // It used to default to the FILER'S OWN CHECKOUT. Filing is Stager-only, and a
 // Stager files objectives for OTHER repositories from its own tree, so that
 // default was wrong essentially every time it was relied on. Measured that day:
-// seven the-runner objectives recorded launch_target_repo pointing at a Stager
-// worktree, and autoscale spent an hour trying to fork a the-runner campaign
+// seven bakery-site objectives recorded launch_target_repo pointing at a Stager
+// worktree, and autoscale spent an hour trying to fork a bakery-site campaign
 // off a throne branch while the Alpha floor sat breached.
 // ---------------------------------------------------------------------------
 

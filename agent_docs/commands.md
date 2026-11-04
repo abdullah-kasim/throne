@@ -1542,7 +1542,7 @@ moving the row with `update-queue` after reading it back with `render-queue`.
 ## add-to-queue
 
 ```bash
-./bin/throne-cli add-to-queue [--objective-code <code>] [--effort <level>] [--shadowless | --sliceless] <body words...>
+./bin/throne-cli add-to-queue [--objective-code <code>] [--effort <level>] [--single-slice] <body words...>
 ```
 
 Writes one new `open`-status item to the SQLite-backed Regent queue store
@@ -1551,6 +1551,13 @@ body, space-separated; `--objective-code` (optional, may appear anywhere
 among the arguments) keys the item by objective code instead of a generated
 id. Prints the inserted item's id and status on success; a missing body is a
 hard error (non-zero exit, store never opened).
+
+`--single-slice` (on the Lord's own word, or his standing ruling for a
+read-only artefact row) stores the row as single-slice; the autoscaler then
+launches its Alpha with `create-agent --single-slice` (/execute-todos
+"Single-slice mode"). `--shadowless` and `--sliceless` are refused with a
+message naming their removal by the Lord on 2026-11-04, and nothing is
+filed.
 
 `--model-hint <harness>/<model>` records the Lord's model order for the
 campaign. When the pair is outside the Alpha role pool (for example
@@ -1690,8 +1697,7 @@ and the text to send by hand.
 Exit `0` when the Alpha's plan records every amendment on its queue row as
 reconciled, `66` when it does not, `1` on a malformed invocation. The plan's
 record is the last `**Queue amendments reconciled through:** <n>` line in the
-newest `todo-*/00_overview.md` under the Alpha's ledger, or in
-`sliceless/<code>/verify.md` for a sliceless Alpha. A row with no amendments,
+newest `todo-*/00_overview.md` under the Alpha's ledger. A row with no amendments,
 or an agent with no queue objective code, always passes. The `bin/git` push
 guard calls it for an Alpha after its gate checks pass (a missing
 `throne-cli` beside the shim is warned about, not blocking), and
@@ -1940,6 +1946,66 @@ remove the entry or correct that line and add
 with the same sentence. Exit 0 recorded or nothing owed; 1 an invocation that
 is not exactly `--agent <name>`; 66 not recorded. It only reads.
 
+## semaphore
+
+```bash
+./bin/throne-cli semaphore create <name> --slots <n>
+./bin/throne-cli semaphore run <name> -- <command> [args...]
+./bin/throne-cli semaphore status [<name>] [--json]
+```
+
+One general counting semaphore for any tool that must not run too many copies
+at once. Each semaphore lives in
+`<THRONE_DATA_HOME or ~/.throne>/semaphores/<name>/`: its slot count in the
+file `slots`, written to a temporary file and renamed into place, and one lock
+file per slot, `slot-<i>.lock`, numbered from 1. A name is ASCII letters,
+digits and dashes; a slot count is a positive whole number.
+
+- **`create <name> --slots <n>`** records that `<name>` has `<n>` slots.
+  Running it again on an existing name changes the count; slots already held
+  stay held. Lowering the count below the number held never disturbs a
+  running holder: slots above the new count are simply never taken again.
+- **`run <name> -- <command> [args...]`** takes the first free slot from 1 up
+  to the current count, runs the command with standard input, output and
+  error passed straight through, frees the slot when the command ends, and
+  exits with the command's own exit code, or 128 plus the signal number when
+  it died of a signal. With every slot held it prints one line on standard
+  error, `throne semaphore: waiting for a free slot of "<name>" (<n> slots,
+  all held)`, tries again every second and takes the first slot that frees;
+  there is no queue, so waiters are not served in order. SIGINT, SIGTERM and
+  SIGHUP sent to `run` are passed to the command, so Ctrl-C or an agent's
+  timeout stops the real command. Once the command starts, its pid, command
+  line and start time are written into the slot's lock file.
+- **`status [<name>] [--json]`** lists each semaphore (or the named one), its
+  slot count, and for every held slot, including one above a lowered count,
+  the holder's pid, command line and start time. `--json` prints
+  `{"semaphores": [{"name", "slots", "heldSlots": [{"slot", "holder":
+  {"pid", "commandLine", "startedAt"}}]}]}`.
+
+A slot is held by an OS `flock` lock on its lock file, and nothing else
+decides it: the kernel frees the slot when its holder ends however it ends, so
+no lock file is ever cleaned up and a holder record left in a free slot's file
+means nothing. The locked descriptor is handed to the command as its file
+descriptor 3, the way `flock <file> <command>` works, so **the slot stays held
+until the command itself exits, even if the `throne semaphore run` process is
+killed with SIGKILL**. A child the command starts that keeps descriptor 3
+open keeps the slot too.
+
+For ffmpeg, which runs out of memory when too many encodes run at once:
+
+```bash
+throne semaphore create ffmpeg --slots 4
+throne semaphore run ffmpeg -- ffmpeg -i clip.mov clip.mp4
+```
+
+Exit codes: `create` and `status` exit 0 on success; `status <name>` exits 1
+when the semaphore does not exist, so a wrapper can decide to create it. 2 is
+an invalid invocation: an unknown action or flag, a bad name or slot count, a
+missing command after `--`, or `run` on a semaphore that does not exist (the
+message gives the `create` command to run). `run` otherwise exits with the
+command's code, 128 plus its signal number, or 127 when the command could not
+be started.
+
 ## git-identity
 
 ```bash
@@ -2018,22 +2084,9 @@ skipped `/write-and-execute-todos` entirely, wrote, tested and pushed a fix
 inline four minutes after spawning, and only the Regent's review caught it:
 a brief is prose and can be skipped whole, a refused push cannot. The same
 incident added the `Execution mode:` line to every Alpha's identity.md,
-stated both ways (`shadowless (Lord-authorized)` or `shadowed (default)`), so
-the mode is never implied by absence.
-
-A sliceless Alpha (identity line
-`- **Execution mode:** sliceless (Lord-authorized; implies shadowless)`,
-written by `create-agent --sliceless`, which the autoscaler forwards together
-with `--shadowless` from a row filed with `add-to-queue --sliceless`) has no
-bundle to be judged by, so the guard takes a second evidence path for it
-only: the push passes when
-`$THRONE_DATA_HOME/data/<basename>/sliceless/<objective_code>/verify.md`
-exists — `objective_code` read from that ledger's `spawn.json` — and carries
-both `**Conformance outcome:** PASS` and `**Verify outcome:** PASS` on their
-own lines; otherwise it is refused with exit 66 naming that file and
-/execute-todos "Sliceless mode". A shadowed or shadowless-only Alpha is still
-held to the bundle path; the sliceless path adds evidence, it loosens
-nothing.
+stated both ways (`single-slice (Lord-authorized)` or `shadowed (default)`),
+so the mode is never implied by absence. A single-slice Alpha is held to the
+same bundle path as every other Alpha.
 
 ## push-waiver
 
@@ -3180,11 +3233,11 @@ the owned pinned herdr client, the public attach seam, and the isolated
 named-session herdr service.
 
 Linux installs and enables `throne-backend.service`, `ntfy.service` and the
-two `sweep-tmp-scratch-*` timer pairs (for `/tmp` and `/tmp/claude-1000`; `~/tmp` is never swept) and `throne-herdr.service`; these are rendered into
+three `sweep-tmp-scratch-*` timer pairs (for `/tmp`, `/tmp/claude-1000` and `~/tmp`; `~/tmp` is a cache whose top-level entries are deleted oldest first only while its disk has under 100 GB free, and only when more than 30 days old, so long-lived caches go under `~/.throne/cache/<tool>/`) and `throne-herdr.service`; these are rendered into
 `$XDG_CONFIG_HOME/systemd/user` (fallback `~/.config/systemd/user`). macOS
 installs and bootstraps `com.throne.throne-backend`, `com.throne.ntfy` and
-`com.throne.throne-herdr` in `~/Library/LaunchAgents`. The sweep timers have no mac counterpart: they
-exist for a tmpfs inode cap macOS does not impose. The ntfy unit on both
+`com.throne.throne-herdr` in `~/Library/LaunchAgents`. The sweep timers have no mac counterpart: the
+`/tmp` pairs exist for a tmpfs inode cap macOS does not impose. The ntfy unit on both
 platforms runs `systemd/ntfy-serve`, which starts the pinned
 `binwiederhier/ntfy` image under docker or podman — `./install.sh` pulls it;
 `install-services` itself never touches a container runtime.
@@ -3253,8 +3306,9 @@ reports `unchanged`, or `would …` under `--dry-run`, and none restarts herdr.
 ```
 
 Re-registers only the harness hooks: the two Claude guard hooks above, the
-Claude memory read log hook below, the Jev fence, and the Codex `SessionStart`
-hook in `.codex/hooks.json`, through the same functions `install-services`
+Claude memory read log hook below, the Jev fence, the agent exit marker
+(`agent-settings-tick`), and the Codex `SessionStart` hook in
+`.codex/hooks.json`, through the same functions `install-services`
 calls. It renders no service unit and restarts nothing.
 
 The Jev fence, `claude-hooks/jev-fence.py`, is a `PreToolUse` hook on
@@ -3396,6 +3450,13 @@ cron tick's process, its in-process gate and its lock. A REST failure exits
 non-zero naming `--local`; it never falls back on its own. `--local` runs the
 sweep in the calling process and takes the same lock.
 
+`--bypass` runs one sweep past the pressure gate (Lord, 2026-10-28: "geee
+throne autoscale-now needs a --bypass flag"): the pressure verdict is treated
+as `take-more-work` for that run, the log names the verdict and figure it
+overrode, and the run launches at most one Alpha. Every other refusal stays:
+the kill switch, cooldown, the ready queue, the launch ledger, the Alpha
+ceiling, dependencies and target overlap.
+
 Every sweep, from every entry, first takes the cross-process lock
 `<data home>/locks/alpha-autoscale.lock` inside `runOnce()`. A sweep that finds
 it held does not wait: it logs one `skip: another alpha-autoscale sweep holds
@@ -3440,8 +3501,8 @@ The report has seven sections, in this order:
    holds spawns.
 5. Spawn cooldown: elapsed, or the limiter's own reason it is not.
 6. Queue: launchable rows in the order the next run would take them (objective,
-   priority, Alpha name, target repository and branch, model hint, sliceless or
-   shadowless); open rows that are not launchable and why; deferred rows, each
+   priority, Alpha name, target repository and branch, model hint, single-slice);
+   open rows that are not launchable and why; deferred rows, each
    listed as held until the Regent runs `release-deferred`, with what it waits
    on, its defer reason, and since when it has been deferred (time and whole
    hours); in-flight rows with their Alpha; which rows the next run would brief
@@ -3463,7 +3524,7 @@ The report has seven sections, in this order:
 
 Runs one tick of the agent settings check, the same tick the backend's
 `agent-settings` hosted worker (`src/agent-settings/agent-settings.hosted-worker.ts`)
-runs every five minutes. The check keeps every agent's pane telling the truth
+runs every minute. The check keeps every agent's pane telling the truth
 about who it is: each kind of agent has one colour, and a Claude Code session
 carries the same name as its herdr tab. The tab name is the truth. The check
 never renames or recolours a herdr tab; it only corrects the harness inside it.
@@ -3484,6 +3545,26 @@ not reaped:
   session and keeping its name. Colour and name follow on a later tick. An
   agent with no tab is left alone and no tab is ever opened. The Regent and
   the Stager that `court-liveness` keeps alive are left to that worker.
+- When the agent's spawn record holds no session, the session herdr still
+  reports for its pane (`agent_session` in `herdr pane list`) is resumed
+  instead, but only when it is a full session id and the harness's own
+  transcript for it exists (`~/.claude/projects/<cwd>/<id>.jsonl`, or a
+  Codex `rollout-*.jsonl` under `~/.codex/sessions`). The id is written into
+  the spawn record before the harness starts; a dry run writes nothing.
+  Without such a session the line still says `its spawn record holds no
+  native session to resume`.
+- A Claude Code agent the Lord quit himself (`/exit`, `/quit`, Ctrl-D or
+  Ctrl-C twice) is reported `it was told to exit` and left alone.
+  `claude-hooks/agent-exit-marker.py`, registered globally for `SessionEnd`
+  and `SessionStart` by `ensure-harness-setup`, writes `told-to-exit` into the
+  agent's data directory when Claude Code ends with reason
+  `prompt_input_exit`, and removes it when a session starts again in a pane
+  carrying that agent's `THRONE_AGENT_NAME`. Every harness the throne starts
+  exports that name itself (`src/herdr/herdr-launch.ts`), because a pane herdr
+  restored after a restart has lost its tab's environment. A harness killed by
+  a signal (reason `other`, as a herdr restart does) leaves no marker and is
+  brought back as before. Codex agents are always brought back as before: Codex's
+  `SessionEnd` reason is always `other`, so a quit cannot be told from a kill.
 
 The colours live in the `agentSettings` section of `config.user.ts`
 (`docs/CONFIG.md`), re-read on every tick:
@@ -3847,6 +3928,7 @@ implementation boundary until its zero-reference proof is complete.
 
 ```bash
 ./bin/throne-cli resource-pressure [--json]
+./bin/throne-cli resource-pressure --form-baseline
 ```
 
 Reports current host capacity pressure. The verdict line is the
@@ -3873,6 +3955,92 @@ verdict input renders as a stated `unknown` (never defaulted into either
 verdict), and partial input is stated in the output rather than converted
 into a failing exit. `--json` emits the same snapshot as one JSON object with
 no derived opinions.
+
+### Responsiveness against a quiet baseline
+
+Directly under the verdict lines the report prints how responsive the home
+disk is right now, against the same machine when it was quiet:
+
+```text
+  responsiveness: git 4.2× baseline (41 ms) · disk 9.0× baseline (9 ms)
+```
+
+Two probes, each timed in milliseconds in the calling process (the only child
+process is `git` itself):
+
+- **git**: `git status --porcelain` in a dedicated probe repository,
+  `<probe folder>/repo`, created on first use with 200 small committed files.
+  It is never a real checkout, so a merge's lock in a live tree is never what
+  gets measured, and its size never grows.
+- **disk**: a 4 KiB write to `<probe folder>/disk-probe` followed by fsync.
+
+The probe folder sits on the disk that holds `$HOME`, where agents' work
+lives: `${THRONE_DATA_HOME:-$HOME/.throne}/pressure-probe/` when the data home
+is on the same device as `$HOME` (compared with stat, not by path), otherwise
+`$HOME/.cache/throne/pressure-probe/`.
+
+**Quiet.** The machine is quiet when every input is under its number:
+
+| Input | Linux | macOS | Quiet below |
+| --- | --- | --- | --- |
+| cpu | PSI cpu "some" avg60 | utilisation over a 500 ms `os.cpus()` sample | 5 |
+| disk | busiest physical disk's busy % (the verdict's own disk-busy reader) | not measurable, graded 0 | 5 |
+| memory | PSI memory "some" avg60 | `100 - kern.memorystatus_level` | 1 |
+
+On Linux the disk input is the busy %, not io PSI, because io PSI "some"
+avg60 can read 80–84 on an idle machine from io_uring idle waits,
+the same reason the verdict grades disk-busy instead of io PSI. An unreadable
+input counts as not quiet (`cpu pressure unreadable`). On macOS the memory
+figure is the share of memory not free, which a running Mac rarely holds under
+1, so there the baseline mostly forms through the `y` at the prompt below and
+the sweep seldom adds samples. A machine that is not quiet is stated in one
+line, for example `disk busy 60% — the machine is not quiet`.
+
+**Baseline file.** `${THRONE_DATA_HOME:-$HOME/.throne}/pressure-baseline.json`,
+written atomically (temporary file, then rename). Per probe it holds the
+samples (milliseconds and when taken) from the last 7 days and their median;
+older samples are dropped on every write and ignored when comparing. It also
+records the machine it was taken on (CPU model, kernel release, the device
+`$HOME` is on) and whether it was formed under load, with the reason. A probe
+shows a ratio only once it has 20 in-window samples; until then it reads
+`git 41 ms (no baseline yet, 7 of 20 samples)`. A baseline whose machine
+fields differ from the current machine (a kernel update counts) is never
+compared: the line reads `git 41 ms · disk 9 ms (baseline from another
+machine)`. A baseline formed under load appends `(baseline formed under
+load)`. A probe failure reads `responsiveness: probe failed — <reason>` and
+the command still exits 0. `--json` adds one key, `responsiveness`, with the
+same facts as data: `state`, `baseline` (`compared`, `missing`,
+`another-machine`), `formedUnderLoad`, and per probe `currentMs`, `medianMs`,
+`ratio` (or null) and `sampleCount`, or `state: "failed"` with `error`.
+
+**`--form-baseline`** takes 20 rounds of both probes 1.5 s apart (about 30 s)
+and replaces the baseline file with them; rerun it after a disk, kernel or
+cooling change. It checks quiet first:
+
+- quiet: forms it, prints the medians and the file path, exits 0;
+- not quiet with a terminal on standard input: prints the reason line and asks
+  `Form the baseline at the current load anyway? [y/N]`; `y` or `yes` forms it
+  and records in the file that it was formed under load; anything else (an
+  empty answer, `n`, Ctrl+D) forms nothing and exits 1;
+- not quiet without a terminal: prints the reason line, forms nothing, exits 1,
+  and never reads standard input.
+
+`install.sh` runs it in a "Pressure baseline" step right after compiling and
+before the harnesses and the court start. A refusal prints one warning that
+the baseline will form on its own from quiet moments, and the install
+continues.
+
+**The rolling update.** Every autoscale sweep that holds the sweep lock, cron
+and `autoscale-now` alike, probes once, logs one line with the times and
+ratios, and adds the two samples to the baseline only when the machine is
+quiet at that moment; samples taken while not quiet are never added. A quiet
+sweep that finds a baseline from another machine starts a new one for this
+machine. A probe failure is one log line and changes nothing else in the
+sweep. `autoscale-status` shows the same line from a fresh probe plus the
+baseline file.
+
+Nothing here changes a launch decision: the verdict, its inputs, the launch
+budget and capacity are untouched. The responsiveness line is reported only.
 
 ## opencode-go-usage-remaining
 

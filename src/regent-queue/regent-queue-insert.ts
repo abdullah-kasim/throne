@@ -24,8 +24,7 @@ export interface NewQueueItem {
   readonly prBranch?: string | null;
   readonly modelHint?: ModelPair | null;
   readonly deliverableShape?: QueueDeliverableShape | null;
-  readonly shadowless?: boolean;
-  readonly sliceless?: boolean;
+  readonly singleSlice?: boolean;
   readonly effort?: number | null;
   readonly launch?: EligibleQueueLaunchMetadata;
   readonly deliveryMirror?: QueueDeliveryMirror;
@@ -50,8 +49,8 @@ export function insertQueueItem(
   const row = db
     .prepare(
       `INSERT INTO queue_items
-         (id, objective_code, status, body, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, deliverable_shape, shadowless, sliceless, effort, account, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, priority, filed_by, deferred_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (id, objective_code, status, body, launch_eligible, launch_alpha_name, launch_target_repo, launch_target_branch, launch_base_commit, pr_branch, model_hint_harness, model_hint_model, deliverable_shape, single_slice, effort, account, agent_name, target_repo, base_commit, delivery_commit, validation_required, validation_required_at, delivery_mirror_state, delivery_mirror_commit, delivery_mirror_repo, delivery_mirror_branch, delivery_mirror_tree_identity, delivery_mirror_checked_at, delivery_mirror_reason, absorption_objective_code, absorption_delivery_commit, absorption_target_repo, absorption_target_branch, absorption_tree_identity, absorption_checked_at, absorption_reason, priority, filed_by, deferred_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, 0, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING ${queueItemColumns}`,
     )
     .get(
@@ -68,8 +67,7 @@ export function insertQueueItem(
       item.modelHint?.harness ?? null,
       item.modelHint?.model ?? null,
       item.deliverableShape ?? null,
-      item.shadowless === true ? 1 : 0,
-      item.sliceless === true ? 1 : 0,
+      item.singleSlice === true ? 1 : 0,
       item.effort ?? null,
       queueRowAccountOf(item.body),
       item.launch?.targetRepo ?? null,

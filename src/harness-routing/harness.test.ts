@@ -8,7 +8,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { HARNESS_NAMES, type Harness } from "./harness-identity.ts";
 import { MODEL_REGISTRY } from "./model-registry.ts";
+import { regentLaunchArgv } from "../regent-state/regent-launch-recipe.ts";
 import {
+  CODEX_RUNS_TYPED_COMMANDS_WITHOUT_A_LOGIN_SHELL,
   buildLaunchArgv,
   buildResumeArgv,
   launcherFamily,
@@ -167,6 +169,51 @@ test("a resumed Claude Code session is given its session name again", () => {
       buildResumeArgv({ ...request, sessionName }, sessionId),
       buildResumeArgv(request, sessionId),
       `${request.harness} resume changed when a session name was given`,
+    );
+  }
+});
+
+function carriesTheSettingInOrder(argv: string[], setting: string[]): boolean {
+  return argv.some((_, start) =>
+    setting.every((part, offset) => argv[start + offset] === part),
+  );
+}
+
+test("a Codex agent is launched so its typed commands keep the court's PATH", () => {
+  const sessionId = "019a2b3c-4d5e-7f60-8a9b-0c1d2e3f4a5b";
+  const codexLaunches: HarnessRequest[] = [
+    { harness: HARNESS_NAMES.CODEX, model: "gpt-5.5", effort: 2 },
+    { harness: HARNESS_NAMES.CODEXY_ALL_OMNI, model: "gpt-5.6-sol", effort: 3 },
+  ];
+  const everyCodexArgv = [
+    ...codexLaunches.flatMap((request) => [
+      buildLaunchArgv(request),
+      buildResumeArgv(request, sessionId),
+    ]),
+    regentLaunchArgv(undefined, undefined, HARNESS_NAMES.CODEX),
+  ];
+
+  assert.deepEqual(CODEX_RUNS_TYPED_COMMANDS_WITHOUT_A_LOGIN_SHELL, [
+    "-c",
+    "allow_login_shell=false",
+  ]);
+  for (const argv of everyCodexArgv) {
+    assert.ok(
+      carriesTheSettingInOrder(argv, CODEX_RUNS_TYPED_COMMANDS_WITHOUT_A_LOGIN_SHELL),
+      argv.join(" "),
+    );
+  }
+  const launchesThatAreNotCodex = [
+    CLAUDE_CODE_LAUNCH,
+    ...HARNESSES_THAT_ARE_NOT_CLAUDE_CODE.filter(
+      (request) => request.harness !== HARNESS_NAMES.CODEX,
+    ),
+  ];
+  for (const request of launchesThatAreNotCodex) {
+    assert.equal(
+      buildLaunchArgv(request).includes("allow_login_shell=false"),
+      false,
+      `${request.harness} launch carries a Codex setting`,
     );
   }
 });

@@ -20,14 +20,14 @@ export class AlphaAutoscaleTickCommand extends AutoscaleTransportCommand {
   }
 
   async run(passedParams: string[]): Promise<void> {
-    const { transport, local, remainingArgs } = parseAlphaAutoscaleArgs(passedParams ?? []);
+    const { transport, local, bypass, remainingArgs } = parseAlphaAutoscaleArgs(passedParams ?? []);
     const mode = resolveTransportMode({ transport, local }, "alpha-autoscale-tick");
     if (mode === "rest") {
       process.exitCode = await runAlphaAutoscaleOverTransport(this.transportClient, remainingArgs);
       return;
     }
     process.stderr.write("alpha-autoscale-tick: transport local: running the sweep in this process\n");
-    await this.worker.runOnce();
+    await this.worker.runOnce({ bypassPressure: bypass });
   }
 }
 

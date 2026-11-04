@@ -590,6 +590,16 @@ forbids.
   letter.
 - **Filename body**: snake_case verb-phrase summarizing the deliverable (`implement_store`, `wire_route`, `audit_orders_index`).
 
+### Single-slice bundles
+
+When identity.md carries `- **Execution mode:** single-slice (Lord-authorized)`,
+the bundle holds `00_overview.md`, exactly one implementation slice
+`01_<task>.md`, and all of `99a_conform_`, `99b_verify_`, `99c_deliver_` and
+`99d_record_` (plus `98_ticket_` for a ticket-driven row). Every Done-when
+criterion maps to `01` or to a gate. `create-agent` refuses to spawn any
+Shadow under that Alpha while the bundle has another shape
+(/execute-todos "Single-slice mode").
+
 ## Protocol
 
 ### 1. Pin the topic + scope
@@ -615,10 +625,10 @@ Output the **list of titles** in numerical order, bracketed by the two bookends:
 
 ```
 00 — Overview & acceptance criteria (north-star, read first)
-01 — Lock CAN frame encoding + shared types   ← contract the whole bundle reads
-02 — Implement param store                     ← localized, clear pattern
+01 — Lock invoice format + shared types        ← contract the whole bundle reads
+02 — Implement discount store                  ← localized, clear pattern
 03 — Wire store to route                        ← contract already pinned by 01
-04 — Slice-ring time-sync coherence            ← subtle concurrency/timing
+04 — Keep cart totals right under retries      ← subtle concurrency/timing
 05 — Add Vitest coverage                        ← mirrors existing tests
 98 — Check the candidate against the ticket     ← ticket-driven bundles only
 99a — Grade the candidate against what was literally asked for
@@ -660,9 +670,8 @@ COMPLETION.** Pin the contract in the overview, write both slices against it,
 and the link disappears.
 
 This is measured, not theorised. A phase-chained campaign filed on 2026-08-25
-(spikes -> core -> guest provisioning -> daemon -> desktop -> install) was five
-deep. One spike failed on a malformed command-line argument and a VM missing a
-service, four objectives stalled behind it, the court ran idle, and unblocking
+was five deep. One spike failed on a malformed command-line argument and a
+missing service, four objectives stalled behind it, the court ran idle, and unblocking
 it took a human ruling about an architecture nobody had disproved. Three of
 those four never needed the spike's completion at all — only its answer, which
 is a contract. A unit-split campaign filed the same night ran its slices
@@ -755,8 +764,8 @@ Each slice todo is a self-contained planning doc for one slice. Standard structu
 ---
 deps: [01, 02]      # slice numbers that must be merged first; [] when independent
 touches:            # predicted file/dir footprint — omit only when genuinely unknown
-  - src/store/params.ts
-  - src/store/params.test.ts
+  - src/store/discounts.ts
+  - src/store/discounts.test.ts
 ---
 
 # NN — <Title>
@@ -1867,7 +1876,7 @@ meets it.
 
 - **Step-by-step recipes** ("first do X, then do Y, then …"). Give the executor the semantic contract and deliverable, not a procedure; recipes rot the moment surrounding code moves.
 - **Planner-invented implementation mechanics.** Apply the planning-altitude law above instead of choosing internal identifiers, control-flow shape, helper extraction, file-local structure, or comment wording before recon.
-- **Duplicated context.** If todo 03 pins the bus encoding, todo 04 says `(see todo 03)`, not a re-paste.
+- **Duplicated context.** If todo 03 pins the invoice format, todo 04 says `(see todo 03)`, not a re-paste.
 - **TBD / open-question content.** If a slice depends on an unresolved product decision, resolve it during step 1 — best-judgment answer, logged to `000_current_questions.md` — or drop the slice. Don't ship a todo whose body is "decide X first."
 - **An execution log.** Strictly `/execute-todos`'s output.
 
@@ -1906,7 +1915,7 @@ When todo N's deliverable becomes todo N+1's input, its semantic contract MUST b
 
 ### Empirical recon needs a quiescent tree
 
-Planning is normally read-only. But some contracts can only be pinned by trial and error against the real build — measuring current stack headroom, verifying a linker symbol name, checking which `clippy.toml` keys the pinned toolchain accepts. That probing mutates the tree (scratch edits, builds, generated files), so it carries an execution-grade constraint: do it ONLY when no one else is writing to the tree — no in-flight slice workers or validation gates on the same worktree/branch, no dirty files you didn't create. Two writers probing/committing one tree interleave badly (`execute-todos` rule 3 owns the execution-side twin of this rule).
+Planning is normally read-only. But some contracts can only be pinned by trial and error against the real build — measuring current bundle size, verifying a generated symbol name, checking which config keys the pinned toolchain accepts. That probing mutates the tree (scratch edits, builds, generated files), so it carries an execution-grade constraint: do it ONLY when no one else is writing to the tree — no in-flight slice workers or validation gates on the same worktree/branch, no dirty files you didn't create. Two writers probing/committing one tree interleave badly (`execute-todos` rule 3 owns the execution-side twin of this rule).
 
 When you do probe:
 

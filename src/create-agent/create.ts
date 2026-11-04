@@ -69,6 +69,8 @@ import {
 import { promisify } from "node:util";
 import type { TreeBase } from "../agentdata/tree-base-data.service.ts";
 import { validateHydratedDependencies } from "../git-lifecycle/dependency-hydration.ts";
+import { singleSliceShadowSpawnRefusal } from "../single-slice/single-slice-shape.ts";
+import { DEFAULT_DATA_DIR } from "../agentdata/ledger-data.service.ts";
 
 const REPO_ROOT = RUNTIME_THRONE_ROOT;
 const REAL_USAGE_READERS = new UsageReadersService(
@@ -314,6 +316,8 @@ const REAL_DEPS: CreateAgentDeps = {
   writeStderr: (text) => process.stderr.write(text),
   validateAlphaTree,
   validateShadowTree,
+  refuseSingleSliceShadowSpawn: (shadowName, alphaName) =>
+    singleSliceShadowSpawnRefusal(shadowName, alphaName, DEFAULT_DATA_DIR),
   writeQueueLaunchLinkage,
   resolveTokenBalanceVerdict: () =>
     collectTokenBalanceReport(readUsageLogRowsOrEmpty()).verdict,
@@ -341,6 +345,19 @@ export async function runCreateAgent(
       dependencies.writeStderr?.(
         `create-agent: refusing exact empty-workspace resume — ${refusal}. Nothing was registered or launched.\n`,
       );
+      return 1;
+    }
+  }
+  if (
+    !registration.value.resuming &&
+    registration.value.role.trim().toLowerCase() === "shadow"
+  ) {
+    const refusal = await dependencies.refuseSingleSliceShadowSpawn?.(
+      registration.value.name,
+      request.value.flags.supervisor ?? "",
+    );
+    if (refusal !== undefined) {
+      dependencies.writeStderr?.(`create-agent: ${refusal}\n`);
       return 1;
     }
   }
@@ -444,5 +461,7 @@ export async function run(
     readForkParentEvidence: (parentName) =>
       readForkParentEvidenceFromLedger(parentName, dataDir),
     readForkBrief: (forkName) => readForkBriefFile(forkName, dataDir),
+    refuseSingleSliceShadowSpawn: (shadowName, alphaName) =>
+      singleSliceShadowSpawnRefusal(shadowName, alphaName, dataDir),
   });
 }

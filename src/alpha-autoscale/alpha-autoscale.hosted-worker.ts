@@ -1,40 +1,16 @@
 import { CronExpression } from "@nestjs/schedule";
 import { Injectable, Optional } from "@nestjs/common";
 import type { CronHostedWorker } from "../throne-backend/hosted-worker.types.ts";
-import { readCapacityPressure } from "../keep-going/keep-going-pressure-report.ts";
 import {
   createAlphaArguments,
   publishedCliEntrypoint,
   spawnGitTreeArguments,
 } from "./alpha-spawn-arguments.ts";
-import { readLaunchLedger } from "../alpha-launch-queue/launch-ledger-reader.ts";
-import { DEFAULT_LAUNCH_LEDGER_PATH } from "../alpha-launch-queue/paths.ts";
+import type { AutoBriefResult } from "./regent-queue-feed.ts";
+import type { AlphaAutoscaleCooldownStatus } from "./alpha-autoscale-schedule-dedupe.ts";
+import { buildIdleRecoveryNotice, type IdleRecoveryOutcome } from "./idle-recovery.ts";
 import {
-  readAutoscaleQueueFromStore,
-  stageEligibleLaunchBriefsFromStore,
-  type AutoBriefResult,
-} from "./regent-queue-feed.ts";
-import {
-  isAutoscaleKillSwitchOn,
-  readAutoscaleEnabledInUserConfig,
-} from "./kill-switch.ts";
-import {
-  readAlphaAutoscaleCooldown,
-  recordSuccessfulAlphaAutoscaleSpawn,
-  type AlphaAutoscaleCooldownStatus,
-} from "./alpha-autoscale-schedule-dedupe.ts";
-import { readActiveAlphaCapacityInputs } from "./active-alpha-roster.ts";
-import { invokeThroneCliWithRetry } from "./retryable-cli-invoke.ts";
-import { resolveRepoRootAndGenerationFromModuleUrl } from "../status/dist-generation.ts";
-import {
-  buildIdleRecoveryNotice,
-  recoverIdleWork,
-  type IdleRecoveryOutcome,
-} from "./idle-recovery.ts";
-import {
-  notifyRegentOfIdleRecovery,
   notifyRegentOfFloorBreach,
-  REAL_ALPHA_FLOOR_BREACH_NOTIFY_DEPS,
   type AlphaFloorBreachNotifyDeps,
 } from "./alpha-floor-notify.ts";
 import {
@@ -53,7 +29,6 @@ import {
 } from "./alpha-autoscale-bounds.ts";
 import { decideAutoscaleActionWithFloor } from "./decide-autoscale-action.ts";
 import { alphaAutoscaleExecutionGate } from "./alpha-autoscale-execution-gate.ts";
-import { readBypassFlagsAuthorizedForAlpha } from "./authorized-bypass-flags.ts";
 import {
   autoBriefUnknownReason,
   launchLedgerUnknownReason,
@@ -62,14 +37,13 @@ import {
   unresolvedLaunchHistoryMessage,
 } from "./autoscale-skip-wording.ts";
 import {
-  ALPHA_AUTOSCALE_SWEEP_LOCK_PATH,
-  acquireSweepLock,
   describeHeldSweepLock,
   describeLostSweepLock,
   describeReplacedSweepLock,
   type SweepLockAcquisition,
   type SweepLockLease,
 } from "./alpha-autoscale-sweep-lock.ts";
+import { ALPHA_AUTOSCALE_DEFAULT_DEPENDENCIES } from "./alpha-autoscale-default-dependencies.ts";
 
 export const ALPHA_AUTOSCALE_HOSTED_WORKER_NAME = "alpha-autoscale";
 
@@ -107,6 +81,7 @@ export interface AlphaAutoscaleDependencies {
     objectiveCode: string,
     alphaName: string,
   ) => Promise<readonly string[]>;
+  sweepResponsiveness?: () => Promise<string>;
 }
 
 let productionDependencies: AlphaAutoscaleDependencies | undefined;
@@ -137,44 +112,6 @@ export function resolveAlphaAutoscaleDependencies(
 }
 
 /**
- * The real production dependency bag, exported so the manual-trigger REST
- * route (`alpha-autoscale-route.ts`) can construct its own
- * `AlphaAutoscaleHostedWorker` instance observing the exact same production
- * wiring the scheduled cron tick uses, layering only its own captured-output
- * `log` override on top -- mirrors how `resolveKeepGoingDependencies` /
- * `resolveNoIdlingDependencies` keep their own manual triggers off a second,
- * divergent copy of that wiring.
- */
-export const ALPHA_AUTOSCALE_DEFAULT_DEPENDENCIES: AlphaAutoscaleDependencies = {
-  log: (message) => console.log(`[alpha-autoscale] ${message}`),
-  acquireSweepLock: () => acquireSweepLock({ lockPath: ALPHA_AUTOSCALE_SWEEP_LOCK_PATH }),
-  notifyOfFloorBreach: REAL_ALPHA_FLOOR_BREACH_NOTIFY_DEPS,
-  // The admission gate reads cpu PSI, memory PSI, the busiest physical disk's
-  // busy time and the run queue, graded inside `classifyPressure`, so
-  // `decideAutoscaleAction`'s existing "skip unless positively take-more-work"
-  // rule enforces every one of them with no change of its own. Routed through
-  // the SHARED `readCapacityPressure` rather than assembling the inputs here:
-  // this file and keep-going's report drifting apart on which signals the gate
-  // reads is exactly how a report ends up disagreeing with the decision.
-  readPressure: () => readCapacityPressure(),
-  recoverIdleWork: () => recoverIdleWork(),
-  notifyOfIdleRecovery: notifyRegentOfIdleRecovery,
-  readReadyQueue: readAutoscaleQueueFromStore,
-  autoBriefEligibleItems: stageEligibleLaunchBriefsFromStore,
-  readKillSwitch: isAutoscaleKillSwitchOn,
-  readAutoscaleEnabledInConfig: readAutoscaleEnabledInUserConfig,
-  readSpawnCooldown: readAlphaAutoscaleCooldown,
-  recordSuccessfulSpawn: recordSuccessfulAlphaAutoscaleSpawn,
-  readActiveCapacityInputs: readActiveAlphaCapacityInputs,
-  readLaunchLedger: (objectiveCode) =>
-    readLaunchLedger(DEFAULT_LAUNCH_LEDGER_PATH, { objectiveCode }),
-  resolvePublishedRuntime: () =>
-    resolveRepoRootAndGenerationFromModuleUrl(import.meta.url),
-  invokeCli: invokeThroneCliWithRetry,
-  readAuthorizedBypassFlags: readBypassFlagsAuthorizedForAlpha,
-};
-
-/**
  * The separate, ceiling-and-kill-switch-gated actor: combines every prior
  * signals, plus the live-Alpha floor, into one spawn/refuse decision
  * via `resolveFloorAwareAutoscaleTick` and, only on `action: 'spawn'`,
@@ -198,7 +135,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     return this.injectedDependencies ?? resolveAlphaAutoscaleDependencies();
   }
 
-  async runOnce(): Promise<void> {
+  async runOnce(options: { readonly bypassPressure?: boolean } = {}): Promise<void> {
     const acquisition = await this.dependencies.acquireSweepLock();
     if (acquisition.outcome === "held") {
       this.dependencies.log(describeHeldSweepLock(acquisition));
@@ -209,16 +146,20 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       this.dependencies.log(describeReplacedSweepLock(lease.lockPath, acquisition.replaced));
     }
     try {
-      await alphaAutoscaleExecutionGate.run(() => this.runOnceInternal(lease));
+      await alphaAutoscaleExecutionGate.run(() =>
+        this.runOnceInternal(lease, options.bypassPressure === true),
+      );
     } finally {
       await lease.release();
     }
   }
 
-  private async runOnceInternal(lease: SweepLockLease): Promise<void> {
+  private async runOnceInternal(lease: SweepLockLease, bypassPressure: boolean): Promise<void> {
     // Stager actuation deliberately absent: autoscale/autodispatch touch
     // Alphas and Shadows ONLY (Lord ruling 2026-08-19). The Stager-floor
     // effect lives solely in the backend's court liveness worker.
+    const responsiveness = await this.dependencies.sweepResponsiveness?.();
+    if (responsiveness !== undefined) this.dependencies.log(responsiveness);
     const pause = await this.dependencies.readAutoscaleEnabledInConfig?.();
     if (pause !== undefined && !pause.enabled) {
       this.dependencies.log(`skip: ${pause.reason}`);
@@ -237,6 +178,9 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     if (recoveryNotice !== undefined) {
       await this.dependencies.notifyOfIdleRecovery(recoveryNotice);
     }
+    const readPressure = bypassPressure
+      ? () => this.pressureBypassed(this.dependencies.readPressure())
+      : () => this.dependencies.readPressure();
     let launchBudget: number | undefined;
     const launchedThisTick = new Set<string>();
     for (
@@ -248,12 +192,13 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         this.dependencies.log(describeLostSweepLock(lease.lockPath));
         return;
       }
-      const pressure = this.dependencies.readPressure();
-      launchBudget ??= alphaLaunchBudgetForPressure(pressure.pressure);
+      const pressure = readPressure();
+      launchBudget ??= bypassPressure ? 1 : alphaLaunchBudgetForPressure(pressure.pressure);
       const launched = await this.launchNextAlpha(
         pressure,
         launchedThisTick,
         launchBudget,
+        readPressure,
       );
       if (!launched) return;
     }
@@ -262,10 +207,18 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     );
   }
 
+  private pressureBypassed(observed: PressureClassification): PressureClassification {
+    this.dependencies.log(
+      `pressure bypassed by --bypass: observed verdict "${observed.verdict}" at ${observed.pressure ?? "unknown"}; this run launches at most one Alpha`,
+    );
+    return { ...observed, verdict: "take-more-work" };
+  }
+
   private async launchNextAlpha(
     pressure: PressureClassification,
     launchedThisTick: Set<string>,
     launchBudget: number,
+    readPressure: () => PressureClassification,
   ): Promise<boolean> {
     const readyQueue = this.dependencies.readReadyQueue();
     const killSwitchOn = this.dependencies.readKillSwitch();
@@ -360,7 +313,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
     const candidate = decision.candidate;
     const treeArguments = spawnGitTreeArguments(cliEntrypoint, candidate);
 
-    const dispatchPressure = this.dependencies.readPressure();
+    const dispatchPressure = readPressure();
     const dispatchDecision = decideAutoscaleActionWithFloor({
       pressure: dispatchPressure,
       readyQueue,

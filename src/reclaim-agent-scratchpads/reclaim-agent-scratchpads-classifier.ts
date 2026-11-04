@@ -122,7 +122,7 @@ export async function classifyScratchpadEntry(
     );
   }
 
-  if (!indexClearsDirectory(holderIndex, dirPath)) {
+  if (!(await indexClearsDirectory(holderIndex, dirPath))) {
     return unknown(
       `agent "${candidateName}" is reaped, but the once-per-run live-process holder ` +
         "snapshot does not clear this directory (either it is still held, or the snapshot " +

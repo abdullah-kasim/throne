@@ -56,8 +56,7 @@ const USAGE =
   "[--fork-of <parent-stager> (Stager only; spawns a fresh fork of a live parent " +
   "Stager, inherits its model unless --model is given, and opens on the brief " +
   "the parent wrote to data/<fork-name>/brief.md)] " +
-  "[--shadowless (Alpha only; the Lord authorized this campaign to execute its slices without Shadows)] " +
-  "[--sliceless (Alpha only; the Lord authorized this campaign to work straight from the queue body with no todo bundle; implies --shadowless)] " +
+  "[--single-slice (Alpha only; the Lord authorized this campaign to run one implementation slice and its 99 gates, each a separate Shadow)] " +
   "[--deliverable-shape verdict-only (declares this agent's correct completion " +
   "is a judgement, not a diff; refused for a 99a/99e-shaped --name)] " +
   "[--bypass-effort] [--bypass-alpha-guardrail] [--bypass-preset-agent] " +
@@ -445,26 +444,15 @@ export async function prepareCreateAgentRequest(
     }
     deliverableShape = "verdict-only";
   }
-  let shadowless: true | undefined;
-  if (flags.shadowless === true) {
+  let singleSlice: true | undefined;
+  if (flags["single-slice"] === true) {
     if (role !== "Alpha") {
       writeStderr(
-        `create-agent: --shadowless is refused for role "${role}" — only a campaign Alpha may run shadowless, and only when the Lord authorized it at filing (add-to-queue --shadowless, forwarded by the autoscaler). Nothing was registered or launched.\n`,
+        `create-agent: --single-slice is refused for role "${role}" — only a campaign Alpha may run single-slice, and only when the Lord authorized it at filing (add-to-queue --single-slice, forwarded by the autoscaler). Nothing was registered or launched.\n`,
       );
       return { ok: false, code: 1 };
     }
-    shadowless = true;
-  }
-  let sliceless: true | undefined;
-  if (flags.sliceless === true) {
-    if (role !== "Alpha") {
-      writeStderr(
-        `create-agent: --sliceless is refused for role "${role}" — only a campaign Alpha may run sliceless, and only when the Lord authorized it at filing (add-to-queue --sliceless, forwarded by the autoscaler). Nothing was registered or launched.\n`,
-      );
-      return { ok: false, code: 1 };
-    }
-    sliceless = true;
-    shadowless = true;
+    singleSlice = true;
   }
 
   return {
@@ -483,8 +471,7 @@ export async function prepareCreateAgentRequest(
       requestedCwd,
       emptyWorktree,
       ...(deliverableShape === undefined ? {} : { deliverableShape }),
-      ...(shadowless === undefined ? {} : { shadowless }),
-      ...(sliceless === undefined ? {} : { sliceless }),
+      ...(singleSlice === undefined ? {} : { singleSlice }),
       ...(forkOrigin === undefined ? {} : { forkedFrom: forkOrigin.parent }),
     },
   };

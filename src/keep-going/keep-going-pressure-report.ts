@@ -33,8 +33,8 @@ import {
 } from '../pressure-signal/classify-pressure.ts';
 import { macLoadPerCoreAtCapacity } from '../steering-user-config.ts';
 
-const CPU_PRESSURE_PATH = '/proc/pressure/cpu';
-const MEMORY_PRESSURE_PATH = '/proc/pressure/memory';
+export const CPU_PRESSURE_PATH = '/proc/pressure/cpu';
+export const MEMORY_PRESSURE_PATH = '/proc/pressure/memory';
 
 /**
  * The live 1-minute run queue against usable cores, for the oversubscription

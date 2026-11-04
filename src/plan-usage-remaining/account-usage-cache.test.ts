@@ -13,6 +13,7 @@ import type { HttpJsonRequest, HttpJsonResponse } from "./pipeline.types.ts";
 
 const START = new Date("2026-10-16T12:00:00Z");
 const MINUTE_MS = 60_000;
+const TOKEN_EXPIRY_FAR_IN_THE_FUTURE = new Date("2100-01-01T00:00:00Z");
 const ACCESS_TOKEN = "access-token-of-the-account-under-test";
 
 let scratchRoot: string;
@@ -22,7 +23,7 @@ before(async () => {
   process.env.THRONE_DATA_HOME = path.join(scratchRoot, "throne-home");
 });
 
-function credentialsText(expiresAt: number = START.getTime() + 24 * 60 * MINUTE_MS): string {
+function credentialsText(expiresAt: number = TOKEN_EXPIRY_FAR_IN_THE_FUTURE.getTime()): string {
   return JSON.stringify({
     claudeAiOauth: {
       accessToken: ACCESS_TOKEN,

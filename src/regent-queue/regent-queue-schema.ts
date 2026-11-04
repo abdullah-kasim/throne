@@ -27,6 +27,7 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
       deliverable_shape TEXT,
       shadowless INTEGER NOT NULL DEFAULT 0,
       sliceless INTEGER NOT NULL DEFAULT 0,
+      single_slice INTEGER NOT NULL DEFAULT 0,
       effort INTEGER,
       account TEXT,
       agent_name TEXT,
@@ -130,6 +131,10 @@ export function createRegentQueueSchema(db: DatabaseSync): void {
   if (!names.has("sliceless"))
     db.exec(
       `ALTER TABLE queue_items ADD COLUMN sliceless INTEGER NOT NULL DEFAULT 0`,
+    );
+  if (!names.has("single_slice"))
+    db.exec(
+      `ALTER TABLE queue_items ADD COLUMN single_slice INTEGER NOT NULL DEFAULT 0`,
     );
   if (!names.has("effort"))
     db.exec(`ALTER TABLE queue_items ADD COLUMN effort INTEGER`);

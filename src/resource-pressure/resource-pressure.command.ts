@@ -5,11 +5,20 @@
 // report only: nothing here can launch, nudge, or reap anything.
 
 import { readFileSync } from 'node:fs';
-import { availableParallelism, loadavg } from 'node:os';
+import { availableParallelism, homedir, loadavg } from 'node:os';
+import { createInterface } from 'node:readline/promises';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { Command as CommanderCommand } from 'commander';
 import { Command, CommandRunner } from 'nest-commander';
 import { readCapacityPressure } from '../keep-going/keep-going-pressure-report.ts';
+import {
+  formBaseline,
+  FormBaselineExitCode,
+  type BaselineFormingContext,
+} from '../pressure-baseline/form-baseline.ts';
+import { measureResponsiveness } from '../pressure-baseline/responsiveness-report.ts';
 import { readDarwinMemoryKib } from '../pressure-signal/darwin-pressure-reader.ts';
+import { resolveThroneHome } from '../shared-policy/throne-home.ts';
 import {
   formatResourcePressureReport,
   parseMeminfoKib,
@@ -34,9 +43,9 @@ function readFileOrNull(filePath: string): string | null {
  * darwin readers, and the report says so) and the memory line comes from
  * `hw.memsize` / `kern.memorystatus_level` instead of `/proc/meminfo`.
  */
-export function collectResourcePressureSnapshot(
+export async function collectResourcePressureSnapshot(
   platform: NodeJS.Platform = process.platform,
-): ResourcePressureSnapshot {
+): Promise<ResourcePressureSnapshot> {
   const source = platform === 'darwin' ? 'darwin' : 'psi';
   const psi = (name: string) => {
     if (source === 'darwin') return null;
@@ -62,7 +71,49 @@ export function collectResourcePressureSnapshot(
     cpuCount: availableParallelism(),
     memTotalKib,
     memAvailableKib,
+    responsiveness: await measureResponsiveness(resolveThroneHome(), homedir()),
   };
+}
+
+export const FORM_BASELINE_FLAG = '--form-baseline';
+
+async function askOneLine(
+  input: NodeJS.ReadableStream,
+  output: NodeJS.WritableStream,
+  question: string,
+): Promise<string | undefined> {
+  const lines = createInterface({ input, output });
+  try {
+    return await lines.question(question);
+  } finally {
+    lines.close();
+  }
+}
+
+export function baselineFormingContextFor(
+  input: NodeJS.ReadStream,
+  output: NodeJS.WriteStream,
+): BaselineFormingContext {
+  return {
+    dataHome: resolveThroneHome(),
+    userHome: homedir(),
+    inputIsTerminal: input.isTTY === true,
+    ask: (question) => askOneLine(input, output, question),
+    print: (line) => output.write(`${line}\n`),
+    sleep: (milliseconds) => sleep(milliseconds),
+  };
+}
+
+export async function formBaselineReportingFailure(
+  context: BaselineFormingContext,
+): Promise<FormBaselineExitCode> {
+  try {
+    return await formBaseline(context);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    context.print(`baseline not formed — ${message}`);
+    return FormBaselineExitCode.NotFormed;
+  }
 }
 
 @Command({
@@ -78,7 +129,13 @@ export class ResourcePressureCommand extends CommandRunner {
   }
 
   async run(passedParams: string[]): Promise<void> {
-    const snapshot = collectResourcePressureSnapshot();
+    if (passedParams.includes(FORM_BASELINE_FLAG)) {
+      process.exitCode = await formBaselineReportingFailure(
+        baselineFormingContextFor(process.stdin, process.stdout),
+      );
+      return;
+    }
+    const snapshot = await collectResourcePressureSnapshot();
     if (passedParams.includes('--json')) {
       process.stdout.write(`${JSON.stringify(resourcePressureJson(snapshot))}\n`);
     } else {

@@ -15,8 +15,7 @@ const BOOLEAN_FLAGS = new Set([
   "run-custom-harness-to-exit",
   "bypass-run-custom-harness-to-exit",
   "clear-environment",
-  "shadowless",
-  "sliceless",
+  "single-slice",
   "help",
 ]);
 
@@ -37,8 +36,7 @@ const FLAG_NAMES = new Set([
   "objective-code",
   "empty-worktree",
   "deliverable-shape",
-  "shadowless",
-  "sliceless",
+  "single-slice",
   "requires",
   "non-campaign",
   "run-custom-harness-to-exit",
@@ -69,6 +67,11 @@ const FLAG_NAMES = new Set([
  * the explanation, which is how every other refusal in this codebase is
  * written.
  */
+const REMOVED_MODE_FLAG_EXPLANATION =
+  "was removed by the Lord on 2026-11-04 (\"Actually let's drop shadowless " +
+  "and sliceless.\"). Spawn the Alpha without it, or with --single-slice " +
+  "when the Lord authorized the single-slice mode at filing";
+
 const WITHDRAWN_FLAGS = new Map<string, string>([
   [
     "bypass-objective-code",
@@ -79,6 +82,8 @@ const WITHDRAWN_FLAGS = new Map<string, string>([
       "live-Alpha slot, and only the Lord may authorise a row. Ask him to " +
       "have it filed, then relaunch.",
   ],
+  ["shadowless", REMOVED_MODE_FLAG_EXPLANATION],
+  ["sliceless", REMOVED_MODE_FLAG_EXPLANATION],
 ]);
 
 export function splitPassthroughArgv(args: readonly string[]): {

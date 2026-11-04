@@ -106,8 +106,7 @@ export interface ParsedFlags {
   "objective-code"?: string;
   "empty-worktree"?: boolean;
   "deliverable-shape"?: string;
-  shadowless?: boolean;
-  sliceless?: boolean;
+  "single-slice"?: boolean;
   requires?: string;
   "non-campaign"?: boolean;
   "run-custom-harness-to-exit"?: boolean;
@@ -159,6 +158,10 @@ export interface CreateAgentDeps {
   validateShadowTree?: (
     name: string,
     cwd: string,
+  ) => Promise<string | undefined>;
+  refuseSingleSliceShadowSpawn?: (
+    shadowName: string,
+    alphaName: string,
   ) => Promise<string | undefined>;
   resolveAgent: typeof resolveAgent;
   startAgent: typeof startAgent;
@@ -253,8 +256,7 @@ export interface CreateAgentRequest {
   requestedCwd: string;
   emptyWorktree?: boolean;
   deliverableShape?: "verdict-only";
-  shadowless?: true;
-  sliceless?: true;
+  singleSlice?: true;
   forkedFrom?: string;
 }
 

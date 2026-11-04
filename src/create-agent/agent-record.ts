@@ -44,8 +44,7 @@ export function createAgentIdentity(
         : {}),
     ...(policyOverride === "" ? {} : { policyOverride }),
     ...(request.emptyWorktree ? { emptyWorktree: true as const } : {}),
-    ...(request.shadowless === true ? { shadowless: true as const } : {}),
-    ...(request.sliceless === true ? { sliceless: true as const } : {}),
+    ...(request.singleSlice === true ? { singleSlice: true as const } : {}),
     ...(request.campaignEffort === undefined ? {} : { campaignEffort: request.campaignEffort }),
     ...(request.forkedFrom === undefined ? {} : { forkedFrom: request.forkedFrom }),
     ...(request.account === undefined ? {} : { account: request.account }),
@@ -204,8 +203,7 @@ export async function persistNewAgentRecord(
       ...(request.deliverableShape === undefined
         ? {}
         : { deliverable_shape: request.deliverableShape }),
-      ...(request.shadowless === true ? { shadowless: true as const } : {}),
-      ...(request.sliceless === true ? { sliceless: true as const } : {}),
+      ...(request.singleSlice === true ? { single_slice: true as const } : {}),
       ...(request.campaignEffort === undefined
         ? {}
         : { campaign_effort: request.campaignEffort }),

@@ -8,6 +8,7 @@ import {
 import { readSpawnSpec, writeSpawnSpec, type SpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import { resolveTargetEffort } from "../config.ts";
 import {
+  CODEX_RUNS_TYPED_COMMANDS_WITHOUT_A_LOGIN_SHELL,
   HARNESS_NAMES,
   buildLaunchArgv,
   resolveModel,
@@ -71,11 +72,13 @@ export function regentLaunchArgv(
       ),
     });
   }
-  return [
-    throneLauncherPath(
-      recordedHarness === HARNESS_NAMES.CODEX ? "codexy" : "claudey",
-    ),
-  ];
+  if (recordedHarness === HARNESS_NAMES.CODEX) {
+    return [
+      throneLauncherPath("codexy"),
+      ...CODEX_RUNS_TYPED_COMMANDS_WITHOUT_A_LOGIN_SHELL,
+    ];
+  }
+  return [throneLauncherPath("claudey")];
 }
 
 export function regentFreshLaunchOptions(

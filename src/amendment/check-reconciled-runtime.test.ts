@@ -3,7 +3,6 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { SLICELESS_LINE } from "../agentdata/identity-data.service.ts";
 import { openRegentQueueAmendments } from "../regent-queue/regent-queue-amendments.ts";
 import { openRegentQueueStore } from "../regent-queue/regent-queue.store.ts";
 import { RECONCILED_THROUGH_LABEL } from "./amendment-notices.ts";
@@ -49,14 +48,14 @@ async function withCourt(runInside: (court: Court) => Promise<void>): Promise<vo
   }
 }
 
-async function launchedAlpha(court: Court, objectiveCode: string | undefined, options: { sliceless?: boolean } = {}): Promise<string> {
+async function launchedAlpha(court: Court, objectiveCode: string | undefined, executionModeLine = ""): Promise<string> {
   const ledger = path.join(court.dataDir, ALPHA);
   await mkdir(ledger, { recursive: true });
   const spawn = { harness: "claude", model: "opus", effort: 3, cwd: "/tmp", ...(objectiveCode === undefined ? {} : { objective_code: objectiveCode }) };
   await writeFile(path.join(ledger, "spawn.json"), JSON.stringify(spawn));
   await writeFile(
     path.join(ledger, "identity.md"),
-    `# Identity — ${ALPHA}\n\n- **Role:** Alpha\n${options.sliceless === true ? `${SLICELESS_LINE}\n` : ""}`,
+    `# Identity — ${ALPHA}\n\n- **Role:** Alpha\n${executionModeLine}`,
   );
   return ledger;
 }
@@ -132,15 +131,15 @@ test("only the newest plan bundle counts", async () => {
   });
 });
 
-test("a sliceless Alpha is checked against its verify.md, not a plan bundle", async () => {
+test("amendment reconciliation reads the bundle overview for every Alpha", async () => {
   await withCourt(async (court) => {
-    const ledger = await launchedAlpha(court, "quick", { sliceless: true });
-    await planBundle(ledger, "todo-2026-09-17-1200-stale", `${RECONCILED_THROUGH_LABEL} 9\n`);
-    amend(court, "quick", 1);
-    assert.equal(await run(["--agent", ALPHA], court.dependencies), CheckReconciledExitCode.NotReconciled);
-    assert.match(court.errors.join(""), /sliceless\/quick\/verify\.md/);
+    const ledger = await launchedAlpha(court, "quick", "- **Execution mode:** sliceless (Lord-authorized; implies shadowless)\n");
     await mkdir(path.join(ledger, "sliceless", "quick"), { recursive: true });
     await writeFile(path.join(ledger, "sliceless", "quick", "verify.md"), `${RECONCILED_THROUGH_LABEL} 1\n**Verify outcome:** PASS\n`);
+    amend(court, "quick", 1);
+    assert.equal(await run(["--agent", ALPHA], court.dependencies), CheckReconciledExitCode.NotReconciled);
+    assert.match(court.errors.join(""), /no plan bundle/);
+    await planBundle(ledger, "todo-2026-11-04-1200-single", `${RECONCILED_THROUGH_LABEL} 1\n`);
     assert.equal(await run(["--agent", ALPHA], court.dependencies), CheckReconciledExitCode.Reconciled);
   });
 });

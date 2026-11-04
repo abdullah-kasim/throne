@@ -78,6 +78,14 @@ test('the launch script exports CLAUDE_BIN as the vendored binary before the har
   assert.ok(script.indexOf('export CLAUDE_BIN=') < script.indexOf('exec '), 'the pin is exported before the harness is executed');
 });
 
+test('the launch script exports the agent name, so a harness started in a pane herdr restored without it still knows its agent', async () => {
+  const calls: string[][] = [];
+  await startInTab('agent-name', 'pane-1', { argv: ['claude'], tabLabel: 'stager-third' }, fakeDeps(calls, vendoredBinaryDirectory(['claude'])));
+  const script = launchScriptText(typedLaunchLine(calls));
+  assert.match(script, /^export THRONE_AGENT_NAME='stager-third'$/m);
+  assert.ok(script.indexOf('export THRONE_AGENT_NAME=') < script.indexOf('exec '), 'the name is exported before the harness is executed');
+});
+
 test('a codex launch pins CODEX_BIN the same way', async () => {
   const calls: string[][] = [];
   const directory = vendoredBinaryDirectory(['codex']);

@@ -62,6 +62,7 @@ export interface HerdrPane {
   terminalId: string;
   label?: string;
   cwd?: string;
+  sessionId?: string;
 }
 
 export interface HerdrForegroundProcess {
@@ -250,6 +251,7 @@ export function parsePaneList(stdout: string): HerdrPane[] {
       terminalId: row.terminal_id,
       label: typeof row.label === 'string' ? row.label : undefined,
       cwd: typeof row.cwd === 'string' ? row.cwd : undefined,
+      sessionId: nativeSessionId(row.agent_session),
     };
   });
 }

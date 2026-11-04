@@ -1,4 +1,4 @@
-import { mkdtemp, readdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -25,6 +25,7 @@ import {
   DESIRED_STATES,
   type DesiredState,
 } from "../regent-state/regent-state.service.ts";
+import { claudeProjectDirectory } from "../session/runtime-model-acceptance.ts";
 import {
   resumeOrphan,
   type StartupResumeContract,
@@ -33,7 +34,9 @@ import {
   REVIVAL_HISTORY_BASENAME,
   revivalHistoryStoreUnder,
 } from "./agent-revival-history.ts";
+import { transcriptExists } from "./agent-session-to-resume.ts";
 import {
+  agentWasToldToExitUnder,
   resumeContractThatNeverOpensATab,
   reviveAgentInItsTab,
   type AgentRevivalDeps,
@@ -63,6 +66,7 @@ export interface PaneState {
   readonly label: string;
   foregroundProcesses: HerdrForegroundProcess[];
   styledScreen: string;
+  sessionId?: string;
 }
 
 interface HarnessStart {
@@ -72,6 +76,7 @@ interface HarnessStart {
 }
 
 export interface Court {
+  readonly throneHome: string;
   readonly agentDataRoot: string;
   readonly deps: AgentRevivalDeps;
   readonly resumeContract: StartupResumeContract;
@@ -88,6 +93,7 @@ export interface Court {
     sessionIndex: number | undefined,
     spawnedAt?: string,
   ) => Promise<void>;
+  writeClaudeTranscript: (sessionId: string) => Promise<void>;
   revive: (agentName: string, dryRun?: boolean) => Promise<AgentRevivalOutcome>;
 }
 
@@ -101,9 +107,12 @@ function liveEntry(name: string): AgentStatusesRosterEntry {
 }
 
 export async function court(): Promise<Court> {
-  const agentDataRoot = await mkdtemp(
+  const throneHome = await mkdtemp(
     path.join(os.tmpdir(), "throne-agent-revival-"),
   );
+  const agentDataRoot = path.join(throneHome, "data");
+  await mkdir(agentDataRoot);
+  const claudeProjects = path.join(throneHome, "claude-projects");
   const panes: PaneState[] = [];
   const harnessStarts: HarnessStart[] = [];
   const renames: { paneId: string; agentName: string }[] = [];
@@ -123,6 +132,7 @@ export async function court(): Promise<Court> {
       tabId: pane.tabId,
       terminalId: `terminal-${pane.paneId}`,
       cwd: agentDataRoot,
+      sessionId: pane.sessionId,
     }));
   const getPaneProcessInfo = async (paneId: string) => ({
     paneId,
@@ -185,6 +195,7 @@ export async function court(): Promise<Court> {
   );
 
   const state: Court = {
+    throneHome,
     agentDataRoot,
     panes,
     harnessStarts,
@@ -212,6 +223,14 @@ export async function court(): Promise<Court> {
       readStyledPaneScreen: async (paneId) =>
         panes.find((pane) => pane.paneId === paneId)!.styledScreen,
       readSpawnSpec: (agentName) => readSpawnSpec(agentName, agentDataRoot),
+      writeSpawnSpec: (agentName, spec) =>
+        writeSpawnSpec(agentName, spec, agentDataRoot),
+      agentWasToldToExit: agentWasToldToExitUnder(agentDataRoot),
+      transcriptExists: (spawnSpec, sessionId) =>
+        transcriptExists(spawnSpec, sessionId, {
+          claudeProjects,
+          userHome: throneHome,
+        }),
       history: revivalHistoryStoreUnder(agentDataRoot),
       now: () => state.now,
       restart: {
@@ -248,6 +267,11 @@ export async function court(): Promise<Court> {
         },
         agentDataRoot,
       );
+    },
+    writeClaudeTranscript: async (sessionId) => {
+      const projectDirectory = claudeProjectDirectory(agentDataRoot, claudeProjects);
+      await mkdir(projectDirectory, { recursive: true });
+      await writeFile(path.join(projectDirectory, `${sessionId}.jsonl`), "{}\n");
     },
     revive: (agentName, dryRun = false) =>
       reviveAgentInItsTab(

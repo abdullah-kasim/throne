@@ -91,6 +91,7 @@ export async function withExclusiveFileLock<Result>(
 }
 
 export interface HeldFileLock {
+  readonly descriptor: number;
   readonly release: () => Promise<void>;
 }
 
@@ -103,7 +104,9 @@ export async function tryExclusiveFileLock(
   try {
     await lockHandle.chmod(LOCK_FILE_MODE);
     const outcome = await lockDescriptor(lockHandle.fd, lockName, flockExecutable, FAIL_WHEN_ALREADY_HELD);
-    if (outcome === DescriptorLockOutcome.Taken) return { release: () => closeWithoutChangingOutcome(lockHandle) };
+    if (outcome === DescriptorLockOutcome.Taken) {
+      return { descriptor: lockHandle.fd, release: () => closeWithoutChangingOutcome(lockHandle) };
+    }
   } catch (error) {
     await closeWithoutChangingOutcome(lockHandle);
     throw error;

@@ -33,6 +33,10 @@ export function throneLogsDirectory(environment?: NodeJS.ProcessEnv, userHome?: 
   return path.join(resolveThroneHome(environment, userHome), "logs");
 }
 
+export function throneCacheDirectory(environment?: NodeJS.ProcessEnv, userHome?: string): string {
+  return path.join(resolveThroneHome(environment, userHome), "cache");
+}
+
 export function throneHomeOfThisMachine(): string {
   return path.join(os.userInfo().homedir, THRONE_HOME_FOLDER_NAME);
 }

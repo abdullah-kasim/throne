@@ -157,6 +157,14 @@ export async function renameTab(
   await deps.runHerdr(['tab', 'rename', tabId, label]);
 }
 
+export async function renameWorkspace(
+  workspaceId: string,
+  label: string,
+  deps: HerdrTabDependencies = DEFAULT_HERDR_TAB_DEPENDENCIES,
+): Promise<void> {
+  await deps.runHerdr(['workspace', 'rename', workspaceId, label]);
+}
+
 export async function closeHerdrAgentTab(
   agent: Pick<HerdrAgent, 'tabId' | 'paneId'>,
   deps: Pick<HerdrTabService, 'closeTab' | 'closePane'> = new HerdrTabService(),

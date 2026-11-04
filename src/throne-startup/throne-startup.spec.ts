@@ -7,7 +7,8 @@ import { pathExists } from "../git-lifecycle/git-command.service.ts";
 import { MOVED_NOTE_FILE_NAME } from "../migrate-home/migrate-home.ts";
 import { retiredBrowserProfilesDirectory } from "../migrate-home/migrate-home-items.ts";
 import { retiredSettingsDirectory, throneConfigDirectory } from "../shared-policy/throne-home.ts";
-import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
+import { THRONE_HERDR_SESSION_NAME } from "../herdr/herdr-client.ts";
+import type { HerdrAgent, HerdrTab } from "../herdr/herdr-inventory.service.ts";
 import { DESIRED_STATES, REGENT_NAME } from "../regent-state/regent-state.service.ts";
 import { copyOldInstallIntoThroneHome, run, type ThroneStartupDeps } from "./throne-startup.ts";
 
@@ -33,6 +34,8 @@ function regentSessionStartWith(extraDeps: Record<string, unknown>): RegentSessi
     listAgents: async () => [regentSession],
     renameAgent: async () => {},
     renameTab: async () => {},
+    listTabs: async () => [],
+    renameWorkspace: async () => {},
     throneRoot: THRONE_ROOT,
     installOmpExtension: async () => ({ kind: "already-installed" as const, target: "/x" }),
     renderQueueDigest: async () => "",
@@ -58,6 +61,61 @@ test("starting a Regent session no longer raises the Stager, and still reconcile
   assert.equal(exitCode, 0);
   assert.deepEqual(startup.reconciledRosters, [[regentSession]]);
   assert.equal(stagerRaises, 0);
+});
+
+function tabInWorkspace(tabId: string, workspaceId: string): HerdrTab {
+  return { tabId, label: tabId, paneCount: 1, workspaceId };
+}
+
+test("a booting Regent renames its own workspace to throne", async () => {
+  const workspaceRenames: string[][] = [];
+  const startup = regentSessionStartWith({
+    listTabs: async () => [
+      tabInWorkspace("another-tab", "another-workspace"),
+      tabInWorkspace(regentSession.tabId, "regent-workspace"),
+    ],
+    renameWorkspace: async (workspaceId: string, label: string) => {
+      workspaceRenames.push([workspaceId, label]);
+    },
+  });
+
+  const exitCode = await run([], startup.deps);
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(workspaceRenames, [["regent-workspace", THRONE_HERDR_SESSION_NAME]]);
+});
+
+test("a failing workspace rename is reported on stderr and startup continues", async (t) => {
+  const stderrWrite = t.mock.method(process.stderr, "write", () => true);
+  const startup = regentSessionStartWith({
+    listTabs: async () => [tabInWorkspace(regentSession.tabId, "regent-workspace")],
+    renameWorkspace: async () => {
+      throw new Error("herdr refused the rename");
+    },
+  });
+
+  const exitCode = await run([], startup.deps);
+
+  const stderrText = stderrWrite.mock.calls.map((call) => String(call.arguments[0])).join("");
+  assert.equal(exitCode, 0);
+  assert.match(stderrText, /workspace rename .* failed \(herdr refused the rename\); continuing/);
+  assert.deepEqual(startup.reconciledRosters, [[regentSession]]);
+});
+
+test("a tab with no workspace id renames nothing", async () => {
+  let workspaceRenames = 0;
+  const startup = regentSessionStartWith({
+    listTabs: async () => [tabInWorkspace(regentSession.tabId, "")],
+    renameWorkspace: async () => {
+      workspaceRenames += 1;
+    },
+  });
+
+  const exitCode = await run([], startup.deps);
+
+  assert.equal(exitCode, 0);
+  assert.equal(workspaceRenames, 0);
+  assert.deepEqual(startup.reconciledRosters, [[regentSession]]);
 });
 
 interface MigratingStartup extends RegentSessionStart {

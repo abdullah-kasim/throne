@@ -40,8 +40,9 @@ import {
 } from "../regent-queue/regent-queue-render.ts";
 import { openRegentQueueStore } from "../regent-queue/regent-queue.store.ts";
 import { currentPaneId } from "../herdr/herdr-session.service.ts";
-import { renameTab } from "../herdr/herdr-tab.service.ts";
-import { listAgents, renameAgent } from "../herdr/herdr-runtime.service.ts";
+import { THRONE_HERDR_SESSION_NAME } from "../herdr/herdr-client.ts";
+import { renameTab, renameWorkspace } from "../herdr/herdr-tab.service.ts";
+import { listAgents, listTabs, renameAgent } from "../herdr/herdr-runtime.service.ts";
 import { sameAgentName } from "../herdr/herdr-identity-contracts.ts";
 import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
 import {
@@ -81,6 +82,8 @@ export interface ThroneStartupDeps {
   listAgents: typeof listAgents;
   renameAgent: typeof renameAgent;
   renameTab: typeof renameTab;
+  listTabs: typeof listTabs;
+  renameWorkspace: typeof renameWorkspace;
   throneRoot: string;
   /** Keeps omp's copy of the throne delivery extension pointing at this
    *  checkout. Injected so tests never touch a real ~/.omp. */
@@ -123,6 +126,8 @@ export const REAL_DEPS: ThroneStartupDeps = {
   listAgents,
   renameAgent,
   renameTab,
+  listTabs,
+  renameWorkspace,
   throneRoot: THRONE_ROOT,
   installOmpExtension: () =>
     installOmpDeliveryExtension({
@@ -269,6 +274,30 @@ async function ensureRegentTab(
   } catch (err) {
     process.stderr.write(
       `throne-startup: tab rename to "${REGENT_TAB_LABEL}" failed (${errText(err)}); continuing\n`,
+    );
+  }
+}
+
+async function ensureThroneWorkspaceName(
+  own: HerdrAgent,
+  deps: ThroneStartupDeps,
+): Promise<void> {
+  try {
+    const tabs = await deps.listTabs();
+    const workspaceId = tabs.find((tab) => tab.tabId === own.tabId)?.workspaceId;
+    if (!workspaceId) {
+      process.stdout.write(
+        `throne-startup: tab "${own.tabId}" has no workspace id; cannot name the workspace "${THRONE_HERDR_SESSION_NAME}"\n`,
+      );
+      return;
+    }
+    await deps.renameWorkspace(workspaceId, THRONE_HERDR_SESSION_NAME);
+    process.stdout.write(
+      `throne-startup: ensured workspace "${workspaceId}" is labelled "${THRONE_HERDR_SESSION_NAME}"\n`,
+    );
+  } catch (err) {
+    process.stderr.write(
+      `throne-startup: workspace rename to "${THRONE_HERDR_SESSION_NAME}" failed (${errText(err)}); continuing\n`,
     );
   }
 }
@@ -441,6 +470,7 @@ export async function run(
   const isRegent = await maybeRenameSelf(own, agents, deps);
   if (isRegent) {
     await ensureRegentTab(own, deps);
+    await ensureThroneWorkspaceName(own, deps);
     await recordRegentHarnessSafely(own, deps);
     await recordRegentRouteSafely(own, deps);
   }

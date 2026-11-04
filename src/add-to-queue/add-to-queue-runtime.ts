@@ -64,8 +64,8 @@ const PR_BRANCH_FLAG = "--pr-branch";
 const PRIORITY_FLAG = "--priority";
 const MODEL_HINT_FLAG = "--model-hint";
 const DELIVERABLE_SHAPE_FLAG = "--deliverable-shape";
-const SHADOWLESS_FLAG = "--shadowless";
-const SLICELESS_FLAG = "--sliceless";
+const SINGLE_SLICE_FLAG = "--single-slice";
+const REMOVED_MODE_FLAGS: readonly string[] = ["--shadowless", "--sliceless"];
 const EFFORT_FLAG = "--effort";
 
 export interface LaunchMetadata {
@@ -92,10 +92,18 @@ export interface ParsedAddToQueueArgs {
    *  `create-agent --deliverable-shape` so `reap-agent --reason completed`
    *  can close the row without a delivery commit. */
   deliverableShape?: QueueDeliverableShape;
-  shadowless?: boolean;
-  sliceless?: boolean;
+  singleSlice?: boolean;
   effort?: number;
   body: string;
+}
+
+export function removedModeFlagMessage(flag: string): string {
+  return (
+    `add-to-queue: ${flag} was removed by the Lord on 2026-11-04 ` +
+    `("Actually let's drop shadowless and sliceless."). File the row without ` +
+    `it, or with ${SINGLE_SLICE_FLAG} for the Lord-authorized single-slice ` +
+    `mode. Nothing was added to the queue.`
+  );
 }
 
 export class MissingQueueItemBodyError extends Error {
@@ -117,8 +125,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
   let priority: number | undefined;
   let modelHint: ModelPair | undefined;
   let deliverableShape: QueueDeliverableShape | undefined;
-  let shadowless: boolean | undefined;
-  let sliceless: boolean | undefined;
+  let singleSlice: boolean | undefined;
   let effort: number | undefined;
   const launchValues: Record<string, string> = {};
   const bodyWords: string[] = [];
@@ -143,13 +150,10 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
       prBranch = value.trim();
       continue;
     }
-    if (args[i] === SHADOWLESS_FLAG) {
-      shadowless = true;
-      continue;
-    }
-    if (args[i] === SLICELESS_FLAG) {
-      sliceless = true;
-      shadowless = true;
+    if (REMOVED_MODE_FLAGS.includes(args[i]!))
+      throw new Error(removedModeFlagMessage(args[i]!));
+    if (args[i] === SINGLE_SLICE_FLAG) {
+      singleSlice = true;
       continue;
     }
     if (args[i] === EFFORT_FLAG) {
@@ -220,10 +224,10 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
   // filing is Stager-only, and a Stager files objectives for OTHER repositories
   // from its own tree.
   //
-  // Measured 2026-08-27, the incident that forced this: seven `the-runner`
+  // Measured 2026-08-27, the incident that forced this: seven `bakery-site`
   // objectives were filed from a Stager worktree and silently recorded
   // `launch_target_repo = .../worktrees/throne/stager-floor`, branch
-  // `stager-floor`. Autoscale then tried to fork a the-runner campaign off the
+  // `stager-floor`. Autoscale then tried to fork a bakery-site campaign off the
   // Stager's own throne branch every five minutes while the Alpha floor sat
   // breached. The filer had "corrected" it with `update-queue --target-repo`,
   // but THAT FLAG WRITES A DIFFERENT COLUMN (`target_repo`, the delivery
@@ -235,7 +239,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
     throw new Error(
       `add-to-queue: --target-repo is required. Name the repository this ` +
         `objective will be BUILT IN, absolutely — e.g. --target-repo ` +
-        `/var/home/theuser/repos/the-runner. It is no longer derived from the ` +
+        `/var/home/theuser/repos/bakery-site. It is no longer derived from the ` +
         `current directory, because filing is Stager-only and a Stager files ` +
         `for other repositories from its own tree. --target-branch and ` +
         `--base-commit still default, but they are now read from the repo you ` +
@@ -258,8 +262,7 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
     ...(priority === undefined ? {} : { priority }),
     ...(modelHint === undefined ? {} : { modelHint }),
     ...(deliverableShape === undefined ? {} : { deliverableShape }),
-    ...(shadowless === undefined ? {} : { shadowless }),
-    ...(sliceless === undefined ? {} : { sliceless }),
+    ...(singleSlice === undefined ? {} : { singleSlice }),
     ...(effort === undefined ? {} : { effort }),
     launchOverrides,
   };
@@ -327,16 +330,10 @@ async function admitStagerFiler(
   return { admitted: true, filerName: name };
 }
 
-const SLICELESS_SUCCESS_SUFFIX = "; SLICELESS (implies shadowless), Lord-authorized";
-const SHADOWLESS_SUCCESS_SUFFIX = "; SHADOWLESS, Lord-authorized";
+const SINGLE_SLICE_SUCCESS_SUFFIX = "; SINGLE-SLICE, Lord-authorized";
 
-export function executionModeSuffix(item: {
-  readonly shadowless?: boolean;
-  readonly sliceless?: boolean;
-}): string {
-  if (item.sliceless === true) return SLICELESS_SUCCESS_SUFFIX;
-  if (item.shadowless === true) return SHADOWLESS_SUCCESS_SUFFIX;
-  return "";
+export function executionModeSuffix(item: { readonly singleSlice?: boolean }): string {
+  return item.singleSlice === true ? SINGLE_SLICE_SUCCESS_SUFFIX : "";
 }
 
 /** Completes the operator's partial launch fields FROM THE NAMED TARGET REPO.
@@ -438,8 +435,7 @@ export async function run(
       ...(parsed.deliverableShape === undefined
         ? {}
         : { deliverableShape: parsed.deliverableShape }),
-      ...(parsed.shadowless === undefined ? {} : { shadowless: parsed.shadowless }),
-      ...(parsed.sliceless === undefined ? {} : { sliceless: parsed.sliceless }),
+      ...(parsed.singleSlice === undefined ? {} : { singleSlice: parsed.singleSlice }),
       ...(parsed.effort === undefined ? {} : { effort: parsed.effort }),
       launch,
       filedBy: admission.filerName,

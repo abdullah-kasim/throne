@@ -7,6 +7,7 @@ import { makeScratchDirectory } from "../scratch-directory.test-support.ts";
 import type { AccountPlaces } from "./account-places.ts";
 
 export const NOW = new Date("2026-10-16T12:00:00Z");
+const TOKEN_EXPIRY_FAR_IN_THE_FUTURE = new Date("2100-01-01T00:00:00Z");
 export const COMPANY_DOMAIN = "company.example";
 export const PERSONAL_DOMAIN = "personal.example";
 export const PRIMARY_ACCESS_TOKEN = "access-token-of-the-primary-folder";
@@ -17,7 +18,7 @@ export function credentialsText(accessToken: string): string {
     claudeAiOauth: {
       accessToken,
       refreshToken: "refresh-token",
-      expiresAt: NOW.getTime() + 3_600_000,
+      expiresAt: TOKEN_EXPIRY_FAR_IN_THE_FUTURE.getTime(),
       scopes: ["user:inference"],
     },
   });

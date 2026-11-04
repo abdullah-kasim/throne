@@ -280,12 +280,12 @@ recording:
 
 For technical analysis, require depth practices when applicable: trace flattened
 or derived data back to authoritative sources; retrieve the actual primary
-datasheet and relevant vendor reference-design BOMs; calculate suitability with
-units, margins, and derating; inspect rasterized design sheets for human
+specification and the vendor's own reference material; calculate suitability with
+units and margins; inspect rendered documents for human
 annotations; and refute weak leads instead of reporting them. Treat rule-checker
 output as leads and compress raw checker counts to a one-line note. The comparison
-must expose causal method gaps such as "the model skipped the datasheet, so it
-missed the voltage-rating failure", not merely list different conclusions.
+must expose causal method gaps such as "the model skipped the vendor's changelog, so it
+missed the changed default", not merely list different conclusions.
 
 Write all skill-owned Markdown artifacts in ASCII. Preserve raw external strings
 only when evidence requires them, and explain them with ASCII text.

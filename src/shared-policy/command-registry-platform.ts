@@ -11,6 +11,7 @@ import { AccountCommand } from "../account/account.command.ts";
 import { CampaignEvidenceCommand } from "../campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "../sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
 import { MemoryDirCommand } from "../memory-dir/memory-dir.command.ts";
+import { SemaphoreCommand } from "../semaphore/semaphore.command.ts";
 import { SkillExtensionCommand } from "../skill-extension/skill-extension.command.ts";
 import { ScratchPaneCommand } from "../scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "../migrate-home/migrate-home.command.ts";
@@ -162,6 +163,15 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     description:
       "Print the durable cross-session memory directory for the project containing DIR, deferring to any memory convention already in force.",
     ownHelp: true,
+  },
+  {
+    name: "semaphore",
+    provider: SemaphoreCommand,
+    visibility: "public",
+    migrated: false,
+    ownHelp: true,
+    description:
+      "Create a named counting semaphore with a slot count, run a command in one of its free slots (waiting while every slot is held), or show who holds each slot.",
   },
   {
     name: "skill-extension",

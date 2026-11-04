@@ -28,7 +28,6 @@ const ENTRY_FORM = [
   '- Where it stands: <short plain summary>',
 ];
 const ENTRY_FORM_FIRST_LINES = ['- Links: ', '- Kind: ', '- Where it stands: '];
-const ENTRY_FORM_REFERENCE = "the page's entry form";
 
 async function readSkillSection(skillName: string, heading: string): Promise<string> {
   const source = await readFile(resolve(SKILLS_DIRECTORY, skillName, 'SKILL.md'), 'utf8');
@@ -268,14 +267,6 @@ test("the record step writes its entry in the page's entry form", async () => {
     ]),
     [],
   );
-  assert.ok(
-    (await readSkillSection('execute-todos', '## Shadowless mode — Lord-authorized only')).includes(ENTRY_FORM_REFERENCE),
-    'the shadowless record step names the entry form',
-  );
-  assert.ok(
-    (await readSkillSection('execute-todos', '## Sliceless mode — Lord-authorized only')).includes(ENTRY_FORM_REFERENCE),
-    'the sliceless record step names the entry form',
-  );
 });
 
 test("AGENTS.md tells the Stager, the Alpha and the Regent when to write the Lord's page", async () => {
@@ -378,19 +369,11 @@ test("every bundle ends with a step that records the outcome on the Lord's page"
   );
 });
 
-test('shadowless and sliceless campaigns record the outcome without a todo file', async () => {
+test("a single-slice campaign records the outcome through its own record step", async () => {
   assert.deepEqual(
-    missingPhrases(await readSkillSection('execute-todos', '## Shadowless mode — Lord-authorized only'), [
-      'After the delivery pass and `REPORT.md`, you perform the `99d` record step',
-      'The step does not depend on a todo file',
-    ]),
-    [],
-  );
-  assert.deepEqual(
-    missingPhrases(await readSkillSection('execute-todos', '## Sliceless mode — Lord-authorized only'), [
-      "Record the outcome on the Lord's page without a todo file.",
-      'there is no `99d_record_` file to read',
-      'report DONE only after `throne check-where-i-stand --agent <your-name>` passes',
+    missingPhrases(await readSkillSection('execute-todos', '## Single-slice mode — Lord-authorized only'), [
+      'all of `99a_conform_`, `99b_verify_`, `99c_deliver_` and `99d_record_`',
+      "the record step on the Lord's page are the ordinary sections above and below, unchanged.",
     ]),
     [],
   );
@@ -414,21 +397,6 @@ test('the record step corrects every other entry about the same work', async () 
     missingPhrases(law, [
       'removes every other entry about the same work or marks it superseded, and adds a note',
       'and while an older entry about the same work stands uncorrected',
-    ]),
-    [],
-  );
-});
-
-test('shadowless and sliceless campaigns correct older entries about the same work too', async () => {
-  assert.deepEqual(
-    missingPhrases(await readSkillSection('execute-todos', '## Shadowless mode — Lord-authorized only'), [
-      'correcting every other entry about the same work as its step 3 says',
-    ]),
-    [],
-  );
-  assert.deepEqual(
-    missingPhrases(await readSkillSection('execute-todos', '## Sliceless mode — Lord-authorized only'), [
-      'correcting every other entry about the same work is part of the record, as step 3 there says',
     ]),
     [],
   );

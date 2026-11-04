@@ -99,7 +99,7 @@ squash and merge"), do not ask again; quote him.
 `/queue-objective` applies in full (five markers, `REUSE:` naming the code a
 fix would touch, lint, launch facts). The row targets the ROOT pull
 request's branch with `--target-branch` and `--pr-branch` both set to it and
-`--base-commit` from its tip. Opus sliceless when the Lord says so; his
+`--base-commit` from its tip. Opus single-slice when the Lord says so; his
 words, not the row's size, decide that.
 
 The body carries this shape, filled in from the script's output:

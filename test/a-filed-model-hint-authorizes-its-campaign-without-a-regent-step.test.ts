@@ -33,7 +33,6 @@ async function fileRow(dataDir: string, objectiveCode: string, modelHint: string
       "--target-repo", join(dataDir, "repo"),
       "--objective-code", objectiveCode,
       ...(modelHint === undefined ? [] : ["--model-hint", modelHint]),
-      "--sliceless",
       "Say hi to the Stager",
     ],
     {

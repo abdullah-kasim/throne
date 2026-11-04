@@ -280,6 +280,11 @@ fi
 
 [ -f dist/src/tools.js ] || die "build produced no dist/src/tools.js"
 
+step "Pressure baseline"
+
+node ./dist/src/tools.js resource-pressure --form-baseline ||
+    warn "pressure baseline not formed: it will form on its own from quiet moments"
+
 # --- vendored harnesses ---------------------------------------------------
 # claude and codex ship as npm packages, so a pinned `npm install --prefix`
 # into ./vendor gives an exact, reproducible, self-contained harness that no

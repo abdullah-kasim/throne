@@ -3,8 +3,11 @@ import {
   type AgentStatusesRosterEntry,
 } from "../agent-statuses/agent-statuses.types.ts";
 import { listForkedAgentNames } from "../agentdata/fork-evidence.ts";
+import path from "node:path";
 import {
+  fileExists,
   readSpawnSpec,
+  writeSpawnSpec,
   type SpawnSpec,
 } from "../agentdata/spawn-data-contracts.ts";
 import {
@@ -44,8 +47,8 @@ import {
   resumeAgentInItsTab,
   type ResumeInTabDeps,
 } from "../restart-harnesses/restart-harnesses-runtime.ts";
-import { SessionService } from "../session/session.service.ts";
 import { errorText } from "../shared-policy/error-text.ts";
+import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { COURT_LIVENESS_HOSTED_WORKER_NAME } from "../throne-backend/court-liveness.hosted-worker.ts";
 import {
   COURT_ROLE_LIVENESS,
@@ -65,6 +68,11 @@ import {
   type RevivalHistory,
   type RevivalHistoryStore,
 } from "./agent-revival-history.ts";
+import {
+  sessionToResume,
+  transcriptExists,
+  type SessionToResumeDeps,
+} from "./agent-session-to-resume.ts";
 
 export const AGENT_REVIVAL_OUTCOMES = {
   REVIVED: "revived",
@@ -79,9 +87,12 @@ export const AGENT_REVIVAL_OUTCOMES = {
 export const AGENT_REVIVAL_SKIP_REASONS = {
   REGENT_IS_DISMISSED: "the Regent is dismissed",
   HARNESS_STILL_RUNS: "a harness process still runs in its tab",
+  TOLD_TO_EXIT: "it was told to exit",
   NO_RECORDED_SESSION: "its spawn record holds no native session to resume",
   PANE_IS_IN_USE: "its pane is not at a shell prompt with nothing typed",
 } as const;
+
+export const TOLD_TO_EXIT_MARKER_BASENAME = "told-to-exit";
 
 export const TAB_DISAPPEARED_BEFORE_THE_RESUME =
   "its tab disappeared before the harness could be started, and no tab is opened";
@@ -116,7 +127,9 @@ export interface AgentRevivalRequest {
   readonly rosterEntries: readonly AgentStatusesRosterEntry[];
 }
 
-export interface AgentRevivalDeps extends RestoredAgentTabDeps {
+export interface AgentRevivalDeps
+  extends RestoredAgentTabDeps,
+    SessionToResumeDeps {
   readonly readDesiredState: () => Promise<DesiredState>;
   readonly readForkedAgentNames: () => Promise<ReadonlySet<string>>;
   readonly findStagerTheCourtWouldReuse: (
@@ -124,6 +137,8 @@ export interface AgentRevivalDeps extends RestoredAgentTabDeps {
   ) => Promise<ReusableStager | null>;
   readonly readStyledPaneScreen: (paneId: string) => Promise<string>;
   readonly readSpawnSpec: (agentName: string) => Promise<SpawnSpec | null>;
+  readonly writeSpawnSpec: (agentName: string, spec: SpawnSpec) => Promise<void>;
+  readonly agentWasToldToExit: (agentName: string) => Promise<boolean>;
   readonly history: RevivalHistoryStore;
   readonly now: () => number;
   readonly restart: ResumeInTabDeps;
@@ -160,6 +175,13 @@ async function readStyledScreenOfPaneWithoutHarness(
   return parseReadText(stdout);
 }
 
+export function agentWasToldToExitUnder(
+  agentDataRoot: string,
+): (agentName: string) => Promise<boolean> {
+  return (agentName) =>
+    fileExists(path.join(agentDataRoot, agentName, TOLD_TO_EXIT_MARKER_BASENAME));
+}
+
 export const REAL_AGENT_REVIVAL_DEPS: AgentRevivalDeps = {
   listTabs,
   listPanes,
@@ -170,6 +192,10 @@ export const REAL_AGENT_REVIVAL_DEPS: AgentRevivalDeps = {
     findStagerTheCourtWouldReuse(liveAgentNames),
   readStyledPaneScreen: readStyledScreenOfPaneWithoutHarness,
   readSpawnSpec: (agentName) => readSpawnSpec(agentName),
+  writeSpawnSpec: (agentName, spec) => writeSpawnSpec(agentName, spec),
+  agentWasToldToExit: agentWasToldToExitUnder(THRONE_DATA_DIR),
+  transcriptExists: (spawnSpec, sessionId) =>
+    transcriptExists(spawnSpec, sessionId),
   history: revivalHistoryStoreUnder(),
   now: Date.now,
   restart: {
@@ -193,6 +219,7 @@ type AgentRevivalDecision =
       readonly kind: "revive";
       readonly tab: RestoredAgentTab;
       readonly sessionId: string;
+      readonly spawnSpecToRecord: SpawnSpec | null;
       readonly history: RevivalHistory;
     };
 
@@ -336,14 +363,19 @@ async function decideAgentRevival(
   if (await courtLivenessBringsThisStagerBack(agentName, rosterEntries, deps)) {
     return leftToCourtLiveness(agentName);
   }
+  if (await deps.agentWasToldToExit(agentName)) {
+    return skipped(agentName, AGENT_REVIVAL_SKIP_REASONS.TOLD_TO_EXIT);
+  }
   const spawnSpec = await deps.readSpawnSpec(agentName);
-  const sessionId = spawnSpec?.session_id;
-  if (!new SessionService().isFullSessionId(sessionId)) {
+  const session =
+    spawnSpec === null ? null : await sessionToResume(spawnSpec, tab.paneId, deps);
+  if (spawnSpec === null || session === null) {
     return skipped(agentName, AGENT_REVIVAL_SKIP_REASONS.NO_RECORDED_SESSION);
   }
+  const resumedSpawnSpec = { ...spawnSpec, session_id: session.sessionId };
   const history = revivalHistoryOfSubject(
     await deps.history.read(agentName),
-    JSON.stringify({ ...tab, spawnSpec }),
+    JSON.stringify({ ...tab, spawnSpec: resumedSpawnSpec }),
   );
   if (revivalLimitIsReached(history, deps.now())) {
     return { kind: "limit-reached", history };
@@ -351,7 +383,13 @@ async function decideAgentRevival(
   if (!(await paneIsAShellPromptWithNothingTyped(tab.paneId, deps))) {
     return skipped(agentName, AGENT_REVIVAL_SKIP_REASONS.PANE_IS_IN_USE);
   }
-  return { kind: "revive", tab, sessionId, history };
+  return {
+    kind: "revive",
+    tab,
+    sessionId: session.sessionId,
+    spawnSpecToRecord: session.recoveredFromHerdr ? resumedSpawnSpec : null,
+    history,
+  };
 }
 
 async function reportRevivalLimitOnce(
@@ -391,6 +429,9 @@ export async function reviveAgentInItsTab(
   };
   if (request.dryRun) {
     return { ...revival, kind: AGENT_REVIVAL_OUTCOMES.WOULD_REVIVE };
+  }
+  if (decision.spawnSpecToRecord !== null) {
+    await deps.writeSpawnSpec(agentName, decision.spawnSpecToRecord);
   }
   await deps.history.write(
     agentName,

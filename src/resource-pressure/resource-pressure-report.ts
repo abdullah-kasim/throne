@@ -15,6 +15,10 @@ import {
   type PressureClassification,
 } from '../pressure-signal/classify-pressure.ts';
 import { DARWIN_IO_UNMEASURABLE_NOTE } from '../pressure-signal/darwin-pressure-reader.ts';
+import {
+  formatResponsivenessLine,
+  type ResponsivenessReport,
+} from '../pressure-baseline/responsiveness-report.ts';
 
 /** Where the verdict's inputs came from: Linux PSI files, or the darwin
  *  readers (cpu utilisation sample, kernel memorystatus, io unmeasurable). */
@@ -42,6 +46,7 @@ export interface ResourcePressureSnapshot {
   readonly cpuCount: number;
   readonly memTotalKib: number | null;
   readonly memAvailableKib: number | null;
+  readonly responsiveness: ResponsivenessReport;
 }
 
 const SOME_ALL_WINDOWS_PATTERN =
@@ -120,6 +125,7 @@ export function formatResourcePressureReport(
       lines.push(`  verdict input: ${reason}`);
     }
   }
+  lines.push(`  ${formatResponsivenessLine(snapshot.responsiveness)}`);
   if (snapshot.source === 'darwin') {
     // No PSI windows exist to print; say what the verdict was graded from
     // instead of rendering three "unavailable" lines that read as a fault.
@@ -170,5 +176,6 @@ export function resourcePressureJson(snapshot: ResourcePressureSnapshot): object
       total: snapshot.memTotalKib,
       available: snapshot.memAvailableKib,
     },
+    responsiveness: snapshot.responsiveness,
   };
 }

@@ -68,7 +68,7 @@ function harness(initialSettings: string | null): Harness {
   };
 }
 
-test("a machine with no hooks gets all five added, and a second run reports them unchanged", async () => {
+test("a machine with no hooks gets all six added, and a second run reports them unchanged", async () => {
   const machine = harness(null);
 
   assert.equal(await ensureHarnessSetup(THRONE, machine.dependencies), 0);
@@ -77,12 +77,14 @@ test("a machine with no hooks gets all five added, and a second run reports them
     "ensure-harness-setup: claude skill write guard: added\n",
     "ensure-harness-setup: claude memory read log: added\n",
     "ensure-harness-setup: claude jev fence: added\n",
+    "ensure-harness-setup: claude agent exit marker: added\n",
     "ensure-harness-setup: codex session start: added\n",
   ]);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/scratch-path-guard\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/skill-write-guard\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/memory-read-log\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/jev-fence\.py/);
+  assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/agent-exit-marker\.py/);
   assert.match(
     machine.codexHooks.get("/srv/throne/.codex/hooks.json") ?? "",
     /\/srv\/throne\/bin\/throne-cli throne-startup/,
@@ -95,6 +97,7 @@ test("a machine with no hooks gets all five added, and a second run reports them
     "ensure-harness-setup: claude skill write guard: unchanged\n",
     "ensure-harness-setup: claude memory read log: unchanged\n",
     "ensure-harness-setup: claude jev fence: unchanged\n",
+    "ensure-harness-setup: claude agent exit marker: unchanged\n",
     "ensure-harness-setup: codex session start: unchanged\n",
   ]);
   assert.deepEqual(machine.notifications, []);
@@ -105,11 +108,12 @@ test("a malformed settings file fails every claude hook with the reason and noti
   const machine = harness("{ not json");
 
   assert.equal(await ensureHarnessSetup(THRONE, machine.dependencies), 1);
-  assert.equal(machine.stderr.length, 4);
+  assert.equal(machine.stderr.length, 5);
   assert.match(machine.stderr[0], /^ensure-harness-setup: claude scratch path guard: failed: .*is not valid JSON/);
   assert.match(machine.stderr[1], /^ensure-harness-setup: claude skill write guard: failed: .*is not valid JSON/);
   assert.match(machine.stderr[2], /^ensure-harness-setup: claude memory read log: failed: .*is not valid JSON/);
   assert.match(machine.stderr[3], /^ensure-harness-setup: claude jev fence: failed: .*is not valid JSON/);
+  assert.match(machine.stderr[4], /^ensure-harness-setup: claude agent exit marker: failed: .*is not valid JSON/);
   assert.deepEqual(machine.stdout, ["ensure-harness-setup: codex session start: added\n"]);
   assert.equal(machine.settings.text, "{ not json");
   assert.equal(machine.notifications.length, 1);

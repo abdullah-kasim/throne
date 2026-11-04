@@ -57,9 +57,8 @@ source turn, reconcile every affected surface, and record the line
 **Queue amendments reconciled through:** <n>
 ```
 
-in `00_overview.md` (in `verify.md` for a sliceless campaign). Pushing and
-landing are refused while that number is below the row's highest amendment:
-the push guard and `merge-git-tree` both run
+in `00_overview.md`. Pushing and landing are refused while that number is
+below the row's highest amendment: the push guard and `merge-git-tree` both run
 `throne check-queue-amendments-reconciled --agent <alpha>`.
 
 ## Correct the Lord's page when the amendment changes what the row is

@@ -1,4 +1,10 @@
+import os from "node:os";
 import type { PressureVerdict } from "../pressure-signal/classify-pressure.ts";
+import {
+  measureResponsiveness,
+  type ResponsivenessReport,
+} from "../pressure-baseline/responsiveness-report.ts";
+import { resolveThroneHome } from "../shared-policy/throne-home.ts";
 import { countLiveAlphas } from "../keep-going/alpha-capacity.ts";
 import type { QueueLaunchBriefReadResult } from "../regent-queue/regent-queue-launch-brief.ts";
 import {
@@ -42,6 +48,7 @@ export interface AutoscaleStatusSources {
   readonly autoscale: AlphaAutoscaleDependencies;
   readonly openQueueStore: () => AutoscaleQueueSource & { close(): void };
   readonly inspectSweepLock: () => Promise<SweepLockInspection>;
+  readonly measureResponsiveness: () => Promise<ResponsivenessReport>;
   readonly breachTracker: AlphaFloorBreachTracker;
   readonly nextScheduledRun: () => Date | undefined;
   readonly now: () => number;
@@ -76,6 +83,7 @@ export interface AutoscaleStatusReport {
     readonly reasons: readonly string[];
     readonly launchBudget: number;
     readonly holdingSpawns: boolean;
+    readonly responsiveness: ResponsivenessReport;
   };
   readonly cooldown: AlphaAutoscaleCooldownStatus;
   readonly queue: AutoscaleStatusQueue;
@@ -90,6 +98,7 @@ export function resolveAutoscaleStatusSources(
     autoscale: resolveAlphaAutoscaleDependencies(),
     openQueueStore: () => openRegentQueueStore(),
     inspectSweepLock: () => inspectSweepLock(ALPHA_AUTOSCALE_SWEEP_LOCK_PATH),
+    measureResponsiveness: () => measureResponsiveness(resolveThroneHome(), os.homedir()),
     breachTracker: alphaFloorBreachTracker,
     nextScheduledRun: () => undefined,
     now: Date.now,
@@ -191,6 +200,7 @@ export async function collectAutoscaleStatus(
       reasons: pressure.reasons,
       launchBudget,
       holdingSpawns: pressure.verdict !== "take-more-work" || launchBudget === 0,
+      responsiveness: await sources.measureResponsiveness(),
     },
     cooldown,
     queue: describeAutoscaleStatusQueue(queue, projection, readyQueue, mutatingTargets, sources.now()),

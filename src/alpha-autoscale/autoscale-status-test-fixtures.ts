@@ -4,6 +4,7 @@ import path from "node:path";
 import { readLaunchLedger } from "../alpha-launch-queue/launch-ledger-reader.ts";
 import { AGENT_LIFECYCLE_STATES } from "../agent-statuses/agent-statuses.types.ts";
 import type { PressureClassification } from "../pressure-signal/classify-pressure.ts";
+import { measureResponsiveness } from "../pressure-baseline/responsiveness-report.ts";
 import { RegentQueueItemStatus } from "../regent-queue/regent-queue-item-state.ts";
 import { openRegentQueueStore } from "../regent-queue/regent-queue.store.ts";
 import type { AlphaAutoscaleDependencies } from "./alpha-autoscale.hosted-worker.ts";
@@ -24,6 +25,8 @@ export interface AutoscaleStatusCourt {
   readonly malformedSpawnStatePath: string;
   readonly ledgerPath: string;
   readonly sweepLockPath: string;
+  readonly dataHome: string;
+  readonly userHome: string;
 }
 
 function launchFacts(code: string) {
@@ -45,7 +48,7 @@ function seedQueue(queuePath: string): void {
       priority: 9,
       launch: launchFacts("beta"),
       modelHint: { harness: "claude", model: "opus" },
-      sliceless: true,
+      singleSlice: true,
     });
     store.insertItem({ objectiveCode: "unready", body: "INTENT: unready" });
     store.insertItem({ objectiveCode: "done", body: "INTENT: done", status: RegentQueueItemStatus.Complete });
@@ -83,6 +86,8 @@ export function buildAutoscaleStatusCourt(): AutoscaleStatusCourt {
     malformedSpawnStatePath: path.join(root, "malformed-last-spawn.json"),
     ledgerPath: path.join(root, "alpha-launch-ledger.jsonl"),
     sweepLockPath: path.join(root, "locks", "alpha-autoscale.lock"),
+    dataHome: path.join(root, "throne-home"),
+    userHome: root,
   };
   seedQueue(court.queuePath);
   createEmptyQueue(court.emptyQueuePath);
@@ -169,6 +174,7 @@ export function statusSourcesOver(
     autoscale: readersOver(court, reading),
     openQueueStore: () => openRegentQueueStore(reading.queuePath ?? court.queuePath),
     inspectSweepLock: () => inspectSweepLock(court.sweepLockPath),
+    measureResponsiveness: () => measureResponsiveness(court.dataHome, court.userHome),
     breachTracker: reading.breachTracker ?? new AlphaFloorBreachTracker(),
     nextScheduledRun: () => undefined,
     now: Date.now,

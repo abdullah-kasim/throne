@@ -21,8 +21,7 @@ export interface AgentIdentity {
   objectiveCode?: string;
   nonCampaign?: true;
   emptyWorktree?: true;
-  shadowless?: true;
-  sliceless?: true;
+  singleSlice?: true;
   campaignEffort?: number;
   forkedFrom?: string;
   account?: string;
@@ -40,29 +39,20 @@ export interface AgentIdentity {
 }
 
 const ROLE_LINE_PREFIX = "- **Role:** ";
-export const SHADOWLESS_LINE = "- **Execution mode:** shadowless (Lord-authorized)";
-export const SHADOWLESS_STANDING_INSTRUCTION =
-  "Execution mode: SHADOWLESS, authorized by the Lord for this campaign at filing. " +
-  "You execute every todo slice yourself, in your own worktree and on your own branch, " +
-  "one slice at a time, instead of spawning a Shadow per slice; follow the " +
-  "\"Shadowless mode\" section of /execute-todos. Nothing else about the campaign contract " +
-  "changes: the todo bundle, the execution logs, the gate chain and the delivery rules still apply.";
-export const SLICELESS_LINE = "- **Execution mode:** sliceless (Lord-authorized; implies shadowless)";
-export const SLICELESS_STANDING_INSTRUCTION =
-  "Execution mode: SLICELESS, authorized by the Lord for this campaign at filing; sliceless implies shadowless. " +
-  "You do NOT run /write-todos and you write no todo bundle, no ASSIGNMENT.md, no 99a/99b/99c files, and you spawn no Shadows. " +
-  "The queue body is the spec of record: read it whole, read AGENTS.md and the target repo's own AGENTS/CLAUDE files, and work " +
-  "directly in your spawned worktree and branch, following the \"Sliceless mode\" section of /execute-todos. Keep " +
-  `${DEFAULT_DATA_DIR}/<your-name>/sliceless/<objective-code>/decisions.md (one line per closed fork) and, before your first push, write ` +
-  `${DEFAULT_DATA_DIR}/<your-name>/sliceless/<objective-code>/verify.md ending in both \`**Conformance outcome:** PASS\` and ` +
-  "`**Verify outcome:** PASS`; the git shim refuses your push to a named remote without them. If the work turns out not to be " +
-  "single-seam, stop, write why to decisions.md, and tell the Regent `sliceless was authorized but the work needs a bundle`.";
+export const SINGLE_SLICE_LINE = "- **Execution mode:** single-slice (Lord-authorized)";
+export const SINGLE_SLICE_STANDING_INSTRUCTION =
+  "Execution mode: SINGLE-SLICE, authorized by the Lord for this campaign at filing: \"a single executor shadow, " +
+  "the 99 verification slices, and the alpha to act as the place where lord can still send messages to without " +
+  "interrupting the shadow\" (Lord, 2026-11-04). Run /write-todos for exactly ONE implementation slice, `01`, plus " +
+  "the ordinary 99a, 99b, 99c and 99d files. One executor Shadow does `01`; each 99 gate runs as a fresh Shadow " +
+  "distinct from the executor. You stay the orchestrator: you manage your Shadows, route every gate failure back " +
+  "as a fix round on `01`, and are where the Lord sends messages without interrupting the executor. Code refuses " +
+  "any other shape (\"Best to codify it or alphas tend to ignore\").";
 export const SHADOWED_LINE =
   "- **Execution mode:** shadowed (default) — one real Shadow per slice; executing a slice yourself is a process deviation";
 export const SHADOWED_STANDING_INSTRUCTION =
-  "Execution mode: SHADOWED, the default. The Lord did NOT authorize shadowless execution for this campaign " +
-  "(no `--shadowless` at filing, no `Execution mode: shadowless` line in your identity.md). " +
-  "Sliceless (`--sliceless` at filing, `Execution mode: sliceless` in identity.md) is the other Lord-only mode and was not granted either. " +
+  "Execution mode: SHADOWED, the default. Single-slice (`--single-slice` at filing, `Execution mode: single-slice` " +
+  "in identity.md) is the one Lord-only mode and was not granted for this campaign. " +
   "Every todo slice is executed by a real Shadow you spawn with `create-agent --role Shadow`, in its own " +
   "herdr tab and worktree, and the 99a, 99b and 99c gates are real Shadows too. Writing, testing or pushing " +
   "a slice yourself is the process deviation AGENTS.md forbids, whatever the size of the diff; the git shim " +
@@ -142,10 +132,8 @@ export function identityText(name: string, identity: AgentIdentity): string {
       `Policy override for \`${name}\`: ${identity.policyOverride}`,
     );
   }
-  if (identity.sliceless === true) {
-    sections.push(SLICELESS_STANDING_INSTRUCTION);
-  } else if (identity.shadowless === true) {
-    sections.push(SHADOWLESS_STANDING_INSTRUCTION);
+  if (identity.singleSlice === true) {
+    sections.push(SINGLE_SLICE_STANDING_INSTRUCTION);
   } else if (canonicalizeIdentityRole(identity.role) === "Alpha") {
     sections.push(SHADOWED_STANDING_INSTRUCTION);
   }
@@ -348,13 +336,11 @@ export async function writeIdentity(
     ...(canonicalIdentity.emptyWorktree === true
       ? ["- **Launch mode:** explicit empty-worktree (managed empty scratch)"]
       : []),
-    ...(canonicalIdentity.sliceless === true
-      ? [SLICELESS_LINE]
-      : canonicalIdentity.shadowless === true
-        ? [SHADOWLESS_LINE]
-        : canonicalIdentity.role === "Alpha"
-          ? [SHADOWED_LINE]
-          : []),
+    ...(canonicalIdentity.singleSlice === true
+      ? [SINGLE_SLICE_LINE]
+      : canonicalIdentity.role === "Alpha"
+        ? [SHADOWED_LINE]
+        : []),
     ...(canonicalIdentity.campaignEffort === undefined
       ? []
       : [`- **Campaign effort:** ${canonicalIdentity.campaignEffort} (from the Lord-filed queue row)`]),

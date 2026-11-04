@@ -381,8 +381,8 @@ built from the spec lines, numbered F1, F2, …, each ending with a reload.
 
 **One more question.** Step 12's questions still apply. Bug-fix mode adds
 one: when a bug is really a missing feature, ask about the scope choices
-that change the work (for example, foreground-only against background
-tracking).
+that change the work (for example, a shopping list kept on one device
+against one shared across devices).
 
 ## When a gate rule changes mid-flight
 

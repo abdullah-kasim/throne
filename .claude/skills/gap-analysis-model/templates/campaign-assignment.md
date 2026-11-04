@@ -98,8 +98,8 @@ Every aggregated step must state:
 5. The next step, correction, remaining assumption, or unresolved limit.
 
 Use primary evidence. Read the actual authoritative code, specification,
-datasheet, or design source rather than relying on a summary. Treat
-rule-checker, linter, ERC, DRC, and similar output only as leads and compress
+or design source rather than relying on a summary. Treat
+rule-checker, linter, and similar output only as leads and compress
 their raw counts to one line. A checker line is not a finding until primary
 evidence and reasoning establish the underlying defect.
 

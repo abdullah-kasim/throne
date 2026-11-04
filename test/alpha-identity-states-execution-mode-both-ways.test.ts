@@ -9,10 +9,8 @@ import {
   identityText,
   SHADOWED_LINE,
   SHADOWED_STANDING_INSTRUCTION,
-  SHADOWLESS_LINE,
-  SHADOWLESS_STANDING_INSTRUCTION,
-  SLICELESS_LINE,
-  SLICELESS_STANDING_INSTRUCTION,
+  SINGLE_SLICE_LINE,
+  SINGLE_SLICE_STANDING_INSTRUCTION,
   writeIdentity,
 } from "../src/agentdata/identity-data.service.ts";
 
@@ -30,34 +28,24 @@ async function writtenIdentity(name: string, identity: AgentIdentity): Promise<s
 
 const alpha: AgentIdentity = { supervisor: "Regent", escalation: "Regent", role: "Alpha", objectiveCode: "abc" };
 
-test("an Alpha filed without --shadowless is told, in its header and its standing instruction, that it is shadowed", async () => {
+test("an Alpha filed without --single-slice is told, in its header and its standing instruction, that it is shadowed", async () => {
   const text = identityText("alpha-abc-01", alpha);
   assert.ok(text.includes(SHADOWED_STANDING_INSTRUCTION));
-  assert.ok(!text.includes(SHADOWLESS_STANDING_INSTRUCTION));
+  assert.ok(!text.includes(SINGLE_SLICE_STANDING_INSTRUCTION));
+  assert.doesNotMatch(SHADOWED_STANDING_INSTRUCTION, /shadowless|sliceless/i);
+  assert.match(SHADOWED_STANDING_INSTRUCTION, /Single-slice .* is the one Lord-only mode/);
   const file = await writtenIdentity("alpha-abc-01", alpha);
   assert.ok(file.includes(SHADOWED_LINE));
-  assert.ok(!file.includes(SHADOWLESS_LINE));
+  assert.ok(!file.includes(SINGLE_SLICE_LINE));
 });
 
-test("an Alpha filed with --shadowless keeps the shadowless line and instruction and gets no shadowed ones", async () => {
-  const shadowless: AgentIdentity = { ...alpha, shadowless: true };
-  const text = identityText("alpha-abc-02", shadowless);
-  assert.ok(text.includes(SHADOWLESS_STANDING_INSTRUCTION));
+test("an Alpha filed with --single-slice carries the single-slice line and instruction alone", async () => {
+  const singleSlice: AgentIdentity = { ...alpha, singleSlice: true };
+  const text = identityText("alpha-abc-02", singleSlice);
+  assert.ok(text.includes(SINGLE_SLICE_STANDING_INSTRUCTION));
   assert.ok(!text.includes(SHADOWED_STANDING_INSTRUCTION));
-  const file = await writtenIdentity("alpha-abc-02", shadowless);
-  assert.ok(file.includes(SHADOWLESS_LINE));
-  assert.ok(!file.includes(SHADOWED_LINE));
-});
-
-test("an Alpha filed with --sliceless carries the sliceless line alone: it replaces the shadowless line rather than adding a second", async () => {
-  const sliceless: AgentIdentity = { ...alpha, sliceless: true, shadowless: true };
-  const text = identityText("alpha-abc-04", sliceless);
-  assert.ok(text.includes(SLICELESS_STANDING_INSTRUCTION));
-  assert.ok(!text.includes(SHADOWLESS_STANDING_INSTRUCTION));
-  assert.ok(!text.includes(SHADOWED_STANDING_INSTRUCTION));
-  const file = await writtenIdentity("alpha-abc-04", sliceless);
-  assert.ok(file.includes(SLICELESS_LINE));
-  assert.ok(!file.includes(SHADOWLESS_LINE));
+  const file = await writtenIdentity("alpha-abc-02", singleSlice);
+  assert.ok(file.includes(SINGLE_SLICE_LINE));
   assert.ok(!file.includes(SHADOWED_LINE));
   assert.equal(file.split("**Execution mode:**").length - 1, 1);
 });
@@ -72,7 +60,7 @@ test("Shadows and Stagers carry no execution-mode line or instruction", async ()
     const identity: AgentIdentity = { supervisor: "Regent", escalation: "Regent", role };
     const text = identityText(`${role.toLowerCase()}-x`, identity);
     assert.ok(!text.includes(SHADOWED_STANDING_INSTRUCTION), role);
-    assert.ok(!text.includes(SHADOWLESS_STANDING_INSTRUCTION), role);
+    assert.ok(!text.includes(SINGLE_SLICE_STANDING_INSTRUCTION), role);
     const file = await writtenIdentity(`${role.toLowerCase()}-x`, identity);
     assert.ok(!file.includes("**Execution mode:**"), role);
   }

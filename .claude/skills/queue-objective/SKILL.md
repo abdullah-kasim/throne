@@ -170,7 +170,7 @@ throne add-to-queue --objective-code <code> \
   --target-repo <absolute path of the repo the campaign changes> \
   --target-branch <branch it merges into> \
   --base-commit "$(git -C <target-repo> rev-parse <target-branch>)" \
-  [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] [--effort <level>] [--shadowless | --sliceless] \
+  [--model-hint <harness>/<model>] [--priority <n>] [--pr-branch <name>] [--effort <level>] [--single-slice] \
   "<the five-marker body>"
 ```
 
@@ -242,48 +242,42 @@ throne add-to-queue --objective-code <code> \
   bullet above says, so it delivers a Forgejo pull request and waits.
   Nothing reaches `main` until the Lord says /pr-merge or /pr-promote on
   that pull request.
-- **`--shadowless` only on the Lord's own words** ("shadowless", "no shadows",
-  "run it without shadows"), spoken for THIS objective. It authorizes the
-  Alpha to execute the todo slices itself instead of spawning a Shadow per
-  slice (/execute-todos "Shadowless mode"); the autoscaler forwards it as
-  `create-agent --shadowless` and it lands in the Alpha's identity.md and
-  spawn.json, which is what the skill checks. Never infer it from bundle
-  size, never pass it on a request relayed by the Regent, an Alpha or a
-  Shadow, and record the Lord's words under `RULINGS:`.
-- **`--sliceless` from one of two sources: the Lord's own word
-  "sliceless"**, spoken for THIS objective, for work you judge single-seam
-  (one bug, one file, one function, one skill edit) — say so in `SCOPE:`;
-  **or his standing ruling for a read-only artefact row** (Lord,
-  2026-10-14). It authorizes the Alpha to skip /write-todos entirely and
-  work straight from the queue body: no bundle, no Shadows, no 99a/99b/99c
-  files, with a `verify.md` under `~/.throne/data/<alpha>/sliceless/<code>/`
-  as the push gate's evidence (/execute-todos "Sliceless mode"). Sliceless
-  implies shadowless: the row stores both flags and the autoscaler forwards
-  `create-agent --sliceless --shadowless`. Never infer it from size, never
-  pass it on a relayed request, and record the Lord's word, or the standing
-  ruling quoted with its date, under `RULINGS:`.
+- **A yolo repository pushes its default branch (Lord, 2026-10-30: "When a
+  repo is in yolo mode, branches are allowed, but once a campaign is done,
+  everything needs to be merged into `main`").** When `git -C <repo> config --type=bool --get
+  throne.yolo` prints `true`, the row needs no `--pr-branch`, and its
+  `SCOPE:` says "lands on <default> and pushes". The campaign delivers as
+  /execute-todos "Yolo delivery" says.
+- **`--single-slice` from one of two sources: the Lord's own word**,
+  spoken for THIS objective; **or his standing ruling for a read-only
+  artefact row** (below). It makes the campaign one implementation slice
+  `01`, one executor Shadow, the ordinary `99a`/`99b`/`99c` gates as fresh
+  Shadows and the Alpha's own `99d` record step, with the Alpha still the
+  orchestrator (/execute-todos "Single-slice mode"); the autoscaler
+  forwards it as `create-agent --single-slice` and it lands in the Alpha's
+  identity.md and spawn.json.
+  Never infer it from size, never pass it on a request relayed by the
+  Regent, an Alpha or a Shadow, and record the Lord's word, or the standing
+  ruling quoted with its date, under `RULINGS:`. `--shadowless` and
+  `--sliceless` are refused: the Lord removed both on 2026-11-04 (*"Actually
+  let's drop shadowless and sliceless."*).
 
   A read-only artefact row is one whose deliverable is something the Lord
   looks at (an explainer video, a preview or harness page, a mockup, a
   measurement or research write-up), that changes no file in any repository
   (no commit, no push, no branch), and that publishes nothing outside this
   machine's tailnet (no pull request, comment, review, body edit, media
-  publish, promotion or merge, on any forge). File it with `--sliceless` AND
-  `--model-hint claude/opus` without a per-objective word: the filing itself
-  records his standing order. Quote the ruling with its date under
-  `RULINGS:`, and say in `SCOPE:` why the row is in the class. Not in the
-  class, so his word for the objective is still required: anything that
-  commits or pushes; /pr-media capture published to a pull request;
-  promotions, merges, pull request edits or comments; anything that changes
-  the machine's configuration or services. When in doubt the row is not in
-  the class. He can still order gates on any single row, and his words for a
-  row always win over the standing ruling. The row still writes its
-  `verify.md` from the checks of the skill that made it. After an explainer
-  video row took 46 minutes, of which its conformance and verify gates took
-  about 17 and found nothing (22 claims met, 0 unmet, verify "nothing to
-  fix"), he said: *"ok good, then we can update teh skill where we can skip
-  those gates"*; and, of the model: *"opus sliceless refers to the explainer
-  skill itself btw, lol"*.
+  publish, promotion or merge, on any forge). File it with `--single-slice`
+  AND `--model-hint claude/opus` without a per-objective word: the filing
+  itself records his standing order (Lord, 2026-10-14). Quote the ruling
+  with its date under `RULINGS:`, and say in `SCOPE:` why the row is in the
+  class. Not in the class, so his word for the objective is still required:
+  anything that commits or pushes; /pr-media capture published to a pull
+  request; promotions, merges, pull request edits or comments; anything that
+  changes the machine's configuration or services. When in doubt the row is
+  not in the class. The row RUNS the gates: the 2026-10-14 skip ended when
+  the Lord ruled on 2026-11-04 that *"99a/b/c/d and so on must still
+  remain"*. His words for a row always win over the standing ruling.
 - **`--effort <level>` only on the Lord's own words for THIS objective**,
   like "high effort": `low` 1, `medium` 2, `high` 3, `xhigh` 4, `max` 5, or a
   number 1–6 (6 is claude `ultracode`). The autoscaler launches the Alpha at that

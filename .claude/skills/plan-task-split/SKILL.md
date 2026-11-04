@@ -188,10 +188,9 @@ has, and a chain filed into that machinery silently discards its parallelism.
 
 Two plans, one night, same planner:
 
-- **A phase-chained plan** — spikes → core → guest provisioning → daemon →
-  desktop → install. Six tasks in one line, a pure chain, zero spokes. One spike
+- **A phase-chained plan** — six tasks in one line, a pure chain, zero spokes. One spike
   failed for a trivial mechanical reason: a malformed command-line argument and a
-  missing service in a VM. Four tasks stalled behind it, the workers sat idle,
+  missing service. Four tasks stalled behind it, the workers sat idle,
   and unblocking it needed a human ruling about an architecture nothing had
   disproved. A bad quote in a command line had been promoted into an
   architectural blocker purely by the shape of the plan. Worth naming what the

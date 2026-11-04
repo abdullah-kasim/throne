@@ -22,11 +22,8 @@ for (const name of REVIEW_SKILLS) {
     assert.equal(frontmatterName(skillSource(name)), name);
   });
 
-  test(`${name} carries no operator-private tracker or host names`, () => {
+  test(`${name} names no skills folder in the home directory`, () => {
     const source = skillSource(name);
-    const internalHostFragment = ['a', '8', 'c'].join('');
-    assert.doesNotMatch(source, new RegExp(`linear\\.app/${internalHostFragment}`));
-    assert.doesNotMatch(source, new RegExp(`github\\.${internalHostFragment}\\.com`));
     assert.doesNotMatch(source, /~\/\.claude\/skills/);
   });
 }

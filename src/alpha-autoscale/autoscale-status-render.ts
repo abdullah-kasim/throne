@@ -1,3 +1,4 @@
+import { formatResponsivenessLine } from "../pressure-baseline/responsiveness-report.ts";
 import { AUTOSCALE_KILL_SWITCH_ENV_VAR } from "./kill-switch.ts";
 import type { AutoscaleStatusReport } from "./autoscale-status-report.ts";
 import type { AutoscaleStatusQueue, DeferredQueueRow } from "./autoscale-status-queue.ts";
@@ -59,6 +60,7 @@ function describePressure(report: AutoscaleStatusReport): string[] {
   return [
     `4. Machine pressure: ${pressure.verdict} at ${pressure.value ?? "unknown"}; launch budget ${pressure.launchBudget}; ${pressure.holdingSpawns ? "holding spawns" : "not holding spawns"}`,
     ...pressure.reasons.map((reason) => `   ${reason}`),
+    `   ${formatResponsivenessLine(pressure.responsiveness)}`,
   ];
 }
 
@@ -90,7 +92,7 @@ function describeQueue(queue: AutoscaleStatusQueue): string[] {
     ...listOrNone(
       queue.launchable.map(
         (row, index) =>
-          `     ${index + 1}. ${row.objectiveCode} (priority ${row.priority ?? "unknown"}) as ${row.alphaName} -> ${row.targetRepo} ${row.targetBranch}; model hint ${row.modelHint ?? "none"}${row.sliceless ? "; sliceless" : ""}${row.shadowless ? "; shadowless" : ""}`,
+          `     ${index + 1}. ${row.objectiveCode} (priority ${row.priority ?? "unknown"}) as ${row.alphaName} -> ${row.targetRepo} ${row.targetBranch}; model hint ${row.modelHint ?? "none"}${row.singleSlice ? "; single-slice" : ""}`,
       ),
     ),
     "   open but not launchable:",

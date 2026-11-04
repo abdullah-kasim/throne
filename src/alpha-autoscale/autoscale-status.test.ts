@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
+import { readBaseline } from "../pressure-baseline/pressure-baseline-store.ts";
 import { AlphaFloorBreachTracker } from "./alpha-floor-breach-tracker.ts";
 import { AUTOSCALE_KILL_SWITCH_ENV_VAR } from "./kill-switch.ts";
 import { renderAutoscaleStatusFrom } from "./autoscale-status-route.ts";
@@ -132,7 +133,7 @@ test("the status in json carries every section as structured fields", async () =
   ]);
   assert.deepEqual(Object.keys(report.autoscaler), ["running", "configPauseReason", "killSwitchOn", "sweepHoldingLockSince"]);
   assert.deepEqual(Object.keys(report.slots), ["liveAlphas", "live", "capacity", "free", "floor", "floorBreached", "breachDurationMs"]);
-  assert.deepEqual(Object.keys(report.pressure), ["verdict", "value", "reasons", "launchBudget", "holdingSpawns"]);
+  assert.deepEqual(Object.keys(report.pressure), ["verdict", "value", "reasons", "launchBudget", "holdingSpawns", "responsiveness"]);
   assert.deepEqual(Object.keys(report.queue), [
     "readyQueue", "readyQueueReasons", "launchable", "notLaunchable", "deferred", "inFlight", "wouldBrief", "wouldRecover", "mutatingTargets",
   ]);
@@ -144,14 +145,18 @@ test("the status in json carries every section as structured fields", async () =
     targetRepo: "/srv/repos/beta",
     targetBranch: "main",
     modelHint: "claude/opus",
-    sliceless: true,
-    shadowless: false,
+    singleSlice: true,
   });
   assert.deepEqual(report.queue.notLaunchable.map((row: { objectiveCode: string }) => row.objectiveCode), ["unready"]);
   assert.deepEqual(report.queue.inFlight, [{ objectiveCode: "flying", alphaName: "alpha-flying-01" }]);
   assert.deepEqual(report.queue.mutatingTargets, ["/srv/worktrees/alpha-flying-01"]);
   assert.deepEqual(report.cooldown, { elapsed: true });
   assert.equal(report.nextRun, null);
+});
+
+test("autoscale status names a single-slice row in its launch line", async () => {
+  const text = await statusText();
+  assert.match(text, /1\. beta \(priority 9\) as alpha-beta-01 -> \/srv\/repos\/beta main; model hint claude\/opus; single-slice$/m);
 });
 
 test("autoscale status shows a deferred row as held with what it waits on and since when", async () => {
@@ -174,4 +179,17 @@ test("autoscale status shows a deferred row as held with what it waits on and si
     /^ {3}deferred, held until the Regent runs release-deferred:\n {5}gamma \(priority 2\) held, waits on done \(waits for done\); deferred since \d{4}-\d{2}-\d{2}T\S+ \(0 h\)$/m,
   );
   assert.doesNotMatch(text, /would release/);
+});
+
+test("autoscale-status shows the responsiveness line under machine pressure", async () => {
+  const text = await statusText({ pressure: takeMoreWorkAt(10) });
+  const report = await statusJson({ pressure: takeMoreWorkAt(10) });
+
+  assert.match(
+    text,
+    /^4\. Machine pressure: .*\n {3}responsiveness: git [\d.]+ ms \(no baseline yet, 0 of 20 samples\) · disk [\d.]+ ms \(no baseline yet, 0 of 20 samples\)\n5\. /m,
+  );
+  assert.equal(report.pressure.responsiveness.state, "measured");
+  assert.equal(report.pressure.responsiveness.baseline, "missing");
+  assert.equal(await readBaseline(court.dataHome), undefined);
 });

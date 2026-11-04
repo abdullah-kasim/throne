@@ -45,11 +45,13 @@ interface RunningProcess {
 async function isolatedCourt(): Promise<IsolatedCourt> {
   const base = await mkdtemp(path.join(os.tmpdir(), "asl-"));
   const dataHome = path.join(base, "d");
+  const userHome = path.join(base, "home");
   const liveRoot = path.join(base, "root");
   const arrivals = path.join(base, "arrivals");
   const fakeHerdr = path.join(base, "fake-herdr");
   const releaseFile = path.join(base, "release");
   await mkdir(liveRoot);
+  await mkdir(userHome);
   await mkdir(arrivals);
   await writeFile(fakeHerdr, FAKE_HERDR_WITH_ONLY_A_REGENT_THAT_WAITS_FOR_RELEASE);
   await chmod(fakeHerdr, 0o755);
@@ -60,6 +62,7 @@ async function isolatedCourt(): Promise<IsolatedCourt> {
     releaseFile,
     environment: {
       ...process.env,
+      HOME: userHome,
       THRONE_DATA_HOME: dataHome,
       THRONE_LIVE_ROOT: liveRoot,
       THRONE_HERDR_CLIENT_PATH: fakeHerdr,
@@ -151,6 +154,7 @@ async function proveTwoSimultaneousSweepsRunExactlyOnce(court: IsolatedCourt, ex
       "exactly one of the two processes ran the sweep",
     );
     assert.deepEqual(await readdir(path.join(court.dataHome, "locks")), [], "the lock and its private files are gone");
+    assert.ok((await readdir(court.dataHome)).includes("pressure-probe"), "the sweep probed inside the isolated court");
   } finally {
     for (const contender of contenders) contender.child.kill("SIGKILL");
   }

@@ -19,7 +19,7 @@ const verificationLayers = () =>
   skillSection("execute-todos", "#### Three verification layers, and the layers are not interchangeable");
 const deliveryGateSection = () =>
   skillSection("execute-todos", "#### `99c` — merge the latest target, resolve conflicts, deliver");
-const slicelessSection = () => skillSection("execute-todos", "## Sliceless mode — Lord-authorized only");
+const singleSliceSection = () => skillSection("execute-todos", "## Single-slice mode — Lord-authorized only");
 
 const TIER_OPENINGS_IN_ORDER = [
   "**Tier A — the tests nearest the change.**",
@@ -131,7 +131,7 @@ test("only the verify gate decides on slow and container tests; slices and the c
   const gate = await verifyGateSection();
   assert.deepEqual(
     missingPhrases(gate, [
-      "The slow-test and container-test decisions are made in `99b`, and in a sliceless campaign's verify step, and nowhere else.",
+      "The slow-test and container-test decisions are made in `99b`, and nowhere else.",
       "Ordinary slices and `99a` never run slow or container tests;",
       "`99c` carries `99b`'s decisions and results forward and does not decide again.",
     ]),
@@ -171,17 +171,10 @@ test("the single assembled suite run is the Tier C run and keeps its carry rules
   assert.ok((await verifyGateSection()).includes("This is the single assembled full-suite run of \"Three verification layers\"."));
 });
 
-test("a sliceless verification record follows the same tiers and still runs tests, lint and build before the first push", async () => {
-  const sliceless = await slicelessSection();
-  const record = sliceless.slice(sliceless.indexOf("**Verification record**"), sliceless.indexOf("**Delivery note**"));
-  assert.deepEqual(
-    missingPhrases(record, [
-      "the repository's tests, lint and build",
-      "ending in exactly one line `**Verify outcome:** PASS`",
-      "The tests run in the same rising tiers A, B, C, D as `99b`, each green before the next,",
-      "the slow-test and container-test decisions made here and recorded one line each.",
-      "The tiers change how it checks, never whether it checks: the tests, lint and build still run before the first push.",
-    ]),
-    [],
+test("a single-slice campaign runs the same rising tiers in its own verify gate", async () => {
+  assert.ok(
+    (await singleSliceSection()).includes(
+      "`99b` and `99c` then run exactly as for any bundle, each as a fresh Shadow distinct from the executor, and you do the `99d` record step yourself: the ticket check, the rising test tiers,",
+    ),
   );
 });

@@ -372,7 +372,7 @@ interface HostedWorkersProvider {
   readonly useFactory: (...workers: unknown[]) => unknown[];
 }
 
-test("the agent settings worker is hosted in the backend beside the other workers", () => {
+test("the agent settings worker is hosted in the backend beside the other workers and runs every minute", () => {
   const providers: Partial<HostedWorkersProvider>[] = Reflect.getMetadata(
     "providers",
     ThroneBackendModule,
@@ -390,5 +390,5 @@ test("the agent settings worker is hosted in the backend beside the other worker
   assert.equal(worker.kind, "cron");
   assert.equal(worker.workerName, AGENT_SETTINGS_HOSTED_WORKER_NAME);
   assert.equal(worker.workerName, "agent-settings");
-  assert.equal(worker.cronExpression, CronExpression.EVERY_5_MINUTES);
+  assert.equal(worker.cronExpression, CronExpression.EVERY_MINUTE);
 });

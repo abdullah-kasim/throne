@@ -834,7 +834,7 @@ The worker never runs startup reconciliation, and the SessionStart hook never
 raises the Stager. A tick still running when the next one fires is skipped.
 
 The backend's `agent-settings` hosted worker
-(`src/agent-settings/agent-settings.hosted-worker.ts`) runs every five minutes
+(`src/agent-settings/agent-settings.hosted-worker.ts`) runs every minute
 and keeps each agent's pane matching its record. One tick
 (`runAgentSettingsTick` in `src/agent-settings/agent-settings-tick.ts`) reads
 the shared status roster once and, per agent, joins four parts that know

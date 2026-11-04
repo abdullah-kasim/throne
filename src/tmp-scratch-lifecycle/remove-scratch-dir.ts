@@ -1,4 +1,4 @@
-import { rm, stat } from 'node:fs/promises';
+import { lstat, rm } from 'node:fs/promises';
 import { findScratchDirHolders, indexClearsDirectory } from './scratch-dir-holders.ts';
 import { killScratchDirHolders } from './kill-scratch-dir-holders.ts';
 import {
@@ -28,13 +28,13 @@ async function readScratchDirHolders(dirPath: string): Promise<{
   }
 }
 
-async function isDirTooYoung(
+async function isEntryTooYoung(
   dirPath: string,
   minAgeMs: number,
 ): Promise<boolean> {
   try {
-    const stats = await stat(dirPath);
-    return Date.now() - stats.mtimeMs < minAgeMs;
+    const stats = await lstat(dirPath);
+    return Date.now() - stats.mtimeMs <= minAgeMs;
   } catch {
     // Nothing exists to be "too young"; let the liveness/delete steps
     // below resolve this the same way they would for any missing dir.
@@ -61,12 +61,12 @@ export async function checkScratchDirRemovalEligibility(
   minAgeMs?: number,
   index?: ScratchHolderIndex,
 ): Promise<ScratchDirRemovalResult> {
-  if (minAgeMs !== undefined && (await isDirTooYoung(dirPath, minAgeMs))) {
+  if (minAgeMs !== undefined && (await isEntryTooYoung(dirPath, minAgeMs))) {
     return { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_TOO_YOUNG };
   }
 
   if (index !== undefined) {
-    return indexClearsDirectory(index, dirPath)
+    return (await indexClearsDirectory(index, dirPath))
       ? { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.REMOVED }
       : { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_LIVE };
   }

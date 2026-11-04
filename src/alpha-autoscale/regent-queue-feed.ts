@@ -310,8 +310,7 @@ export function readAutoscaleQueue(
       modelHint: itemByObjective.get(brief.objectiveCode)?.modelHint ?? null,
       deliverableShape:
         itemByObjective.get(brief.objectiveCode)?.deliverableShape ?? null,
-      shadowless: itemByObjective.get(brief.objectiveCode)?.shadowless === true,
-      sliceless: itemByObjective.get(brief.objectiveCode)?.sliceless === true,
+      singleSlice: itemByObjective.get(brief.objectiveCode)?.singleSlice === true,
       effort: itemByObjective.get(brief.objectiveCode)?.effort ?? null,
       account: itemByObjective.get(brief.objectiveCode)?.account ?? null,
     }));

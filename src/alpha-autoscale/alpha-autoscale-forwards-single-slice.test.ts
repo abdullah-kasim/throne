@@ -11,17 +11,17 @@ function candidate(
   overrides: Partial<LaunchQueueCandidate> = {},
 ): LaunchQueueCandidate {
   return {
-    name: "alpha-slc-solo",
+    name: "alpha-one-solo",
     target: "/tmp/example-target",
     dependencyReady: true,
     executableWork: true,
     harness: "claude",
     model: "sonnet",
-    objectiveCode: "slc",
+    objectiveCode: "one",
     targetRepo: "/tmp/example-target",
     targetBranch: "main",
     baseCommit: "0".repeat(40),
-    objective: "Fix one function straight from the queue body",
+    objective: "Run one implementation slice",
     ...overrides,
   };
 }
@@ -60,21 +60,17 @@ async function argvHandedToCreateAgent(
   return createAgentArgv;
 }
 
-test("a Lord-authorized sliceless queue row is launched with create-agent --sliceless and --shadowless together", async () => {
-  const argv = await argvHandedToCreateAgent(candidate({ sliceless: true, shadowless: true }));
+test("a row filed with --single-slice launches its Alpha with --single-slice", async () => {
+  const argv = await argvHandedToCreateAgent(candidate({ singleSlice: true }));
   assert.ok(argv, "create-agent was never invoked");
-  assert.ok(argv.includes("--sliceless"), `--sliceless absent from ${JSON.stringify(argv)}`);
-  assert.ok(argv.includes("--shadowless"), `--shadowless absent from ${JSON.stringify(argv)}`);
-});
-
-test("a sliceless row whose shadowless flag was somehow left unset still launches shadowless", async () => {
-  const argv = await argvHandedToCreateAgent(candidate({ sliceless: true, shadowless: false }));
-  assert.ok(argv, "create-agent was never invoked");
-  assert.ok(argv.includes("--shadowless"));
-});
-
-test("a shadowless-only queue row is launched without --sliceless", async () => {
-  const argv = await argvHandedToCreateAgent(candidate({ shadowless: true, sliceless: false }));
-  assert.ok(argv, "create-agent was never invoked");
+  assert.ok(argv.includes("--single-slice"), `--single-slice absent from ${JSON.stringify(argv)}`);
+  assert.equal(argv.includes("--shadowless"), false);
   assert.equal(argv.includes("--sliceless"), false);
+});
+
+test("an ordinary row is launched with none of the mode flags", async () => {
+  const argv = await argvHandedToCreateAgent(candidate());
+  assert.ok(argv, "create-agent was never invoked");
+  for (const flag of ["--single-slice", "--shadowless", "--sliceless"])
+    assert.equal(argv.includes(flag), false, `${flag} present in ${JSON.stringify(argv)}`);
 });

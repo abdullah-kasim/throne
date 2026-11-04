@@ -68,11 +68,13 @@ export async function handleAlphaAutoscaleRoute(envelope: {
       log: (message) => captured.sinks.stdout(`${message}\n`),
     }),
   );
-  return runCapturedWork(captured, () => worker.runOnce());
+  const { bypass } = parseAlphaAutoscaleArgs(envelope.args);
+  return runCapturedWork(captured, () => worker.runOnce({ bypassPressure: bypass }));
 }
 
 const TRANSPORT_FLAG = "--transport";
 const LOCAL_FLAG = "--local";
+const BYPASS_FLAG = "--bypass";
 export const ALPHA_AUTOSCALE_DEFAULT_TRANSPORT = "rest";
 export const ALPHA_AUTOSCALE_TRANSPORT_REQUEST_TIMEOUT_MS =
   SWEEP_LOCK_LATEST_EXPIRY_MS + SWEEP_LOCK_TIME_TO_LIVE_MS;
@@ -87,6 +89,7 @@ export function createAlphaAutoscaleTransportClient(socketPath?: string): Transp
 export interface ParsedAlphaAutoscaleArgs {
   readonly transport: string;
   readonly local: boolean;
+  readonly bypass: boolean;
   readonly remainingArgs: string[];
 }
 
@@ -94,12 +97,16 @@ export interface ParsedAlphaAutoscaleArgs {
 export function parseAlphaAutoscaleArgs(args: readonly string[]): ParsedAlphaAutoscaleArgs {
   let transport: string | undefined;
   let local = false;
+  let bypass = false;
   const remainingArgs: string[] = [];
   for (let index = 0; index < args.length; index++) {
     const argument = args[index]!;
     if (argument === LOCAL_FLAG) {
       local = true;
       continue;
+    }
+    if (argument === BYPASS_FLAG) {
+      bypass = true;
     }
     if (argument === TRANSPORT_FLAG) {
       const value = args[index + 1];
@@ -112,7 +119,7 @@ export function parseAlphaAutoscaleArgs(args: readonly string[]): ParsedAlphaAut
     }
     remainingArgs.push(argument);
   }
-  return { transport: transport ?? ALPHA_AUTOSCALE_DEFAULT_TRANSPORT, local, remainingArgs };
+  return { transport: transport ?? ALPHA_AUTOSCALE_DEFAULT_TRANSPORT, local, bypass, remainingArgs };
 }
 
 /**

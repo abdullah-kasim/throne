@@ -127,6 +127,10 @@ export interface CreateAgentDeps {
     name: string,
     cwd: string,
   ) => Promise<string | undefined>;
+  refuseSingleSliceShadowSpawn?: (
+    shadowName: string,
+    alphaName: string,
+  ) => Promise<string | undefined>;
   resolveAgent: typeof resolveAgent;
   startAgent: typeof startAgent;
   // The opening prompt is enqueued through the same centralized delivery

@@ -12,6 +12,7 @@ import type { LaunchQueueCandidate } from "../alpha-launch-queue/ready-queue.ts"
 import type { PressureClassification } from "../pressure-signal/classify-pressure.ts";
 import type { AlphaReadinessRecord } from "../keep-going/alpha-capacity.ts";
 import { acquireSweepLockOfItsOwn } from "./alpha-autoscale-sweep-lock-test-fixtures.ts";
+import { parseAlphaAutoscaleArgs } from "./alpha-autoscale-route.ts";
 
 function queuedRow(code: string): LaunchQueueCandidate {
   return {
@@ -47,6 +48,7 @@ interface Court {
   readonly queueCodes: readonly string[];
   readonly livingAlphas?: number;
   readonly pressureReadings: readonly PressureClassification[];
+  readonly bypassPressure?: boolean;
 }
 
 async function runOneTick(court: Court): Promise<string[]> {
@@ -96,7 +98,7 @@ async function runOneTick(court: Court): Promise<string[]> {
       };
     },
   };
-  await new AlphaAutoscaleHostedWorker(deps).runOnce();
+  await new AlphaAutoscaleHostedWorker(deps).runOnce({ bypassPressure: court.bypassPressure });
   return launched;
 }
 
@@ -173,4 +175,36 @@ test("while pressure is below the at-capacity line at least one Alpha may launch
     alphaLaunchBudgetForPressure(-1_000_000),
     ALPHA_AUTOSCALE_HARD_MAXIMUM,
   );
+});
+
+const AT_CAPACITY: PressureClassification = { verdict: "at-capacity", pressure: 106, reasons: [] };
+
+test("at capacity an ordinary tick launches nothing", async () => {
+  const launched = await runOneTick({ queueCodes: FIVE_ROWS, pressureReadings: [AT_CAPACITY] });
+  assert.deepEqual(launched, []);
+});
+
+test("at capacity a tick run with --bypass launches exactly one Alpha", async () => {
+  const launched = await runOneTick({
+    queueCodes: FIVE_ROWS,
+    pressureReadings: [AT_CAPACITY],
+    bypassPressure: true,
+  });
+  assert.deepEqual(launched, ["alpha-one-01"]);
+});
+
+test("at pressure 0 a tick run with --bypass still launches only one Alpha", async () => {
+  const launched = await runOneTick({
+    queueCodes: FIVE_ROWS,
+    pressureReadings: [takeMoreWorkAt(0)],
+    bypassPressure: true,
+  });
+  assert.deepEqual(launched, ["alpha-one-01"]);
+});
+
+test("--bypass is read from the arguments and still forwarded to the backend", () => {
+  const parsed = parseAlphaAutoscaleArgs(["--bypass"]);
+  assert.equal(parsed.bypass, true);
+  assert.deepEqual(parsed.remainingArgs, ["--bypass"]);
+  assert.equal(parseAlphaAutoscaleArgs([]).bypass, false);
 });

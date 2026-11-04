@@ -27,13 +27,14 @@ export async function startInTab(
   deps: StartInTabDeps = REAL_START_IN_TAB_DEPS,
 ): Promise<string> {
   const expectedKind = launcherHarnessKind(opts);
-  const launch = await translatedLaunchContext(
-    opts,
-    pinnedHarnessBinaryEnv(
+  const agentName = opts.tabLabel ?? name;
+  const launch = await translatedLaunchContext(opts, {
+    THRONE_AGENT_NAME: agentName,
+    ...pinnedHarnessBinaryEnv(
       expectedKind,
       deps.vendoredHarnessBinaryDirectory ?? VENDORED_HARNESS_BINARY_DIRECTORY,
     ),
-  );
+  });
   let launchDir: string | undefined;
   const stagedArtifactPaths = [...(launch.stagedArtifactPaths ?? [])];
   let launchIssued = false;
@@ -58,7 +59,7 @@ export async function startInTab(
     ]);
     await deps.runHerdr(["pane", "send-keys", paneId, "Enter"]);
     await waitForDetectedAgentInPane(paneId, expectedKind, deps);
-    await renameAgent(paneId, opts.tabLabel ?? name, { runHerdr: deps.runHerdr });
+    await renameAgent(paneId, agentName, { runHerdr: deps.runHerdr });
     return paneId;
   } catch (error) {
     if (

@@ -98,7 +98,7 @@ The other sections, each field listed in `docs/CONFIG.md`:
 | --- | --- |
 | One queue row on a different model | `add-to-queue --model-hint` at filing |
 | One queue row at a different effort | `add-to-queue --effort` at filing; it outranks `roleEfforts` for that campaign |
-| A sliceless or shadowless campaign | the Lord's own words for that row at filing or, for sliceless, his standing ruling for read-only artefact rows; config never defaults a row to it |
+| A single-slice campaign | the Lord's own word for that row at filing, or his standing ruling for read-only artefact rows; config never defaults a row to it |
 | A model the registry does not know | a registry change in code (`src/harness-routing/model-registry.ts`), then a rebuild |
 | The service environment, including the autoscaler's environment switch | `install-services`; it is baked into the unit files |
 | A new model on an already running agent | `switch-agent-model`, or its next fresh launch |

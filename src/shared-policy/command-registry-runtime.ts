@@ -160,7 +160,7 @@ export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: false,
     description:
-      "Check the queue and spawn now, without waiting for the five-minute autoscale cron (alias of alpha-autoscale-tick): runs inside throne-backend over REST; --local runs it here.",
+      "Check the queue and spawn now, without waiting for the five-minute autoscale cron (alias of alpha-autoscale-tick): runs inside throne-backend over REST; --local runs it here; --bypass launches one Alpha past the pressure gate.",
   },
   {
     name: "autoscale-status",

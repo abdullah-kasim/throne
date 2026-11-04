@@ -42,7 +42,7 @@ he disagrees with, and only then promotes what is left to GitHub.
 
 Who runs it: a Stager directly for a small pull request, or, on the Lord's
 word, an Alpha from a queue row filed with `/queue-objective` (opus
-sliceless is the usual shape; its effort follows the row).
+single-slice is the usual shape; its effort follows the row).
 
 ## 1. Read the pull request as it runs, not as it is described
 

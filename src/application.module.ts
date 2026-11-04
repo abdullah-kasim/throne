@@ -74,6 +74,7 @@ import { PlanUsageHistoryService } from "./plan-usage-remaining/plan-usage-histo
 import { CampaignEvidenceCommand } from "./campaign-evidence/campaign-evidence.command.ts";
 import { SweepTmpScratchCommand } from "./sweep-tmp-scratch/sweep-tmp-scratch.command.ts";
 import { MemoryDirCommand } from "./memory-dir/memory-dir.command.ts";
+import { SemaphoreCommand } from "./semaphore/semaphore.command.ts";
 import { SkillExtensionCommand } from "./skill-extension/skill-extension.command.ts";
 import { ScratchPaneCommand } from "./scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "./migrate-home/migrate-home.command.ts";
@@ -324,6 +325,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     CampaignEvidenceCommand,
     SweepTmpScratchCommand,
     MemoryDirCommand,
+    SemaphoreCommand,
     SkillExtensionCommand,
     ScratchPaneCommand,
     MigrateHomeCommand,

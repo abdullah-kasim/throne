@@ -1,4 +1,4 @@
-import { readdir, readFile, readlink } from 'node:fs/promises';
+import { readdir, readFile, readlink, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import type { ScratchDirHolder, ScratchHolderIndex } from './tmp-scratch-lifecycle.types.ts';
 
@@ -18,6 +18,15 @@ async function listProcPids(procRoot: string): Promise<number[]> {
   return entries
     .filter((entry) => NUMERIC_PID_PATTERN.test(entry))
     .map((entry) => Number.parseInt(entry, 10));
+}
+
+async function realEntryPath(entryPath: string): Promise<string> {
+  const absolutePath = path.resolve(entryPath);
+  try {
+    return path.join(await realpath(path.dirname(absolutePath)), path.basename(absolutePath));
+  } catch {
+    return absolutePath;
+  }
 }
 
 const NO_EVIDENCE_ERROR_CODES = new Set(['ENOENT', 'EACCES', 'EPERM']);
@@ -145,7 +154,7 @@ export async function findScratchDirHolders(
   dirPath: string,
   procRoot: string = PROC_ROOT,
 ): Promise<ScratchDirHolder[]> {
-  const resolvedDirPath = path.resolve(dirPath);
+  const resolvedDirPath = await realEntryPath(dirPath);
   const pids = await listProcPids(procRoot);
   const holders: ScratchDirHolder[] = [];
   for (const pid of pids) {
@@ -224,9 +233,12 @@ export async function buildScratchHolderIndex(
  * skip *out* of the expensive per-directory walk, never a substitute for
  * the fresh `findScratchDirHolders` call a real deletion decision makes.
  */
-export function indexClearsDirectory(index: ScratchHolderIndex, dirPath: string): boolean {
+export async function indexClearsDirectory(
+  index: ScratchHolderIndex,
+  dirPath: string,
+): Promise<boolean> {
   if (!index.reliable) return false;
-  const resolvedDirPath = path.resolve(dirPath);
+  const resolvedDirPath = await realEntryPath(dirPath);
   for (const heldPath of index.heldPaths) {
     if (
       heldPath === resolvedDirPath ||

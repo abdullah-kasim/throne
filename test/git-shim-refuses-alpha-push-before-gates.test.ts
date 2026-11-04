@@ -121,87 +121,46 @@ test('an Alpha whose 99a and 99b both recorded PASS pushes through unchanged', a
   assert.deepEqual((await readFile(f.argvLog, 'utf8')).trimEnd().split('\n'), ['push', 'origin', 'HEAD:add/feature']);
 });
 
-const SLICELESS_LINE = '- **Execution mode:** sliceless (Lord-authorized; implies shadowless)';
-const SHADOWLESS_LINE = '- **Execution mode:** shadowless (Lord-authorized)';
-
-async function slicelessAlphaWorktree(f: Fixture, name: string, objectiveCode: string, executionModeLine = SLICELESS_LINE): Promise<string> {
+async function alphaWithExecutionMode(f: Fixture, name: string, executionModeLine: string): Promise<string> {
   const worktree = await alphaWorktree(f, name);
   const ledger = path.join(f.dataHome, 'data', name);
-  await writeFile(path.join(ledger, 'identity.md'), `# Identity — ${name}\n\n- **Role:** Alpha\n- **Supervisor (routine):** Regent\n- **Campaign objective code:** ${objectiveCode}\n${executionModeLine}\n`);
-  await writeFile(path.join(ledger, 'spawn.json'), JSON.stringify({ harness: 'claude', model: 'sonnet', objective_code: objectiveCode, shadowless: true, sliceless: true }, null, 2));
+  await writeFile(path.join(ledger, 'identity.md'), `# Identity — ${name}\n\n- **Role:** Alpha\n- **Supervisor (routine):** Regent\n- **Campaign objective code:** slc\n${executionModeLine}\n`);
+  await writeFile(path.join(ledger, 'spawn.json'), JSON.stringify({ harness: 'claude', model: 'sonnet', objective_code: 'slc', shadowless: true, sliceless: true }, null, 2));
   return worktree;
 }
 
-async function slicelessVerify(f: Fixture, name: string, objectiveCode: string, outcomes: { conformance?: string; verify?: string }): Promise<string> {
-  const dir = path.join(f.dataHome, 'data', name, 'sliceless', objectiveCode);
+async function writeOldVerifyRecord(f: Fixture, name: string): Promise<void> {
+  const dir = path.join(f.dataHome, 'data', name, 'sliceless', 'slc');
   await mkdir(dir, { recursive: true });
-  const lines = ['# verify — ' + objectiveCode, '', '## Conformance check', '', 'Ends `**Conformance outcome:** PASS` or FAIL.', ''];
-  if (outcomes.conformance !== undefined) lines.push(`**Conformance outcome:** ${outcomes.conformance}`, '');
-  lines.push('## Verification record', '', 'Ends `**Verify outcome:** PASS` or FAIL.', '');
-  if (outcomes.verify !== undefined) lines.push(`**Verify outcome:** ${outcomes.verify}`, '');
-  const file = path.join(dir, 'verify.md');
-  await writeFile(file, lines.join('\n'));
-  return file;
+  await writeFile(path.join(dir, 'verify.md'), '**Conformance outcome:** PASS\n\n**Verify outcome:** PASS\n');
 }
 
-test('a sliceless Alpha with no verify.md cannot push to a named remote', async () => {
+test('a single-slice Alpha cannot push before its 99a and 99b gates pass', async () => {
   const f = await fixture();
-  const worktree = await slicelessAlphaWorktree(f, 'alpha-slc-01', 'slc');
-  const { code, stderr } = await runShim(f, ['push', 'origin', 'HEAD:add/feature'], { FAKE_TOPLEVEL: worktree });
-  assert.equal(code, 66);
-  assert.match(stderr, /STOP RIGHT THERE/);
-  assert.match(stderr, /sliceless Alpha/);
-  assert.match(stderr, /data\/alpha-slc-01\/sliceless\/slc\/verify\.md does not exist/);
-  assert.match(stderr, /Sliceless mode/);
-  assert.match(stderr, /send-agent Regent/);
+  const worktree = await alphaWithExecutionMode(f, 'alpha-single-01', '- **Execution mode:** single-slice (Lord-authorized)');
+  const withoutBundle = await runShim(f, ['push', 'origin', 'HEAD:add/feature'], { FAKE_TOPLEVEL: worktree });
+  assert.equal(withoutBundle.code, 66);
+  assert.match(withoutBundle.stderr, /no todo bundle exists/);
+  await bundle(f, 'alpha-single-01', { conformance: 'PASS' });
+  const withoutVerify = await runShim(f, ['push', 'origin', 'HEAD:add/feature'], { FAKE_TOPLEVEL: worktree });
+  assert.equal(withoutVerify.code, 66);
+  assert.match(withoutVerify.stderr, /99b has not recorded/);
   assert.equal(await realGitRan(f), false);
-});
-
-test('a sliceless Alpha whose verify.md carries only the conformance PASS cannot push', async () => {
-  const f = await fixture();
-  const worktree = await slicelessAlphaWorktree(f, 'alpha-slc-02', 'slc');
-  await slicelessVerify(f, 'alpha-slc-02', 'slc', { conformance: 'PASS' });
-  const { code, stderr } = await runShim(f, ['push'], { FAKE_TOPLEVEL: worktree });
-  assert.equal(code, 66);
-  assert.match(stderr, /has not recorded '\*\*Verify outcome:\*\* PASS'/);
-  assert.equal(await realGitRan(f), false);
-});
-
-test('a sliceless Alpha whose verify.md carries only the verify PASS cannot push', async () => {
-  const f = await fixture();
-  const worktree = await slicelessAlphaWorktree(f, 'alpha-slc-03', 'slc');
-  await slicelessVerify(f, 'alpha-slc-03', 'slc', { verify: 'PASS' });
-  const { code, stderr } = await runShim(f, ['push'], { FAKE_TOPLEVEL: worktree });
-  assert.equal(code, 66);
-  assert.match(stderr, /has not recorded '\*\*Conformance outcome:\*\* PASS'/);
-});
-
-test('a sliceless Alpha whose verify.md records both PASS lines pushes through unchanged', async () => {
-  const f = await fixture();
-  const worktree = await slicelessAlphaWorktree(f, 'alpha-slc-04', 'slc');
-  await slicelessVerify(f, 'alpha-slc-04', 'slc', { conformance: 'PASS', verify: 'PASS' });
-  const { code } = await runShim(f, ['push', 'origin', 'HEAD:add/feature'], { FAKE_TOPLEVEL: worktree });
-  assert.equal(code, 0);
+  await bundle(f, 'alpha-single-01', { conformance: 'PASS', verify: 'PASS' });
+  const passed = await runShim(f, ['push', 'origin', 'HEAD:add/feature'], { FAKE_TOPLEVEL: worktree });
+  assert.equal(passed.code, 0);
   assert.deepEqual((await readFile(f.argvLog, 'utf8')).trimEnd().split('\n'), ['push', 'origin', 'HEAD:add/feature']);
 });
 
-test('a shadowless-only Alpha is still held to the bundle path even when a verify.md exists', async () => {
+test('a verify.md written by the Alpha no longer opens the push', async () => {
   const f = await fixture();
-  const worktree = await slicelessAlphaWorktree(f, 'alpha-shl-05', 'shl', SHADOWLESS_LINE);
-  await slicelessVerify(f, 'alpha-shl-05', 'shl', { conformance: 'PASS', verify: 'PASS' });
+  const worktree = await alphaWithExecutionMode(f, 'alpha-old-02', '- **Execution mode:** sliceless (Lord-authorized; implies shadowless)');
+  await writeOldVerifyRecord(f, 'alpha-old-02');
   const { code, stderr } = await runShim(f, ['push', 'origin'], { FAKE_TOPLEVEL: worktree });
   assert.equal(code, 66);
   assert.match(stderr, /no todo bundle exists/);
+  assert.doesNotMatch(stderr, /verify\.md/);
   assert.equal(await realGitRan(f), false);
-});
-
-test('a sliceless Alpha whose spawn.json names no objective code cannot push', async () => {
-  const f = await fixture();
-  const worktree = await slicelessAlphaWorktree(f, 'alpha-slc-06', 'slc');
-  await writeFile(path.join(f.dataHome, 'data', 'alpha-slc-06', 'spawn.json'), JSON.stringify({ harness: 'claude', model: 'sonnet' }, null, 2));
-  const { code, stderr } = await runShim(f, ['push', 'origin'], { FAKE_TOPLEVEL: worktree });
-  assert.equal(code, 66);
-  assert.match(stderr, /carries no objective_code/);
 });
 
 test('the checkpoint push to a local backup path is never guarded', async () => {

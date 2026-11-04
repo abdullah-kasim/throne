@@ -7,7 +7,8 @@ export interface SliceEvidenceResult {
   /** Present only on failure: which piece is missing. */
   reason?:
     | "delivery-not-proven"
-    | "own-worktree-dirty";
+    | "own-worktree-dirty"
+    | "single-slice-gates-missing";
   /** The exact command extracted from the slice's "Evidence required:" line. */
   command?: string;
   /** Present only for a machine-checked precondition failure: the specific,
@@ -49,6 +50,9 @@ import { TREE_BASE_DATA } from "../agentdata/tree-base-data.service.ts";
 import { isTerminalDeliveryShadowName } from "../merge-git-tree/terminal-gate-shadow.ts";
 import { checkDeliveryVerdict } from "../verify-delivery/verify-delivery-runtime.ts";
 import { readGitStatus } from "../git-lifecycle/git-command.service.ts";
+import { isAlpha } from "../amendment/merge-refusal.ts";
+import { checkYoloCampaignOnOriginDefault } from "./origin-delivery.ts";
+import { singleSliceCompletionRefusal } from "../single-slice/single-slice-shape.ts";
 import {
   checkAgentRuntimeModelAcceptance,
   type RuntimeModelAcceptance,
@@ -136,7 +140,9 @@ export async function checkTerminalDeliveryPrecondition(
   name: string,
   baseDir: string = DEFAULT_DATA_DIR,
 ): Promise<SliceEvidenceResult> {
-  if (!isTerminalDeliveryShadowName(name)) return { ok: true };
+  if (!isTerminalDeliveryShadowName(name)) {
+    return checkCampaignAlphaOnOriginDefault(name, baseDir);
+  }
 
   // A field-genuinely-absent supervisor and an unresolved read both refuse
   // this precondition, matching noop-exemptions.ts's own tristate handling:
@@ -161,7 +167,9 @@ export async function checkTerminalDeliveryPrecondition(
   }
 
   const verdict = await checkDeliveryVerdict(supervisor, baseDir);
-  if (verdict.status === "delivered") return { ok: true };
+  if (verdict.status === "delivered") {
+    return checkYoloCampaignOnOriginDefault(supervisor, baseDir);
+  }
 
   const detail =
     verdict.status === "missing-provenance"
@@ -175,6 +183,19 @@ export async function checkTerminalDeliveryPrecondition(
     reason: "delivery-not-proven",
     detail: `verify-delivery "${supervisor}" did not report DELIVERED (${detail})`,
   };
+}
+
+async function checkCampaignAlphaOnOriginDefault(
+  name: string,
+  baseDir: string,
+): Promise<SliceEvidenceResult> {
+  const spawnSpec = await readSpawnSpec(name, baseDir);
+  if (spawnSpec?.objective_code === undefined) return { ok: true };
+  if (!(await isAlpha(name, baseDir))) return { ok: true };
+  if (spawnSpec.deliverable_shape === "verdict-only") {
+    return { ok: true, outcome: "exempt-verdict-only" };
+  }
+  return checkYoloCampaignOnOriginDefault(name, baseDir);
 }
 
 /**
@@ -290,9 +311,12 @@ export async function checkAgentEvidenceRequirementByName(
 ): Promise<SliceEvidenceResult> {
   const runtimeModel = await checkRuntimeModel(name, "verdict", baseDir);
   const delivery = await checkTerminalDeliveryPrecondition(name, baseDir);
-  const result = delivery.ok
-    ? await checkOwnWorktreeCommittedPrecondition(name, baseDir)
+  const singleSlice = delivery.ok
+    ? await checkSingleSliceGatesPrecondition(name, baseDir)
     : delivery;
+  const result = singleSlice.ok
+    ? await checkOwnWorktreeCommittedPrecondition(name, baseDir)
+    : singleSlice;
   if (runtimeModel.ok) return result;
   return {
     ...result,
@@ -303,6 +327,16 @@ export async function checkAgentEvidenceRequirementByName(
       evidencePath: runtimeModel.evidencePath,
     },
   };
+}
+
+async function checkSingleSliceGatesPrecondition(
+  name: string,
+  baseDir: string,
+): Promise<SliceEvidenceResult> {
+  const refusal = await singleSliceCompletionRefusal(name, baseDir);
+  return refusal === undefined
+    ? { ok: true }
+    : { ok: false, reason: "single-slice-gates-missing", detail: refusal };
 }
 
 export function describeRuntimeModelMismatch(
@@ -328,6 +362,7 @@ const UNMET_EVIDENCE_REASON_TEXT: Record<
 > = {
   "delivery-not-proven": "delivery is not proven by git state",
   "own-worktree-dirty": "its own worktree has uncommitted tracked changes",
+  "single-slice-gates-missing": "its 99 gates did not each run as their own Shadow",
 };
 
 /** The single message shape both `complete-agent` and `reap-agent --reason
@@ -341,13 +376,16 @@ export function describeUnmetEvidenceRefusal(
 ): string {
   if (result.reason === "delivery-not-proven") {
     return (
-      `"${name}" is a delivery-gate Shadow, but ${result.detail} — refusing. ` +
+      `"${name}" cannot complete: ${result.detail} — refusing. ` +
       "(A 99e verdict is never taken on the report's own say-so; the " +
       "shared path-wise blob delivery proof must hold at completion time.)"
     );
   }
   if (result.reason === "own-worktree-dirty") {
     return `${result.detail} — refusing. (Commit before report survives a crash mid-verify; a report cannot substitute for it.)`;
+  }
+  if (result.reason === "single-slice-gates-missing") {
+    return `${result.detail} Refusing; nothing was reaped.`;
   }
   const reasonText = UNMET_EVIDENCE_REASON_TEXT[result.reason!];
   return (
@@ -366,7 +404,7 @@ export function describeUnmetEvidenceForceSkip(
 ): string {
   if (result.reason === "delivery-not-proven") {
     return (
-      `"${name}" is a delivery-gate Shadow, but ${result.detail} — --force is ` +
+      `"${name}" cannot complete: ${result.detail} — --force is ` +
       "skipping the shared path-wise blob delivery proof and tearing it down anyway. If its " +
       "supervising Alpha's work is not actually on the target branch, this is " +
       "the exact silent-loss shape --force must never be used to paper over " +
@@ -380,6 +418,9 @@ export function describeUnmetEvidenceForceSkip(
       "the silent-loss shape --force must never be used to paper over " +
       "without checking the worktree yourself first."
     );
+  }
+  if (result.reason === "single-slice-gates-missing") {
+    return `${result.detail} --force is skipping this and tearing it down anyway.`;
   }
   const reasonText = UNMET_EVIDENCE_REASON_TEXT[result.reason!];
   return (

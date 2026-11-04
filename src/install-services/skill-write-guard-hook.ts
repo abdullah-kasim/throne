@@ -1,10 +1,10 @@
 import path from 'node:path';
 import {
   registerHookInClaudeSettings,
-  withToolUseHookRegistered,
+  withClaudeHookRegistered,
   type JsonObject,
   type SettingsHookOutcome,
-  type ToolUseHook,
+  type ClaudeSettingsHook,
   type SettingsWithHookRegistered,
 } from './claude-settings-hook.ts';
 import type {
@@ -12,7 +12,7 @@ import type {
   InstallServicesOptions,
 } from './install-services.types.ts';
 
-const SKILL_WRITE_GUARD_HOOK: ToolUseHook = {
+const SKILL_WRITE_GUARD_HOOK: ClaudeSettingsHook = {
   event: 'PostToolUse',
   matcher: 'Edit|Write',
   hookFileName: 'skill-write-guard.py',
@@ -27,7 +27,7 @@ export function withSkillWriteGuardRegistered(
   settings: JsonObject,
   command: string,
 ): SettingsWithHookRegistered {
-  return withToolUseHookRegistered(settings, SKILL_WRITE_GUARD_HOOK, command);
+  return withClaudeHookRegistered(settings, SKILL_WRITE_GUARD_HOOK, command);
 }
 
 export async function installSkillWriteGuardHook(

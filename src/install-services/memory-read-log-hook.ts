@@ -3,16 +3,16 @@ import { loadRecallConfig } from '../relevance-classifier/recall-user-config.ts'
 import { userConfigPath } from '../user-config-loader.ts';
 import {
   registerHookInClaudeSettings,
-  withToolUseHookRegistered,
+  withClaudeHookRegistered,
   type SettingsHookOutcome,
-  type ToolUseHook,
+  type ClaudeSettingsHook,
 } from './claude-settings-hook.ts';
 import type {
   InstallServicesDeps,
   InstallServicesOptions,
 } from './install-services.types.ts';
 
-const MEMORY_READ_LOG_HOOK: ToolUseHook = {
+const MEMORY_READ_LOG_HOOK: ClaudeSettingsHook = {
   event: 'PostToolUse',
   matcher: 'Read|Grep|Glob|Bash',
   hookFileName: 'memory-read-log.py',
@@ -47,6 +47,6 @@ export async function installMemoryReadLogHook(
     await configuredGlobalMemoryDirectories(options.throneRoot),
   );
   return registerHookInClaudeSettings(deps, options, 'memory read log hook', (settings) =>
-    withToolUseHookRegistered(settings, MEMORY_READ_LOG_HOOK, command),
+    withClaudeHookRegistered(settings, MEMORY_READ_LOG_HOOK, command),
   );
 }

@@ -75,19 +75,13 @@ test("pull-request delivery publishes the ticket warning in a Ticket Status sect
   assert.equal(pullRequestDelivery.includes("top of the PR body"), false);
 });
 
-test("a sliceless campaign on a ticket cannot record a conformance PASS without a PASS ticket check", async () => {
-  const slicelessMode = await readUnwrappedSection("## Sliceless mode — Lord-authorized only");
+test("a single-slice campaign on a ticket keeps its ticket-alignment check ahead of conformance", async () => {
+  const singleSliceMode = await readUnwrappedSection("## Single-slice mode — Lord-authorized only");
   assert.deepEqual(
-    missingPhrases(slicelessMode, [
-      "When the queue row carries a `TICKET:` block, this part also records a `/ticket-check` run on the candidate, with the row's `RULINGS:` and every amendment as its rulings",
-      "`**Ticket alignment outcome:** PASS` or `**Ticket alignment outcome:** FAIL`.",
-      "`**Conformance outcome:** PASS` is not allowed unless that line reads PASS.",
-      "goes into the PR body the way \"Pull-request delivery\" says.",
+    missingPhrases(singleSliceMode, [
+      "A ticket-driven row still gets its `98_ticket_` todo, which is not an implementation slice.",
+      "The `98_ticket_` check, `99a`, `99b` and `99c` then run exactly as for any bundle",
     ]),
     [],
   );
-  const conformanceCheckAt = slicelessMode.indexOf("1. **Conformance check**");
-  const ticketCheckAt = slicelessMode.indexOf("When the queue row carries a `TICKET:` block");
-  const verificationRecordAt = slicelessMode.indexOf("2. **Verification record**");
-  assert.ok(conformanceCheckAt < ticketCheckAt && ticketCheckAt < verificationRecordAt, "the ticket check sits inside the conformance part of verify.md");
 });

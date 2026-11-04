@@ -21,10 +21,10 @@ export interface SettingsWithHookRegistered {
   change: SettingsHookRegistrationChange;
 }
 
-export type ToolUseHookEvent = 'PreToolUse' | 'PostToolUse';
+export type ClaudeHookEvent = 'PreToolUse' | 'PostToolUse' | 'SessionStart' | 'SessionEnd';
 
-export interface ToolUseHook {
-  event: ToolUseHookEvent;
+export interface ClaudeSettingsHook {
+  event: ClaudeHookEvent;
   matcher: string;
   hookFileName: string;
 }
@@ -42,19 +42,19 @@ function isEntryForMatcher(entry: unknown, matcher: string): entry is JsonObject
   return isJsonObject(entry) && entry.matcher === matcher && Array.isArray(entry.hooks);
 }
 
-export function withToolUseHookRegistered(
+export function withClaudeHookRegistered(
   settings: JsonObject,
-  hook: ToolUseHook,
+  hook: ClaudeSettingsHook,
   command: string,
 ): SettingsWithHookRegistered {
   const hooks = isJsonObject(settings.hooks) ? settings.hooks : {};
   const eventEntries = hooks[hook.event];
-  const toolUse = Array.isArray(eventEntries) ? eventEntries : [];
+  const entries = Array.isArray(eventEntries) ? eventEntries : [];
   const commandHook = { type: 'command', command };
 
   let registeredCount = 0;
   let staleCount = 0;
-  for (const entry of toolUse) {
+  for (const entry of entries) {
     if (!isEntryForMatcher(entry, hook.matcher)) continue;
     for (const existingHook of entry.hooks) {
       if (!isHookRunningFile(existingHook, hook.hookFileName)) continue;
@@ -67,10 +67,10 @@ export function withToolUseHookRegistered(
   }
 
   let placed = false;
-  const nextToolUse: unknown[] = [];
-  for (const entry of toolUse) {
+  const nextEntries: unknown[] = [];
+  for (const entry of entries) {
     if (!isEntryForMatcher(entry, hook.matcher)) {
-      nextToolUse.push(entry);
+      nextEntries.push(entry);
       continue;
     }
     const keptHooks: unknown[] = entry.hooks.filter(
@@ -78,13 +78,13 @@ export function withToolUseHookRegistered(
     );
     keptHooks.push(commandHook);
     placed = true;
-    nextToolUse.push({ ...entry, hooks: keptHooks });
+    nextEntries.push({ ...entry, hooks: keptHooks });
   }
   if (!placed) {
-    nextToolUse.push({ matcher: hook.matcher, hooks: [commandHook] });
+    nextEntries.push({ matcher: hook.matcher, hooks: [commandHook] });
   }
   return {
-    settings: { ...settings, hooks: { ...hooks, [hook.event]: nextToolUse } },
+    settings: { ...settings, hooks: { ...hooks, [hook.event]: nextEntries } },
     change: registeredCount + staleCount === 0 ? 'registered' : 'replaced',
   };
 }

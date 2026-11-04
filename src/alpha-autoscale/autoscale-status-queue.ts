@@ -15,8 +15,7 @@ export interface LaunchableQueueRow {
   readonly targetRepo: string;
   readonly targetBranch: string;
   readonly modelHint: string | null;
-  readonly sliceless: boolean;
-  readonly shadowless: boolean;
+  readonly singleSlice: boolean;
 }
 
 export interface HeldQueueRow {
@@ -76,8 +75,7 @@ function launchableRows(
       candidate.modelHint === null || candidate.modelHint === undefined
         ? null
         : `${candidate.modelHint.harness}/${candidate.modelHint.model}`,
-    sliceless: candidate.sliceless === true,
-    shadowless: candidate.shadowless === true,
+    singleSlice: candidate.singleSlice === true,
   }));
 }
 

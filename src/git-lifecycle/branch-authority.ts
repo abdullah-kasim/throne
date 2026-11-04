@@ -196,7 +196,7 @@ export async function requireReachableFromMergeTarget(
   );
 }
 
-async function durableDefaultBranch(root: string): Promise<string> {
+export async function durableDefaultBranch(root: string): Promise<string> {
   const remoteHeadRef = "refs/remotes/origin/HEAD";
   const result = await readGitStatus(
     ["symbolic-ref", "--quiet", "--short", remoteHeadRef],

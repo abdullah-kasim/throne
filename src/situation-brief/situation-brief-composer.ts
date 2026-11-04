@@ -19,7 +19,7 @@ function renderAmendments(amendments: readonly QueueAmendment[]): string {
     "### Amendments recorded on this row",
     "",
     "These change the spec above and are part of it. Reconcile every one into your plan as a source turn, " +
-      `then record "${RECONCILED_THROUGH_LABEL} ${highest}" in 00_overview.md (verify.md when sliceless). ` +
+      `then record "${RECONCILED_THROUGH_LABEL} ${highest}" in 00_overview.md. ` +
       "Delivery is refused until you do.",
     ...amendments.map((amendment) => `\n${renderQueueAmendment(amendment)}`),
   ].join("\n");

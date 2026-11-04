@@ -384,6 +384,11 @@ function sessionNameArguments(sessionName: string | undefined): string[] {
   return sessionName === undefined ? [] : [SESSION_NAME_FLAG, sessionName];
 }
 
+export const CODEX_RUNS_TYPED_COMMANDS_WITHOUT_A_LOGIN_SHELL = [
+  '-c',
+  'allow_login_shell=false',
+];
+
 export function buildLaunchArgv(request: HarnessRequest): string[] {
   const model = resolveModel(request.harness, request.model);
   const launcher = launcherExecutable(launcherFamily(request.harness, model));
@@ -427,6 +432,7 @@ export function buildLaunchArgv(request: HarnessRequest): string[] {
     launchModel,
     '-c',
     `model_reasoning_effort="${effortToken(request.harness, request.effort)}"`,
+    ...CODEX_RUNS_TYPED_COMMANDS_WITHOUT_A_LOGIN_SHELL,
   ];
 }
 

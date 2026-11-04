@@ -19,7 +19,7 @@ const DEFAULT_DEPENDENCIES: AgentSettingsWorkerDependencies = {
 export class AgentSettingsHostedWorker implements CronHostedWorker {
   readonly kind = "cron" as const;
   readonly workerName = AGENT_SETTINGS_HOSTED_WORKER_NAME;
-  readonly cronExpression = CronExpression.EVERY_5_MINUTES;
+  readonly cronExpression = CronExpression.EVERY_MINUTE;
 
   private previousTickIsStillGoing = false;
 

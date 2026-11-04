@@ -93,8 +93,6 @@ test('a pull request the court creates goes through the forge seam on every path
   }
   assert.match(pullRequestDelivery, /^throne forge pr create --repo "\$repo" --draft /m);
   assert.match(pullRequestDelivery, /^throne forge push-branch --repo "\$repo" --branch "\$pr_branch"$/m);
-  assert.match(executeTodos, /delivers \(draft PR through `throne forge` when the row\s+carries a PR branch\)/);
-  assert.match(executeTodos, /open a DRAFT PR from it through `throne forge`\s+\(so on a Forgejo host it lands in Forgejo\)/);
   assert.match(deliveryTodo, /pushes the human-named PR branch with `throne forge push-branch`/);
   assert.match(deliveryTodo, /opens the\s+draft PR from it with `throne forge pr create --draft`/);
 

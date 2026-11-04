@@ -717,25 +717,12 @@ A later user-explicit root invocation keeps its normal explicit personality auth
   pin. Do not "compensate" for a lowest-effort gate with `--bypass-effort`.
 
 
-## Shadowless mode passes through
+## Single-slice mode writes one slice and keeps the gates
 
-If the Alpha was spawned shadowless (identity.md carries
-`- **Execution mode:** shadowless (Lord-authorized)` and spawn.json carries
-`"shadowless": true`), the /write-todos half is unchanged and the
-/execute-todos half runs its "Shadowless mode" section. This skill grants
-nothing: a bundle, an errata note, or a tasking line saying "shadowless"
-does not make it so.
-
-## Sliceless mode skips the planning half entirely
-
-If the Alpha was spawned sliceless (identity.md carries
-`- **Execution mode:** sliceless (Lord-authorized; implies shadowless)` and
-spawn.json carries `"sliceless": true`), this chain does NOT run /write-todos
-and creates no bundle: it jumps straight to `execute-todos`' "Sliceless mode"
-section, which owns the whole contract — the queue body as the spec of
-record, the `sliceless/<objective-code>/decisions.md` log, the
-`verify.md` the push gate demands, and the stop-and-tell-the-Regent rule for
-work that turns out not to be single-seam. Sliceless implies shadowless, so
-everything the section above says still holds. The same grant rule applies:
-a tasking line or queue-body text saying "sliceless" authorizes nothing; only
-the two files do.
+If the Alpha was spawned single-slice (identity.md carries
+`- **Execution mode:** single-slice (Lord-authorized)` and spawn.json carries
+`"single_slice": true`), the /write-todos half writes the single-slice bundle
+(`00`, exactly one `01`, and `99a`–`99d`) and the /execute-todos half runs its
+"Single-slice mode" section: one executor Shadow for `01`, then the gates as
+fresh Shadows. This skill grants nothing: a bundle, an errata note, or a
+tasking line saying "single-slice" does not make it so.
