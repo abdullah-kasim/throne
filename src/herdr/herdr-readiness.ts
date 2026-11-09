@@ -72,14 +72,14 @@ export function paneOutputBytes(capture: string): number {
   return Buffer.byteLength(capture.trim(), "utf8");
 }
 
-export function captureProvesExecutedSentinel(
+export function captureProvesExecutedReadyMarker(
   capture: string,
-  sentinel: string,
+  readyMarker: string,
 ): boolean {
   return capture
     .split("\n")
     .filter((line) => !line.includes(SHELL_READY_PROBE_COMMAND_MARKER))
-    .some((line) => line.includes(sentinel));
+    .some((line) => line.includes(readyMarker));
 }
 
 export async function waitForShellReady(
@@ -91,7 +91,7 @@ export async function waitForShellReady(
   timeoutMs: number = SHELL_READY_TIMEOUT_MS,
 ): Promise<ShellReadyEvidence> {
   const nonce = Math.random().toString(36).slice(2, 10);
-  const sentinel = `THRONE_SHELL_READY_${nonce}`;
+  const readyMarker = `THRONE_SHELL_READY_${nonce}`;
   const probe = hideFromBashHistory(`${SHELL_READY_PROBE_COMMAND_MARKER} ${nonce}`);
   const startedAt = deps.now();
   const deadline = startedAt + timeoutMs;
@@ -125,7 +125,7 @@ export async function waitForShellReady(
         "wait-output",
         paneId,
         "--match",
-        sentinel,
+        readyMarker,
         "--timeout",
         String(Math.min(SHELL_READY_PROBE_WINDOW_MS, Math.max(1, remaining))),
       ]);
@@ -151,23 +151,23 @@ export async function waitForShellReady(
     }
     if (bytes === 0) {
       lastFailure = new Error(
-        `herdr pane "${paneId}" matched the readiness sentinel but read back an ` +
+        `herdr pane "${paneId}" matched the readiness marker but read back an ` +
           "empty transcript; an empty capture is not evidence of a live shell",
       );
       continue;
     }
-    if (!captureProvesExecutedSentinel(capture, sentinel)) {
+    if (!captureProvesExecutedReadyMarker(capture, readyMarker)) {
       lastFailure = new Error(
-        `herdr pane "${paneId}" shows the readiness sentinel only on the typed ` +
+        `herdr pane "${paneId}" shows the readiness marker only on the typed ` +
           "command line; echoed input is not evidence that a shell executed it",
       );
       continue;
     }
     return {
       paneId,
-      phase: "sentinel-executed",
-      sentinel,
-      sentinelExecuted: true,
+      phase: "ready-marker-executed",
+      readyMarker,
+      readyMarkerExecuted: true,
       outputBytes,
       probeWrites,
       observations,

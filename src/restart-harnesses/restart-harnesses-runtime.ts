@@ -14,6 +14,10 @@ import {
   sameAgentName,
   type HerdrAgent,
 } from "../herdr/herdr-identity-contracts.ts";
+import {
+  harnessProvenance,
+  type HarnessProvenance,
+} from "../herdr/harness-provenance.ts";
 import type { HerdrPaneProcessInfo } from "../herdr/herdr-inventory.service.ts";
 import { hasAgentName } from "../herdr/herdr-agent-name.ts";
 import {
@@ -46,6 +50,12 @@ import {
   REAL_RESUME_CONTRACT,
   resumeOrphan,
 } from "../throne-startup/throne-startup-reconciliation.service.ts";
+import {
+  classifyRestartVerdict,
+  isRegent,
+  regentSkippedForHeldLock,
+  relaunchAgent,
+} from "./restart-harnesses-relaunch.ts";
 
 export const GRACEFUL_STOP_TIMEOUT_MS = 30_000;
 export const FORCED_STOP_TIMEOUT_MS = 10_000;
@@ -63,6 +73,7 @@ export interface RestartHarnessesDeps {
   readLiveModel: (agent: HerdrAgent, recordedAccount: string | undefined) => Promise<string | undefined>;
   readHarnessRecord: (name: string) => Promise<string | undefined>;
   resume: (name: string) => Promise<void>;
+  harnessProvenance: (paneId: string) => Promise<HarnessProvenance>;
   readAccountsConfig: ReadAccountsConfig;
   configuredEffort: (
     name: string,
@@ -132,6 +143,7 @@ export const REAL_DEPS: RestartHarnessesDeps = {
       ...REAL_RESUME_CONTRACT,
       exactResumePrompt: buildHarnessRestartPrompt,
     }),
+  harnessProvenance: (paneId) => harnessProvenance(paneId),
   readAccountsConfig,
   configuredEffort: readConfiguredEffort,
   renameAgent: (paneId, name) => renameAgent(paneId, name),
@@ -173,19 +185,6 @@ export async function readConfiguredEffort(
   );
 }
 
-async function applyConfiguredEffort(
-  agent: HerdrAgent,
-  name: string,
-  deps: RestartHarnessesDeps,
-): Promise<string> {
-  const spec = await deps.readSpawnSpec(name);
-  if (spec === null) return "";
-  const effort = await deps.configuredEffort(name, isRegent(agent) ? "regent" : undefined, spec);
-  if (effort === undefined || effort === spec.effort) return "";
-  await deps.writeSpawnSpec(name, { ...spec, effort });
-  return ` at effort ${effort} (was ${spec.effort})`;
-}
-
 export class RestartHarnessesUsageError extends Error {
   readonly name = "RestartHarnessesUsageError";
 }
@@ -212,10 +211,6 @@ export function parseRestartHarnessesArguments(
     }
   }
   return options;
-}
-
-function isRegent(agent: HerdrAgent): boolean {
-  return agent.name !== undefined && sameAgentName(agent.name, REGENT_NAME);
 }
 
 function restartOrderRank(agent: HerdrAgent, invokingPaneId: string | undefined): number {
@@ -289,104 +284,11 @@ export async function stopHarnessInPane(
   throw new Error(`harness in pane "${paneId}" survived SIGTERM and SIGKILL`);
 }
 
-async function recordLiveSessionAndModel(
-  name: string,
-  spec: SpawnSpec,
-  sessionId: string,
-  liveModel: string | undefined,
-  deps: RestartHarnessesDeps,
-): Promise<void> {
-  const sessionChanged = spec.session_id?.toLowerCase() !== sessionId.toLowerCase();
-  const modelChanged = liveModel !== undefined && liveModel !== spec.model;
-  if (!sessionChanged && !modelChanged) return;
-  const modelFields = modelChanged
-    ? { model: liveModel, switched_at: new Date(deps.now()).toISOString() }
-    : {};
-  await deps.writeSpawnSpec(name, { ...spec, ...modelFields, session_id: sessionId });
-}
-
-export type ResumeInTabDeps = Pick<
-  RestartHarnessesDeps,
-  "resume" | "listAgents" | "renameAgent"
->;
-
-export async function ensurePaneCarriesName(
-  agent: Pick<HerdrAgent, "tabId">,
-  name: string,
-  deps: Pick<ResumeInTabDeps, "listAgents" | "renameAgent">,
-): Promise<void> {
-  const inTab = (await deps.listAgents()).filter((candidate) => candidate.tabId === agent.tabId);
-  if (inTab.some((candidate) => candidate.name !== undefined && sameAgentName(candidate.name, name))) return;
-  if (inTab.length !== 1) {
-    throw new Error(`after the relaunch, tab "${agent.tabId}" holds ${inTab.length} agents and none is named "${name}"`);
-  }
-  await deps.renameAgent(inTab[0]!.paneId, name);
-}
-
-export async function resumeAgentInItsTab(
-  name: string,
-  tabId: string,
-  deps: ResumeInTabDeps,
-): Promise<void> {
-  await deps.resume(name);
-  await ensurePaneCarriesName({ tabId }, name, deps);
-}
-
-const NO_SESSION_ID_DETAIL = "herdr reports no native session id, so an exact resume is impossible";
-const SYNTHESIS_DETAIL = "a spawn record will be synthesized from herdr and the live transcript";
-
-function classifyRestartVerdict(
-  agent: HerdrAgent,
-  spec: SpawnSpec | null,
-): { verdict: RestartVerdict; detail: string } {
-  if (agent.sessionId === undefined) {
-    return { verdict: "failed", detail: NO_SESSION_ID_DETAIL };
-  }
-  return spec === null
-    ? { verdict: "restarted", detail: SYNTHESIS_DETAIL }
-    : { verdict: "restarted", detail: `resumed native session ${agent.sessionId}` };
-}
-
-async function synthesizeSpawnSpec(
-  agent: HerdrAgent,
-  liveModel: string | undefined,
-  deps: RestartHarnessesDeps,
-): Promise<SpawnSpec> {
-  const harness = (await deps.readHarnessRecord(agent.name!)) ?? agent.agent;
-  return {
-    harness,
-    model: liveModel ?? "unknown",
-    effort: 1,
-    cwd: agent.cwd,
-    session_id: agent.sessionId,
-    spawned_at: new Date(deps.now()).toISOString(),
-  };
-}
-
-async function restartAgentInPlace(
+function restartAgentInPlace(
   agent: HerdrAgent,
   deps: RestartHarnessesDeps,
 ): Promise<RestartOutcome> {
-  const name = agent.name!;
-  const existingSpec = await deps.readSpawnSpec(name);
-  const classification = classifyRestartVerdict(agent, existingSpec);
-  if (classification.verdict === "failed") {
-    return { name, verdict: "failed", detail: classification.detail };
-  }
-  const liveModel = await deps.readLiveModel(agent, existingSpec?.account);
-  let synthesisNote = "";
-  if (existingSpec === null) {
-    const synthesizedSpec = await synthesizeSpawnSpec(agent, liveModel, deps);
-    await deps.writeSpawnSpec(name, synthesizedSpec);
-    synthesisNote = "; a spawn record was created from herdr and the live transcript";
-  } else {
-    await recordLiveSessionAndModel(name, existingSpec, agent.sessionId!, liveModel, deps);
-  }
-  const effortNote = await applyConfiguredEffort(agent, name, deps);
-  await stopHarnessInPane(agent.paneId, deps);
-  await resumeAgentInItsTab(name, agent.tabId, deps);
-  const modelNote = existingSpec !== null && liveModel !== undefined && liveModel !== existingSpec.model ? ` on ${liveModel} (was ${existingSpec.model})` : "";
-  return { name, verdict: "restarted", detail: `resumed native session ${agent.sessionId}${modelNote}${effortNote}${synthesisNote}` };
+  return relaunchAgent(agent, deps, () => stopHarnessInPane(agent.paneId, deps));
 }
 
 async function restartRegentUnderLock(
@@ -395,7 +297,7 @@ async function restartRegentUnderLock(
 ): Promise<RestartOutcome> {
   const token = await deps.acquireRegentRestartLock();
   if (token === null) {
-    return { name: agent.name!, verdict: "skipped", detail: "the Regent resurrect lock is held; a resurrection is already in flight" };
+    return regentSkippedForHeldLock(agent);
   }
   try {
     return await restartAgentInPlace(agent, deps);
@@ -468,19 +370,4 @@ export async function restartHarnesses(
     outcomes.push(outcome);
   }
   return outcomes;
-}
-
-export async function run(
-  args: readonly string[],
-  deps: RestartHarnessesDeps = REAL_DEPS,
-): Promise<number> {
-  let options: RestartHarnessesOptions;
-  try {
-    options = parseRestartHarnessesArguments(args);
-  } catch (error) {
-    deps.warn(`restart-harnesses: ${errorText(error)}\n`);
-    return 2;
-  }
-  const outcomes = await restartHarnesses(options, deps);
-  return outcomes.some((outcome) => outcome.verdict === "failed") ? 1 : 0;
 }

@@ -1,7 +1,7 @@
 ---
 name: where-i-stand
-description: 'This throne-only skill points the Lord at the page of what he is working on: one Markdown file under the throne data home that agents write and the Lord edits in place on the page, served on the tailnet below a table of his pull requests. Its answer in the terminal is the page''s link and nothing else; the page, the table and what changed sit in the browser. It then reads the forges, the queue and the live agents in the background, puts the differences on the page, corrects the page entry by entry, and keeps the tailnet copy of the page up. Use when the Lord asks "where do I stand", "what am I working on", "what needs me", "how are my PRs going", "show me the page", or invokes /where-i-stand. It also holds the writing rules every agent follows when it edits that page.'
-version: 1.4.0
+description: 'This throne-only skill points the Lord at the page of what he is working on: one Markdown file under the throne data home that agents write, served by the throne backend on the tailnet below a table of his pull requests, where the Lord adds, edits and removes his epics and reads everything else. Its answer in the terminal is the page''s link and nothing else; the page, the table and what changed sit in the browser. It then reads the forges, the queue and the live agents in the background, puts the differences on the page, corrects the page entry by entry, and checks that the tailnet page is up. Use when the Lord asks "where do I stand", "what am I working on", "what needs me", "how are my PRs going", "show me the page", or invokes /where-i-stand. It also holds the writing rules every agent follows when it edits that page.'
+version: 1.6.0
 user-invocable: true
 ---
 
@@ -13,9 +13,9 @@ The Lord reads one page to see what he is working on while many agents are
 busy: `where-i-stand.md` under the throne data home
 (`${THRONE_DATA_HOME:-$HOME/.throne}/where-i-stand.md`). Nothing generates
 it. Agents write it as they file, launch, block and deliver work, so it is
-already there when he asks, and the Lord edits or removes an entry where he
-reads it, on the page. This skill points him at it first and corrects
-it second.
+already there when he asks. The Lord's own page edits are for epics only: he
+adds, edits and removes them on the page's Epics tab, and every other tab is
+read-only. This skill points him at it first and corrects it second.
 
 Every change to the page is a targeted edit of one entry, made with your
 harness's own edit tool while you hold `throne where-i-stand lock` (step 4).
@@ -25,7 +25,7 @@ and journals what you changed.
 
 ## The page's frame
 
-Six second-level headings, always present, always in this order:
+Seven second-level headings, always present, always in this order:
 
 | Section | What it holds |
 | --- | --- |
@@ -35,11 +35,20 @@ Six second-level headings, always present, always in this order:
 | `## Queued and deferred` | Rows filed and not yet launched |
 | `## Delivered, not on GitHub` | Work that landed where no reviewer can see it yet |
 | `## On GitHub` | Work with a pull request on GitHub |
+| `## Epics` | The Lord's own big goals, written by hand |
 
-Under the last four, one entry per piece of work. Its heading is exactly
-`### <objective code>`, or `### <repository>#<number>` for a pull request
-that has no queue row. Everything inside an entry is the writing agent's own
-words.
+Under the four work sections, from `## In flight` to `## On GitHub`, one
+entry per piece of work. Its heading is exactly `### <objective code>`, or
+`### <repository>#<number>` for a pull request that has no queue row.
+Everything inside an entry is the writing agent's own words.
+
+`## Epics` is different. One epic is a `### <title>` heading in the Lord's
+words, with free notes under it, or none. It has no objective code and no
+entry form, and `throne check-where-i-stand` and the same-work report leave
+it alone. A page file written before this section existed gains it, blank
+and at the end, on the next `show`, `lock`, `note` or `save`; nothing else
+in the file changes, and the change is journaled with the writer
+`where-i-stand`.
 
 ## The five steps
 
@@ -49,7 +58,7 @@ must never delay it.
 ### 1. Answer with the page's link
 
 The Lord reads the page in his browser, not in your terminal. Run step 5's
-check, and start the page as step 5 says when it is not up. Then your answer
+check, and follow step 5 when it is not up. Then your answer
 in the terminal is the page's link, `$page_url`, on one line and nothing
 else. Add a second line only when the Lord must act before he opens it: the
 page could not be served, or a host could not be read. Do not print the
@@ -174,6 +183,9 @@ never rewritten whole.
    - remove or mark superseded every other entry about the same work as an
      entry you corrected, as "Writing rules for the page" says.
 
+   This correction pass skips `## Epics`: the forges and the queue know
+   nothing about it, so nothing they say corrects an epic.
+
    Never rewrite the whole file, and never cut the page apart by section
    heading with a script and put it back together.
 4. Stop the background lock with your harness's own way to stop a background
@@ -187,53 +199,52 @@ never rewritten whole.
 
 ### 5. Keep the tailnet page up
 
-The Lord also reads the page on his phone, from a small page server served on
-the tailnet only, never through funnel, at the path `/where-i-stand`. The
-server does not survive a reboot, so check it on every run and start it when
-it is not up:
+The Lord also reads the page on his phone. The throne backend serves it on
+127.0.0.1 only and publishes it at the path `/throne` with `tailscale serve`,
+on the tailnet only, never through funnel, so the page is at
+`https://<host>/throne/where-i-stand/`. The old address
+`https://<host>/where-i-stand/` still works: it redirects there and keeps the
+tab in its hash. Nothing here starts by hand. The backend publishes both paths
+when it starts and again every minute, so they come back by themselves after
+a reboot. Check them on every run:
 
 ```bash
-page_url="$(tailscale status --self --json | python3 -c 'import json,sys; print("https://" + json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')/where-i-stand/"
-curl -s -o /dev/null -w '%{http_code}\n' "${page_url}where-i-stand-prs.json"
+tailnet_address="$(tailscale status --self --json | python3 -c 'import json,sys; print("https://" + json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))')"
+page_url="$tailnet_address/throne/where-i-stand/"
+curl -s "$tailnet_address/throne/api/where-i-stand/page" | python3 -c 'import json,sys; json.load(sys.stdin)["markdown"]'
+tailscale serve status | grep -F ' /throne '
 ```
 
-`200` means it is up; `$page_url` is the link step 1 answers with, and you
-stop here. Anything else means it is not up, or it is an older page served
-without the pull request table. Start the page server that sits beside the
-page:
+Both commands exiting 0 means it is up; `$page_url` is the link step 1 answers
+with, and you stop here. The first reads the page through the API and parses
+it, because a bare `200` is fooled by any app published at `/`. The second shows
+that the path is really the backend's.
 
-```bash
-~/.claude/skills/tailnet-preview/tailnet-preview.sh stop where-i-stand
-python3 "$THRONE_LIVE_ROOT/.claude/skills/where-i-stand/page/page_server.py" stop
-python3 "$THRONE_LIVE_ROOT/.claude/skills/where-i-stand/page/page_server.py" start
-```
+When either fails, the remedy is the backend, not a server of your own:
 
-- The server listens on 127.0.0.1 only, and `start` publishes it at
-  `/where-i-stand` with `tailscale serve`. It reads `index.html` from its own
-  folder, the page from `${THRONE_DATA_HOME:-$HOME/.throne}/where-i-stand.md`
-  and the data file from
-  `${XDG_CACHE_HOME:-$HOME/.cache}/where-i-stand/where-i-stand-prs.json` on
-  every request, so the served page always shows the live files. Nothing is
-  copied.
-- It also answers the page's saves: it runs `throne where-i-stand save` with
-  the entry as the Lord loaded it and as he edited it, and that save takes
-  the same lock, keeps the same previous copy and journals the edit with the
-  writer `Lord`. Only the page server runs `throne where-i-stand save`; an
-  agent never does.
-- Each file needs to exist. When `show` printed the empty frame because
-  nobody had written the page yet, take step 4's lock and create the file at
-  the path `show` printed with that frame, using your harness's file tool,
-  before you start the server. When the data file is missing, run the reader
-  once with `--refresh` (step 2), which writes it, before you start the
-  server.
-- An older static preview of the page is removed by the `tailnet-preview`
-  script's own `stop`, and an older page server by the server's own `stop`,
-  which is why both run before `start` above. Never take the path over with
-  `tailscale serve` by hand. When `start` refuses because something it did
-  not start holds `/where-i-stand`, stop and report that; do not pick another
-  path.
-- `start` prints the address and the words `tailnet only`. Read both back
-  before you give the link.
+- Read the backend's log, `journalctl --user -u throne-backend` on Linux and
+  the `throne-backend` log under the throne home on macOS, for lines starting
+  `[web-listener]` or `[tailnet-publishing]`. A failed bind or a missing
+  tailscale is logged there and never stops the backend. Report what it says.
+  When the backend itself is down, say so; it is what brings the page back.
+- A line saying a path is `refused` means something this code did not create
+  holds it. Report that path and its holder, and leave it. Never take a path
+  over with `tailscale serve` by hand, and do not pick another path.
+- The API reads the page from
+  `${THRONE_DATA_HOME:-$HOME/.throne}/where-i-stand.md` and the data file from
+  `${XDG_CACHE_HOME:-$HOME/.cache}/where-i-stand/where-i-stand-prs.json` on every
+  request, so the page always shows the live files. Nothing is copied.
+- Each file needs to exist. When `show` printed the empty frame because nobody
+  had written the page yet, take step 4's lock and create the file at the path
+  `show` printed with that frame, using your harness's file tool. When the data
+  file is missing, run the reader once with `--refresh` (step 2), which writes
+  it.
+
+The same API answers the page's saves: `POST /api/where-i-stand/save` runs the
+same code as `throne where-i-stand save`, takes the same lock, keeps the same
+previous copy and journals the edit with the writer `Lord`. It refuses any save
+that would change the page outside `## Epics`. Only the API saves from the page;
+an agent never runs `throne where-i-stand save`.
 
 ## Writing rules for the page
 
@@ -242,6 +253,10 @@ it there.
 
 - Plain words. The Lord reads this between other things; write what a person
   outside the work would understand.
+- No agent adds, edits, closes or removes an epic unless the Lord says so in
+  words. A Stager he tells to add one edits `## Epics` under the lock, like
+  any entry. The entry rules below are for work entries; an epic holds only
+  its title and his notes.
 - Every entry starts with its links, its kind and where it stands: directly
   under its `### ` heading, before any other line, these three lines in this
   form, because the page reads them to fill its table:
@@ -285,7 +300,7 @@ it there.
 - End each entry with a line naming who wrote it and when.
 - Never start a line inside an entry with `## `. The command reads lines, not
   Markdown, so it refuses any second-level heading that is not one of the
-  six, and any of the six used twice, even inside a code fence. Use `####`
+  seven, and any of the seven used twice, even inside a code fence. Use `####`
   or bold text when an entry needs a label.
 - A blocked row's entry goes under `## Needs you` and carries the question in
   one sentence the Lord can answer without opening anything.
@@ -328,7 +343,7 @@ list in one place. Every entry this table names is written in the entry form
 | Alpha | unblocks | the `## Needs you` entry goes, and a note |
 | Alpha | delivers | its entry moves to `## Delivered, not on GitHub` or `## On GitHub`, every other entry about the same work is removed or marked superseded, and a note |
 | Regent | abandons, defers or releases a row | the entry, corrected or moved, and a note |
-| Lord | edits or removes an entry or a `## Just happened` line on the page | that one entry or line, saved through the page server and journaled with the writer `Lord`; a save whose entry changed since he loaded the page is refused, and the page shows him the current entry |
+| Lord | adds, edits or removes an epic on the page | that one epic under `## Epics`, saved through the page's API and journaled with the writer `Lord`; a save whose epic changed since he loaded the page is refused, and the page shows him the current epic; a save that would change the page outside `## Epics` is refused; a removal's journal row keeps the epic's title and notes |
 
 Only the delivery write is checked by a command:
 `throne check-where-i-stand --agent <alpha>` refuses, and with it the Alpha's

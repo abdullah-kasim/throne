@@ -1,0 +1,462 @@
+.where-i-stand {
+  --page: var(--background);
+  --card: #fff;
+  --text: #1f2328;
+  --muted: #59636e;
+  --line: #d0d7de;
+  --link: #0969da;
+  --code: #eff1f3;
+  --needs-you-card: #fff8c5;
+  --needs-you-line: #9a6700;
+  --problem: #a40e26;
+  max-width: 760px;
+  margin: 0 auto;
+  color: var(--text);
+  font: 16px/1.6 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-color-scheme: dark) {
+  .where-i-stand {
+    --card: #161b22;
+    --text: #e6edf3;
+    --muted: #9198a1;
+    --line: #3d444d;
+    --link: #4493f8;
+    --code: #262c36;
+    --needs-you-card: #2a2206;
+    --needs-you-line: #d29922;
+    --problem: #ff7b72;
+  }
+}
+
+html {
+  scroll-padding-top: 56px;
+}
+
+.where-i-stand h1 {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 4px;
+}
+
+.where-i-stand header p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.where-i-stand header .fetch-problem {
+  color: var(--problem);
+  font-weight: 600;
+}
+
+.where-i-stand section {
+  --card-padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: var(--card-padding);
+  margin: 0 0 16px;
+}
+
+.where-i-stand section.needs-you {
+  background: var(--needs-you-card);
+  border-color: var(--needs-you-line);
+  border-left-width: 6px;
+  padding-left: calc(var(--card-padding) - 5px);
+}
+
+.where-i-stand section > :first-child {
+  margin-top: 0;
+}
+
+.where-i-stand section > :last-child {
+  margin-bottom: 0;
+}
+
+.where-i-stand h2 {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 8px;
+}
+
+.where-i-stand h3 {
+  font: 600 16px/1.4 ui-monospace, monospace;
+  margin: 16px 0 4px;
+}
+
+.where-i-stand h4,
+.where-i-stand h5,
+.where-i-stand h6 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 12px 0 4px;
+}
+
+.where-i-stand p,
+.where-i-stand ul,
+.where-i-stand ol,
+.where-i-stand blockquote,
+.where-i-stand pre {
+  margin: 0 0 8px;
+}
+
+.where-i-stand p {
+  white-space: pre-line;
+}
+
+.where-i-stand ul,
+.where-i-stand ol {
+  padding-left: 22px;
+}
+
+.where-i-stand ul {
+  list-style: disc;
+}
+
+.where-i-stand ol {
+  list-style: decimal;
+}
+
+.where-i-stand li > ul,
+.where-i-stand li > ol,
+.where-i-stand li > p {
+  margin-bottom: 0;
+}
+
+.where-i-stand a {
+  color: var(--link);
+  padding: 3px 0;
+  text-decoration: underline;
+}
+
+.where-i-stand code {
+  font: 14px/1.4 ui-monospace, monospace;
+  background: var(--code);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.where-i-stand pre {
+  background: var(--code);
+  border-radius: 6px;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.where-i-stand pre code {
+  background: none;
+  padding: 0;
+}
+
+.where-i-stand blockquote {
+  border-left: 3px solid var(--line);
+  padding-left: 12px;
+  color: var(--muted);
+}
+
+.where-i-stand hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 12px 0;
+}
+
+.where-i-stand .problem,
+.where-i-stand .unit-status.problem {
+  color: var(--problem);
+  font-weight: 600;
+}
+
+.where-i-stand .unit-status {
+  color: var(--muted);
+}
+
+.where-i-stand .unit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+  font-size: 14px;
+}
+
+.where-i-stand .unsaved {
+  border-left: 3px solid var(--problem);
+  padding-left: 12px;
+  margin: 8px 0;
+}
+
+.where-i-stand .epic:last-child > :last-child,
+.where-i-stand .unsaved > :last-child,
+.where-i-stand .add-epic .unit-controls {
+  margin-bottom: 0;
+}
+
+.where-i-stand .epic textarea {
+  width: 100%;
+  min-height: 96px;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+
+.where-i-stand summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.where-i-stand .work details {
+  margin-top: 16px;
+}
+
+.where-i-stand details > div > p:first-child {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.where-i-stand details > div > p:first-child + h3 {
+  margin-top: 0;
+}
+
+.where-i-stand .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.where-i-stand .work h3 {
+  font: 600 15px/1.4 system-ui, sans-serif;
+}
+
+.where-i-stand .work table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 15px;
+}
+
+.where-i-stand .work th,
+.where-i-stand .work td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 8px 8px 0;
+  border-top: 1px solid var(--line);
+}
+
+.where-i-stand .work th {
+  font-size: 14px;
+  color: var(--muted);
+  border-top: 0;
+}
+
+.where-i-stand .work th:first-child {
+  width: 28%;
+}
+
+.where-i-stand .work td > div {
+  margin-bottom: 4px;
+}
+
+.where-i-stand .work td a {
+  display: inline-block;
+  padding-block: 8px;
+}
+
+.where-i-stand .work td .link-line a {
+  display: block;
+  margin-block: -8px;
+}
+
+.where-i-stand .work td > div + .link-line,
+.where-i-stand .work td > .link-line + div {
+  margin-top: 8px;
+}
+
+.where-i-stand .work .kind:has(a) {
+  margin-top: -8px;
+}
+
+.where-i-stand .work .missing {
+  color: var(--muted);
+}
+
+.where-i-stand .work .kind {
+  font-weight: 600;
+}
+
+.where-i-stand .work h3 + table {
+  table-layout: auto;
+  overflow-wrap: break-word;
+}
+
+.where-i-stand .work h3 + table th:first-child {
+  width: auto;
+}
+
+.where-i-stand .work td:is([data-label="Age"], [data-label="CI"]) {
+  white-space: nowrap;
+}
+
+.where-i-stand .page-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-start;
+  gap: 4px;
+  width: auto;
+  height: auto;
+  margin: 12px 0 0;
+  padding: 0;
+  overflow-x: auto;
+  border-radius: 0;
+  background:
+    linear-gradient(to right, var(--page) 30%, transparent) left / 40px 100% no-repeat local,
+    linear-gradient(to left, var(--page) 30%, transparent) right / 40px 100% no-repeat local,
+    linear-gradient(to right, var(--line), transparent) left / 14px 100% no-repeat scroll,
+    linear-gradient(to left, var(--line), transparent) right / 14px 100% no-repeat scroll,
+    var(--page);
+  border-bottom: 1px solid var(--line);
+}
+
+.where-i-stand .page-tabs button {
+  display: block;
+  flex: none;
+  min-height: 44px;
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--muted);
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.where-i-stand .page-tabs button::after {
+  content: none;
+}
+
+.where-i-stand .page-tabs button[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--link);
+}
+
+.where-i-stand .page-tabs button:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: -2px;
+}
+
+.where-i-stand .tab-count,
+.where-i-stand .tab-needs-you {
+  margin-left: 6px;
+  font-size: 13px;
+}
+
+.where-i-stand .tab-count {
+  color: var(--muted);
+}
+
+.where-i-stand .tab-needs-you {
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--needs-you-card);
+  background: var(--needs-you-line);
+}
+
+.where-i-stand .add-epic {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 0 0 16px;
+}
+
+.where-i-stand .add-epic label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.where-i-stand .add-epic input,
+.where-i-stand .add-epic textarea {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 4px;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+
+.where-i-stand .add-epic textarea {
+  field-sizing: fixed;
+}
+
+.where-i-stand .add-epic button {
+  height: 44px;
+}
+
+.where-i-stand input,
+.where-i-stand textarea {
+  border-color: var(--muted);
+  background: var(--page);
+}
+
+.where-i-stand [data-slot="tabs"] > section {
+  margin-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  .where-i-stand section {
+    --card-padding: 12px;
+  }
+
+  .where-i-stand .work thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .where-i-stand .work table,
+  .where-i-stand .work tbody,
+  .where-i-stand .work tr,
+  .where-i-stand .work td {
+    display: block;
+    width: auto;
+  }
+
+  .where-i-stand .work tr {
+    border-top: 1px solid var(--line);
+    padding: 8px 0;
+  }
+
+  .where-i-stand .work td {
+    border: 0;
+    padding: 4px 0;
+  }
+
+  .where-i-stand .work td > .link-line:first-child {
+    margin-top: 8px;
+  }
+
+  .where-i-stand .work .kind:has(a) {
+    margin-top: 0;
+  }
+
+  .where-i-stand .work td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+}

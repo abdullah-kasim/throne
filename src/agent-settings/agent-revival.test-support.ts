@@ -85,6 +85,7 @@ export interface Court {
   readonly renames: { paneId: string; agentName: string }[];
   readonly tabsOpened: string[];
   desiredState: DesiredState;
+  resurrectLockIsHeld: boolean;
   now: number;
   rosterEntries: AgentStatusesRosterEntry[];
   addShellPane: (label: string, tabId?: string) => PaneState;
@@ -203,6 +204,7 @@ export async function court(): Promise<Court> {
     tabsOpened,
     resumeContract,
     desiredState: DESIRED_STATES.RUNNING,
+    resurrectLockIsHeld: false,
     now: Date.parse("2026-10-13T00:00:00Z"),
     rosterEntries: [liveEntry(REGENT_NAME)],
     deps: {
@@ -210,6 +212,7 @@ export async function court(): Promise<Court> {
       listPanes,
       getPaneProcessInfo,
       readDesiredState: async () => state.desiredState,
+      resurrectLockIsHeld: async () => state.resurrectLockIsHeld,
       readForkedAgentNames: async () => new Set<string>(),
       findStagerTheCourtWouldReuse: (liveAgentNames) =>
         findStagerTheCourtWouldReuse(liveAgentNames, {

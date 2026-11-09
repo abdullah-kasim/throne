@@ -148,7 +148,13 @@ esac
 # `<user>@<hostname>` — a machine-local address that must never reach a
 # repository. That is a STOP: the agent asks the Lord for the values, exactly
 # like a missing `gh` login; it never guesses one and never sets a global.
-case "$subcommand" in
+merge_can_only_fast_forward() {
+    local mode_index=$((subcommand_index + 1)) commit_index=$((subcommand_index + 2))
+    [ "$subcommand" = merge ] && [ "$#" -eq "$commit_index" ] && [ "${!mode_index}" = --ff-only ] && [ "${!commit_index#-}" = "${!commit_index}" ]
+}
+subcommand_for_identity=$subcommand
+merge_can_only_fast_forward "$@" && subcommand_for_identity=""
+case "$subcommand_for_identity" in
     commit|merge|cherry-pick|revert|am|rebase)
         identity_args=()
         # The tab's exported identity was chosen for the tab's own origin

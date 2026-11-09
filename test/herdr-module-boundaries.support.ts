@@ -90,7 +90,7 @@ export const HERDR_PUBLIC_SURFACE: readonly string[] = [
   'SubmitAssumedFilledError', 'SubmitNotSentError', 'SubmitToAgentDeps', 'SubmitToAgentOptions',
   'SupportedScreenObservationDeps',
   'THRONE_HERDR_PROTOCOL', 'THRONE_HERDR_SESSION', 'agentStatusAcceptsInput', 'annotateStartFailure',
-  'attachThroneHerdr', 'captureProvesExecutedSentinel',
+  'attachThroneHerdr', 'captureProvesExecutedReadyMarker',
   'closeAgentTab', 'closePane', 'closeTab', 'codexTextboxClearance',
   'collectStartCallerContext',
   'createTab', 'currentPaneId', 'deliverOpeningPrompt', 'getPaneProcessInfo', 'insideHerdr',

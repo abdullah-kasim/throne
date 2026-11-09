@@ -13,12 +13,14 @@ function populateStagingDirWithDelayedFakeArtifacts(stagingDir, artifactDelayMs)
     mkdirSync(path.join(stagingDir, "src"), { recursive: true });
     mkdirSync(path.join(stagingDir, "test", "fixtures"), { recursive: true });
     mkdirSync(path.join(stagingDir, "systemd"), { recursive: true });
+    mkdirSync(path.join(stagingDir, "web"), { recursive: true });
     await delay(artifactDelayMs);
     writeFileSync(path.join(stagingDir, "src", "tools.js"), "// fake build output\n");
     writeFileSync(
       path.join(stagingDir, "test", "fixtures", "send-agent-process-mutex-runner.js"),
       "// fake build output\n",
     );
+    writeFileSync(path.join(stagingDir, "web", "index.html"), "<!doctype html>\n");
   };
 }
 

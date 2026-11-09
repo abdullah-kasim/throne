@@ -157,7 +157,7 @@ export class AgentStartPaneBusyError extends Error {
     super(
       `herdr agent start for "${agentName}" was rejected as pane-busy on all ` +
         `${attempts} bounded attempts against pane "${paneId}", whose shell had ` +
-        `already executed the readiness sentinel; no agent was registered`,
+        `already executed the readiness marker; no agent was registered`,
       { cause },
     );
     this.agentName = agentName;
@@ -357,6 +357,6 @@ import {
 import {
   PaneReadinessTimeoutError,
   paneOutputBytes,
-  captureProvesExecutedSentinel,
+  captureProvesExecutedReadyMarker,
   waitForShellReady,
 } from "./herdr-readiness.ts";

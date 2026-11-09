@@ -24,8 +24,8 @@ test('the shell-readiness probe is typed with a leading space so bash ignorespac
       return { stdout: '', stderr: '' };
     }
     if (args[0] === 'pane' && args[1] === 'read') {
-      const sentinel = `THRONE_SHELL_READY_${observedNonce}`;
-      return { stdout: `${sentinel}\n$ `, stderr: '' };
+      const readyMarker = `THRONE_SHELL_READY_${observedNonce}`;
+      return { stdout: `${readyMarker}\n$ `, stderr: '' };
     }
     throw new Error(`unexpected herdr invocation: ${args.join(' ')}`);
   };

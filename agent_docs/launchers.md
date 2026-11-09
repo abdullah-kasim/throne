@@ -124,7 +124,7 @@ Behavior when the running bash is older than 4.3:
 | --- | --- |
 | `THRONE_LAUNCHER_BASH` | Explicit bash to re-exec into; tried before every built-in candidate. The documented remedy on a machine whose modern bash lives somewhere unusual. |
 | `THRONE_LAUNCHER_FORCE_BASH_VERSION` | Read only when set; overrides the *running* version reading (e.g. `3.2`) so a modern bash can be walked down the old-bash path deterministically. Test seam. |
-| `THRONE_LAUNCHER_BASH_REEXEC` | Loop sentinel, exported by the guard itself. Not something to set by hand. |
+| `THRONE_LAUNCHER_BASH_REEXEC` | Re-exec loop marker, exported by the guard itself. Not something to set by hand. |
 
 `test/launcher-bash-guard.test.ts` drives all four guard paths — rejected old
 candidate, successful re-exec, modern pass-through, loop guard — with real

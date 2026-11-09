@@ -46,23 +46,18 @@ VENDOR_DIR="$THRONE_ROOT/vendor"
 PINS_FILE="$THRONE_ROOT/vendor-pins.json"
 STAMP_DIR="$VENDOR_DIR/.stamps"
 
-WITH_SERVICES=1
 FORCE=0
 
 usage() {
     cat <<'EOF'
-usage: ./install.sh [--no-services] [--force] [--help]
+usage: ./install.sh [--force] [--help]
 
-  --no-services  Install dependencies and harnesses, but do not install or
-                 start any service (systemd unit or LaunchAgent). Useful on
-                 a build box.
   --force        Redo every step even when it looks already done.
 EOF
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --no-services) WITH_SERVICES=0 ;;
         --force)       FORCE=1 ;;
         -h|--help)     usage; exit 0 ;;
         *) echo "install.sh: unknown argument \"$1\"" >&2; usage >&2; exit 2 ;;
@@ -341,259 +336,254 @@ done
 # linux, `launchctl enable` + `bootstrap` on macOS. It is itself idempotent
 # and reports each file as changed or unchanged.
 
-if [ "$WITH_SERVICES" -eq 0 ]; then
-    step "Services"
-    ok "skipped (--no-services)"
+step "ntfy (phone notifications)"
+install_ntfy
+
+step "herdr + services"
+node ./dist/src/tools.js install-services
+
+# install-services enables and starts the live units itself, but it
+# deliberately never restarts a running herdr — a restart drops every
+# live agent pane, which is an operator decision, not an installer's. So
+# this is a check, not a start: confirm the herdr server is up under the
+# host's service manager and say so either way. A unit that is installed
+# and enabled yet not running is an operator's call (journalctl /
+# ${THRONE_DATA_HOME:-$HOME/.throne}/logs will say why), never something to force here.
+if [ "$os_kernel" = "Linux" ]; then
+    if systemctl --user is-active --quiet throne-herdr.service 2>/dev/null; then
+        ok "throne-herdr.service is running (never restarted here: a restart drops live panes)"
+    else
+        ok "throne-herdr.service is not running; inspect with: systemctl --user status throne-herdr.service"
+    fi
 else
-    step "ntfy (phone notifications)"
-    install_ntfy
-
-    step "herdr + services"
-    node ./dist/src/tools.js install-services
-
-    # install-services enables and starts the live units itself, but it
-    # deliberately never restarts a running herdr — a restart drops every
-    # live agent pane, which is an operator decision, not an installer's. So
-    # this is a check, not a start: confirm the herdr server is up under the
-    # host's service manager and say so either way. A unit that is installed
-    # and enabled yet not running is an operator's call (journalctl /
-    # ${THRONE_DATA_HOME:-$HOME/.throne}/logs will say why), never something to force here.
-    if [ "$os_kernel" = "Linux" ]; then
-        if systemctl --user is-active --quiet throne-herdr.service 2>/dev/null; then
-            ok "throne-herdr.service is running (never restarted here: a restart drops live panes)"
-        else
-            ok "throne-herdr.service is not running; inspect with: systemctl --user status throne-herdr.service"
-        fi
+    herdr_target="gui/$(id -u)/com.throne.throne-herdr"
+    if launchctl print "$herdr_target" >/dev/null 2>&1; then
+        ok "com.throne.throne-herdr is loaded (never kickstarted here: a restart drops live panes)"
     else
-        herdr_target="gui/$(id -u)/com.throne.throne-herdr"
-        if launchctl print "$herdr_target" >/dev/null 2>&1; then
-            ok "com.throne.throne-herdr is loaded (never kickstarted here: a restart drops live panes)"
-        else
-            ok "com.throne.throne-herdr is not loaded; inspect with: launchctl print $herdr_target"
-        fi
+        ok "com.throne.throne-herdr is not loaded; inspect with: launchctl print $herdr_target"
     fi
+fi
 
-    step "herdr workspace"
+step "herdr workspace"
 
-    # A freshly created herdr session has a server but NO workspace, and
-    # `tab create` fails with `workspace_not_found` until one exists — which
-    # means a brand-new machine could install cleanly and still refuse to spawn
-    # a single agent. Creating one here closes that gap without an interactive
-    # attach. Idempotent: only ever creates the first one.
-    # The pinned herdr lives at a versioned path that moves with every pin
-    # bump in src/install-services/herdr-release.service.ts. Ask the compiled
-    # pin where that is instead of hardcoding a tag here and silently
-    # skipping this step the first time the pin moves (which is exactly what
-    # a stale literal v0.8.0 did against the v0.8.2 pin).
-    herdr_bin=$(node -e '
-      import("./dist/src/install-services/herdr-release.service.js")
-        .then((m) => process.stdout.write(m.ownedHerdrExecutablePath()));
-    ')
-    if [ ! -x "$herdr_bin" ]; then
-        ok "herdr not installed here; skipping workspace check"
-    else
-        # install-services bootstrapped the herdr server moments ago and it
-        # may still be binding its socket, so poll for a few seconds before
-        # declaring the list unreadable. The list is captured on its own,
-        # NOT piped into the parser with a `|| echo unknown` tail: under
-        # pipefail a failed herdr made both the parser and the tail print,
-        # yielding "unknownunknown", which matched no case and was reported
-        # as "already present" while the box had no workspace at all.
-        workspace_count=unknown
-        for _attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if workspace_list=$("$herdr_bin" --session throne workspace list 2>/dev/null); then
-                workspace_count=$(printf '%s' "$workspace_list" | node -e '
-                  let raw = "";
-                  process.stdin.on("data", (chunk) => { raw += chunk; });
-                  process.stdin.on("end", () => {
-                    try {
-                      const list = JSON.parse(raw).result?.workspaces ?? [];
-                      process.stdout.write(String(list.length));
-                    } catch { process.stdout.write("unknown"); }
-                  });
-                ') || workspace_count=unknown
-                break
-            fi
-            sleep 1
-        done
-        case "$workspace_count" in
-            0)
-                "$herdr_bin" --session throne workspace create \
-                    --label throne --cwd "$THRONE_ROOT" >/dev/null &&
-                    did "created the throne workspace (agents cannot spawn without one)"
-                ;;
-            unknown)
-                ok "could not read the workspace list (herdr not answering); leaving it alone"
-                ;;
-            *)
-                ok "$workspace_count workspace(s) already present"
-                ;;
-        esac
-    fi
-
-    # --- Regent + Stager ---------------------------------------------------
-    # A court with nobody on the throne is not installed. throne-backend's
-    # keep-going worker does resurrect a missing Regent, but only on its
-    # 30-minute cron boundary (`0 */30 * * * *`, no run-on-start), so a fresh
-    # box sat headless for up to half an hour — the Lord's order (2026-09-02):
-    # keep-going is part of the install. It is the same heartbeat the cron
-    # runs: it honours a `dismissed` desired-state, nudges a live Regent with
-    # the queue literal, or enqueues a resurrection that throne-backend's
-    # queue drain spawns within a second. A Regent THIS run raised then gets
-    # its install order by send-agent; one that was already live got
-    # keep-going's ordinary nudge and needs nothing more.
-    #
-    # The Stager is raised by throne-backend's every-minute court liveness
-    # worker once the Regent is live. This step waits for that, and if the
-    # worker did not deliver, applies the same floor directly — the court
-    # must have a Stager before the installer returns.
-
-    step "Regent + Stager"
-
-    # One probe over the compiled runtime, six lines: desired-state, whether
-    # a Regent is live (live|-|?), the Stager-floor decision (present <name>
-    # | ensure | stay-down | refuse <reason>), the Regent's canonical name,
-    # and the persona titles the install order is written in.
-    court_probe() {
-        node --input-type=module -e '
-          const rs = await import("./dist/src/regent-state/regent-state.service.js");
-          const roster = await import("./dist/src/agent-statuses/agent-statuses-roster.js");
-          const floor = await import("./dist/src/alpha-autoscale/stager-floor.js");
-          const { PERSONA_CONFIG } = await import("./dist/src/application-config.service.js");
-          const desired = await rs.readDesiredState();
-          let regent = "-";
-          try { regent = (await rs.findLiveRegent()) === null ? "-" : "live"; } catch { regent = "?"; }
-          const decision = floor.decideStagerFloorAction(desired, await roster.getAgentStatusesRoster());
-          const stager = decision.action === "present" ? `present ${decision.name}`
-            : decision.action === "refuse" ? `refuse ${decision.reason}` : decision.action;
-          let resurrectionState = "-";
-          let resurrectionReason = "";
-          try {
-            const mq = await import("./dist/src/message-queue/message-queue.store.js");
-            const { DatabaseSync } = await import("node:sqlite");
-            const db = new DatabaseSync(mq.resolveMessageQueueDatabasePath(), { readOnly: true });
-            try {
-              const row = db.prepare(
-                "SELECT state, failure_reason FROM work_items WHERE kind = ? ORDER BY id DESC LIMIT 1",
-              ).get("regent-resurrection");
-              if (row !== undefined) {
-                resurrectionState = String(row.state);
-                resurrectionReason = String(row.failure_reason ?? "").replace(/\s+/g, " ");
-              }
-            } finally { db.close(); }
-          } catch {}
-          process.stdout.write([desired, regent, stager, rs.REGENT_NAME,
-            PERSONA_CONFIG.tierTitles.regent, PERSONA_CONFIG.addressTitle,
-            resurrectionState, resurrectionReason].join("\n") + "\n");
-        ' 2>/dev/null
-    }
-    read_probe() {
-        local probe
-        probe=$(court_probe) || return 1
-        desired_state=$(printf '%s\n' "$probe" | sed -n 1p)
-        regent_live=$(printf '%s\n' "$probe" | sed -n 2p)
-        stager_state=$(printf '%s\n' "$probe" | sed -n 3p)
-        regent_name=$(printf '%s\n' "$probe" | sed -n 4p)
-        regent_title=$(printf '%s\n' "$probe" | sed -n 5p)
-        lord_title=$(printf '%s\n' "$probe" | sed -n 6p)
-        resurrection_state=$(printf '%s\n' "$probe" | sed -n 7p)
-        resurrection_reason=$(printf '%s\n' "$probe" | sed -n 8p)
-    }
-    dump_retained_pane() {
-        local reason="$1" pane
-        pane=$(printf '%s' "$reason" | sed -n 's/.*pane "\([^"]*\)".*/\1/p')
-        [ -n "$pane" ] || return 0
-        [ -n "${herdr_bin:-}" ] && [ -x "$herdr_bin" ] || return 0
-        printf '      retained pane %s, last lines:\n' "$pane"
-        "$herdr_bin" --session throne pane read "$pane" --source recent --lines 25 --format text 2>/dev/null |
-            sed '/^[[:space:]]*$/d' | tail -15 | sed 's/^/        | /' || true
-    }
-    # Runs a CLI command, printing its output indented and without node's
-    # SQLite experimental-warning noise; returns the command's exit status.
-    court_cli() {
-        local output status
-        output=$(node ./dist/src/tools.js "$@" 2>&1) && status=0 || status=$?
-        printf '%s\n' "$output" | grep -vE 'ExperimentalWarning|--trace-warnings' |
-            sed '/^$/d; s/^/      /'
-        return "$status"
-    }
-
-    read_probe || die "could not probe the court through dist/; run: node ./dist/src/tools.js agent-statuses"
-
-    if [ "$desired_state" = "dismissed" ]; then
-        ok "Regent desired-state is dismissed — the court stays down (summon-regent stands it back up)"
-    else
-        regent_was_live=$regent_live
-        court_cli keep-going || die "keep-going failed; fix the error above and re-run"
-
-        if [ "$regent_was_live" = "live" ]; then
-            ok "$regent_name already live; keep-going gave it the ordinary queue nudge (verdict above)"
-        else
-            did "asked throne-backend to resurrect the $regent_name (keep-going)"
-            waited=0
-            resurrection_state=-
-            while [ "$waited" -lt 120 ]; do
-                read_probe || true
-                [ "$regent_live" = "live" ] && break
-                [ "$resurrection_state" = "failed" ] && break
-                sleep 2
-                waited=$((waited + 2))
-            done
-            if [ "$regent_live" != "live" ] && [ "$resurrection_state" = "failed" ]; then
-                warn "$regent_name launch failed after ${waited}s: $resurrection_reason"
-                dump_retained_pane "$resurrection_reason"
-            elif [ "$regent_live" != "live" ]; then
-                warn "no live $regent_name after ${waited}s; inspect the throne-backend log (linux: journalctl --user -u throne-backend; macOS: ${THRONE_DATA_HOME:-$HOME/.throne}/logs/throne-backend.log)"
-            else
-                did "$regent_name is live (after ${waited}s)"
-                install_order="install.sh just stood up this throne on $(hostname) and resurrected you as its ${regent_title}. Run the /throne-startup skill now (.claude/skills/throne-startup, step 0 is the boot checklist: read AGENTS.md, consume-fence-handoff-on-start, render-queue, confirm a live Stager via agent-statuses, reconcile in-flight work, dispatch queued objectives). Report outcomes to the ${lord_title}; never put questions to him."
-                if court_cli send-agent "$regent_name" "$install_order" --sender-name install; then
-                    did "sent the $regent_name its install order (send-agent)"
-                else
-                    warn "could not send the $regent_name its install order; it still boots on its own opening prompt"
-                fi
-            fi
+# A freshly created herdr session has a server but NO workspace, and
+# `tab create` fails with `workspace_not_found` until one exists — which
+# means a brand-new machine could install cleanly and still refuse to spawn
+# a single agent. Creating one here closes that gap without an interactive
+# attach. Idempotent: only ever creates the first one.
+# The pinned herdr lives at a versioned path that moves with every pin
+# bump in src/install-services/herdr-release.service.ts. Ask the compiled
+# pin where that is instead of hardcoding a tag here and silently
+# skipping this step the first time the pin moves (which is exactly what
+# a stale literal v0.8.0 did against the v0.8.2 pin).
+herdr_bin=$(node -e '
+  import("./dist/src/install-services/herdr-release.service.js")
+    .then((m) => process.stdout.write(m.ownedHerdrExecutablePath()));
+')
+if [ ! -x "$herdr_bin" ]; then
+    ok "herdr not installed here; skipping workspace check"
+else
+    # install-services bootstrapped the herdr server moments ago and it
+    # may still be binding its socket, so poll for a few seconds before
+    # declaring the list unreadable. The list is captured on its own,
+    # NOT piped into the parser with a `|| echo unknown` tail: under
+    # pipefail a failed herdr made both the parser and the tail print,
+    # yielding "unknownunknown", which matched no case and was reported
+    # as "already present" while the box had no workspace at all.
+    workspace_count=unknown
+    for _attempt in 1 2 3 4 5 6 7 8 9 10; do
+        if workspace_list=$("$herdr_bin" --session throne workspace list 2>/dev/null); then
+            workspace_count=$(printf '%s' "$workspace_list" | node -e '
+              let raw = "";
+              process.stdin.on("data", (chunk) => { raw += chunk; });
+              process.stdin.on("end", () => {
+                try {
+                  const list = JSON.parse(raw).result?.workspaces ?? [];
+                  process.stdout.write(String(list.length));
+                } catch { process.stdout.write("unknown"); }
+              });
+            ') || workspace_count=unknown
+            break
         fi
+        sleep 1
+    done
+    case "$workspace_count" in
+        0)
+            "$herdr_bin" --session throne workspace create \
+                --label throne --cwd "$THRONE_ROOT" >/dev/null &&
+                did "created the throne workspace (agents cannot spawn without one)"
+            ;;
+        unknown)
+            ok "could not read the workspace list (herdr not answering); leaving it alone"
+            ;;
+        *)
+            ok "$workspace_count workspace(s) already present"
+            ;;
+    esac
+fi
 
-        # The Stager: wait for the court liveness worker to raise one.
+# --- Regent + Stager ---------------------------------------------------
+# A court with nobody on the throne is not installed. throne-backend's
+# keep-going worker does resurrect a missing Regent, but only on its
+# 30-minute cron boundary (`0 */30 * * * *`, no run-on-start), so a fresh
+# box sat headless for up to half an hour — the Lord's order (2026-09-02):
+# keep-going is part of the install. It is the same heartbeat the cron
+# runs: it honours a `dismissed` desired-state, nudges a live Regent with
+# the queue literal, or enqueues a resurrection that throne-backend's
+# queue drain spawns within a second. A Regent THIS run raised then gets
+# its install order by send-agent; one that was already live got
+# keep-going's ordinary nudge and needs nothing more.
+#
+# The Stager is raised by throne-backend's every-minute court liveness
+# worker once the Regent is live. This step waits for that, and if the
+# worker did not deliver, applies the same floor directly — the court
+# must have a Stager before the installer returns.
+
+step "Regent + Stager"
+
+# One probe over the compiled runtime, six lines: desired-state, whether
+# a Regent is live (live|-|?), the Stager-floor decision (present <name>
+# | ensure | stay-down | refuse <reason>), the Regent's canonical name,
+# and the persona titles the install order is written in.
+court_probe() {
+    node --input-type=module -e '
+      const rs = await import("./dist/src/regent-state/regent-state.service.js");
+      const roster = await import("./dist/src/agent-statuses/agent-statuses-roster.js");
+      const floor = await import("./dist/src/alpha-autoscale/stager-floor.js");
+      const { PERSONA_CONFIG } = await import("./dist/src/application-config.service.js");
+      const desired = await rs.readDesiredState();
+      let regent = "-";
+      try { regent = (await rs.findLiveRegent()) === null ? "-" : "live"; } catch { regent = "?"; }
+      const decision = floor.decideStagerFloorAction(desired, await roster.getAgentStatusesRoster());
+      const stager = decision.action === "present" ? `present ${decision.name}`
+        : decision.action === "refuse" ? `refuse ${decision.reason}` : decision.action;
+      let resurrectionState = "-";
+      let resurrectionReason = "";
+      try {
+        const mq = await import("./dist/src/message-queue/message-queue.store.js");
+        const { DatabaseSync } = await import("node:sqlite");
+        const db = new DatabaseSync(mq.resolveMessageQueueDatabasePath(), { readOnly: true });
+        try {
+          const row = db.prepare(
+            "SELECT state, failure_reason FROM work_items WHERE kind = ? ORDER BY id DESC LIMIT 1",
+          ).get("regent-resurrection");
+          if (row !== undefined) {
+            resurrectionState = String(row.state);
+            resurrectionReason = String(row.failure_reason ?? "").replace(/\s+/g, " ");
+          }
+        } finally { db.close(); }
+      } catch {}
+      process.stdout.write([desired, regent, stager, rs.REGENT_NAME,
+        PERSONA_CONFIG.tierTitles.regent, PERSONA_CONFIG.addressTitle,
+        resurrectionState, resurrectionReason].join("\n") + "\n");
+    ' 2>/dev/null
+}
+read_probe() {
+    local probe
+    probe=$(court_probe) || return 1
+    desired_state=$(printf '%s\n' "$probe" | sed -n 1p)
+    regent_live=$(printf '%s\n' "$probe" | sed -n 2p)
+    stager_state=$(printf '%s\n' "$probe" | sed -n 3p)
+    regent_name=$(printf '%s\n' "$probe" | sed -n 4p)
+    regent_title=$(printf '%s\n' "$probe" | sed -n 5p)
+    lord_title=$(printf '%s\n' "$probe" | sed -n 6p)
+    resurrection_state=$(printf '%s\n' "$probe" | sed -n 7p)
+    resurrection_reason=$(printf '%s\n' "$probe" | sed -n 8p)
+}
+dump_retained_pane() {
+    local reason="$1" pane
+    pane=$(printf '%s' "$reason" | sed -n 's/.*pane "\([^"]*\)".*/\1/p')
+    [ -n "$pane" ] || return 0
+    [ -n "${herdr_bin:-}" ] && [ -x "$herdr_bin" ] || return 0
+    printf '      retained pane %s, last lines:\n' "$pane"
+    "$herdr_bin" --session throne pane read "$pane" --source recent --lines 25 --format text 2>/dev/null |
+        sed '/^[[:space:]]*$/d' | tail -15 | sed 's/^/        | /' || true
+}
+# Runs a CLI command, printing its output indented and without node's
+# SQLite experimental-warning noise; returns the command's exit status.
+court_cli() {
+    local output status
+    output=$(node ./dist/src/tools.js "$@" 2>&1) && status=0 || status=$?
+    printf '%s\n' "$output" | grep -vE 'ExperimentalWarning|--trace-warnings' |
+        sed '/^$/d; s/^/      /'
+    return "$status"
+}
+
+read_probe || die "could not probe the court through dist/; run: node ./dist/src/tools.js agent-statuses"
+
+if [ "$desired_state" = "dismissed" ]; then
+    ok "Regent desired-state is dismissed — the court stays down (summon-regent stands it back up)"
+else
+    regent_was_live=$regent_live
+    court_cli keep-going || die "keep-going failed; fix the error above and re-run"
+
+    if [ "$regent_was_live" = "live" ]; then
+        ok "$regent_name already live; keep-going gave it the ordinary queue nudge (verdict above)"
+    else
+        did "asked throne-backend to resurrect the $regent_name (keep-going)"
         waited=0
-        read_probe || true
-        if [ "$regent_live" = "live" ]; then
-            while [ "$waited" -lt 180 ]; do
-                case "$stager_state" in present*|stay-down|refuse*) break ;; esac
-                sleep 3
-                waited=$((waited + 3))
-                read_probe || true
-            done
+        resurrection_state=-
+        while [ "$waited" -lt 120 ]; do
+            read_probe || true
+            [ "$regent_live" = "live" ] && break
+            [ "$resurrection_state" = "failed" ] && break
+            sleep 2
+            waited=$((waited + 2))
+        done
+        if [ "$regent_live" != "live" ] && [ "$resurrection_state" = "failed" ]; then
+            warn "$regent_name launch failed after ${waited}s: $resurrection_reason"
+            dump_retained_pane "$resurrection_reason"
+        elif [ "$regent_live" != "live" ]; then
+            warn "no live $regent_name after ${waited}s; inspect the throne-backend log (linux: journalctl --user -u throne-backend; macOS: ${THRONE_DATA_HOME:-$HOME/.throne}/logs/throne-backend.log)"
+        else
+            did "$regent_name is live (after ${waited}s)"
+            install_order="install.sh just stood up this throne on $(hostname) and resurrected you as its ${regent_title}. Run the /throne-startup skill now (.claude/skills/throne-startup, step 0 is the boot checklist: read AGENTS.md, consume-fence-handoff-on-start, render-queue, confirm a live Stager via agent-statuses, reconcile in-flight work, dispatch queued objectives). Report outcomes to the ${lord_title}; never put questions to him."
+            if court_cli send-agent "$regent_name" "$install_order" --sender-name install; then
+                did "sent the $regent_name its install order (send-agent)"
+            else
+                warn "could not send the $regent_name its install order; it still boots on its own opening prompt"
+            fi
         fi
-        case "$stager_state" in
-            present*)
-                ok "Stager live: ${stager_state#present }"
-                ;;
-            stay-down)
-                ok "Stager floor stays down (desired-state dismissed)"
-                ;;
-            refuse*)
-                warn "Stager floor refused: ${stager_state#refuse }"
-                dump_retained_pane "${stager_state#refuse }"
-                ;;
-            *)
-                # The worker did not deliver within the wait; apply the floor here.
-                node --input-type=module -e '
-                  const floor = await import("./dist/src/alpha-autoscale/stager-floor.js");
-                  const decision = await floor.ensureLiveStager();
-                  process.stdout.write(`      stager-floor: ${JSON.stringify(decision)}\n`);
-                ' 2>&1 | grep -vE 'ExperimentalWarning|--trace-warnings' || true
-                read_probe || true
-                case "$stager_state" in
-                    present*) did "raised the Stager directly: ${stager_state#present } (the court liveness worker had not within ${waited}s)" ;;
-                    refuse*)  warn "Stager floor refused: ${stager_state#refuse }"
-                              dump_retained_pane "${stager_state#refuse }" ;;
-                    *)        warn "no live Stager after ${waited}s and a direct floor pass (state: $stager_state); inspect: node ./dist/src/tools.js agent-statuses" ;;
-                esac
-                ;;
-        esac
     fi
+
+    # The Stager: wait for the court liveness worker to raise one.
+    waited=0
+    read_probe || true
+    if [ "$regent_live" = "live" ]; then
+        while [ "$waited" -lt 180 ]; do
+            case "$stager_state" in present*|stay-down|refuse*) break ;; esac
+            sleep 3
+            waited=$((waited + 3))
+            read_probe || true
+        done
+    fi
+    case "$stager_state" in
+        present*)
+            ok "Stager live: ${stager_state#present }"
+            ;;
+        stay-down)
+            ok "Stager floor stays down (desired-state dismissed)"
+            ;;
+        refuse*)
+            warn "Stager floor refused: ${stager_state#refuse }"
+            dump_retained_pane "${stager_state#refuse }"
+            ;;
+        *)
+            # The worker did not deliver within the wait; apply the floor here.
+            node --input-type=module -e '
+              const floor = await import("./dist/src/alpha-autoscale/stager-floor.js");
+              const decision = await floor.ensureLiveStager();
+              process.stdout.write(`      stager-floor: ${JSON.stringify(decision)}\n`);
+            ' 2>&1 | grep -vE 'ExperimentalWarning|--trace-warnings' || true
+            read_probe || true
+            case "$stager_state" in
+                present*) did "raised the Stager directly: ${stager_state#present } (the court liveness worker had not within ${waited}s)" ;;
+                refuse*)  warn "Stager floor refused: ${stager_state#refuse }"
+                          dump_retained_pane "${stager_state#refuse }" ;;
+                *)        warn "no live Stager after ${waited}s and a direct floor pass (state: $stager_state); inspect: node ./dist/src/tools.js agent-statuses" ;;
+            esac
+            ;;
+    esac
 fi
 
 # --- done -----------------------------------------------------------------

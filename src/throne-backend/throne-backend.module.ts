@@ -15,6 +15,8 @@ import { ProcwatchHostedWorker } from "../procwatch/procwatch.hosted-worker.ts";
 import { ForgejoBranchSyncHostedWorker } from "./forgejo-branch-sync.hosted-worker.ts";
 import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
 import { AgentSettingsHostedWorker } from "../agent-settings/agent-settings.hosted-worker.ts";
+import { WebListenerHostedWorker } from "../web-listener/web-listener.hosted-worker.ts";
+import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishing.hosted-worker.ts";
 
 /**
  * The long-lived `throne-backend` server: a real bootstrapped Nest
@@ -69,6 +71,8 @@ import { AgentSettingsHostedWorker } from "../agent-settings/agent-settings.host
     ForgejoBranchSyncHostedWorker,
     CourtLivenessHostedWorker,
     AgentSettingsHostedWorker,
+    WebListenerHostedWorker,
+    TailnetPublishingHostedWorker,
     {
       provide: HOSTED_WORKERS,
       inject: [
@@ -84,6 +88,8 @@ import { AgentSettingsHostedWorker } from "../agent-settings/agent-settings.host
         ForgejoBranchSyncHostedWorker,
         CourtLivenessHostedWorker,
         AgentSettingsHostedWorker,
+        WebListenerHostedWorker,
+        TailnetPublishingHostedWorker,
       ],
       useFactory: (
         noIdling: NoIdlingHostedWorker,
@@ -98,6 +104,8 @@ import { AgentSettingsHostedWorker } from "../agent-settings/agent-settings.host
         forgejoBranchSync: ForgejoBranchSyncHostedWorker,
         courtLiveness: CourtLivenessHostedWorker,
         agentSettings: AgentSettingsHostedWorker,
+        webListener: WebListenerHostedWorker,
+        tailnetPublishing: TailnetPublishingHostedWorker,
       ) => [
         noIdling,
         sqliteQueueDrain,
@@ -111,6 +119,8 @@ import { AgentSettingsHostedWorker } from "../agent-settings/agent-settings.host
         forgejoBranchSync,
         courtLiveness,
         agentSettings,
+        webListener,
+        tailnetPublishing,
       ],
     },
     HostedWorkerRegistrarService,

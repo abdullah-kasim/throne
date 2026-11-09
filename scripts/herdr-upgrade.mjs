@@ -17,11 +17,12 @@
 
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, readdir, writeFile, mkdir, copyFile, chmod } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { landPinCommit } from './land-pin-commit.mjs';
 
 const execFileAsync = promisify(execFile);
 const REPO = path.resolve(import.meta.dirname, '..');
@@ -29,21 +30,36 @@ const HERDR_HOME = path.join(os.homedir(), '.local', 'share', 'throne', 'herdr')
 const SESSION = 'throne';
 const LOG = path.join(os.homedir(), 'tmp', 'herdr-upgrade.log');
 const RESTART_MODULE = path.join(REPO, 'dist', 'src', 'herdr-update', 'herdr-upgrade-restart.js');
+const AGREEMENT_MODULE = path.join(REPO, 'dist', 'src', 'herdr-update', 'herdr-version-agreement.js');
+const HERDR_SHIM = path.join(REPO, 'bin', 'herdr');
 
 const {
   HERDR_UPGRADE_MODES,
   RELEASE_TAG_PATTERN,
+  RESTART_FAILED_PREFIX,
   herdrRestartSteps,
+  installedTagRefusal,
   lordsWordsFrom,
   restartRefusal,
   renderedHerdrAgentPath,
   renderedHerdrAgentRefusal,
+  shellCommand,
 } = await import(RESTART_MODULE);
+const { HERDR_PIN_PATHS, dirtyPathsOutsideHerdrPins, herdrPinCommitMessage, rewrittenHerdrPins, writeHerdrPins } =
+  await import(path.join(REPO, 'dist', 'src', 'herdr-update', 'herdr-upgrade-pins.js'));
+const { herdrIsAtPin, herdrVersionAgreement, onlyBinHerdrMissesThePin, readHerdrVersions } = await import(AGREEMENT_MODULE);
+const { HERDR_INSTALL_OUTCOMES, HERDR_UPDATE_REPOSITORY, installRehearsedRelease, installedBinaryHasHash } =
+  await import(path.join(REPO, 'dist', 'src', 'herdr-update', 'herdr-update-release.js'));
+const { parseAgentList } = await import(path.join(REPO, 'dist', 'src', 'herdr', 'herdr-inventory.service.js'));
 const { REAL_DEPS } = await import(path.join(REPO, 'dist', 'src', 'install-services', 'platform.js'));
 const PLATFORM = REAL_DEPS.platform;
 
 const argv = process.argv.slice(2);
-const TAG = argv.find((a) => RELEASE_TAG_PATTERN.test(a));
+const previous = await readFile(path.join(REPO, 'src', 'herdr', 'herdr-client.ts'), 'utf8')
+  .then((s) => /OWNED_HERDR_CLIENT_RELEASE_TAG = '([^']+)'/.exec(s)?.[1]);
+const PINNED = argv.includes('--pinned');
+const NAMED_TAG = argv.find((a) => RELEASE_TAG_PATTERN.test(a));
+const TAG = PINNED ? previous : NAMED_TAG;
 const CHECK = argv.includes('--check');
 const DRY = argv.includes('--dry-run');
 const YES = argv.includes('--yes');
@@ -71,7 +87,10 @@ async function sh(file, args, opts = {}) {
 
 appendToLog(`===== herdr-upgrade ${MODE} ${TAG ?? 'no tag'} ${new Date().toISOString()} =====`);
 if (!TAG && !CHECK) {
-  die('pass the target release tag, e.g. `node scripts/herdr-upgrade.mjs v0.8.3`, or --check');
+  die('pass the target release tag, e.g. `node scripts/herdr-upgrade.mjs v0.8.3`, or --pinned, or --check');
+}
+if (PINNED && NAMED_TAG) {
+  die(`--pinned goes to the tag this checkout pins, so it takes no tag, and ${NAMED_TAG} was passed`);
 }
 
 const pinnedBinary = (tag) => path.join(HERDR_HOME, tag, 'herdr');
@@ -100,13 +119,11 @@ async function preflight() {
   const refusal = restartRefusal(MODE, LORDS_WORDS);
   if (refusal) die(refusal);
   if (MODE === HERDR_UPGRADE_MODES.APPLY) say(`  restart ordered by the Lord: ${JSON.stringify(LORDS_WORDS)}`);
-  const { stdout: dirty } = await sh('git', ['-C', REPO, 'status', '--porcelain']);
-  if (dirty.trim() !== '') {
+  if ((await dirtyPathsOutsideHerdrPins(REPO)) !== '') {
     die('the throne checkout is dirty; commit or stash before an upgrade so a failed run is revertible');
   }
-  if (existsSync(pinnedBinary(TAG)) && !YES) {
-    die(`${pinnedBinary(TAG)} already exists; pass --yes to reuse it`);
-  }
+  const installedRefusal = installedTagRefusal(MODE, pinnedBinary(TAG), existsSync(pinnedBinary(TAG)), YES || PINNED);
+  if (installedRefusal) die(installedRefusal);
   // A live campaign must never meet the client/server mismatch window opened
   // between phase 5 and phase 8.
   const roster = await sh(path.join(REPO, 'bin', 'throne-cli'), ['agent-statuses'])
@@ -159,27 +176,14 @@ async function install(rehearsedSha256) {
   // NEVER install from PATH or a package manager: the Homebrew 0.8.2 binary
   // was NOT byte-identical to the GitHub release artifact (450cb7b1... vs
   // 976150a1...). Only the hash-verified download is trusted.
-  const dir = path.join(HERDR_HOME, TAG);
-  if (DRY) return say(`  would install -> ${path.join(dir, 'herdr')}`);
-  const { downloadAndVerifyHerdrRelease } = await import(
-    path.join(REPO, 'dist', 'src', 'herdr-update', 'herdr-update-release.js')
-  );
-  const download = await downloadAndVerifyHerdrRelease(TAG);
-  const matchesRehearsal = download.hashMatched && download.computedSha256 === rehearsedSha256;
-  try {
-    if (matchesRehearsal) {
-      await mkdir(dir, { recursive: true });
-      await copyFile(download.artifactPath, path.join(dir, 'herdr'));
-      await chmod(path.join(dir, 'herdr'), 0o755);
-    }
-  } finally {
-    await download.cleanup();
+  const destination = pinnedBinary(TAG);
+  if (DRY) {
+    const alreadyInstalled = await installedBinaryHasHash(destination, rehearsedSha256);
+    return say(alreadyInstalled ? `  would leave ${destination} in place` : `  would install -> ${destination}`);
   }
-  if (!matchesRehearsal) {
-    die(`install download hash ${download.computedSha256} is not the rehearsed ${rehearsedSha256}`);
-  }
-  const { stdout } = await sh(pinnedBinary(TAG), ['--version']);
-  say(`  installed ${path.join(dir, 'herdr')} (${stdout.trim()})`);
+  const outcome = await installRehearsedRelease(TAG, rehearsedSha256, destination).catch((error) => die(error.message));
+  const { stdout } = await sh(destination, ['--version']);
+  say(`  ${outcome === HERDR_INSTALL_OUTCOMES.INSTALLED ? 'installed' : 'left in place'} ${destination} (${stdout.trim()})`);
   // The previous version stays: RUNBOOK retirement criteria require the
   // fallback to survive until the new tag has baked in real use.
 }
@@ -187,60 +191,27 @@ async function install(rehearsedSha256) {
 // ---------------------------------------------------------------- phase 4
 async function movePins(protocol) {
   say('phase 4: moving both pins');
-  const version = TAG.replace(/^v/, '');
-  const clientPath = path.join(REPO, 'src', 'herdr', 'herdr-client.ts');
-  let client = await readFile(clientPath, 'utf8');
-  const tagLine = /export const OWNED_HERDR_CLIENT_RELEASE_TAG = '[^']+';/;
-  const protoLine = /export const THRONE_HERDR_PROTOCOL = '[^']+';/;
-  if (!tagLine.test(client) || !protoLine.test(client)) {
-    die('herdr-client.ts pin constants not found in their expected shape');
-  }
-  client = client
-    .replace(tagLine, `export const OWNED_HERDR_CLIENT_RELEASE_TAG = '${TAG}';`)
-    .replace(protoLine, `export const THRONE_HERDR_PROTOCOL = '${protocol}';`);
-
   // Digests come from real release metadata, never hand-computed. A previous
   // move of this constant shipped fabricated checksums.
-  const releasePath = path.join(REPO, 'src', 'install-services', 'herdr-release.service.ts');
-  let release = await readFile(releasePath, 'utf8');
-  const repoSlug = /export const HERDR_UPDATE_REPOSITORY = '([^']+)'/.exec(
-    await readFile(path.join(REPO, 'src', 'herdr-update', 'herdr-update-release.ts'), 'utf8'),
-  )?.[1];
-  if (!repoSlug) die('could not read HERDR_UPDATE_REPOSITORY');
-  const meta = JSON.parse(
-    (await sh(path.join(REPO, 'bin', 'gh'), ['api', `repos/${repoSlug}/releases/tags/${TAG}`])).stdout,
+  const metadata = JSON.parse(
+    (await sh(path.join(REPO, 'bin', 'gh'), ['api', `repos/${HERDR_UPDATE_REPOSITORY}/releases/tags/${TAG}`])).stdout,
   );
-  const digestOf = (name) => {
-    const asset = meta.assets.find((a) => a.name === name);
-    const digest = asset?.digest;
-    if (!digest?.startsWith('sha256:')) die(`no sha256 digest in release metadata for ${name}`);
-    return digest.slice('sha256:'.length);
-  };
-  release = release
-    .replace(/version: '[^']+',/, `version: '${version}',`)
-    .replace(/repository: '[^']+',/, `repository: '${repoSlug}',`)
-    .replace(/tag: '[^']+',/, `tag: '${TAG}',`);
-  for (const target of ['linux-aarch64', 'linux-x86_64', 'macos-aarch64', 'macos-x86_64']) {
-    const filename = `herdr-${target}`;
-    const block = new RegExp(`(filename: '${filename}',\\s*\\n\\s*sha256: ')[0-9a-f]{64}(')`);
-    if (!block.test(release)) die(`could not locate the ${target} sha256 slot`);
-    release = release.replace(block, `$1${digestOf(filename)}$2`);
-  }
+  const target = { tag: TAG, protocol, repositorySlug: HERDR_UPDATE_REPOSITORY, metadata };
+  const pins = await rewrittenHerdrPins(REPO, target).catch((error) => die(error.message));
   if (DRY) return say(`  would pin ${TAG} / protocol ${protocol} in both files`);
-  await writeFile(clientPath, client);
-  await writeFile(releasePath, release);
-  say(`  pinned ${TAG} / protocol ${protocol}, digests from ${repoSlug} release metadata`);
+  await writeHerdrPins(REPO, pins);
+  say(`  pinned ${TAG} / protocol ${protocol}, digests from ${HERDR_UPDATE_REPOSITORY} release metadata`);
 }
 
 // ---------------------------------------------------------------- phase 6-7
-async function buildAndRender() {
+async function build() {
   say('phase 6: build (opens the client/server mismatch window)');
-  if (DRY) {
-    say('  would run npm run build');
-    say(`phase 7: would run install-services and check ${renderedServiceFile()} names ${pinnedBinary(TAG)}`);
-    return;
-  }
+  if (DRY) return say('  would run npm run build');
   await sh('npm', ['run', 'build'], { cwd: REPO });
+}
+
+async function renderUnit() {
+  if (DRY) return say(`phase 7: would run install-services and check ${renderedServiceFile()} names ${pinnedBinary(TAG)}`);
   say(`phase 7: re-rendering ${renderedServiceFile()} onto the new binary path`);
   await sh(path.join(REPO, 'bin', 'throne-cli'), ['install-services'], { cwd: REPO });
   if (PLATFORM === 'darwin') {
@@ -256,6 +227,14 @@ async function buildAndRender() {
   say(`  ${exec.trim()}`);
 }
 
+function landPins() {
+  const message = herdrPinCommitMessage(TAG);
+  if (DRY) return say(`phase 7: would land moved pins as one commit "${message}"; unchanged pins make none`);
+  const pinCommit = landPinCommit({ repository: REPO, paths: HERDR_PIN_PATHS, message });
+  say(`phase 7: ${pinCommit.detail}`);
+  if (pinCommit.pushRefused) process.exitCode = 1;
+}
+
 function renderedServiceFile() {
   return PLATFORM === 'darwin' ? renderedHerdrAgentPath() : 'throne-herdr.service (systemctl --user cat)';
 }
@@ -263,12 +242,22 @@ function renderedServiceFile() {
 // ---------------------------------------------------------------- phase 5
 async function snapshotIdentities(previousBinary) {
   say('phase 5: snapshotting agent identities (the restart wipes these)');
-  const list = JSON.parse(await herdr(previousBinary, ['agent', 'list']));
-  const map = list.result.agents
-    .filter((a) => a.name)
-    .map((a) => ({ name: a.name, paneId: a.pane_id, session: a.agent_session?.value }));
-  say(`  ${map.length} named agent(s): ${map.map((m) => `${m.name}@${m.paneId}`).join(', ')}`);
-  return map;
+  const agents = parseAgentList(await herdr(previousBinary, ['agent', 'list'])).filter((agent) => agent.name);
+  say(`  ${agents.length} named agent(s): ${agents.map((agent) => `${agent.name}@${agent.paneId}`).join(', ')}`);
+  return agents;
+}
+
+async function snapshotRunningService(status) {
+  if (!status) die('cannot read the running herdr version, so its agents cannot be snapshotted');
+  if (!status.running) {
+    say('phase 5: no herdr server is running, so there are no identities to snapshot');
+    return [];
+  }
+  const runningBinary = pinnedBinary(`v${status.version}`);
+  if (!existsSync(runningBinary)) {
+    die(`the running server is ${status.version} and ${runningBinary} is missing, so its agents cannot be snapshotted`);
+  }
+  return snapshotIdentities(runningBinary);
 }
 
 // ------------------------------------------------------------- phases 8-10
@@ -286,29 +275,38 @@ function restartSteps() {
   });
 }
 
+function versionAgreementCommand() {
+  const agreement =
+    `const { herdrVersionAgreement, readHerdrVersions } = await import(${JSON.stringify(pathToFileURL(AGREEMENT_MODULE).href)});` +
+    ` const line = herdrVersionAgreement(await readHerdrVersions(${JSON.stringify(HERDR_SHIM)}));` +
+    ` console.log(line); process.exit(line.startsWith(${JSON.stringify(RESTART_FAILED_PREFIX)}) ? 1 : 0);`;
+  return shellCommand([process.execPath, '--input-type=module', '-e', agreement]);
+}
+
 function restartScript(identities) {
   const newBin = pinnedBinary(TAG);
+  const stepsUnderTheLock = [...restartSteps().map((step) => step.bash), 'sleep 8'].join('\n');
   return `#!/usr/bin/env bash
 exec >>${JSON.stringify(LOG)} 2>&1
 echo "===== herdr-upgrade ${TAG} restart $(date) ====="
-${restartSteps()
-  .map((step) => step.bash)
-  .join('\n')}
-sleep 8
-echo "--- identity repair ---"
-${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(REPO, 'scripts', 'herdr-repair-identities.mjs'))} ${JSON.stringify(JSON.stringify(identities))} ${JSON.stringify(newBin)}
+echo "--- restart, resume and identity repair, under the resurrect lock ---"
+${shellCommand([process.execPath, path.join(REPO, 'scripts', 'herdr-repair-identities.mjs'), JSON.stringify(identities), newBin, stepsUnderTheLock])} || echo "${RESTART_FAILED_PREFIX} the restart and identity repair exited $?"
 echo "--- end-to-end ---"
 ${JSON.stringify(path.join(REPO, 'bin', 'throne-cli'))} agent-statuses | head -20
 echo "===== done $(date) ====="
+${versionAgreementCommand()}
 `;
 }
 
 async function restartDetached(identities) {
-  say('phases 8-10: restart + identity repair, detached');
+  say('phases 8-10: restart, resume and identity repair, detached');
   const scriptPath = path.join(os.homedir(), 'tmp', `herdr-upgrade-${TAG}.sh`);
   if (DRY) {
     say(`  would run ${scriptPath} detached ${PLATFORM === 'darwin' ? 'in its own session' : 'under systemd-run'}:`);
+    say('  phase 8: take the resurrect lock, held until the Regent is relaunched');
     for (const step of restartSteps()) say(`  phase 8: ${step.says}`);
+    say(`  phase 9: would relaunch the ${identities.length} snapshotted agent(s), the Regent last, under the resurrect lock`);
+    say('  phase 10: would print the roster, then the throne cli, bin/herdr and running service versions side by side');
     return;
   }
   await mkdir(path.dirname(scriptPath), { recursive: true });
@@ -336,18 +334,35 @@ async function reportCheck(pinnedTag, pinnedBinaryPath) {
   say(`check: installed under ${HERDR_HOME}: ${installed.filter((name) => /^v\d/.test(name)).join(', ') || 'none'}`);
   const live = await serverStatus(pinnedBinaryPath);
   say(`check: live ${SESSION} server: ${live ? `${live.version} protocol ${live.protocol}` : 'unreachable'}`);
-  const { HERDR_UPDATE_REPOSITORY } = await import(
-    path.join(REPO, 'dist', 'src', 'herdr-update', 'herdr-update-release.js')
-  );
+  const agreement = herdrVersionAgreement(await readHerdrVersions(HERDR_SHIM));
+  say(`check: ${agreement}`);
   const latest = JSON.parse(
     (await sh(path.join(REPO, 'bin', 'gh'), ['api', `repos/${HERDR_UPDATE_REPOSITORY}/releases/latest`])).stdout,
   );
   say(`check: latest release of ${HERDR_UPDATE_REPOSITORY}: ${latest.tag_name} (${latest.published_at})`);
+  return agreement.startsWith(RESTART_FAILED_PREFIX) ? 1 : 0;
+}
+
+async function goToNamedTag() {
+  await preflight();
+  const { rehearsedSha256, protocol } = await rehearse();
+  await install(rehearsedSha256);
+  await movePins(protocol);
+  const identities = await snapshotIdentities(previousBinary);
+  await build();
+  await renderUnit();
+  landPins();
+  await restartDetached(identities);
+}
+
+async function goToPinnedTag(runningStatus) {
+  await preflight();
+  const identities = await snapshotRunningService(runningStatus);
+  await renderUnit();
+  await restartDetached(identities);
 }
 
 // ---------------------------------------------------------------------- go
-const previous = await readFile(path.join(REPO, 'src', 'herdr', 'herdr-client.ts'), 'utf8')
-  .then((s) => /OWNED_HERDR_CLIENT_RELEASE_TAG = '([^']+)'/.exec(s)?.[1]);
 async function runningServiceBinary() {
   const serviceText =
     PLATFORM === 'darwin'
@@ -358,18 +373,29 @@ async function runningServiceBinary() {
 }
 const previousBinary = (await runningServiceBinary()) ?? (previous ? pinnedBinary(previous) : 'herdr');
 if (CHECK) {
-  await reportCheck(previous, previousBinary);
-  process.exit(0);
+  process.exit(await reportCheck(previous, previousBinary));
 }
 say(`current pin ${previous ?? 'unknown'} -> target ${TAG}`);
 const before = await serverStatus(previousBinary);
 say(`live throne server: ${before ? `${before.version} protocol ${before.protocol}` : 'unreachable'}`);
 
-await preflight();
-const { rehearsedSha256, protocol } = await rehearse();
-await install(rehearsedSha256);
-await movePins(protocol);
-const identities = await snapshotIdentities(previousBinary);
-await buildAndRender();
-await restartDetached(identities);
+if (PINNED) {
+  const versions = await readHerdrVersions(HERDR_SHIM);
+  if (herdrIsAtPin(versions, TAG)) {
+    say(herdrVersionAgreement(versions));
+    say(`herdr is at its pin ${TAG}, nothing to do`);
+    process.exit(0);
+  }
+  if (onlyBinHerdrMissesThePin(versions, TAG)) {
+    die(
+      `bin/herdr reports ${versions.shim}, not the pin ${TAG}, while the throne cli and the running service are at the pin. ` +
+        `bin/herdr runs the highest release under ${HERDR_HOME}, so a restart cannot change it and nothing was restarted; ` +
+        `remove any release above ${TAG} from that folder and run again`,
+    );
+  }
+  say(`herdr is not at its pin ${TAG}: throne cli ${versions.cli}, bin/herdr ${versions.shim}, running service ${versions.service}`);
+  await goToPinnedTag(before);
+} else {
+  await goToNamedTag();
+}
 say(DRY ? 'dry run done; nothing was changed' : 'done issuing; the detached unit owns the rest');

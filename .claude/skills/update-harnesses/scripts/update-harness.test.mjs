@@ -1,13 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -20,176 +13,18 @@ import {
   runUpdate,
   versionOutputReports,
 } from './update-harness.mjs';
+import {
+  CLAUDE_VENDOR_PINS,
+  fakeNpmDir,
+  fakeThroneDir,
+  git,
+  makeThroneRoot,
+  writeJson,
+  writePathBinary,
+  writeVendoredClaude,
+} from './update-harness-fixtures.mjs';
 
 const SCRIPT = path.join(path.dirname(fileURLToPath(import.meta.url)), 'update-harness.mjs');
-const THRONE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
-
-const CLAUDE_VENDOR_PINS = {
-  _comment: [
-    'Pinned third-party harness versions the throne vendors into ./vendor/.',
-    'This is a fixture copy for update-harness.test.mjs; byte-preservation of',
-    'this array is exactly what the atomicity tests assert on.',
-  ],
-  tools: { ntfy: { image: 'docker.io/binwiederhier/ntfy:v2.28.0' } },
-  harnesses: {
-    claude: { package: '@anthropic-ai/claude-code', version: '2.1.226', bin: 'claude' },
-    codex: { package: '@openai/codex', version: '0.147.0', bin: 'codex' },
-  },
-};
-
-function writeExecutable(target, contents) {
-  writeFileSync(target, contents);
-  chmodSync(target, 0o755);
-}
-
-function writeJson(target, data) {
-  writeFileSync(target, `${JSON.stringify(data, null, 2)}\n`);
-}
-
-function git(throneRoot, args) {
-  return execFileSync('git', ['-C', throneRoot, ...args], { encoding: 'utf8' });
-}
-
-function makeThroneRoot(root, { pinnedVersion = '2.1.226' } = {}) {
-  const throneRoot = path.join(root, 'throne');
-  mkdirSync(path.join(throneRoot, 'bin'), { recursive: true });
-  mkdirSync(path.join(throneRoot, 'test'), { recursive: true });
-  mkdirSync(path.join(throneRoot, 'vendor', 'node_modules', '.bin'), { recursive: true });
-
-  const pins = JSON.parse(JSON.stringify(CLAUDE_VENDOR_PINS));
-  pins.harnesses.claude.version = pinnedVersion;
-  writeJson(path.join(throneRoot, 'vendor-pins.json'), pins);
-  writeJson(path.join(throneRoot, 'vendor', 'package.json'), {
-    name: 'throne-vendor',
-    private: true,
-    version: '0.0.0',
-    dependencies: { '@anthropic-ai/claude-code': pinnedVersion },
-  });
-
-  execFileSync('ln', ['-s', path.join(THRONE_ROOT, 'node_modules'), path.join(throneRoot, 'node_modules')]);
-  writeExecutable(path.join(throneRoot, 'bin', 'claudey'), '#!/usr/bin/env bash\nexec "${CLAUDE_BIN}" --version\n');
-  writeFileSync(
-    path.join(throneRoot, 'test', 'register-typescript.mjs'),
-    readFileSync(path.join(THRONE_ROOT, 'test', 'register-typescript.mjs')),
-  );
-  writeFileSync(
-    path.join(throneRoot, 'test', 'ompy-launcher.test.ts'),
-    "import test from 'node:test';\n\ntest('fixture stand-in for the real launcher-resolution proof', () => {});\n",
-  );
-
-  git(throneRoot, ['init', '--quiet']);
-  git(throneRoot, ['config', 'user.email', 'fixture@example.com']);
-  git(throneRoot, ['config', 'user.name', 'fixture']);
-  git(throneRoot, ['config', 'commit.gpgsign', 'false']);
-  git(throneRoot, ['add', '-A']);
-  git(throneRoot, ['commit', '--quiet', '--no-gpg-sign', '-m', 'fixture base']);
-
-  return throneRoot;
-}
-
-function writeVendoredClaude(throneRoot, version) {
-  writeExecutable(
-    path.join(throneRoot, 'vendor', 'node_modules', '.bin', 'claude'),
-    `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(version)} + '\\n');\n`,
-  );
-}
-
-function writePathBinary(dir, executable, version) {
-  mkdirSync(dir, { recursive: true });
-  writeExecutable(
-    path.join(dir, executable),
-    `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(version)} + '\\n');\n`,
-  );
-}
-
-function fakeNpmDir(root, { latestVersion = '2.1.267', failingProbe = false, vendoredVersionOverride = null } = {}) {
-  const dir = path.join(root, 'fake-npm-bin');
-  mkdirSync(dir, { recursive: true });
-  writeExecutable(path.join(dir, 'npm'), `#!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-
-const argv = process.argv.slice(2);
-const latest = ${JSON.stringify(latestVersion)};
-const failingProbe = ${JSON.stringify(failingProbe)};
-const vendoredVersionOverride = ${JSON.stringify(vendoredVersionOverride)};
-
-if (argv[0] === 'view') {
-  const spec = argv[1];
-  const packageName = spec.slice(0, spec.lastIndexOf('@'));
-  const jsonIndex = argv.indexOf('--json');
-  const fields = argv.slice(2, jsonIndex);
-  if (fields.length === 1 && fields[0] === 'version') {
-    process.stdout.write(JSON.stringify(latest));
-  } else {
-    process.stdout.write(JSON.stringify({
-      name: packageName,
-      version: latest,
-      'dist.integrity': 'sha512-AAAAAAAAAAAAAAAA',
-      'dist.tarball': 'https://registry.npmjs.org/fake.tgz',
-    }));
-  }
-} else if (argv[0] === 'pack') {
-  const spec = argv[1];
-  const packageName = spec.slice(0, spec.lastIndexOf('@'));
-  const executable = packageName.includes('codex') ? 'codex' : 'claude';
-  const destIndex = argv.indexOf('--pack-destination');
-  const destination = argv[destIndex + 1];
-  const fixture = mkdtempSync(path.join(tmpdir(), 'fake-npm-pack-'));
-  mkdirSync(path.join(fixture, 'package'), { recursive: true });
-  writeFileSync(path.join(fixture, 'package', 'package.json'), JSON.stringify({
-    name: packageName,
-    version: latest,
-    bin: { [executable]: 'cli.js' },
-  }));
-  writeFileSync(path.join(fixture, 'package', 'cli.js'), \`#!/usr/bin/env node
-if (\${JSON.stringify(failingProbe)} && process.argv.slice(2).join(' ') === 'auth --help') process.exit(23);
-process.stdout.write(${JSON.stringify(latestVersion)} + '\\\\n');
-\`);
-  chmodSync(path.join(fixture, 'package', 'cli.js'), 0o755);
-  const tarball = path.join(destination, 'fake.tgz');
-  execFileSync('tar', ['-czf', tarball, '-C', fixture, 'package']);
-  process.stdout.write(JSON.stringify([{ filename: 'fake.tgz', integrity: 'sha512-AAAAAAAAAAAAAAAA' }]));
-} else if (argv[0] === 'install' && argv.includes('--prefix')) {
-  const prefixIndex = argv.indexOf('--prefix');
-  const prefixDir = argv[prefixIndex + 1];
-  const spec = argv[prefixIndex + 2];
-  const packageName = spec.slice(0, spec.lastIndexOf('@'));
-  const version = spec.slice(spec.lastIndexOf('@') + 1);
-  const executable = packageName.includes('codex') ? 'codex' : 'claude';
-  const binDir = path.join(prefixDir, 'node_modules', '.bin');
-  mkdirSync(binDir, { recursive: true });
-  const reportedVersion = vendoredVersionOverride ?? version;
-  const versionOutput = executable === 'codex' ? \`codex-cli \${reportedVersion}\` : \`\${reportedVersion} (Claude Code)\`;
-  writeFileSync(path.join(binDir, executable), \`#!/usr/bin/env node
-process.stdout.write(\${JSON.stringify(versionOutput)} + '\\\\n');
-\`);
-  chmodSync(path.join(binDir, executable), 0o755);
-} else if (argv[0] === 'install') {
-  const tarballPath = argv[1];
-  const peek = mkdtempSync(path.join(tmpdir(), 'fake-npm-install-'));
-  execFileSync('tar', ['-xzf', tarballPath, '-C', peek, '--strip-components=1']);
-  const manifest = JSON.parse(readFileSync(path.join(peek, 'package.json'), 'utf8'));
-  const dest = path.join(process.cwd(), 'node_modules', manifest.name);
-  mkdirSync(dest, { recursive: true });
-  execFileSync('cp', ['-R', peek + '/.', dest]);
-  const binRelative = typeof manifest.bin === 'string' ? manifest.bin : Object.values(manifest.bin)[0];
-  chmodSync(path.join(dest, binRelative), 0o755);
-} else {
-  process.exit(64);
-}
-`);
-  return dir;
-}
-
-function fakeThroneDir(root) {
-  const dir = path.join(root, 'fake-throne-bin');
-  mkdirSync(dir, { recursive: true });
-  writeExecutable(path.join(dir, 'throne'), '#!/usr/bin/env node\nprocess.stdout.write("[]\\n");\n');
-  return dir;
-}
 
 test('the seam record carries all four versions when everything is present', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'update-harness-seam-'));
@@ -361,6 +196,7 @@ test('a vendored binary that reports the wrong version fails the update after th
       }),
       /vendored claude reports "2\.1\.226 \(Claude Code\)", expected 2\.1\.267/,
     );
+    assert.equal(git(throneRoot, ['rev-list', '--count', 'HEAD']).trim(), '1');
     const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'));
     assert.equal(evidence.oldVersion, '2.1.226');
     assert.equal(evidence.newVersion, '2.1.267');

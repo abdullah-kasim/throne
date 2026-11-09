@@ -58,7 +58,7 @@ export function runCommand(
  * Writes a fake `claude` executable that reproduces the exact gate
  * `spawn-trust-suppression.md` documents: it reads `settings.json` and
  * `.claude.json` off disk and decides trust the same way, then reports that
- * decision to a sentinel file the fake herdr binary below reads to pick the
+ * decision to a verdict file the fake herdr binary below reads to pick the
  * pane fixture. It never hardcodes the verdict: the verdict is computed from
  * whatever is actually on disk.
  *

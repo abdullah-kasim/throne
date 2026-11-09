@@ -1,6 +1,7 @@
 import tseslint from 'typescript-eslint';
 import promise from 'eslint-plugin-promise';
 import prettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
   {
@@ -48,6 +49,21 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    files: ['web/**/*.{ts,tsx}'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        sourceType: 'module',
+        ecmaFeatures: { jsx: true },
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint.plugin,
+      'react-hooks': reactHooks,
+    },
+    rules: reactHooks.configs.flat.recommended.rules,
   },
   prettier,
 );

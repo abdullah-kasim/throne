@@ -53,7 +53,7 @@ For every user-visible feature or regression fix, exercise the affected journey 
 
 **Accessible by construction.** Every interactive element a change adds or edits is reachable by keyboard with a visible focus state, carries an accessible name that says what it does (visible text, `aria-label`, or visually hidden text), keeps text contrast at 4.5:1 and click targets at 24px or larger, and conveys state by more than colour alone. Screen readers and keyboards are users, not edge cases; a control they cannot reach is a control that does not exist. The `frontend-critic` skill audits this for the changed surfaces only: accessibility debt the change did not touch is reported, never silently fixed, so a slice stays the size it was planned.
 
-Behaviour is half of user-visible. When a change touches CSS, markup, or component rendering, its appearance is verified with the throne-local `/frontend-critic` skill: render the served build, measure the changed element against its neighbours, check every state in Chromium, act mid-request and away-and-back on every piece of state the change keeps, hunt for the bugs the checklist misses, and fix until the report is empty. In a campaign this runs inside the `99b` verify gate of every bundle stamped `frontend: true`; a Stager or a no-alpha session runs it directly before calling the change done. A green suite is the floor; the Lord noticing a one-pixel offset is a failure of this step, not a review comment.
+Behaviour is half of user-visible. When a change touches CSS, markup, or component rendering, its appearance is verified with the throne-local `/frontend-critic` skill: render the served build, measure the changed element against its neighbours, check every state in Chromium, act mid-request and away-and-back on every piece of state the change keeps, hunt for the bugs the checklist misses, and fix until the report is empty. In a campaign the critic row's Alpha runs this on what the builder row delivered, and a bundle stamped `frontend: true` with no `frontend_row:` stamp runs it inside the `99b` verify gate; a Stager or a no-alpha session runs it directly before calling the change done. A green suite is the floor; the Lord noticing a one-pixel offset is a failure of this step, not a review comment.
 
 ## Functions should do one thing (SRP)
 
@@ -135,7 +135,7 @@ Write functions as contracts: defined inputs, defined outputs. The function sign
 
 **Use enums/types for return values, not magic strings.** If a function can return one of a known set of outcomes, define an enum. Strings are not contracts — they're accidents waiting to happen. `InvoiceExportStatus.PENDING` is a contract; `'PENDING'` is a string that someone will eventually typo.
 
-**No semantic magic strings or magic variables—not even once.** When a value carries domain meaning (an identity, role, state, protocol token, path, timeout, feature flag, or comparison rule), name it once at the authoritative boundary and reuse that constant, type, or function everywhere. “It is only used here” is not an exception: the first inline spelling is how a second drifting spelling becomes possible. Normalize and compare domain values through one named function; never scatter raw `.toLowerCase()`, literal sentinels, or locally reconstructed constants across callers.
+**No semantic magic strings or magic variables—not even once.** When a value carries domain meaning (an identity, role, state, protocol token, path, timeout, feature flag, or comparison rule), name it once at the authoritative boundary and reuse that constant, type, or function everywhere. “It is only used here” is not an exception: the first inline spelling is how a second drifting spelling becomes possible. Normalize and compare domain values through one named function; never scatter raw `.toLowerCase()`, literal marker values, or locally reconstructed constants across callers.
 
 **Functions produce values, callers make decisions.** A function that checks status should RETURN the status. The caller decides what to do with it. Don't bury decision-making inside a function that's supposed to be answering a question — that's coupling disguised as convenience.
 
@@ -144,6 +144,14 @@ Write functions as contracts: defined inputs, defined outputs. The function sign
 **Good:** Query function returns a typed result. Caller handles each case explicitly. The query function's contract is: "give me the status or null" — nothing more.
 
 This isn't the Java interfaces dance. No `IDeployStatusCheckerFactory`. Just: define what goes in, define what comes out, make the types enforce correctness, and let each function do exactly one job.
+
+## JSON boundaries parse through a Zod schema
+
+Any JSON boundary that is new or being touched parses through a Zod schema, failing with the field named. That covers files the throne reads back, such as `spawn.json` and ledger entries, and external command output from `gh`, Forgejo and herdr. Types come from `z.infer`, never a hand-written twin.
+
+This is gradual: a boundary converts when it is new or when a change already touches it. Do not convert existing `JSON.parse` calls in bulk.
+
+`parseNamingTheField` in `src/web-api-contract/` does the parse and names the field. Every `/api/<tool>/...` endpoint has one schema per request and response in that folder, imported by Nest and `web/` alike.
 
 ## Fewer codepaths
 

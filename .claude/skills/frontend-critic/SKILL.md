@@ -1,7 +1,7 @@
 ---
 name: frontend-critic
-description: This throne-locally discovered skill should be used after any visual or layout change to a web UI, and after any change to front-end state (paging or Load More, sort, filters, history or URL state, data kept while a reload runs), before the change is declared done or shown to the Lord. Trigger on "critique the UI", "check the alignment", "does this look right", "review the layout", "front-end review", or whenever a diff touches CSS, markup, component rendering, or the hooks and stores a view keeps its state in. The `99b` verify gate runs it for every bundle stamped `frontend: true`; a Stager or a no-alpha session runs it directly. It renders the change in a real browser, measures it, operates every new control by keyboard, acts mid-request and away-and-back on every piece of state the change keeps, hunts for the bugs its checklist misses, and reports every defect with the fix, so the Lord is never the one who has to notice that something is a pixel off or that a page forgot what he set.
-version: 0.2.0
+description: This throne-locally discovered skill should be used after any visual or layout change to a web UI, and after any change to front-end state (paging or Load More, sort, filters, history or URL state, data kept while a reload runs), before the change is declared done or shown to the Lord. Trigger on "critique the UI", "check the alignment", "does this look right", "review the layout", "front-end review", or whenever a diff touches CSS, markup, component rendering, or the hooks and stores a view keeps its state in. A critic row's Alpha runs it on what the builder row delivered, a front-end bundle with no `frontend_row:` stamp keeps it in the `99b` verify gate, and a Stager or a no-alpha session runs it directly. It renders the change in a real browser, measures it, operates every new control by keyboard, acts mid-request and away-and-back on every piece of state the change keeps, hunts for the bugs its checklist misses, and reports every defect with the fix, so the Lord is never the one who has to notice that something is a pixel off or that a page forgot what he set.
+version: 0.3.0
 user-invocable: true
 ---
 
@@ -16,10 +16,12 @@ the offset, and prescribe the fix. This skill exists so that never
 happens again: the agent looks, measures, and criticises its own work
 before anyone else sees it.
 
-It binds every role in the court. In a campaign it is part of the `99b`
-verify gate whenever `00_overview.md` carries `frontend: true` (see
-`write-todos`, "Front-end bundles"). Outside a bundle, a Stager or a
-no-alpha session runs it itself before reporting a UI change done. Run it
+It binds every role in the court. In a campaign the critic row's Alpha
+runs it on what the builder row delivered, and the builder row runs none
+of it (see `write-todos`, "Front-end bundles"). A bundle stamped
+`frontend: true` with no `frontend_row:` stamp keeps it in the `99b`
+verify gate. Outside a bundle, a Stager or a no-alpha session runs it
+itself before reporting a UI change done. Run it
 twice at least: after the first implementation, and again after every fix
 until the report is empty. Use the `agent-browser` skill, which the throne
 ships in its own `.claude/skills`, for the browser, and the `pr-media`
@@ -410,8 +412,9 @@ is a list, one defect per line, each with:
 
 If the report is empty, say what was measured, which container the axe
 audit covered, and that it ran in Chromium.
-"Looks fine" without numbers is not a report. In `99b` the final empty
-report, naming Chromium, is part of the PASS evidence.
+"Looks fine" without numbers is not a report. In a `99b` that carries
+this review, the final empty report, naming Chromium, is part of the PASS
+evidence.
 
 ## Known traps, from the record
 

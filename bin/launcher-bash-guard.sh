@@ -97,7 +97,7 @@ throne_launcher_require_modern_bash() {
 
     throne_launcher_running_bash_is_supported && return 0
 
-    # An exported sentinel makes a second pass fail instead of re-execing
+    # An exported marker makes a second pass fail instead of re-execing
     # forever when a candidate reports a version it does not deliver.
     if [ -n "${THRONE_LAUNCHER_BASH_REEXEC:-}" ]; then
         throne_launcher_fail_without_modern_bash "already re-executed once, and this bash is still too old"

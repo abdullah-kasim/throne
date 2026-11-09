@@ -7,7 +7,7 @@ const RAW_START_BUSY =
 
 /** `startAgent`'s wrapped exhaustion of its own bound. */
 const EXHAUSTED_START_BUSY =
-  /^herdr agent start for "[^"\n]+" was rejected as pane-busy on all \d+ bounded attempts against pane "[^"\n]+", whose shell had already executed the readiness sentinel; no agent was registered$/;
+  /^herdr agent start for "[^"\n]+" was rejected as pane-busy on all \d+ bounded attempts against pane "[^"\n]+", whose shell had already executed the readiness marker; no agent was registered$/;
 
 /**
  * True only when the whole stderr is the pre-registration `agent_pane_busy`

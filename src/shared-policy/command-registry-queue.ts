@@ -17,6 +17,7 @@ import { AttachThroneHerdrCommand } from "../attach-throne-herdr/attach-throne-h
 import { WorkLogCommand } from "../work-log/work-log.command.ts";
 import { WhereIStandCommand } from "../where-i-stand/where-i-stand.command.ts";
 import { CheckWhereIStandCommand } from "../where-i-stand/check-where-i-stand.command.ts";
+import { PreviewCommand } from "../previews/preview.command.ts";
 import type { CommandRegistryEntry } from "./command-registry-entry.ts";
 
 export const QUEUE_COMMANDS: readonly CommandRegistryEntry[] = [
@@ -122,6 +123,14 @@ export const QUEUE_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: true,
     description:
       "Exit 0 when an Alpha's campaign recorded its outcome on the Lord's where-i-stand page after it delivered, exit 66 with one sentence saying what to write when it has not. Used to refuse completing an Alpha whose work is not on the page.",
+  },
+  {
+    name: "preview",
+    provider: PreviewCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Add, remove or list the tailnet previews in config.user.ts. A preview is a tailnet path or port showing a local address or a folder, on the tailnet only and never through funnel.",
   },
   {
     name: "stage-launch-brief",

@@ -340,7 +340,7 @@ export async function assertObjectiveRefusal(opts: {
     opts.label,
   );
   const configPath = path.join(codexHome, 'config.toml');
-  const originalConfig = 'canary_sentinel = "unchanged"\n';
+  const originalConfig = 'canary_marker = "unchanged"\n';
   await mkdir(codexHome, { recursive: true });
   await writeFile(configPath, originalConfig, 'utf8');
 

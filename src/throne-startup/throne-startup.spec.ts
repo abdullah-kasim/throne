@@ -10,7 +10,7 @@ import { retiredSettingsDirectory, throneConfigDirectory } from "../shared-polic
 import { THRONE_HERDR_SESSION_NAME } from "../herdr/herdr-client.ts";
 import type { HerdrAgent, HerdrTab } from "../herdr/herdr-inventory.service.ts";
 import { DESIRED_STATES, REGENT_NAME } from "../regent-state/regent-state.service.ts";
-import { copyOldInstallIntoThroneHome, run, type ThroneStartupDeps } from "./throne-startup.ts";
+import { REAL_DEPS, copyOldInstallIntoThroneHome, run, type ThroneStartupDeps } from "./throne-startup.ts";
 
 const THRONE_ROOT = "/court/throne";
 const REGENT_PANE_ID = "regent-pane";
@@ -61,6 +61,58 @@ test("starting a Regent session no longer raises the Stager, and still reconcile
   assert.equal(exitCode, 0);
   assert.deepEqual(startup.reconciledRosters, [[regentSession]]);
   assert.equal(stagerRaises, 0);
+});
+
+const unnamedSession = { ...regentSession, name: undefined } as HerdrAgent;
+
+function unnamedSessionStartLaunchedAs(agentNameAtLaunch: string | undefined) {
+  const agentRenames: string[][] = [];
+  const tabRenames: string[][] = [];
+  const startup = regentSessionStartWith({
+    listAgents: async () => [unnamedSession],
+    agentNameAtLaunch: () => agentNameAtLaunch,
+    renameAgent: async (paneId: string, name: string) => {
+      agentRenames.push([paneId, name]);
+    },
+    renameTab: async (tabId: string, label: string) => {
+      tabRenames.push([tabId, label]);
+    },
+  });
+  return { ...startup, agentRenames, tabRenames };
+}
+
+test("a harness launched as another agent never takes the Regent's name while the Regent is down", async () => {
+  const startup = unnamedSessionStartLaunchedAs("stager-pantry");
+
+  const exitCode = await run([], startup.deps);
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(startup.agentRenames, []);
+  assert.deepEqual(startup.tabRenames, []);
+  assert.deepEqual(startup.reconciledRosters, []);
+});
+
+test("a Regent resurrected with no name still takes its name and reconciles", async () => {
+  for (const launchedAs of [undefined, "", "regent", REGENT_NAME]) {
+    const startup = unnamedSessionStartLaunchedAs(launchedAs);
+
+    const exitCode = await run([], startup.deps);
+
+    assert.equal(exitCode, 0);
+    assert.deepEqual(startup.agentRenames, [[REGENT_PANE_ID, REGENT_NAME]]);
+    assert.equal(startup.tabRenames.length, 1);
+    assert.deepEqual(startup.reconciledRosters, [[unnamedSession]]);
+  }
+});
+
+test("the name a harness was launched as is read from the variable its launch exports", (t) => {
+  const earlierName = process.env.THRONE_AGENT_NAME;
+  t.after(() => {
+    if (earlierName === undefined) delete process.env.THRONE_AGENT_NAME;
+    else process.env.THRONE_AGENT_NAME = earlierName;
+  });
+  process.env.THRONE_AGENT_NAME = "stager-pantry";
+  assert.equal(REAL_DEPS.agentNameAtLaunch?.(), "stager-pantry");
 });
 
 function tabInWorkspace(tabId: string, workspaceId: string): HerdrTab {

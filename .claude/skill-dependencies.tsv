@@ -41,10 +41,11 @@ recipes	not-a-skill
 restart-harnesses	shipped
 review-loop	shipped
 run-todos	shipped
+screen-reader-check	global
 share-stuff	global
 skill-writer	shipped
 switch-campaign-model	shipped
-tailnet-preview	global
+throne	not-a-skill
 throne-fork	shipped
 throne-startup	shipped
 ticket-check	global
@@ -54,6 +55,7 @@ todos	not-a-skill
 two	not-a-skill
 update-harnesses	shipped
 update-herdr	shipped
+update-throne	shipped
 where-i-stand	shipped
 write-and-execute-todos	shipped
 write-todos	shipped

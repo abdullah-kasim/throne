@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -15,6 +14,23 @@ import {
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+import { landPinCommit } from '../../../../scripts/land-pin-commit.mjs';
+import { acquireTransactionLock } from './transaction-lock.mjs';
+import {
+  installVendoredHarness,
+  PIN_FILE,
+  readCommittedPinnedVersion,
+  readJsonFile,
+  readPinnedVersion,
+  readVendoredVersion,
+  refreshVendorHarnessesStamp,
+  run,
+  vendoredBinaryPath,
+  vendorPinsPath,
+  writeVendorPackageDependency,
+  writeVendorPin,
+} from './vendor-files.mjs';
 
 const HARNESS = {
   claude: {
@@ -62,8 +78,8 @@ function parseArguments(argv) {
     options[key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
     index += 1;
   }
-  if (positionals.length !== 1 || !['check', 'update', 'rollback'].includes(positionals[0])) {
-    fail('usage: update-harness.mjs <check|update|rollback> --harness <claude|codex> --throne-root <path> [--managed-root <path>] [--evidence <path>] [--registry <url>]');
+  if (positionals.length !== 1 || !['check', 'update', 'pinned', 'rollback'].includes(positionals[0])) {
+    fail('usage: update-harness.mjs <check|update|pinned|rollback> --harness <claude|codex> --throne-root <path> [--managed-root <path>] [--evidence <path>] [--registry <url>] [--source-evidence <path>]');
   }
   options.action = positionals[0];
   if (!HARNESS[options.harness]) fail('--harness must be claude or codex');
@@ -74,18 +90,10 @@ function parseArguments(argv) {
   return options;
 }
 
-function run(command, args, options = {}) {
-  return execFileSync(command, args, {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    ...options,
-  }).trim();
-}
-
-function discoverPackage(config, registry) {
+function discoverPackage(config, registry, version = 'latest') {
   const raw = run('npm', [
     'view',
-    `${config.packageName}@latest`,
+    `${config.packageName}@${version}`,
     'name',
     'version',
     'dist.integrity',
@@ -191,36 +199,6 @@ function probeStagedHarness(config, binary, throneRoot) {
   return results;
 }
 
-function acquireTransactionLock(managedRoot) {
-  mkdirSync(managedRoot, { recursive: true });
-  const lock = path.join(managedRoot, '.transaction-lock');
-  try {
-    mkdirSync(lock);
-  } catch (error) {
-    if (error.code === 'EEXIST') fail('another harness update transaction is already running');
-    throw error;
-  }
-  return lock;
-}
-
-function readPinnedVersion(throneRoot, harness) {
-  const pinsPath = path.join(throneRoot, 'vendor-pins.json');
-  const pins = JSON.parse(readFileSync(pinsPath, 'utf8'));
-  const pinned = pins.harnesses?.[harness]?.version;
-  if (typeof pinned !== 'string') fail(`vendor-pins.json has no harnesses.${harness}.version`);
-  return pinned;
-}
-
-function vendoredBinaryPath(throneRoot, executable) {
-  return path.join(throneRoot, 'vendor', 'node_modules', '.bin', executable);
-}
-
-function readVendoredVersion(throneRoot, executable) {
-  const binary = vendoredBinaryPath(throneRoot, executable);
-  if (!existsSync(binary)) return null;
-  return run(binary, ['--version']);
-}
-
 function readNativeVersionOutsideThroneRoot(throneRoot, executable) {
   const throneRootReal = existsSync(throneRoot) ? realpathSync(throneRoot) : path.resolve(throneRoot);
   const pathEntries = (process.env.PATH ?? '').split(path.delimiter);
@@ -284,84 +262,6 @@ function assertCourtLivenessIsReadable() {
   }
 }
 
-function readJsonFile(filePath) {
-  return JSON.parse(readFileSync(filePath, 'utf8'));
-}
-
-function writeJsonFilePreservingShape(filePath, data) {
-  writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`);
-}
-
-function vendorDirectory(throneRoot) {
-  return path.join(throneRoot, 'vendor');
-}
-
-function vendorPinsPath(throneRoot) {
-  return path.join(throneRoot, 'vendor-pins.json');
-}
-
-function vendorPackageJsonPath(throneRoot) {
-  return path.join(vendorDirectory(throneRoot), 'package.json');
-}
-
-function vendorHarnessesStampPath(throneRoot) {
-  return path.join(vendorDirectory(throneRoot), '.stamps', 'harnesses');
-}
-
-function resolveSha256Command() {
-  try {
-    execFileSync('sha256sum', ['--version'], { stdio: 'ignore' });
-    return { command: 'sha256sum', args: [] };
-  } catch {
-    return { command: 'shasum', args: ['-a', '256'] };
-  }
-}
-
-function computeVendorHarnessesStamp(pins) {
-  const specs = ['claude', 'codex'].map((harness) => `${pins.harnesses[harness].package}@${pins.harnesses[harness].version}`);
-  const input = specs.map((spec) => `${spec}\n`).join('');
-  const { command, args } = resolveSha256Command();
-  const digest = execFileSync(command, args, { input, encoding: 'utf8' });
-  return digest.trim().split(/\s+/)[0];
-}
-
-function writeVendorPin(throneRoot, harness, version) {
-  const pinsPath = vendorPinsPath(throneRoot);
-  const pins = readJsonFile(pinsPath);
-  pins.harnesses[harness].version = version;
-  writeJsonFilePreservingShape(pinsPath, pins);
-  return pins;
-}
-
-function writeVendorPackageDependency(throneRoot, packageName, version) {
-  const packageJsonPath = vendorPackageJsonPath(throneRoot);
-  const manifest = existsSync(packageJsonPath)
-    ? readJsonFile(packageJsonPath)
-    : { name: 'throne-vendor', private: true, version: '0.0.0' };
-  manifest.dependencies = { ...manifest.dependencies, [packageName]: version };
-  writeJsonFilePreservingShape(packageJsonPath, manifest);
-}
-
-function refreshVendorHarnessesStamp(throneRoot, pins) {
-  const stampPath = vendorHarnessesStampPath(throneRoot);
-  mkdirSync(path.dirname(stampPath), { recursive: true });
-  writeFileSync(stampPath, `${computeVendorHarnessesStamp(pins)}\n`);
-}
-
-function installVendoredHarness(throneRoot, packageName, version, registry) {
-  run('npm', [
-    'install',
-    '--no-audit',
-    '--no-fund',
-    '--save-exact',
-    '--prefix',
-    vendorDirectory(throneRoot),
-    `${packageName}@${version}`,
-    '--registry',
-    registry,
-  ]);
-}
-
 export function versionOutputReports(versionOutput, expected) {
   if (typeof versionOutput !== 'string') return false;
   return versionOutput.trim().split(/\s+/).includes(expected);
@@ -374,18 +274,10 @@ function assertVendoredVersionMatches(vendoredVersion, executable, expected) {
 }
 
 function renderVendorPinDiff(throneRoot) {
-  return run('git', [
-    '-C',
-    throneRoot,
-    'diff',
-    '--',
-    'vendor-pins.json',
-    'vendor/package.json',
-    'vendor/package-lock.json',
-  ]);
+  return run('git', ['-C', throneRoot, 'diff', '--', PIN_FILE]);
 }
 
-function commitHarnessTransaction({ harness, throneRoot, version, registry }) {
+function applyHarnessVersion({ harness, throneRoot, version, registry }) {
   const config = HARNESS[harness];
   const pins = writeVendorPin(throneRoot, harness, version);
   writeVendorPackageDependency(throneRoot, config.packageName, version);
@@ -401,7 +293,7 @@ function rollbackHarnessTransaction({ harness, throneRoot, sourceEvidencePath, r
   const priorEvidence = readJsonFile(sourceEvidencePath);
   const previousVersion = priorEvidence.oldVersion;
   if (typeof previousVersion !== 'string') fail(`${sourceEvidencePath} has no oldVersion to roll back to`);
-  const { diff, vendoredVersion } = commitHarnessTransaction({ harness, throneRoot, version: previousVersion, registry });
+  const { diff, vendoredVersion } = applyHarnessVersion({ harness, throneRoot, version: previousVersion, registry });
   return { previousVersion, diff, vendoredVersion };
 }
 
@@ -414,36 +306,118 @@ function writeEvidence(destination, evidence) {
 
 const MUTABLE_SERVICE_CAVEAT = 'Hosted services and model behavior remain mutable independently of these local CLI artifacts.';
 
-export function runUpdate({ harness, throneRoot, managedRoot, registry, evidencePath }) {
+function harnessIsCurrent(throneRoot, config, pinnedVersion, latestVersion) {
+  return pinnedVersion === latestVersion
+    && versionOutputReports(readVendoredVersion(throneRoot, config.executable), latestVersion);
+}
+
+function readCurrentHarness(throneRoot, config) {
+  return {
+    probes: [],
+    diff: renderVendorPinDiff(throneRoot),
+    vendoredVersion: readVendoredVersion(throneRoot, config.executable),
+  };
+}
+
+function probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry }) {
   const config = HARNESS[harness];
-  assertCourtLivenessIsReadable();
-  const oldVersion = readPinnedVersion(throneRoot, harness);
-  const metadata = discoverPackage(config, registry);
   const workRoot = mkdtempSync(path.join(managedRoot, `.stage-${harness}-`));
   try {
     const staged = stagePackage(config, metadata, registry, workRoot);
-    const probes = probeStagedHarness(config, staged.binary, throneRoot);
-    const { diff, vendoredVersion } = commitHarnessTransaction({ harness, throneRoot, version: metadata.version, registry });
-    const evidence = {
-      action: 'update',
-      harness,
-      package: metadata.name,
-      oldVersion,
-      newVersion: metadata.version,
-      vendoredVersion,
-      source: metadata.tarball,
-      integrity: metadata.integrity,
-      probes,
-      diff,
-      herdrTouchedOrRestarted: false,
-      mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
-    };
-    writeEvidence(evidencePath, evidence);
-    assertVendoredVersionMatches(vendoredVersion, config.executable, metadata.version);
-    return evidence;
+    return probeStagedHarness(config, staged.binary, throneRoot);
   } finally {
     rmSync(workRoot, { recursive: true, force: true });
   }
+}
+
+function installProbedHarness({ harness, throneRoot, managedRoot, metadata, registry }) {
+  const probes = probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry });
+  return { probes, ...applyHarnessVersion({ harness, throneRoot, version: metadata.version, registry }) };
+}
+
+function installPinnedHarness({ harness, throneRoot, managedRoot, version, registry }) {
+  const config = HARNESS[harness];
+  const metadata = discoverPackage(config, registry, version);
+  const probes = probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry });
+  installVendoredHarness(throneRoot, config.packageName, version, registry);
+  refreshVendorHarnessesStamp(throneRoot, readJsonFile(vendorPinsPath(throneRoot)));
+  return {
+    package: metadata.name,
+    source: metadata.tarball,
+    integrity: metadata.integrity,
+    probes,
+    vendoredVersion: readVendoredVersion(throneRoot, config.executable),
+  };
+}
+
+function vendoredVersionIfItRuns(throneRoot, executable) {
+  try {
+    return readVendoredVersion(throneRoot, executable);
+  } catch {
+    return null;
+  }
+}
+
+function versionReportedBy(versionOutput) {
+  return versionOutput?.split(/\s+/).find((word) => /^\d/.test(word)) ?? 'none';
+}
+
+function landHarnessPin({ harness, throneRoot, version, evidence, evidencePath }) {
+  const pinCommit = landPinCommit({
+    repository: throneRoot,
+    paths: [PIN_FILE],
+    message: `Pin ${harness} to ${version}`,
+  });
+  const landedEvidence = { ...evidence, pinCommit };
+  writeEvidence(evidencePath, landedEvidence);
+  return landedEvidence;
+}
+
+export function runUpdate({ harness, throneRoot, managedRoot, registry, evidencePath }) {
+  const config = HARNESS[harness];
+  assertCourtLivenessIsReadable();
+  const oldVersion = readCommittedPinnedVersion(throneRoot, harness);
+  const metadata = discoverPackage(config, registry);
+  const { probes, diff, vendoredVersion } = harnessIsCurrent(throneRoot, config, readPinnedVersion(throneRoot, harness), metadata.version)
+    ? readCurrentHarness(throneRoot, config)
+    : installProbedHarness({ harness, throneRoot, managedRoot, metadata, registry });
+  const evidence = {
+    action: 'update',
+    harness,
+    package: metadata.name,
+    oldVersion,
+    newVersion: metadata.version,
+    vendoredVersion,
+    source: metadata.tarball,
+    integrity: metadata.integrity,
+    probes,
+    diff,
+    herdrTouchedOrRestarted: false,
+    mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
+  };
+  writeEvidence(evidencePath, evidence);
+  assertVendoredVersionMatches(vendoredVersion, config.executable, metadata.version);
+  return landHarnessPin({ harness, throneRoot, version: metadata.version, evidence, evidencePath });
+}
+
+export function runPinned({ harness, throneRoot, managedRoot, registry, evidencePath }) {
+  const { executable } = HARNESS[harness];
+  const version = readPinnedVersion(throneRoot, harness);
+  const versionOutputBefore = vendoredVersionIfItRuns(throneRoot, executable);
+  const moved = !versionOutputReports(versionOutputBefore, version);
+  const evidence = {
+    action: 'pinned',
+    harness,
+    moved,
+    oldVersion: versionReportedBy(versionOutputBefore),
+    newVersion: version,
+    ...(moved
+      ? installPinnedHarness({ harness, throneRoot, managedRoot, version, registry })
+      : { probes: [], vendoredVersion: versionOutputBefore }),
+  };
+  writeEvidence(evidencePath, evidence);
+  assertVendoredVersionMatches(evidence.vendoredVersion, executable, version);
+  return evidence;
 }
 
 export function runRollback({ harness, throneRoot, sourceEvidencePath, registry, evidencePath }) {
@@ -458,7 +432,19 @@ export function runRollback({ harness, throneRoot, sourceEvidencePath, registry,
   };
   writeEvidence(evidencePath, evidence);
   assertVendoredVersionMatches(vendoredVersion, HARNESS[harness].executable, previousVersion);
-  return evidence;
+  return landHarnessPin({ harness, throneRoot, version: previousVersion, evidence, evidencePath });
+}
+
+function renderPinnedOutcome({ harness, moved, oldVersion, newVersion }) {
+  return moved
+    ? `update-harness: ${harness} moved from ${oldVersion} to ${newVersion}`
+    : `update-harness: ${harness} unchanged at ${newVersion}`;
+}
+
+function printPinCommit({ pushRefused, detail }) {
+  const output = pushRefused ? process.stderr : process.stdout;
+  output.write(`update-harness: ${detail}\n`);
+  if (pushRefused) process.exitCode = 1;
 }
 
 async function main() {
@@ -475,20 +461,31 @@ async function main() {
       process.stdout.write(`${renderCheckReport(state)}\nevidence: ${options.evidence}\n`);
       return;
     }
+    if (options.action === 'pinned') {
+      const evidence = runPinned({ ...options, evidencePath: options.evidence });
+      process.stdout.write(`${renderPinnedOutcome(evidence)}\nevidence: ${options.evidence}\n`);
+      return;
+    }
     if (options.action === 'rollback') {
       if (!options.sourceEvidence) fail('--source-evidence is required for rollback');
       const evidence = runRollback({ ...options, sourceEvidencePath: path.resolve(options.sourceEvidence), evidencePath: options.evidence });
       process.stdout.write(`${options.harness} rolled back to ${evidence.restoredVersion}; evidence: ${options.evidence}\n${evidence.diff}\n`);
+      printPinCommit(evidence.pinCommit);
       return;
     }
     const evidence = runUpdate({ ...options, evidencePath: options.evidence });
     process.stdout.write(`${options.harness} pinned to ${evidence.newVersion}; evidence: ${options.evidence}\n${evidence.diff}\n`);
+    printPinCommit(evidence.pinCommit);
   } finally {
     rmSync(transactionLock, { recursive: true, force: true });
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+function calledAsTheEntryScript() {
+  return process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+}
+
+if (calledAsTheEntryScript()) {
   main().catch((error) => {
     process.stderr.write(`update-harness: ${error.message}\n`);
     process.exitCode = 1;

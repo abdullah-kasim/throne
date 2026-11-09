@@ -203,6 +203,50 @@ throne add-to-queue --objective-code <code> \
   push. Independent work and unrelated tickets still branch from the default
   branch. A stack lands through `/pr-merge`: roll every upper PR into the
   root, then one squash merge.
+- **A row that changes a web UI is filed as two rows in one sitting, builder
+  first (Lord, 2026-11-05: "if it's a frontend task, we MUST create 2 alphas -
+  one to do the main task, another to do what the actual /frontend-critic does
+  and fix everything that it raises in the alpha").** The **builder row**
+  delivers working functionality first, so it can be used at once: its gates
+  check function only (tests, conformance, the behaviour working in a real
+  browser), it runs no `/frontend-critic` review, no front-end critique gate
+  and no accessibility review (Lord, 2026-11-05: "The same applies for
+  accessibility checks - it must go to another alpha."), and it delivers as
+  soon as they pass. The **critic row**'s Alpha runs everything
+  `/frontend-critic` does on the delivered work, runs the accessibility checks
+  beside it, fixes everything they raise, then delivers; `/write-todos`
+  "Front-end bundles" holds the list of checks and what each row's bundle
+  carries. Run steps 2 to 6b once per row. The builder's body carries the line
+  `FRONTEND-ROW: builder, critic row <critic>` and the critic's carries
+  `FRONTEND-ROW: critic of <builder>`; `/write-todos` stamps each bundle from
+  its line, and the lint accepts both as extra lines. File the builder, file
+  the critic, and defer the critic straight after filing, before an autoscaler
+  tick can launch it as an open row, with:
+
+  ```bash
+  throne update-queue --objective-code <critic> --status deferred \
+    --depends-on <builder> --defer-reason "<critic> critiques what <builder> delivers"
+  ```
+
+  The builder's Alpha asks the Regent for
+  release once delivered, as /gauntlet's checker does: its launch brief lists
+  the critic under "Deferred rows waiting on this objective", and the Regent
+  then runs `throne release-deferred`. TRAP, written into the critic body: its
+  base commit predates the delivery, and a deferred row can launch early by
+  design, so `--depends-on` proves nothing about what is in its tree. Its Alpha
+  brings its tree up to the target branch and confirms the builder's commit is
+  present before critiquing; if the commit is absent, it tells the Regent and
+  parks on the builder's Alpha. A /gauntlet row is not split further: its own
+  critic gates and checker row stand. A row delivered by pull request files its
+  critic as a stacked row under "Prefer stacking" above, cut from the builder's
+  branch. The critic row may not be dropped, and no filing check refuses a
+  builder without one: the builder is filed first, so the critic row does not
+  exist yet; `update-queue --depends-on` records codes without resolving them;
+  and "changes a web UI" is not machine-readable at filing, because the
+  classifier reads `touches:` sets that exist only after planning. So the rule
+  lives here, and `/write-todos` refuses the builder stamp unless the critic
+  row is waiting on the builder: a dropped critic row costs speed, never the
+  critic.
 - **Never file a row whose work is to wait or poll for a human approval**
   (a review, a `reviewDecision` of `APPROVED`) (Lord, 2026-10-07: "alphas
   should not wait for PR approval if the repo doesnt allow human approval

@@ -55,6 +55,7 @@ export default userConfig;
 | `editor` (top level) | `editor` | `throne forge open` |
 | `recall` | `jevEnabled`, `jevKeyFile`, `hookEnabled`, `hookMode`, `verdictLineThreshold`, `hookTimeoutMilliseconds`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `repositoryMemoryNamesPerRepository`, `globalMemoryDirectories`, `rankAllowedRoots`, `jevTokensPerDay`, `jevTokensPerHour` | `throne recall`, `throne sift` and `throne rank` (`agent_docs/commands.md`) |
 | `agentSettings` | `checkEnabled`, `colourByRole` | the `agent-settings` worker and `throne agent-settings-tick` (`agent_docs/commands.md`) |
+| `previews` (top level) | a list of `path` or `port`, with `address` or `folder` | the `tailnet-publishing` worker, the web listener and `throne preview` (`agent_docs/commands.md`) |
 
 ## Persona — how the court speaks
 
@@ -298,6 +299,37 @@ agentSettings: {
 - `colourByRole` — one colour name per role, each a single word the harness's
   `/color` command accepts. A role left out keeps its default; the keys are
   `Regent`, `Stager`, `Alpha` and `Shadow`.
+
+## `previews` — what the tailnet shows
+
+Each entry puts one local address or one folder on the tailnet, never through
+funnel. The backend's `tailnet-publishing` worker reads this list fresh at start
+and every minute, so an edit needs no restart.
+
+```ts
+previews: [
+  { path: '/mock', address: 'http://127.0.0.1:4173' },
+  { path: '/shots', folder: '~/tmp/shots' },
+  { port: 8446, address: 'http://127.0.0.1:5173' },
+  { port: 8447, folder: '~/tmp/site' },
+],
+```
+
+- `path` — a tailnet path on port 443: one slash and a name of lowercase
+  letters, digits and dashes. `/throne` and `/where-i-stand` are refused.
+- `port` — a whole tailnet HTTPS port, any but 443.
+- `address` — a local address `tailscale serve` proxies to. It must be on this
+  machine: `127.0.0.1`, `localhost` or `[::1]`, with `http://`, `https://` or
+  `https+insecure://` in front and its port named.
+- `folder` — a folder the web listener serves, absolute or starting `~/`. A
+  folder shows its `index.html`; there is no listing.
+
+An entry gives exactly one of `path` or `port`, and exactly one of `address` or
+`folder`. An invalid list is logged by name of the field and changes nothing on
+the tailnet. A place that something else already holds, or a port with funnel
+enabled, is refused and left alone. Taking an entry out of the list takes it off
+the tailnet. `throne preview add|remove|list` edits this same list
+(`agent_docs/commands.md`).
 
 ## How the file is loaded
 

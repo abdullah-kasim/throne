@@ -36,6 +36,37 @@ async function readSkillSection(skillName: string, heading: string): Promise<str
   return unwrap(section);
 }
 
+test('the skill says no agent touches an epic unless the Lord says so in words', async () => {
+  assert.deepEqual(
+    missingPhrases(await readSkillSection('where-i-stand', "## The page's frame"), [
+      'Seven second-level headings',
+      "| `## Epics` | The Lord's own big goals, written by hand |",
+      'One epic is a `### <title>` heading',
+      'It has no objective code and no entry form',
+    ]),
+    [],
+  );
+  assert.deepEqual(
+    missingPhrases(await readSkillSection('where-i-stand', STEP_HEADINGS[3]), [
+      'This correction pass skips `## Epics`',
+    ]),
+    [],
+  );
+  assert.deepEqual(
+    missingPhrases(await readSkillSection('where-i-stand', '## Writing rules for the page'), [
+      'No agent adds, edits, closes or removes an epic unless the Lord says so in words.',
+      'A Stager he tells to add one edits `## Epics` under the lock, like any entry.',
+    ]),
+    [],
+  );
+  assert.deepEqual(
+    missingPhrases(await readSkillSection('where-i-stand', '## Who writes, and when'), [
+      '| Lord | adds, edits or removes an epic on the page |',
+    ]),
+    [],
+  );
+});
+
 test("the where-i-stand skill answers in the terminal with the page's link only", async () => {
   const skill = await readSkill('where-i-stand');
   const stepPositions = STEP_HEADINGS.map((heading) => skill.indexOf(heading));
@@ -49,7 +80,7 @@ test("the where-i-stand skill answers in the terminal with the page's link only"
   const answerStep = await readSkillSection('where-i-stand', STEP_HEADINGS[0]);
   assert.deepEqual(
     missingPhrases(answerStep, [
-      "Run step 5's check, and start the page as step 5 says when it is not up.",
+      "Run step 5's check, and follow step 5 when it is not up.",
       "your answer in the terminal is the page's link, `$page_url`, on one line and nothing else",
       'Add a second line only when the Lord must act before he opens it: the page could not be served, or a host could not be read.',
       'Do not print the page, do not summarize it, and do not wait for step 2.',

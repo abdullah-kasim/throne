@@ -29,7 +29,7 @@ export interface PinnedHarnessGuardContract {
   currentPaneId: () => Promise<string | undefined>;
   stopHarnessInPane: (paneId: string) => Promise<void>;
   resume: (name: string) => Promise<void>;
-  ensurePaneCarriesName: (agent: HerdrAgent, name: string) => Promise<void>;
+  ensurePaneCarriesName: (agent: HerdrAgent, name: string) => Promise<unknown>;
   log: (message: string) => void;
   warn: (message: string) => void;
 }

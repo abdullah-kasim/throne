@@ -2,9 +2,9 @@ import { Command as CommanderCommand } from "commander";
 import { Command, CommandRunner } from "nest-commander";
 import {
   REAL_DEPS,
-  run,
   type RestartHarnessesDeps,
 } from "./restart-harnesses-runtime.ts";
+import { run } from "./restart-harnesses-run.ts";
 
 let configuredDependencies: RestartHarnessesDeps | undefined;
 

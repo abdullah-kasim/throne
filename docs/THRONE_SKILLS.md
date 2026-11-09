@@ -8,13 +8,14 @@ another repository's worktree sees them too. You invoke each one as `/<name>`.
 ## Anyone talking to the court
 
 - `/usage` — shows a table of every harness's current limits, remaining percentage, burn rate, reset time and projected percentage at reset; reach for it when you ask about quota or how close a limit is.
-- `/where-i-stand` — shows the page of what you are working on, a file only agents write, at once, then reads the forges, the queue and the live agents in the background, reports only what differs and writes the page corrected; reach for it when you ask where you stand or what needs you.
+- `/where-i-stand` — shows the page of what you are working on, a file agents write and whose epics you edit on the page, at once, then reads the forges, the queue and the live agents in the background, reports only what differs and writes the page corrected; reach for it when you ask where you stand or what needs you.
 - `/no-alpha` — has the agent you are talking to (the Regent or a Stager) do a task directly in its own session instead of spawning an Alpha, after it confirms the exact scope with you; reach for it when you say "no alpha"; aliases: /na.
 - `/modify-config` — changes the machine-local `config.user.ts` safely: where it lives, what it can change, how to edit it without losing sections, and how to prove the edit loaded; reach for it to put a role on another model or effort.
 - `/throne-startup` — boots the court after an install or a Regent resurrection, and diagnoses a startup hook or Regent seating that went wrong; reach for it when the court is headless after a reboot or messages sit undelivered.
 - `/update-harnesses` — checks, updates, pins, promotes or rolls back the throne-managed Claude Code and Codex installations, only when durable harness ownership is enabled; reach for it to check for or move to a new harness release.
 - `/update-herdr` — checks, rehearses and applies a herdr release on macOS or Linux through the one upgrade script, restarting herdr only on your own word; reach for it to check for or move to a new herdr release.
 - `/restart-harnesses` — restarts every live agent's harness in place, each into its own session and pane, so the court runs the newly pinned binary; reach for it after `/update-harnesses` moved the pin.
+- `/update-throne` — brings this install up to date in one step: says whether it is the private repo, the public repo or a fork, pulls the latest default branch (a fork asks first), builds, moves Claude Code, Codex and herdr to the versions the repo pins, restarts only what needs it, and reports; reach for it to update the throne.
 - `/pr-review` — reviews someone else's pull request and leaves line comments as an unsubmitted pending review for you to edit and submit; reach for it when you want a pull request looked over.
 - `/publish` — reads the prose that would ship in a public release over a staged dry-run snapshot for private content, fixes it at the source, and only then lets the real publish run; reach for it before cutting a public release.
 

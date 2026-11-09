@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Throne"
+  short_description: "Bring this throne install up to date in one step"
+  default_prompt: "Use $update-throne to pull the latest throne, move the harnesses and herdr to the versions it pins, and restart what needs it."

@@ -433,7 +433,7 @@ export function readSpawnedTabLabel(
 /**
  * The field value a delivery-recording call site persists for one tristate
  * read: the found value, empty string for a genuinely absent field or a
- * missing read altogether, and an explicit sentinel for an unresolved read
+ * missing read altogether, and an explicit marker value for an unresolved read
  * so it never silently collapses into the absent-field string.
  */
 export function identityFieldForRecording(

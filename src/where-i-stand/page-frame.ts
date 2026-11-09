@@ -7,6 +7,7 @@ export const PageSection = {
   QueuedAndDeferred: "Queued and deferred",
   DeliveredNotOnGitHub: "Delivered, not on GitHub",
   OnGitHub: "On GitHub",
+  Epics: "Epics",
 } as const;
 
 export const FRAME_SECTIONS: readonly string[] = [
@@ -16,6 +17,7 @@ export const FRAME_SECTIONS: readonly string[] = [
   PageSection.QueuedAndDeferred,
   PageSection.DeliveredNotOnGitHub,
   PageSection.OnGitHub,
+  PageSection.Epics,
 ];
 
 const SECTIONS_HOLDING_ENTRIES: readonly string[] = [
@@ -26,6 +28,8 @@ const SECTIONS_HOLDING_ENTRIES: readonly string[] = [
 ];
 
 const SECTIONS_HOLDING_ENTRIES_AND_QUESTIONS: readonly string[] = [PageSection.NeedsYou, ...SECTIONS_HOLDING_ENTRIES];
+
+const SECTIONS_HOLDING_ENTRIES_AND_EPICS: readonly string[] = [...SECTIONS_HOLDING_ENTRIES, PageSection.Epics];
 
 const SECTION_HEADING_PREFIX = "## ";
 const ENTRY_HEADING_PREFIX = "### ";
@@ -90,6 +94,28 @@ export function frameFaultsOf(content: string): string[] {
   return faults;
 }
 
+export function epicsHeadingPositionIn(lines: readonly string[]): number {
+  return lines.findIndex((line) => sectionNamedBy(line) === PageSection.Epics);
+}
+
+function textUpToTheEpicsHeading(content: string): string {
+  const lines = content.split("\n");
+  return lines.slice(0, epicsHeadingPositionIn(lines) + 1).join("\n");
+}
+
+export function changesOnlyTheEpics(before: string, after: string): boolean {
+  return textUpToTheEpicsHeading(before) === textUpToTheEpicsHeading(after);
+}
+
+export function withEpicsSection(content: string): string {
+  const endOfLastLine = content.endsWith("\n") ? "" : "\n";
+  return `${content}${endOfLastLine}\n${sectionHeadingOf(PageSection.Epics)}\n`;
+}
+
+export function pageOnlyLacksEpicsSection(content: string): boolean {
+  return !sectionsNamedIn(content).includes(PageSection.Epics) && frameFaultsOf(withEpicsSection(content)).length === 0;
+}
+
 export interface PageEntry {
   readonly identity: string;
   readonly section: string;
@@ -132,6 +158,10 @@ export function listEntries(content: string): PageEntry[] {
 
 export function listEntriesAndQuestions(content: string): PageEntry[] {
   return entriesInSections(content, SECTIONS_HOLDING_ENTRIES_AND_QUESTIONS);
+}
+
+export function listEntriesAndEpics(content: string): PageEntry[] {
+  return entriesInSections(content, SECTIONS_HOLDING_ENTRIES_AND_EPICS);
 }
 
 function isEventLine(line: string): boolean {

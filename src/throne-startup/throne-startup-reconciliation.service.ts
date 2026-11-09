@@ -47,9 +47,9 @@ import { harnessProvenance } from "../herdr/harness-provenance.ts";
 import { findStagerTheCourtWouldReuse, type ReusableStager } from "../alpha-autoscale/reusable-stager.ts";
 import {
   REAL_DEPS as RESTART_HARNESSES_REAL_DEPS,
-  ensurePaneCarriesName,
   stopHarnessInPane,
 } from "../restart-harnesses/restart-harnesses-runtime.ts";
+import { ensurePaneCarriesName } from "../restart-harnesses/restart-harnesses-relaunch.ts";
 import { readAccountsConfig } from "../account/accounts-config.ts";
 import { launchAccountOption, readRecordedAgentRole, type ReadAccountsConfig, type ReadAgentRole } from "../account/agent-account.ts";
 

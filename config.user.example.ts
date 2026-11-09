@@ -34,6 +34,7 @@
 
 import type { AgentSettingsConfigOverride } from './src/agent-settings/agent-settings-user-config.ts';
 import type { PersonaConfigOverride } from './src/application-config.service.ts';
+import type { PreviewEntry } from './src/previews/preview-entries.ts';
 import type { RecallConfig } from './src/relevance-classifier/recall-user-config.ts';
 import type { SteeringConfigOverride } from './src/steering-user-config.ts';
 
@@ -53,6 +54,7 @@ interface UserConfigFileOverride extends PersonaConfigOverride {
   readonly recall?: Partial<RecallConfig>;
   readonly agentSettings?: AgentSettingsConfigOverride;
   readonly editor?: string;
+  readonly previews?: readonly PreviewEntry[];
 }
 
 const userConfig: UserConfigFileOverride = {
@@ -257,6 +259,8 @@ const userConfig: UserConfigFileOverride = {
       Shadow: 'purple',
     },
   },
+
+  previews: [],
 };
 
 export default userConfig;

@@ -1,13 +1,14 @@
 import { appendFile } from "node:fs/promises";
 import path from "node:path";
 import { readTextFileIfPresent } from "./file-presence.ts";
-import { listEntries } from "./page-frame.ts";
+import { listEntriesAndEpics, PageSection, type PageEntry } from "./page-frame.ts";
 
 export const JOURNAL_FILE_NAME = "where-i-stand.journal.jsonl";
 
 export const JOURNALED_PAGE_FILE_NAME = "where-i-stand.journaled.md";
 export const UNRECORDED_WRITER = "unknown";
 export const LORD_WRITER = "Lord";
+export const FRAME_WRITER = "where-i-stand";
 
 export const JournalAction = {
   Write: "write",
@@ -18,10 +19,16 @@ export const JournalAction = {
 
 export type JournalActionName = (typeof JournalAction)[keyof typeof JournalAction];
 
+export interface RemovedEpic {
+  readonly title: string;
+  readonly notes: string;
+}
+
 export interface EntryChanges {
   readonly added: readonly string[];
   readonly changed: readonly string[];
   readonly removed: readonly string[];
+  readonly removedEpics?: readonly RemovedEpic[];
 }
 
 export interface JournalRecord extends EntryChanges {
@@ -43,27 +50,41 @@ export function journaledPagePathIn(dataHome: string): string {
   return path.join(dataHome, JOURNALED_PAGE_FILE_NAME);
 }
 
-function placeAndBodyByIdentity(content: string): Map<string, string> {
+function isAnEpic(entry: PageEntry): boolean {
+  return entry.section === PageSection.Epics;
+}
+
+function journalNameOf(entry: PageEntry): string {
+  return isAnEpic(entry) ? `${PageSection.Epics}: ${entry.identity}` : entry.identity;
+}
+
+function placeAndBodyByJournalName(entries: readonly PageEntry[]): Map<string, string> {
   const placeAndBody = new Map<string, string>();
-  for (const entry of listEntries(content)) {
-    placeAndBody.set(
-      entry.identity,
-      `${placeAndBody.get(entry.identity) ?? ""}${entry.section}\n${entry.body}\n`,
-    );
+  for (const entry of entries) {
+    const name = journalNameOf(entry);
+    placeAndBody.set(name, `${placeAndBody.get(name) ?? ""}${entry.section}\n${entry.body}\n`);
   }
   return placeAndBody;
 }
 
+function removedEpicsAmong(entriesBefore: readonly PageEntry[], removed: readonly string[]): RemovedEpic[] {
+  return entriesBefore
+    .filter((entry) => isAnEpic(entry) && removed.includes(journalNameOf(entry)))
+    .map((entry) => ({ title: entry.identity, notes: entry.body.trim() }));
+}
+
 export function entryChangesBetween(contentBefore: string, contentAfter: string): EntryChanges {
-  const before = placeAndBodyByIdentity(contentBefore);
-  const after = placeAndBodyByIdentity(contentAfter);
-  const identitiesAfter = [...after.keys()];
+  const entriesBefore = listEntriesAndEpics(contentBefore);
+  const before = placeAndBodyByJournalName(entriesBefore);
+  const after = placeAndBodyByJournalName(listEntriesAndEpics(contentAfter));
+  const namesAfter = [...after.keys()];
+  const removed = [...before.keys()].filter((name) => !after.has(name));
+  const removedEpics = removedEpicsAmong(entriesBefore, removed);
   return {
-    added: identitiesAfter.filter((identity) => !before.has(identity)),
-    changed: identitiesAfter.filter(
-      (identity) => before.has(identity) && before.get(identity) !== after.get(identity),
-    ),
-    removed: [...before.keys()].filter((identity) => !after.has(identity)),
+    added: namesAfter.filter((name) => !before.has(name)),
+    changed: namesAfter.filter((name) => before.has(name) && before.get(name) !== after.get(name)),
+    removed,
+    ...(removedEpics.length > 0 ? { removedEpics } : {}),
   };
 }
 

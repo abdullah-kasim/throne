@@ -91,6 +91,15 @@ export function missingPhrases(text: string, phrases: string[]): string[] {
   return phrases.filter((phrase) => !text.includes(phrase));
 }
 
+export function logLinesNamedIn(section: string, lineOpenings: string[]): string[] {
+  const quoted = [...section.replace(/```[\s\S]*?```/g, '').matchAll(/`([^`]+)`/g)].map((match) => match[1]);
+  return quoted.filter((text) => lineOpenings.some((opening) => text.startsWith(opening)));
+}
+
+export function isPrintedBy(code: string, logLine: string): boolean {
+  return logLine.split(/<[^>]+>/).every((fixedText) => code.includes(fixedText));
+}
+
 export function replaceUniqueText(
   source: string,
   before: string,

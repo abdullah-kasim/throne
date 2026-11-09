@@ -60,6 +60,7 @@ const expectedGenerationArtifacts = [
   "systemd",
   BUILD_SOURCE_FINGERPRINT_MARKER_FILENAME,
   path.join("scripts", "source-content-fingerprint.mjs"),
+  path.join("web", "index.html"),
 ];
 
 function computeGenerationName() {
@@ -188,6 +189,16 @@ function compileMutexFixtureIntoStaging(stagingDir, scratchDir) {
   runCommandOrThrow(
     path.join("node_modules", ".bin", "tsc"),
     ["-p", overrideTsconfig],
+  );
+}
+
+function compileWebIntoStaging(
+  stagingDir,
+  webConfigPath = path.join("web", "vite.config.ts"),
+) {
+  runCommandOrThrow(
+    path.join("node_modules", ".bin", "vite"),
+    ["build", "--config", webConfigPath, "--outDir", path.join(stagingDir, "web"), "--emptyOutDir"],
   );
 }
 
@@ -343,6 +354,7 @@ function verifyPublishedGenerationComplete(generationDir) {
 function populateStagingDirWithCompiledOutput(stagingDir, scratchDir) {
   compileNestIntoStaging(stagingDir, scratchDir);
   compileMutexFixtureIntoStaging(stagingDir, scratchDir);
+  compileWebIntoStaging(stagingDir);
   copySystemdIntoStaging(stagingDir);
   copyBotSystemPromptTemplateIntoStaging(stagingDir);
 }
@@ -413,6 +425,7 @@ export {
   repoRoot,
   generationDirPrefix,
   buildAndPublishDist,
+  compileWebIntoStaging,
   pruneOldGenerations,
   publishStagingAsDist,
   readCurrentGenerationNameIfPublished,

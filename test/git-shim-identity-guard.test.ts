@@ -129,6 +129,30 @@ test('merge, cherry-pick, revert, am and rebase are guarded too', async () => {
   }
 });
 
+test('a fast-forward of one commit passes through with no identity', async () => {
+  const f = await fixture();
+  const { code } = await runShim(f, ['-C', '/repo', 'merge', '--ff-only', 'abc123'], { FAKE_EMAIL: '', FAKE_NAME: '' });
+  assert.equal(code, 0);
+  assert.deepEqual(await recordedArgv(f), ['-C', '/repo', 'merge', '--ff-only', 'abc123']);
+});
+
+for (const mergeArguments of [
+  ['--no-ff', 'abc123'],
+  ['--ff-only', '--no-ff', 'abc123'],
+  ['--ff-only', '--ff'],
+  ['--ff-only'],
+  ['--ff-only', 'abc123', 'def456'],
+  ['--ff-only', '-m', 'A message', 'abc123'],
+  ['abc123', '--ff-only'],
+]) {
+  test(`merge ${mergeArguments.join(' ')} keeps the identity guard`, async () => {
+    const f = await fixture();
+    const { code, stderr } = await runShim(f, ['merge', ...mergeArguments], { FAKE_EMAIL: '', FAKE_NAME: '' });
+    assert.equal(code, 66);
+    assert.match(stderr, /STOP RIGHT THERE/);
+  });
+}
+
 test('the tab identity is trusted when the commit targets the tab origin, and re-resolved for another origin', async () => {
   let f = await fixture();
   await writeFile(f.identityFile, 'Work Me\twork@example.com\tKEY2\topenpgp\n');

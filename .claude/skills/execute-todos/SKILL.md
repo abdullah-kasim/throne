@@ -1847,6 +1847,20 @@ recorded browser sequence) before fixing it, and reports the list it hunted,
 one line each, even when it found nothing. /write-todos' verify template holds
 the full block.
 
+`00_overview.md`'s front-end stamps decide what else it runs; /write-todos'
+"Front-end bundles" owns what they mean:
+
+- **`frontend: true` with no `frontend_row:`** (a /gauntlet row among them): the
+  `## Front-end critique` block.
+- **`frontend_row: builder`:** the `## Browser function check` block instead,
+  which performs each `## Done when` behaviour in Chromium. It runs no
+  `/frontend-critic` review and no accessibility review, including
+  `/screen-reader-check`. A builder delivers as soon as its gates pass, and the
+  critic row does the rest.
+- **`frontend_row: critic`:** the `## Front-end critique` block, widened to
+  `/screen-reader-check`, finishing on empty reports. The bundle's slice `01`
+  has already run both and fixed what they raised, before `99a`.
+
 This is a fixing gate, not a verdict gate. A failing test, a lint violation, a
 type error, or a broken build is corrective work `99b` does itself; it does not
 hand findings back and wait.
@@ -2683,7 +2697,9 @@ campaign Alpha: the critic is a Shadow, the fix is a Shadow, the re-grade is
 a fresh Shadow, and at no point does anything ask the Regent for another
 Alpha — the Lord's ruling of 2026-09-02, after a multi-Alpha fix chain left
 the Regent queueing corrections without end. `review-loop`'s fixer-Alpha
-model is NOT the route for a campaign-scoped critique.
+model is NOT the route for a campaign-scoped critique. A bundle stamped
+`frontend_row: builder` has no critique gates, so none of this applies to it;
+every other `frontend: true` bundle follows it as written.
 
 1. **Spawn.** A critique gate is scheduled like any ordinary slice — it runs
    when its `deps:` (the builder it grades and the `01` evidence tool) have

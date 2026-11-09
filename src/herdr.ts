@@ -104,7 +104,7 @@ export {
   paneHasLiveHarnessProcess,
 } from "./herdr/herdr-process-detection.ts";
 export {
-  captureProvesExecutedSentinel,
+  captureProvesExecutedReadyMarker,
   paneOutputBytes,
   PaneReadinessTimeoutError,
   waitForShellReady,

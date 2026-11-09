@@ -79,6 +79,20 @@ test("an agent whose spawn record holds no native session is reported and not st
   assert.deepEqual(world.harnessStarts, []);
 });
 
+test("an agent the court is bringing back under the resurrect lock is not revived beside that resume", async () => {
+  const { world } = await courtWithOneDeadAgent("alpha-ledger-01");
+  world.resurrectLockIsHeld = true;
+
+  const outcome = await world.revive("alpha-ledger-01");
+
+  assert.deepEqual(outcome, {
+    agentName: "alpha-ledger-01",
+    kind: AGENT_REVIVAL_OUTCOMES.SKIPPED,
+    reason: AGENT_REVIVAL_SKIP_REASONS.RESURRECT_LOCK_IS_HELD,
+  });
+  assert.deepEqual(world.harnessStarts, []);
+});
+
 test("an agent with no tab is left alone and no tab is opened", async () => {
   const world = await court();
   await world.recordAgent("shadow-ledger-02-reaped", 1);

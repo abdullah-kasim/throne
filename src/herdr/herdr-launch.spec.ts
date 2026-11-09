@@ -4,9 +4,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
+import { resumeRegisteredAgentInRestoredTabWithDeps } from './herdr-agent-recovery.ts';
 import { startInTab } from './herdr-launch.ts';
 import { PinnedHarnessBinaryMissingError } from './herdr-launch-command.ts';
-import type { StartInTabDeps, StartOptions } from './herdr-create.contracts.ts';
+import type {
+  ResumeRegisteredAgentInRestoredTabDeps,
+  StartInTabDeps,
+  StartOptions,
+} from './herdr-create.contracts.ts';
 
 function vendoredBinaryDirectory(executables: readonly string[]): string {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'throne-vendored-bin-'));
@@ -84,6 +89,27 @@ test('the launch script exports the agent name, so a harness started in a pane h
   const script = launchScriptText(typedLaunchLine(calls));
   assert.match(script, /^export THRONE_AGENT_NAME='stager-third'$/m);
   assert.ok(script.indexOf('export THRONE_AGENT_NAME=') < script.indexOf('exec '), 'the name is exported before the harness is executed');
+});
+
+test('a harness resumed in a restored tab is launched under its own agent name', async () => {
+  const calls: string[][] = [];
+  const launchDeps = fakeDeps(calls, vendoredBinaryDirectory(['claude']));
+  const pane = { paneId: 'pane-1', tabId: 'tab-1', terminalId: 'terminal-1', cwd: '/tmp', agentStatus: 'unknown' };
+  const result = await resumeRegisteredAgentInRestoredTabWithDeps('stager-pantry', { argv: ['claude', '--resume', 'x'], cwd: '/tmp' }, {
+    listTabs: async () => [{ tabId: 'tab-1', label: 'stager-pantry', paneCount: 1, workspaceId: 'w1' }],
+    listPanes: async () => [pane],
+    listNameOwners: async () => [],
+    getPaneProcessInfo: async (paneId: string) => ({ paneId, foregroundProcesses: [{ name: 'bash', argv: ['bash'], pid: 7 }] }),
+    renameAgent: async () => undefined,
+    startInTab: (name: string, paneId: string, options: StartOptions) => startInTab(name, paneId, options, launchDeps),
+    startAgent: async () => {
+      throw new Error('a restored tab never opens a new one');
+    },
+    closePane: async () => undefined,
+    sleep: async () => undefined,
+  } as unknown as ResumeRegisteredAgentInRestoredTabDeps);
+  assert.equal(result.kind, 'restored-tab-takeover');
+  assert.match(launchScriptText(typedLaunchLine(calls)), /^export THRONE_AGENT_NAME='stager-pantry'$/m);
 });
 
 test('a codex launch pins CODEX_BIN the same way', async () => {

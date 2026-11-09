@@ -38,15 +38,17 @@ import {
   type RestoredAgentTabDeps,
 } from "../herdr/restored-agent-tab.ts";
 import { REGENT_NAME } from "../regent-state/regent-liveness.ts";
+import { isResurrectLockHeld } from "../regent-state/regent-resurrect-lock.ts";
 import {
   DESIRED_STATES,
+  REGENT_DIR,
   readDesiredState,
   type DesiredState,
 } from "../regent-state/regent-state.service.ts";
 import {
   resumeAgentInItsTab,
   type ResumeInTabDeps,
-} from "../restart-harnesses/restart-harnesses-runtime.ts";
+} from "../restart-harnesses/restart-harnesses-relaunch.ts";
 import { errorText } from "../shared-policy/error-text.ts";
 import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { COURT_LIVENESS_HOSTED_WORKER_NAME } from "../throne-backend/court-liveness.hosted-worker.ts";
@@ -90,6 +92,7 @@ export const AGENT_REVIVAL_SKIP_REASONS = {
   TOLD_TO_EXIT: "it was told to exit",
   NO_RECORDED_SESSION: "its spawn record holds no native session to resume",
   PANE_IS_IN_USE: "its pane is not at a shell prompt with nothing typed",
+  RESURRECT_LOCK_IS_HELD: "the resurrect lock is held, so the court is being brought back",
 } as const;
 
 export const TOLD_TO_EXIT_MARKER_BASENAME = "told-to-exit";
@@ -131,6 +134,7 @@ export interface AgentRevivalDeps
   extends RestoredAgentTabDeps,
     SessionToResumeDeps {
   readonly readDesiredState: () => Promise<DesiredState>;
+  readonly resurrectLockIsHeld: () => Promise<boolean>;
   readonly readForkedAgentNames: () => Promise<ReadonlySet<string>>;
   readonly findStagerTheCourtWouldReuse: (
     liveAgentNames: readonly string[],
@@ -187,6 +191,7 @@ export const REAL_AGENT_REVIVAL_DEPS: AgentRevivalDeps = {
   listPanes,
   getPaneProcessInfo,
   readDesiredState: () => readDesiredState(),
+  resurrectLockIsHeld: () => isResurrectLockHeld(REGENT_DIR),
   readForkedAgentNames: () => listForkedAgentNames(),
   findStagerTheCourtWouldReuse: (liveAgentNames) =>
     findStagerTheCourtWouldReuse(liveAgentNames),
@@ -349,6 +354,9 @@ async function decideAgentRevival(
   deps: AgentRevivalDeps,
 ): Promise<AgentRevivalDecision> {
   if (isTheRegent(agentName)) return regentDecision(agentName, deps);
+  if (await deps.resurrectLockIsHeld()) {
+    return skipped(agentName, AGENT_REVIVAL_SKIP_REASONS.RESURRECT_LOCK_IS_HELD);
+  }
   const namedTabs = exactLabelTabs(await deps.listTabs(), agentName);
   if (namedTabs.length !== 1) {
     return tabsCarryingTheNameDecision(agentName, namedTabs.length);

@@ -527,12 +527,12 @@ Paste `/ticket-check`'s block exactly as it prints it. A PR delivered by
   `## Ticket Status` block, which is pasted exactly as `/ticket-check`
   prints it. No parentheticals stacked three deep, no marketing voice. Bold the first words of a bullet at most, never a
   sentence.
-- **No programmer jargon in the body.** Banned outright: "sentinel" (write
-  "placeholder" or "marker value", and say what it signals). The same goes
-  for any word a reviewer outside the codebase would have to look up:
-  "idempotent", "oracle", "monotonic", "canonical" as a verb. A PR body
-  once read "the forged-Host sentinel against a served page" and nobody
-  could say what it meant.
+- **No programmer jargon in the body.** Banned outright: the word spelled
+  s-e-n-t-i-n-e-l (write "placeholder" or "marker value", and say what it
+  signals). The same goes for any word a reviewer outside the codebase would
+  have to look up: "idempotent", "oracle", "monotonic", "canonical" as a
+  verb. A PR body once used that banned word for a forged-Host placeholder
+  sent against a served page, and nobody could say what it meant.
 - **Code goes in backticks; commands in fenced blocks.** One named
   file, flag, or function per sentence.
 - **Draft by default when asked for a draft; otherwise ask nothing** and

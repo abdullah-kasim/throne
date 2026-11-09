@@ -5,9 +5,11 @@ import { readTextFileIfPresent } from "./file-presence.ts";
 import { frameFaultsOf, type PageEntry } from "./page-frame.ts";
 import { JournalAction, type JournalRecord } from "./page-journal.ts";
 import {
+  addEpicsSectionToLockedPage,
   addEventToLockedPage,
   keepPreviousCopy,
   newestPreviousCopyPathIn,
+  pageFileLacksEpicsSection,
   recordInJournal,
   showPage,
   withPageLock,
@@ -167,6 +169,27 @@ export async function journalUnrecordedEditUnlessAnEditIsHeld(
   if (lock === undefined) return undefined;
   try {
     return await withPageLock(writer.dataHome, () => journalUnrecordedEdit(writer.dataHome, writer.now()), writer.flockExecutable);
+  } finally {
+    await lock.release();
+  }
+}
+
+export async function addEpicsSectionUnlessAnEditIsHeld(
+  page: Omit<PageWriter, "name">,
+): Promise<UnrecordedEdit | undefined> {
+  if (!(await pageFileLacksEpicsSection(page.dataHome))) return undefined;
+  const lock = await tryTakeEditLockIn(page.dataHome, page.flockExecutable);
+  if (lock === undefined) return undefined;
+  try {
+    return await withPageLock(
+      page.dataHome,
+      async () => {
+        const unrecordedEdit = await journalUnrecordedEdit(page.dataHome, page.now());
+        await addEpicsSectionToLockedPage(page);
+        return unrecordedEdit;
+      },
+      page.flockExecutable,
+    );
   } finally {
     await lock.release();
   }

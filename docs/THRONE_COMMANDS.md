@@ -120,6 +120,7 @@ and each table keeps its family's own order.
 | `work-log` | List the queue rows completed or updated since a date, with each row's recorded outcome and the first sentence of its intent, and the GitHub actions the gh guard logged since that date; `--json` for one machine-readable object. |
 | `where-i-stand` | Show the Lord's where-i-stand page and its version, replace it from a file when the version still matches, or add one event to its Just happened list. Any agent may write; every write is locked, keeps the previous copy and is journaled. |
 | `check-where-i-stand` | Exit 0 when an Alpha's campaign recorded its outcome on the Lord's where-i-stand page after it delivered, and 66 with one sentence saying what to write when it has not; `complete-agent` refuses an Alpha on the same decision. |
+| `preview` | Add, remove or list the tailnet previews in `config.user.ts`. A preview is a tailnet path or port showing a local address or a folder, on the tailnet only and never through funnel. |
 | `consume-fence-handoff-on-start` | Read and clear the current fence handoff record, so a freshly summoned Regent learns why its predecessor was fenced before it handles any pane message. |
 | `record-suite-hold` | Record that a campaign now holds full-suite access, so a fenced Regent's successor can learn who was mid-sequence. |
 | `record-suite-release` | Record that a campaign has released full-suite access. |

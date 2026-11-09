@@ -158,5 +158,20 @@
     "file": "test/update-harnesses-integration.test.ts",
     "seconds": 5.4,
     "reason": "its update tests run the real update script with fake package installs and re-verify the vendored binaries as child processes; slowest test 5.4 seconds in the suite container alone, 13.7 seconds with two other suites running"
+  },
+  {
+    "file": "scripts/update-throne-detached.test.ts",
+    "seconds": 7.1,
+    "reason": "every test runs the real update script against real git repositories, about thirty git processes a test; 7.1 seconds for the file in the suite container alone, slowest test 0.9 seconds. With these files in the default run, the four update test files pushed an unrelated latency-bound lock test from 4 to 15 seconds, past the ten-second law; listing two of them left it at 9, so these three are listed"
+  },
+  {
+    "file": "scripts/update-throne-restarts.test.ts",
+    "seconds": 8.9,
+    "reason": "every test runs the real update script against real git repositories, about thirty git processes a test; 8.9 seconds for the file in the suite container alone, slowest test 0.6 seconds. With these files in the default run, the four update test files pushed an unrelated latency-bound lock test from 4 to 15 seconds, past the ten-second law; listing two of them left it at 9, so these three are listed"
+  },
+  {
+    "file": "scripts/update-throne-fork.test.ts",
+    "seconds": 5.0,
+    "reason": "every test runs the real update script against real git repositories, about thirty git processes a test; 5.0 seconds for the file in the suite container alone, slowest test 0.6 seconds. With these files in the default run, the four update test files pushed an unrelated latency-bound lock test from 4 to 15 seconds, past the ten-second law; listing two of them left it at 9, so these three are listed"
   }
 ]

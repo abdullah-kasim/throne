@@ -29,29 +29,44 @@ makes sure the pane still carries the agent's name afterwards.
    (`resumeOrphan`): the pane is relaunched with `--resume <session>` (or
    `resume <session>` for Codex) under the registered name, and an opening
    prompt tells the agent its harness was restarted and its transcript is
-   its own.
-5. Verifies a pane in the agent's tab carries the registered name; a relaunch
-   that came back as a bare `claude`/`codex` is renamed. This is the trap the
+   its own. Two cases have no native session to resume: an agent whose spawn
+   record holds `harness_executable` relaunches with its recorded arguments
+   only, and an agent whose recorded cwd is gone starts in the throne root.
+   Both get the ledger rebrief prompt and a `throne-startup:` line saying so.
+   Believe that line: the agent's `restarted` line still says `resumed native
+   session`.
+5. Verifies a pane carries the registered name; a relaunch that came back as a
+   bare `claude`/`codex` is renamed. An agent whose tab is gone comes back in a
+   new tab, and that is a `restarted` line. This is the trap the
    Lord named on 2026-09-14: a resumed harness surfaces in herdr as a new,
    unnamed agent unless something claims the name again.
+6. Reads what the relaunched pane is running. Anything but the vendored binary
+   makes the agent's outcome `failed`, naming the executable path, because a
+   matching version on another install proves nothing. An agent whose spawn
+   record holds `harness_executable` runs that executable by design, so it is
+   exempt. A pane with no harness process is `failed` for every agent. A
+   `restarted` line names the binary that is running.
 
-The Regent is restarted last and under the resurrect lock, so the keep-going
-watchdog cannot race the restart with a second Regent. A held lock skips the
-Regent with a warning.
+The Regent is restarted after every other agent and under the resurrect lock,
+so the keep-going watchdog cannot race the restart with a second Regent. Only
+the invoker goes later. A held lock gives the Regent a `skipped` line and the
+run carries on.
 
 ## What it refuses or skips
 
 - **Agents whose status is `working`**, unless `--force`. Killing a harness
   mid-tool-call is safe for the transcript but loses the in-flight tool
-  result; let it finish or force it knowingly.
+  result; let it finish or force it knowingly. The invoking pane is exempt: it
+  stays a target whatever its status.
 - **Unnamed panes.** Nothing to resume under, nothing to rename to.
 - **Agents whose live native session id herdr cannot see.** Reported as
   failed; not stopped or restarted, since there is no session to resume.
 
-An agent may restart itself, including the one that invoked the command: the
-restart is a script running inside the invoker's own harness, so the invoker
-is always ordered last, after the Regent — anything scheduled to run after
-its own self-stop would otherwise never execute. A live agent that has no
+An agent may restart itself, including the one that invoked the command: a
+real run with the invoking pane among its targets hands itself to a detached
+process in its own session, so the run does not depend on the harness it
+stops. The invoker is still recognised there and still ordered last, after the
+Regent. A live agent that has no
 `spawn.json` ledger record no longer fails outright on that account alone:
 one is synthesized from herdr's live roster and the agent's own transcript,
 so the restart proceeds using that recipe — but the agent still fails if
@@ -67,15 +82,71 @@ throne restart-harnesses --force            # include agents that are working
 throne restart-harnesses --only stager-second --only regent
 ```
 
-Exit code 0 when nothing failed, 1 when any restart failed, 2 on a bad
-argument. Every agent gets one line: `restarted`, `skipped`, or `failed`, with
-the reason. The invoking agent's own line always comes last, after the
-Regent's.
+## What each kind of run prints
+
+### A real run with the invoking pane among its targets
+
+The command returns at once and exits 0 whatever the agents' outcomes turn out
+to be. It prints one line, and the path in it is `~/tmp/restart-harnesses.log`:
+
+```text
+restart-harnesses: continuing in a detached run; read <log>
+```
+
+### The log of that detached run
+
+Each run appends a section to the log, opening with its header and ending with
+its closing line. The `skipped` lines for unnamed and working panes come first,
+then each target in restart order. The stopping line comes just before the
+invoker's own lines. A `restarted` line also names any change of model or
+effort.
+
+```text
+=== restart-harnesses run <time> <arguments> ===
+restart-harnesses: skipped   <name> — <reason>
+restart-harnesses: failed    <name> — <reason>
+throne-startup: resume "<name>" — relaunched into its exact native <harness> session <session>; its own transcript is intact
+restart-harnesses: restarted <name> — resumed native session <session>; running <binary>
+restart-harnesses: stopping the invoking harness's own pane (<pane>) to restart it — this is the last target
+restart-harnesses: finished — <count> restarted, <count> skipped, <count> failed
+```
+
+A header with no closing line under it means the run died or is still going.
+
+### A foreground run
+
+A real run that does not include the invoking pane (`--only` someone else, or
+no pane at all) stays in the foreground. It prints only the agents' lines, with
+no header and no closing line, and writes no log. Its exit code is the verdict:
+0 when nothing failed, 1 when any restart failed, 2 on a bad argument. Read both
+streams, because `failed` lines and the `skipped` lines for unnamed and working
+panes go to stderr.
+
+```text
+restart-harnesses: skipped   <name> — <reason>
+restart-harnesses: failed    <name> — <reason>
+throne-startup: resume "<name>" — relaunched into its exact native <harness> session <session>; its own transcript is intact
+restart-harnesses: restarted <name> — resumed native session <session>; running <binary>
+```
+
+### A dry run
+
+A dry run stays in the foreground and changes nothing. It prints only the plan,
+with no header and no closing line, and writes no log. A `restarted` line here
+is a prediction: it says `would stop pane`. A `failed` line names an agent the
+real run would fail, yet the exit code stays 0, so read the lines rather than
+the code. A bad argument exits 2.
+
+```text
+restart-harnesses: skipped   <name> — <reason>
+restart-harnesses: failed    <name> — <reason>
+restart-harnesses: restarted <name> — would stop pane <pane> and resume session <session> (dry run)
+```
 
 ## After running it
 
-`throne agent-statuses` must list every restarted agent LIVE under its own
-name, including the invoker and the Regent. Then, on one restarted agent,
-confirm the binary actually moved: the pane's process should show the new
-version (`herdr pane process-info --pane <id>` names the running `claude` by
-its version) and it should match `vendor-pins.json`.
+An agent that restarted itself reads the log once it is relaunched: its own
+line is the last before the closing line. Any `failed` line is the run's
+verdict on that agent, including one that came back on a binary other than
+the vendored one. `throne agent-statuses` must list every restarted agent LIVE
+under its own name, including the invoker and the Regent.

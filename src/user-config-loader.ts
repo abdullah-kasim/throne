@@ -90,9 +90,12 @@ export const AGENT_SETTINGS_SECTION_FIELDS = ['checkEnabled', 'colourByRole'] as
 
 export const EDITOR_FIELD = 'editor';
 
+export const PREVIEWS_FIELD = 'previews';
+
 const TOP_LEVEL_FIELDS = [
   ...PERSONA_SECTION_FIELDS,
   EDITOR_FIELD,
+  PREVIEWS_FIELD,
   'steering',
   'identity',
   'recall',
@@ -111,6 +114,7 @@ export interface UserConfigFile {
   readonly recall: Readonly<Record<string, unknown>>;
   readonly agentSettings: Readonly<Record<string, unknown>>;
   readonly editor: string | undefined;
+  readonly previews: unknown;
 }
 
 const USER_CONFIG_FILE_NAME = 'config.user.ts';
@@ -127,16 +131,19 @@ const MODULE_PACKAGE_FILE_NAME = 'package.json';
 
 const MODULE_PACKAGE_TEXT = '{ "type": "module" }\n';
 
-export async function writeHomeConfigModulePackageIfMissing(
-  environment?: NodeJS.ProcessEnv,
-): Promise<void> {
-  const configDirectory = throneConfigDirectory(environment);
+export async function writeConfigModulePackageIfMissing(configDirectory: string): Promise<void> {
   await mkdir(configDirectory, { recursive: true });
   await writeFile(path.join(configDirectory, MODULE_PACKAGE_FILE_NAME), MODULE_PACKAGE_TEXT, {
     flag: 'wx',
   }).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== 'EEXIST') throw error;
   });
+}
+
+export async function writeHomeConfigModulePackageIfMissing(
+  environment?: NodeJS.ProcessEnv,
+): Promise<void> {
+  await writeConfigModulePackageIfMissing(throneConfigDirectory(environment));
 }
 
 export function userConfigPath(
@@ -325,5 +332,5 @@ export async function loadUserConfigFile(
     if (field in value) persona[field] = value[field];
   }
 
-  return { persona, steering, identity, recall, agentSettings, editor };
+  return { persona, steering, identity, recall, agentSettings, editor, previews: value[PREVIEWS_FIELD] };
 }

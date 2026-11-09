@@ -319,6 +319,11 @@ command's, so a piped lint always exits 0 and a failed lint files anyway.
 File the builder, then the checker, then defer the checker with its
 `--depends-on` and `--defer-reason` (step 10).
 
+`/queue-objective` files a row that changes a web UI as a builder row and a
+critic row. That rule does not reach a gauntlet: its behaviour is unchanged,
+its bundles carry no `frontend_row:` stamp, and its own critic gates (step 5)
+and checker row (step 10) stand.
+
 ## Bug-fix mode
 
 Use it when the Lord asks for a gauntlet on a list of behaviour bugs rather

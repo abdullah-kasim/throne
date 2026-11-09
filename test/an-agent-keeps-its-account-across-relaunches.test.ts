@@ -13,6 +13,7 @@ import {
 } from "../src/account/accounts-config.ts";
 import type { SpawnSpec } from "../src/agentdata/spawn-data-contracts.ts";
 import type { StartOptions } from "../src/herdr/herdr-create.contracts.ts";
+import { HARNESS_PROVENANCE_STATES } from "../src/herdr/harness-provenance.ts";
 import type { HerdrAgent } from "../src/herdr/herdr-identity-contracts.ts";
 import { resurrectRegent, type ResurrectDeps } from "../src/regent-state/regent-state.service.ts";
 import {
@@ -149,6 +150,7 @@ function restartCourt(name: string, record: SpawnSpec | null, readConfig: ReadAc
     },
     readHarnessRecord: async () => undefined,
     resume: (agentName) => resumeOrphan(agentName, court.contract),
+    harnessProvenance: async () => ({ state: HARNESS_PROVENANCE_STATES.PINNED, executablePath: "/throne/vendor/node_modules/.bin/claude", argv: [] }),
     readAccountsConfig: readConfig,
     configuredEffort: async () => undefined,
     renameAgent: async () => {},

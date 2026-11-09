@@ -28,6 +28,8 @@ description: This throne-only skill changes the throne's machine-local config.us
 - **When a change takes effect:**
   - `steering.autoscaleEnabled` is read fresh on every autoscaler tick, so it
     applies on the next tick with no restart.
+  - `previews` is read fresh by the `tailnet-publishing` worker every minute
+    and by the web listener on each request, so it needs no restart.
   - Every other field is read once when a process starts. A new model or
     effort therefore applies at each agent's **next launch** (a fresh spawn,
     an autoscaler launch, a Regent resurrection). `/restart-harnesses`
@@ -40,7 +42,7 @@ description: This throne-only skill changes the throne's machine-local config.us
 ## What it CAN do
 
 Top-level sections: persona fields at the top level, `ntfy`, `steering`,
-`identity`, `recall`. The `steering` section decides what every role runs:
+`identity`, `recall`, `previews`. The `steering` section decides what every role runs:
 
 | Field | Type and allowed values | Default | Read by |
 | --- | --- | --- | --- |

@@ -6,6 +6,7 @@ import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { CANONICAL_REGENT_AUTHORITY } from "../shared-policy/regent-authority.ts";
 import { resolveThroneHome } from "../shared-policy/throne-home.ts";
 import {
+  addEpicsSectionUnlessAnEditIsHeld,
   addEventUnlessAnEditIsHeld,
   EditLockOutcome,
   journalUnrecordedEditUnlessAnEditIsHeld,
@@ -13,7 +14,7 @@ import {
   takeEditLock,
 } from "./edit-lock.ts";
 import { isTheLordsName } from "./page-journal.ts";
-import { saveOneUnitAsTheLord, SaveOutcome, unitChangeOf, type SaveAttempt } from "./page-save.ts";
+import { saveOneUnitAsTheLord, SaveOutcome, unitChangeOf, type SaveAttempt, type UnitChange } from "./page-save.ts";
 import { pagePathIn, PageWriteOutcome, showPage, type PageWriter } from "./page-store.ts";
 import type { UnrecordedEdit } from "./unrecorded-edit.ts";
 import {
@@ -126,7 +127,12 @@ async function reportUnrecordedEdit(
   await tellRegentOrSayWhyNot(report, dependencies);
 }
 
+async function addEpicsSectionWhenMissing(dependencies: WhereIStandDependencies): Promise<void> {
+  await reportUnrecordedEdit(await addEpicsSectionUnlessAnEditIsHeld(dependencies), dependencies);
+}
+
 async function showThePage(dependencies: WhereIStandDependencies): Promise<number> {
+  await addEpicsSectionWhenMissing(dependencies);
   await reportUnrecordedEdit(await journalUnrecordedEditUnlessAnEditIsHeld(dependencies), dependencies);
   const page = await showPage(dependencies.dataHome);
   dependencies.out(page.content);
@@ -198,6 +204,7 @@ async function changeThePage(
     flockExecutable: dependencies.flockExecutable,
   };
   try {
+    await addEpicsSectionWhenMissing(dependencies);
     return parsed.action === WhereIStandAction.Note
       ? await addNote(writer, parsed.event, dependencies)
       : await holdTheEditLock(writer, parsed, dependencies);
@@ -207,29 +214,40 @@ async function changeThePage(
   }
 }
 
-function printSaveAnswer(outcome: SaveAttempt["outcome"], message: string, dependencies: WhereIStandDependencies): void {
-  dependencies.out(`${JSON.stringify({ outcome, message })}\n`);
+export interface SaveAnswer {
+  readonly outcome: SaveAttempt["outcome"];
+  readonly message: string;
 }
 
-function isAKeptSave(attempt: SaveAttempt): boolean {
-  return attempt.outcome === SaveOutcome.Saved || attempt.outcome === SaveOutcome.Unchanged;
+function printSaveAnswer(answer: SaveAnswer, dependencies: WhereIStandDependencies): void {
+  dependencies.out(`${JSON.stringify(answer)}\n`);
 }
 
-async function saveFromThePage(dependencies: WhereIStandDependencies): Promise<number> {
-  const change = unitChangeOf(await dependencies.readStandardInput());
-  if (change === undefined) {
-    printSaveAnswer(SaveOutcome.Failed, SAVE_INPUT_REFUSED, dependencies);
-    return WhereIStandExitCode.InvalidInvocation;
-  }
+function isAKeptSave(answer: SaveAnswer): boolean {
+  return answer.outcome === SaveOutcome.Saved || answer.outcome === SaveOutcome.Unchanged;
+}
+
+export async function saveChangeFromThePage(change: UnitChange, dependencies: WhereIStandDependencies): Promise<SaveAnswer> {
   let attempt: SaveAttempt;
   try {
+    await addEpicsSectionWhenMissing(dependencies);
     attempt = await saveOneUnitAsTheLord(dependencies, change);
   } catch (error) {
     attempt = { outcome: SaveOutcome.Failed, reason: messageOf(error) };
   }
   await reportUnrecordedEdit(attempt.unrecordedEdit, dependencies);
-  printSaveAnswer(attempt.outcome, renderSaveAnswer(attempt), dependencies);
-  return isAKeptSave(attempt) ? WhereIStandExitCode.Done : WhereIStandExitCode.Refused;
+  return { outcome: attempt.outcome, message: renderSaveAnswer(attempt) };
+}
+
+async function saveFromThePage(dependencies: WhereIStandDependencies): Promise<number> {
+  const change = unitChangeOf(await dependencies.readStandardInput());
+  if (change === undefined) {
+    printSaveAnswer({ outcome: SaveOutcome.Failed, message: SAVE_INPUT_REFUSED }, dependencies);
+    return WhereIStandExitCode.InvalidInvocation;
+  }
+  const answer = await saveChangeFromThePage(change, dependencies);
+  printSaveAnswer(answer, dependencies);
+  return isAKeptSave(answer) ? WhereIStandExitCode.Done : WhereIStandExitCode.Refused;
 }
 
 export async function runWhereIStand(

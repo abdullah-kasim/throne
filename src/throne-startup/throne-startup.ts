@@ -58,6 +58,8 @@ import { pathsResolveEqual } from "../shared-policy/path-equivalence.ts";
 import { appendFile } from "node:fs/promises";
 import { resolveLiveThroneRoot } from "../throne-root-resolution.ts";
 import { KEEP_OLD_COPIES_FLAG, runMigrateHome } from "../migrate-home/migrate-home-runtime.ts";
+import { TAB_AGENT_NAME_VARIABLE } from "../stager-tree-refresh/stager-tree-refresh.ts";
+import { maybeRenameSelf } from "./throne-startup-self-name.ts";
 import {
   exportGitShimToSession,
   type SessionEnvExportOutcome,
@@ -84,6 +86,7 @@ export interface ThroneStartupDeps {
   renameTab: typeof renameTab;
   listTabs: typeof listTabs;
   renameWorkspace: typeof renameWorkspace;
+  agentNameAtLaunch?: () => string | undefined;
   throneRoot: string;
   /** Keeps omp's copy of the throne delivery extension pointing at this
    *  checkout. Injected so tests never touch a real ~/.omp. */
@@ -128,6 +131,7 @@ export const REAL_DEPS: ThroneStartupDeps = {
   renameTab,
   listTabs,
   renameWorkspace,
+  agentNameAtLaunch: () => process.env[TAB_AGENT_NAME_VARIABLE],
   throneRoot: THRONE_ROOT,
   installOmpExtension: () =>
     installOmpDeliveryExtension({
@@ -203,48 +207,6 @@ async function recordRegentRouteSafely(
     process.stderr.write(
       `throne-startup: could not record Regent route (${errText(err)}); continuing\n`,
     );
-  }
-}
-
-/**
- * Decide + apply the self-rename for a confirmed throne-root pane, and report
- * whether this harness IS the Regent (so the caller can also claim its tab).
- * Renames to `Regent` ONLY when the pane is unnamed AND no agent already holds
- * the `Regent` name (`!own.name` covers both an absent field and an empty
- * string; the second clause prevents a duplicate Regent and makes re-runs
- * idempotent — once renamed, `own.name` is `Regent`). Returns `true` iff this
- * harness is (or just became) the Regent: an already-`Regent` pane (self-heal),
- * or a successful fresh rename. Returns `false` for a pane named something else,
- * a skip because another Regent exists, or a rename that failed. Any skip logs
- * its specific reason; a rename that itself fails is caught and logged, never
- * aborting.
- */
-async function maybeRenameSelf(
-  own: HerdrAgent,
-  agents: HerdrAgent[],
-  deps: ThroneStartupDeps,
-): Promise<boolean> {
-  if (own.name) {
-    process.stdout.write(
-      `throne-startup: harness already named "${own.name}"; skipping self-rename\n`,
-    );
-    return sameAgentName(own.name, REGENT_NAME);
-  }
-  if (agents.some((agent) => sameAgentName(agent.name, REGENT_NAME))) {
-    process.stdout.write(
-      `throne-startup: a "${REGENT_NAME}" already exists; skipping self-rename\n`,
-    );
-    return false;
-  }
-  try {
-    await deps.renameAgent(own.paneId, REGENT_NAME);
-    process.stdout.write(`throne-startup: renamed self to "${REGENT_NAME}"\n`);
-    return true;
-  } catch (err) {
-    process.stderr.write(
-      `throne-startup: self-rename to "${REGENT_NAME}" failed (${errText(err)}); continuing\n`,
-    );
-    return false;
   }
 }
 

@@ -1,12 +1,20 @@
-import { randomUUID } from "node:crypto";
-import { copyFile, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, rename } from "node:fs/promises";
 import path from "node:path";
 import { withExclusiveFileLock } from "../shared-policy/exclusive-file-lock.ts";
+import { replaceFileAtomically } from "../shared-policy/replace-file-atomically.ts";
 import { fileIsMissing, readTextFileIfPresent } from "./file-presence.ts";
-import { EMPTY_FRAME, frameFaultsOf, versionOf, withEventOnTop } from "./page-frame.ts";
+import {
+  EMPTY_FRAME,
+  frameFaultsOf,
+  pageOnlyLacksEpicsSection,
+  versionOf,
+  withEpicsSection,
+  withEventOnTop,
+} from "./page-frame.ts";
 import {
   appendJournalLine,
   entryChangesBetween,
+  FRAME_WRITER,
   journaledPagePathIn,
   JournalAction,
   type JournalActionName,
@@ -35,6 +43,11 @@ export interface Page {
 export async function showPage(dataHome: string): Promise<Page> {
   const content = (await readTextFileIfPresent(pagePathIn(dataHome))) ?? EMPTY_FRAME;
   return { content, version: versionOf(content) };
+}
+
+export async function pageFileLacksEpicsSection(dataHome: string): Promise<boolean> {
+  const content = await readTextFileIfPresent(pagePathIn(dataHome));
+  return content !== undefined && pageOnlyLacksEpicsSection(content);
 }
 
 export const PageWriteOutcome = {
@@ -85,16 +98,6 @@ export function newestPreviousCopyPathIn(dataHome: string): string {
   return previousCopyPathIn(dataHome, NEWEST_PREVIOUS_COPY);
 }
 
-async function replaceFileAtomically(file: string, content: string): Promise<void> {
-  const temporaryFile = `${file}.${process.pid}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(temporaryFile, content, "utf8");
-    await rename(temporaryFile, file);
-  } finally {
-    await rm(temporaryFile, { force: true });
-  }
-}
-
 export async function replacePageContent(dataHome: string, content: string): Promise<void> {
   await replaceFileAtomically(pagePathIn(dataHome), content);
 }
@@ -134,4 +137,18 @@ export async function addEventToLockedPage(writer: PageWriter, event: string): P
     next,
   );
   return { outcome: PageWriteOutcome.Written, version: record.version };
+}
+
+export async function addEpicsSectionToLockedPage(page: Omit<PageWriter, "name">): Promise<void> {
+  if (!(await pageFileLacksEpicsSection(page.dataHome))) return;
+  const current = await showPage(page.dataHome);
+  const next = withEpicsSection(current.content);
+  await keepPreviousCopy(page.dataHome);
+  await replacePageContent(page.dataHome, next);
+  await recordInJournal(
+    page.dataHome,
+    { at: page.now().toISOString(), writer: FRAME_WRITER, action: JournalAction.Edit },
+    current.content,
+    next,
+  );
 }

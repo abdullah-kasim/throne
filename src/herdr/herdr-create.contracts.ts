@@ -10,13 +10,13 @@ export interface StartOptions {
 export type StartEvidencePhase =
   | "tab-created"
   | "pane-output-observed"
-  | "sentinel-executed"
+  | "ready-marker-executed"
   | "agent-start-accepted";
 export interface ShellReadyEvidence {
   paneId: string;
   phase: StartEvidencePhase;
-  sentinel: string;
-  sentinelExecuted: boolean;
+  readyMarker: string;
+  readyMarkerExecuted: boolean;
   outputBytes: number;
   probeWrites: number;
   observations: number;

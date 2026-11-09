@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { versionOf } from "./page-frame.ts";
 import { JournalAction, readJournal } from "./page-journal.ts";
-import { runWhereIStand, WhereIStandExitCode, type WhereIStandDependencies } from "./where-i-stand-runtime.ts";
+import { runWhereIStand, saveChangeFromThePage, WhereIStandExitCode, type WhereIStandDependencies } from "./where-i-stand-runtime.ts";
 import {
   entry,
   filesBesideThePage,
@@ -16,9 +16,12 @@ import {
 
 const OVEN_QUEUE = "### ovenqueue\n\n- Links: no pull request · ovenqueue · Ticket no ticket\n\nThe oven queue is **baking** with `bake-time` on [the board](https://example.com/board).";
 const TILL_REPORT = "### tillreport\n\nThe till report is in flight.";
+const FLOUR_DEAL = "### flourdeal\n\nThe flour deal is signed.";
+const HEADING_ONLY_EPIC = "### ryeflour";
 const SEEDED_PAGE = pageWith({
   "## Just happened": "\n- filed ovenqueue\n- launched tillreport\n- merged breadlabels\n",
-  "## In flight": `\n${OVEN_QUEUE}\n\n${TILL_REPORT}\n`,
+  "## In flight": `\n${FLOUR_DEAL}\n`,
+  "## Epics": `\n${OVEN_QUEUE}\n\n${TILL_REPORT}\n`,
 });
 
 interface SaveAnswer {
@@ -56,7 +59,7 @@ async function saveFromThePage(
   return { exitCode, outcome: answer.outcome, message: answer.message };
 }
 
-test("the Lord's save from the page replaces one entry and is journaled with the writer Lord", async (t) => {
+test("the Lord's save from the page replaces one epic and is journaled with the writer Lord", async (t) => {
   const room = await seededRoom(t);
   const edited = OVEN_QUEUE.replace("is **baking**", "is **out of the oven**");
 
@@ -71,42 +74,98 @@ test("the Lord's save from the page replaces one entry and is journaled with the
     action: JournalAction.Edit,
     version: versionOf(page),
     added: [],
-    changed: ["ovenqueue"],
+    changed: ["Epics: ovenqueue"],
     removed: [],
   });
 });
 
-test("the Lord's save from the page replaces one Just happened line", async (t) => {
+test("the Lord can remove a whole epic from the page", async (t) => {
   const room = await seededRoom(t);
 
-  const answer = await saveFromThePage(room, "- launched tillreport", "- launched tillreport on the second oven");
+  const removedEpic = await saveFromThePage(room, OVEN_QUEUE, "");
 
-  assert.deepEqual([answer.exitCode, answer.outcome], [WhereIStandExitCode.Done, "saved"]);
-  assert.equal(
-    await readPageOrEmptyFrame(room),
-    SEEDED_PAGE.replace("- launched tillreport\n", "- launched tillreport on the second oven\n"),
-  );
-  assert.equal((await readJournal(room.dataHome)).at(-1)?.writer, "Lord");
+  assert.equal(removedEpic.outcome, "saved");
+  assert.equal(await readPageOrEmptyFrame(room), SEEDED_PAGE.replace(`${OVEN_QUEUE}\n\n`, ""));
+  const newest = (await readJournal(room.dataHome)).at(-1);
+  assert.deepEqual([newest?.writer, newest?.removed], ["Lord", ["Epics: ovenqueue"]]);
 });
 
-test("the Lord can remove a whole entry from the page", async (t) => {
+test("the last epic on the page can be removed", async (t) => {
   const room = await seededRoom(t);
 
-  const removedEntry = await saveFromThePage(room, OVEN_QUEUE, "");
-  const removedLine = await saveFromThePage(room, "- launched tillreport", "");
+  const answer = await saveFromThePage(room, TILL_REPORT, "");
 
-  assert.deepEqual([removedEntry.outcome, removedLine.outcome], ["saved", "saved"]);
-  assert.equal(
-    await readPageOrEmptyFrame(room),
-    pageWith({
-      "## Just happened": "\n- filed ovenqueue\n- merged breadlabels\n",
-      "## In flight": `\n${TILL_REPORT}\n`,
-    }),
-  );
-  const journal = await readJournal(room.dataHome);
-  assert.deepEqual(journal.at(-2)?.removed, ["ovenqueue"]);
-  assert.deepEqual(journal.slice(-2).map((record) => record.writer), ["Lord", "Lord"]);
+  assert.equal(answer.outcome, "saved");
+  assert.doesNotMatch(await readPageOrEmptyFrame(room), /### tillreport/);
 });
+
+test("removing an epic that gained lines since it was read refuses and leaves them where they are", async (t) => {
+  for (const [epic, gained] of [
+    [OVEN_QUEUE, `${OVEN_QUEUE}\n\nThe mill sent word.`],
+    [TILL_REPORT, `${TILL_REPORT}\n- Counted twice.`],
+    [HEADING_ONLY_EPIC, `${HEADING_ONLY_EPIC}\n\nThe mill sent word.`],
+  ] as const) {
+    const room = await seededRoom(t);
+    await lockEditAndRelease(room, (content) => `${content.trimEnd()}\n\n${HEADING_ONLY_EPIC}\n`.replace(epic, gained), {
+      currentAgentName: async () => "alpha-bakery-01",
+    });
+    const before = await filesBesideThePage(room);
+
+    const answer = await saveFromThePage(room, epic, "");
+
+    assert.deepEqual([answer.exitCode, answer.outcome], [WhereIStandExitCode.Refused, "entry-changed"]);
+    assert.match(answer.message, /changed since/);
+    assert.deepEqual(await filesBesideThePage(room), before);
+  }
+});
+
+test("a removal stops at a heading the page reads as the next epic, however it is indented", async (t) => {
+  const room = await seededRoom(t);
+  await lockEditAndRelease(room, (content) => `${content.trimEnd()}\n\n  ### indentedepic\n`, {
+    currentAgentName: async () => "alpha-bakery-01",
+  });
+
+  const answer = await saveFromThePage(room, TILL_REPORT, "");
+
+  assert.equal(answer.outcome, "saved");
+  assert.match(await readPageOrEmptyFrame(room), /### indentedepic/);
+});
+
+test("adding an epic and saving notes still work when the page holds lines below the matched text", async (t) => {
+  const room = await seededRoom(t);
+  const gained = `${TILL_REPORT}\n\nThe mill sent word.`;
+  await lockEditAndRelease(room, (content) => content.replace(TILL_REPORT, gained), {
+    currentAgentName: async () => "alpha-bakery-01",
+  });
+
+  const added = await saveFromThePage(room, "## Epics", `## Epics\n\n${HEADING_ONLY_EPIC}`);
+  const notesSaved = await saveFromThePage(room, TILL_REPORT, TILL_REPORT.replace("in flight", "counted"));
+
+  assert.deepEqual([added.outcome, notesSaved.outcome], ["saved", "saved"]);
+  const page = await readPageOrEmptyFrame(room);
+  assert.match(page, /## Epics\n\n### ryeflour\n\n### ovenqueue/);
+  assert.match(page, /The till report is counted\.\n\nThe mill sent word\./);
+});
+
+const CHANGES_OUTSIDE_THE_EPICS: Record<string, { loaded: string; edited: string }> = {
+  "an edit to an entry": { loaded: FLOUR_DEAL, edited: FLOUR_DEAL.replace("signed", "torn up") },
+  "a removal of an entry": { loaded: FLOUR_DEAL, edited: "" },
+  "an edit to a Just happened line": { loaded: "- launched tillreport", edited: "- launched tillreport twice" },
+  "a removal of a Just happened line": { loaded: "- launched tillreport", edited: "" },
+};
+
+for (const [change, { loaded, edited }] of Object.entries(CHANGES_OUTSIDE_THE_EPICS)) {
+  test(`${change} outside Epics is refused by the save command, written nowhere and journaled nowhere`, async (t) => {
+    const room = await seededRoom(t);
+    const before = await filesBesideThePage(room);
+
+    const answer = await saveFromThePage(room, loaded, edited);
+
+    assert.deepEqual([answer.exitCode, answer.outcome], [WhereIStandExitCode.Refused, "outside-epics"]);
+    assert.match(answer.message, /epics only/);
+    assert.deepEqual(await filesBesideThePage(room), before);
+  });
+}
 
 test("a save whose entry an agent changed since the page loaded is refused and leaves the page unchanged", async (t) => {
   const room = await seededRoom(t);
@@ -120,6 +179,171 @@ test("a save whose entry an agent changed since the page loaded is refused and l
   assert.deepEqual([answer.exitCode, answer.outcome], [WhereIStandExitCode.Refused, "entry-changed"]);
   assert.match(answer.message, /changed since/);
   assert.deepEqual(await filesBesideThePage(room), before);
+});
+
+test("a save of an entry the page holds twice is refused in words that say so and leaves the page unchanged", async (t) => {
+  for (const edited of [`${TILL_REPORT}\n\nMore.`, ""]) {
+    const room = await seededRoom(t);
+    await lockEditAndRelease(room, (content) => content.replace(TILL_REPORT, `${TILL_REPORT}\n\n${TILL_REPORT}`), {
+      currentAgentName: async () => "alpha-bakery-01",
+    });
+    const before = await filesBesideThePage(room);
+
+    const answer = await saveFromThePage(room, TILL_REPORT, edited);
+
+    assert.deepEqual([answer.exitCode, answer.outcome], [WhereIStandExitCode.Refused, "entry-repeated"]);
+    assert.match(answer.message, /more than once/);
+    assert.deepEqual(await filesBesideThePage(room), before);
+  }
+});
+
+test("an entry named by its place saves and goes on its own beside a longer namesake", async (t) => {
+  const namesake = `${HEADING_ONLY_EPIC}\n\nThe mill sent word.`;
+  for (const [order, headingOccurrence, edited, expected] of [
+    [`${HEADING_ONLY_EPIC}\n\n${namesake}`, 1, `${HEADING_ONLY_EPIC}\n\nNew.`, `${HEADING_ONLY_EPIC}\n\nNew.\n\n${namesake}`],
+    [`${namesake}\n\n${HEADING_ONLY_EPIC}`, 2, `${HEADING_ONLY_EPIC}\n\nNew.`, `${namesake}\n\n${HEADING_ONLY_EPIC}\n\nNew.`],
+    [`${HEADING_ONLY_EPIC}\n\n${namesake}`, 1, "", namesake],
+    [`${namesake}\n\n${HEADING_ONLY_EPIC}`, 2, "", namesake],
+  ] as const) {
+    const room = await seededRoom(t);
+    await lockEditAndRelease(room, (content) => content.replace(TILL_REPORT, order), {
+      currentAgentName: async () => "alpha-bakery-01",
+    });
+
+    const answer = await saveChangeFromThePage({ loaded: HEADING_ONLY_EPIC, edited, headingOccurrence }, room.dependencies);
+
+    assert.equal(answer.outcome, "saved");
+    assert.ok((await readPageOrEmptyFrame(room)).includes(`${OVEN_QUEUE}\n\n${expected}\n`));
+  }
+});
+
+const RYE_LINE = `${HEADING_ONLY_EPIC}\n\nline`;
+const LONGER_RYE = `${RYE_LINE}\nmore`;
+const CHANGED_RYE = `${HEADING_ONLY_EPIC}\n\nchanged by an agent`;
+const TWO_PLACES_BEGINNING_WITH_THE_TEXT = [
+  [`${LONGER_RYE}\n\n${RYE_LINE}`, RYE_LINE],
+  [`${RYE_LINE}\n\n${LONGER_RYE}`, RYE_LINE],
+  [`${CHANGED_RYE}\n\n${HEADING_ONLY_EPIC}`, HEADING_ONLY_EPIC],
+  [`${HEADING_ONLY_EPIC}\n\n${CHANGED_RYE}`, HEADING_ONLY_EPIC],
+] as const;
+
+async function roomWithEpics(t: TestContext, epics: string): Promise<PageRoom> {
+  const room = await seededRoom(t);
+  await lockEditAndRelease(room, (content) => content.replace(TILL_REPORT, epics), {
+    currentAgentName: async () => "alpha-bakery-01",
+  });
+  return room;
+}
+
+test("a save meant for one epic of a heading refuses when the text it matches belongs to the other", async (t) => {
+  for (const [epics, loaded, headingOccurrence] of [
+    [`${CHANGED_RYE}\n\n${LONGER_RYE}`, RYE_LINE, 1],
+    [`${CHANGED_RYE}\n\n${RYE_LINE}`, RYE_LINE, 1],
+    [`${RYE_LINE}\n\n${CHANGED_RYE}`, RYE_LINE, 2],
+    [LONGER_RYE, RYE_LINE, 1],
+    [`${CHANGED_RYE}\n\n${RYE_LINE}\n\n${RYE_LINE}`, RYE_LINE, 1],
+  ] as const) {
+    const room = await roomWithEpics(t, epics);
+    const before = await filesBesideThePage(room);
+
+    const answer = await saveChangeFromThePage({ loaded, edited: `${loaded}\n\nNew.`, headingOccurrence }, room.dependencies);
+
+    assert.equal(answer.outcome, "entry-changed", epics);
+    assert.deepEqual(await filesBesideThePage(room), before);
+  }
+});
+
+test("a removal meant for one epic of a heading refuses when the text it matches belongs to the other", async (t) => {
+  for (const [epics, loaded, headingOccurrence] of [
+    [`${CHANGED_RYE}\n\n${RYE_LINE}`, RYE_LINE, 1],
+    [`${RYE_LINE}\n\n${CHANGED_RYE}`, RYE_LINE, 2],
+    [RYE_LINE, RYE_LINE, 2],
+  ] as const) {
+    const room = await roomWithEpics(t, epics);
+    const before = await filesBesideThePage(room);
+
+    const answer = await saveChangeFromThePage({ loaded, edited: "", headingOccurrence }, room.dependencies);
+
+    assert.equal(answer.outcome, "entry-changed", epics);
+    assert.deepEqual(await filesBesideThePage(room), before);
+  }
+});
+
+test("a save naming the entry that holds the text lands on it", async (t) => {
+  for (const [epics, loaded, headingOccurrence, expected] of [
+    [`${RYE_LINE}\n\n${LONGER_RYE}`, RYE_LINE, 1, `${CHANGED_RYE}\n\n${LONGER_RYE}`],
+    [`${LONGER_RYE}\n\n${RYE_LINE}`, RYE_LINE, 2, `${LONGER_RYE}\n\n${CHANGED_RYE}`],
+  ] as const) {
+    const room = await roomWithEpics(t, epics);
+
+    const answer = await saveChangeFromThePage({ loaded, edited: CHANGED_RYE, headingOccurrence }, room.dependencies);
+
+    assert.equal(answer.outcome, "saved");
+    assert.ok((await readPageOrEmptyFrame(room)).includes(`${OVEN_QUEUE}\n\n${expected}\n`));
+  }
+});
+
+test("a save naming one of two identical epics is still refused as repeated", async (t) => {
+  const room = await roomWithEpics(t, `${RYE_LINE}\n\n${RYE_LINE}`);
+  const before = await filesBesideThePage(room);
+
+  const answer = await saveChangeFromThePage({ loaded: RYE_LINE, edited: CHANGED_RYE, headingOccurrence: 2 }, room.dependencies);
+
+  assert.equal(answer.outcome, "entry-repeated");
+  assert.deepEqual(await filesBesideThePage(room), before);
+});
+
+test("an entry of the same heading in another section does not move an epic's place", async (t) => {
+  const room = await roomWithEpics(t, RYE_LINE);
+  await lockEditAndRelease(room, (content) => content.replace(FLOUR_DEAL, `${FLOUR_DEAL}\n\n${LONGER_RYE}`), {
+    currentAgentName: async () => "alpha-bakery-01",
+  });
+
+  const answer = await saveChangeFromThePage({ loaded: RYE_LINE, edited: CHANGED_RYE, headingOccurrence: 1 }, room.dependencies);
+
+  assert.equal(answer.outcome, "saved");
+  assert.ok((await readPageOrEmptyFrame(room)).includes(`${OVEN_QUEUE}\n\n${CHANGED_RYE}\n`));
+});
+
+test("a change outside the epics that names an entry is still refused as outside them", async (t) => {
+  const room = await seededRoom(t);
+
+  const answer = await saveChangeFromThePage({ loaded: FLOUR_DEAL, edited: `${FLOUR_DEAL}\n\nNew.`, headingOccurrence: 1 }, room.dependencies);
+
+  assert.equal(answer.outcome, "outside-epics");
+});
+
+test("a save with no entry named behaves as before", async (t) => {
+  const room = await roomWithEpics(t, `${CHANGED_RYE}\n\n${LONGER_RYE}`);
+
+  const answer = await saveChangeFromThePage({ loaded: RYE_LINE, edited: `${HEADING_ONLY_EPIC}\n\nNew.` }, room.dependencies);
+
+  assert.equal(answer.outcome, "saved");
+  assert.ok((await readPageOrEmptyFrame(room)).includes(`${CHANGED_RYE}\n\n${HEADING_ONLY_EPIC}\n\nNew.\nmore\n`));
+});
+
+test("a save naming no entry refuses when two places begin with its text", async (t) => {
+  for (const [epics, loaded] of TWO_PLACES_BEGINNING_WITH_THE_TEXT) {
+    const room = await roomWithEpics(t, epics);
+    const before = await filesBesideThePage(room);
+
+    const answer = await saveChangeFromThePage({ loaded, edited: `${loaded}\n\nNew.` }, room.dependencies);
+
+    assert.equal(answer.outcome, "entry-repeated", epics);
+    assert.deepEqual(await filesBesideThePage(room), before);
+  }
+});
+
+test("a removal naming no entry refuses when two places begin with its text", async (t) => {
+  for (const [epics, loaded] of TWO_PLACES_BEGINNING_WITH_THE_TEXT) {
+    const room = await roomWithEpics(t, epics);
+    const before = await filesBesideThePage(room);
+
+    const answer = await saveChangeFromThePage({ loaded, edited: "" }, room.dependencies);
+
+    assert.equal(answer.outcome, "entry-repeated", epics);
+    assert.deepEqual(await filesBesideThePage(room), before);
+  }
 });
 
 test("a save is refused and leaves the page unchanged while another holder has the edit lock", async (t) => {
@@ -181,16 +405,18 @@ test("an agent cannot lock or note the page under the name Lord", async (t) => {
   }
 });
 
-test("the Lord's save that creates a duplicate is kept and its answer names the duplicate", async (t) => {
+test("the Lord's save on a page holding a duplicate is kept and its answer names the duplicate", async (t) => {
   const room = await seededRoom(t);
-  const edited = TILL_REPORT.replace("The till report", "- Links: no pull request · ovenqueue · Ticket no ticket\n\nThe till report");
-  const ticketed = (text: string): string => text.replaceAll("Ticket no ticket", "Ticket BAKE-12");
-  await lockEditAndRelease(room, ticketed, { currentAgentName: async () => "alpha-bakery-01" });
+  const sameLinks = "- Links: no pull request · flourdeal · Ticket BAKE-12";
+  const duplicates = `### flourdeal\n\n${sameLinks}\n\n### flourorder\n\n${sameLinks}`;
+  await lockEditAndRelease(room, (content) => content.replace(FLOUR_DEAL, duplicates), {
+    currentAgentName: async () => "alpha-bakery-01",
+  });
   room.printed.length = 0;
 
-  const answer = await saveFromThePage(room, TILL_REPORT, ticketed(edited));
+  const answer = await saveFromThePage(room, TILL_REPORT, TILL_REPORT.replace("in flight", "counted"));
 
   assert.deepEqual([answer.exitCode, answer.outcome], [WhereIStandExitCode.Done, "saved"]);
-  assert.match(await readPageOrEmptyFrame(room), /### tillreport\n\n- Links: no pull request · ovenqueue · Ticket BAKE-12/);
-  assert.match(answer.message, /^Saved; the page now holds your change\. These entries are about the same work: "### ovenqueue" still says .* and "### tillreport" still says "- Links: no pull request · ovenqueue · Ticket BAKE-12"/);
+  assert.match(await readPageOrEmptyFrame(room), /The till report is counted\./);
+  assert.match(answer.message, /^Saved; the page now holds your change\. These entries are about the same work: "### flourdeal" still says .* and "### flourorder" still says "- Links: no pull request · flourdeal · Ticket BAKE-12"/);
 });

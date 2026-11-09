@@ -261,6 +261,14 @@ test("an Alpha with no entry written after its delivery is refused and told what
   );
 });
 
+test("check-where-i-stand does not take an epic for a campaign entry", async (t) => {
+  const room = await deliveredAlpha(t);
+
+  await writePage(t, room, ALPHA, AFTER_DELIVERY, pageWithEntry(PageSection.Epics, OBJECTIVE_CODE, "Open a second shop."));
+
+  assert.match(await reasonRefused(room), /no edit by this campaign since its REPORT\.md names that entry/);
+});
+
 test("an entry written by one of the Alpha's Shadows after delivery passes the check", async (t) => {
   const room = await deliveredAlpha(t);
   await recordDelivered(t, room, SHADOW_OF_THE_ALPHA, AFTER_DELIVERY);

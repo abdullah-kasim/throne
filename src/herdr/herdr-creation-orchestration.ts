@@ -115,7 +115,7 @@ export async function startAgent(
             phase:
               readinessError instanceof PaneReadinessTimeoutError
                 ? readinessError.phase
-                : "sentinel-executed",
+                : "ready-marker-executed",
             ownership: "determinate",
             tabId,
             rootPaneId,

@@ -475,7 +475,7 @@ export const DEFAULT_REPAIR_RECIPIENT_DEPS: RepairRecipientDeps = {
     return spec === null ? undefined : spec;
   },
   // `resolvePersonaTabLabelToCanonical` already treats `''` as its own
-  // "no persisted record" sentinel and declines to canonicalize -- a
+  // "no persisted record" marker value and declines to canonicalize -- a
   // field-absent or unresolved read both fall into that same declining
   // path, the same Found-else-'' collapse the pre-tristate read already
   // produced on any failure.

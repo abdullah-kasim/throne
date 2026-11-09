@@ -1,4 +1,4 @@
-import { link, mkdir, open, readFile, rename, unlink } from "node:fs/promises";
+import { link, mkdir, open, readFile, rename, stat, unlink, utimes } from "node:fs/promises";
 import path from "node:path";
 
 /** Cross-process resurrection mutex marker — same `REGENT_DIR` marker-file
@@ -165,4 +165,19 @@ export async function releaseResurrectLock(dir: string, token: string): Promise<
     return;
   }
   await unlink(lockPath).catch(() => undefined);
+}
+
+export async function refreshResurrectLock(dir: string, token: string): Promise<void> {
+  const lockPath = path.join(dir, RESURRECT_LOCK_BASENAME);
+  const current = await readFile(lockPath, "utf8").catch(() => null);
+  if (current !== `${token}\n`) {
+    return;
+  }
+  const now = new Date();
+  await utimes(lockPath, now, now).catch(() => undefined);
+}
+
+export async function isResurrectLockHeld(dir: string): Promise<boolean> {
+  const lock = await stat(path.join(dir, RESURRECT_LOCK_BASENAME)).catch(() => null);
+  return lock !== null && Date.now() - lock.mtimeMs <= RESURRECT_LOCK_STALE_MS;
 }

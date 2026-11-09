@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 
 const throneCheckout = path.resolve(import.meta.dirname, "..");
+const realScrubFile = path.join(throneCheckout, "publish-scrub.sed");
 const scriptsTheCheckoutNeeds = ["publish.sh", "scripts/publish-scrub-file.sh", "scripts/lint-private-refs.sh"];
 const inventedScrubFile = [
   "# invented rules",
@@ -267,4 +269,28 @@ test("the private-reference check ignores files publish never copies", async (co
   });
 
   assert.match(lintOutput, /no private references found/);
+});
+
+function scrubbedWithTheRealRules(text: string): string {
+  return spawnSync("sed", ["-E", "-f", realScrubFile], { input: text, encoding: "utf8" }).stdout;
+}
+
+function boardNameTheRealRulesRewrite(): string {
+  const boardRule = readFileSync(realScrubFile, "utf8").split("\n").find((line) => line.endsWith("/EXAMPLE-BOARD/g")) ?? "";
+  const boardPrefix = /s\/([A-Z]+)\[0-9\]/.exec(boardRule)?.[1] ?? "";
+  return `${boardPrefix}7`;
+}
+
+function integrityLines(lockfile: string): string[] {
+  return lockfile.split("\n").filter((line) => line.includes('"integrity":'));
+}
+
+test("the scrub leaves every integrity value in a published lockfile unchanged", { skip: !existsSync(realScrubFile) }, () => {
+  const lockfile = readFileSync(path.join(throneCheckout, "package-lock.json"), "utf8");
+  assert.deepEqual(integrityLines(scrubbedWithTheRealRules(lockfile)), integrityLines(lockfile));
+});
+
+test("the scrub still rewrites a private board name on a line that is no integrity value", { skip: !existsSync(realScrubFile) }, () => {
+  const privateBoardName = boardNameTheRealRulesRewrite();
+  assert.equal(scrubbedWithTheRealRules(`"name": "${privateBoardName}"\n`), '"name": "EXAMPLE-BOARD"\n');
 });

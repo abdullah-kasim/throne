@@ -16,6 +16,7 @@ export const BUILD_INPUT_ENTRIES = [
   'tsconfig.build.json',
   'tsconfig.mutex-fixture.json',
   'systemd',
+  'web',
   // Not a compile input, but a shipped runtime dependency: `buildAndPublishDist`
   // copies this exact file into every generation (see build-and-publish-dist.mjs)
   // because the compiled watcher imports it by real relative path. Without this

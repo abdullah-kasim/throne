@@ -998,7 +998,7 @@ Sonnet, and GPT-on-Claude Sol → Terra → Sol. Each route uses a unique name o
 most 32 characters, a scratch git repository under `~/tmp`, the live
 `~/.throne/data` ledger, and finally cleanup that reaps
 the tab/registration, removes scratch and archived canary evidence, verifies an
-uncommitted sentinel survived, and fails if the relevant global provider config
+uncommitted marker file survived, and fails if the relevant global provider config
 was not byte-identical. Missing launchers, provider state, session evidence,
 quota, network, or any cleanup proof is a canary failure; without the opt-in
 environment variable all three routes are explicitly skipped.
@@ -1802,6 +1802,30 @@ queue store as `render-queue` does and writes nothing.
 be read, 2 an unknown flag, a missing `--since` or a value that is not an ISO
 date.
 
+## preview
+
+```bash
+./bin/throne-cli preview add <path or port> --address <address on this machine>
+./bin/throne-cli preview add <path or port> --folder <folder>
+./bin/throne-cli preview remove <path or port>
+./bin/throne-cli preview list
+```
+
+Edits the `previews` list in the real `config.user.ts`, keeping every other key
+and comment, then applies it at once (`docs/CONFIG.md`, "`previews`"). `add`
+creates the file holding only the list when there is none, and prints the
+tailnet URL. `list` prints one line per entry: URL, `live` or `not live`, and
+what it shows. Publishing goes through the same code as the `tailnet-publishing`
+worker, and only ever calls `tailscale serve`.
+
+The ledger of what this code created is `<throne home>/state/tailnet-routes.json`.
+A place on the tailnet that is not in it is refused, naming what holds it, and
+left alone, so tailnet-preview's paths are never touched. A port with funnel
+enabled is refused too. `remove` refuses a place that is not in the list.
+
+Exit 0 done, 1 refused or failed with nothing further changed, 2 a command that
+makes no sense.
+
 ## where-i-stand
 
 ```bash
@@ -1848,8 +1872,10 @@ hold the lock; the command never writes, reformats or moves an entry itself.
   and keeps the newest 15 events, keeping the previous page as `lock` does. It
   needs no checksum. It refuses at once while a lock is held, naming the
   holder, and refuses a page whose frame is broken, naming the faults.
-- **`save`** is the Lord's own edit from the page in his browser; only the
-  page server runs it, never an agent. It reads one JSON object from standard
+- **`save`** is the Lord's own edit from the page in his browser; the page
+  saves through `POST /api/where-i-stand/save`, which runs the same code, and
+  no agent runs it. It changes `## Epics` only: agents edit every other
+  section under the lock. It reads one JSON object from standard
   input, `{"loaded": ..., "edited": ...}`: one unit of the page exactly as the
   page loaded it, and its new text, both as whole lines joined with `\n` and
   no trailing newline. A unit is a `### ` entry from its heading line to its
@@ -1861,10 +1887,17 @@ hold the lock; the command never writes, reformats or moves an entry itself.
   exactly one JSON line, `{"outcome": ..., "message": ...}`, the message one
   plain sentence for the Lord: `saved` and `unchanged` (`edited` equals
   `loaded`: no lock, nothing written or journaled) exit 0; `entry-changed`
-  (`loaded` is not on the page exactly once, as whole lines), `lock-held`
-  (naming the holder), `frame-broken` (the page after the change would break
-  the frame) and `failed` exit 1 and write nothing; input that is not that
-  JSON shape is `failed` with exit 2.
+  (`loaded` is not on the page, as whole lines, or a removal would leave lines
+  of its entry behind), `entry-repeated` (more than one place on the page
+  begins with `loaded`), `lock-held` (naming the holder), `frame-broken` (the page after the change would break
+  the frame), `outside-epics` (the change reaches outside `## Epics`) and
+  `failed` exit 1 and write nothing; input that is not that
+  JSON shape is `failed` with exit 2. A `POST` from the page for an epic whose
+  heading its read holds more than once also carries `headingOccurrence`,
+  which of the `## Epics` entries of that heading it means, counted from 1 at
+  the top, and answers `entry-changed` unless that entry is exactly `loaded`;
+  it matches a whole entry before a longer entry that only begins with those
+  lines. A request without it, and the command, match by text alone.
 - **`write`** no longer writes. It refuses, changes nothing, and prints the
   whole flow above, so an agent following older instructions can finish from
   that message alone.
@@ -3733,14 +3766,126 @@ model it was previously on"). The harness gets `SIGTERM` (then one `SIGKILL`
 after 30 s, then a loud failure), the agent is resumed through the
 startup-reconciliation resume path into its EXACT native session in the same
 pane, and the pane is renamed back to the registered name if the relaunch
-surfaced as a bare `claude`/`codex`. The Regent goes last, under the resurrect lock.
+surfaced as a bare `claude`/`codex`. The relaunched pane must then be running
+the vendored binary: anything else is `failed`, naming the executable path,
+except for an agent whose spawn record holds `harness_executable`, which runs
+that executable by design. A pane with no harness process is `failed` for every
+agent, and a `restarted` line names what is running. The Regent goes after the others,
+under the resurrect lock, and the invoking agent goes last.
 
-Skipped, with a reason on stderr: the invoking pane (a process cannot restart
-itself — run the command from another agent with `--only <name>`), agents
-whose status is `working` unless `--force`, and unnamed panes. Reported
-`failed` and left running: agents with no `spawn.json` or no herdr-visible
-session id. `--dry-run` prints the plan and changes nothing. Exit `0` when no
-restart failed, `1` when one did, `2` on a bad argument.
+A real run with the invoking pane among its targets hands itself to a detached
+process in its own session, prints the log path and exits `0` at once. That
+run appends a header, every outcome and a closing count to
+`~/tmp/restart-harnesses.log`.
+
+Skipped, with a reason on stderr: agents whose status is `working` unless
+`--force`, and unnamed panes. Reported `failed` and left running: agents with
+no herdr-visible session id. `--dry-run` prints the plan and changes nothing. A
+foreground run exits `0` when no restart failed, `1` when one did, `2` on a bad
+argument.
+
+## update-throne
+
+```bash
+node scripts/update-throne.mjs --check
+node scripts/update-throne.mjs [--bring-in-upstream] [--restart-ordered-by-lord "<words>"]
+```
+
+Brings a throne install up to date in one step. It is a plain script, not a CLI
+command, because it must load and pull when `dist/` is stale or broken. Run it
+from the main checkout; the `/update-throne` skill runs it and asks its
+questions.
+
+A run works out what the checkout is, and prints it as
+`update-throne: checkout: <private|public|fork> (<reason>)`, from remotes only:
+an origin whose repository name ends `-private` is the private repo, a remote
+named `upstream` makes a fork of that remote, an origin on github.com that the
+public API reports as a fork is a fork of its parent, and anything else is
+public. A host that cannot be asked reads as public, and the line says so.
+
+It then fetches the source's default branch, read from the remote, and plans
+before anything changes, reading each pin with `git show` from the commit or
+tree the pull will leave: the fetched commit for a fast-forward, and for a fork
+that will make a merge commit, the tree `git merge-tree --write-tree` makes.
+`--check` stops there: it prints the plan and each `question:` line, changes
+nothing else, and exits 0.
+
+Every refusal comes before the first change, and nothing is discarded: another
+run still running, a linked worktree, another branch, a dirty tree, a diverged
+branch (except on a fork), a fork's merge that will conflict, or herdr moving
+with no restart word. A private
+or public checkout fast-forwards only, which needs no git identity because it
+makes no commit. A fork brings in upstream only with `--bring-in-upstream`, and
+never pushes. A fork that is only behind fast-forwards the same way; only a
+diverged fork's merge makes a commit, so only that merge needs an identity, and
+a merge that stops is abandoned. Without that flag, a fork with new upstream
+commits is left alone and the run ends with exit 0.
+
+After the pull, in order: `mise install node` when the pinned node is missing,
+`npm ci` when the lockfile differs from `vendor/.stamps/npm-deps`, `npm run build`
+when `dist/` is behind source, `update-harness.mjs pinned` for each harness, and
+`install-services`. Every step after `mise install node` runs on the pinned node,
+so a moved node pin builds on the new one.
+
+Restarts, only these. When herdr moves, `herdr-upgrade.mjs --pinned` restarts
+herdr, the bot server, each running `throne-bot-bridge@` instance and the backend
+and relaunches every agent, and every other service owed a restart restarts
+first, before the report and that hand-off, so nothing is left to a second run.
+macOS has no bot server or bridges, and a changed backend plist reloads before
+the hand-off, because the kickstart keeps the old job definition. Otherwise
+`throne-backend` restarts when its running generation is not the current `dist/`
+generation, and is reported as not restarted when it left no generation marker
+to read, each running service whose installed file or pinned image changed
+restarts, `ntfy`, `conduwuit` and `forgejo` restart when the pull changed the
+script or config they run from the checkout, each running `throne-bot-bridge@`
+instance restarts after a build publishes a new `dist/` generation (macOS has no
+bridges), and this checkout's own `bin/throne-cli restart-harnesses --force` runs
+when a harness moved and the word was given, whichever `throne` is first on PATH.
+A harness that moved with no word leaves the agents on the old binary, and the
+report says so. A changed `throne-herdr` or `throne-bot-herdr` file with no herdr
+move is reported and not restarted, because that restart ends the agents in it.
+`install-services` starts a stopped service, so a service owed a restart that
+was stopped is started, then restarted, and the report says restarted. One that
+is still not running at that point is reported as not restarted.
+Restarts still owed are kept in
+`vendor/.stamps/update-throne-pending-restarts`, so a later run finishes them.
+A step is owed before it runs, so a killed run still owes it. A harness step that
+fails with the vendored version unchanged takes `agents` back, and one that moved
+the binary keeps it. A restart handed to a detached run stays there too, beside
+its log path, until a later run reads success: `restart-harnesses` hands over from
+an agent's own pane, and `herdr-upgrade.mjs --pinned` always does, so what the
+herdr restart covers, the agents included, is owed from before that step until
+then, and a step that stops before the hand-off owes only what was owed before it.
+A run, `--check` included, reads the last section written to that log since the
+step began, never an older run's. Success clears what the restart covered. A
+failure, a missing log, or a log quiet for 30 minutes with no verdict keeps it
+owed and drops the path: `--check` asks, a run with no word prints
+`report: not restarted agents`, and a run with the word retries. A log with no
+verdict yet means the restart is still running, so a run refuses and `--check`
+says it would. A log no longer than it was when the step began means the step
+never started, so it counts as not succeeded at once; a log that grew with no
+verdict keeps the 30-minute rule. `--check` writes none of this to the pending file.
+When `install-services` fails, what it named is kept there too, and the next run
+reloads the systemd units before it restarts anything.
+
+The report prints as `report:` lines before the steps that can end the run's own
+pane: `report: throne <old> -> <new>`, `report: <name> <old> -> <new>` or
+`report: <name> <version> unchanged`, `report: restarted <what>` and
+`report: not restarted <what> — <why>`. The agent restart follows as
+`report: restarting every agent, ...`, then `report: restarted every agent`, or
+`report: handed every agent's restart to a detached run, which is not yet a
+result; read <log>`, with exit 0; a herdr hand-off says the same of herdr's
+restart. Every run that gets that far ends through
+`herdr-upgrade.mjs --pinned`, which checks that the CLI's herdr version equals
+the running service's. A herdr release installed above the pin leaves `bin/herdr`
+off the pin, which no restart can change, so that step refuses, restarts nothing
+and fails the run until the release is removed.
+
+Every line starts `update-throne: ` and is appended to
+`~/tmp/update-throne.log` under a `===== update-throne <mode> <time> =====`
+header. A refusal is `update-throne: REFUSING — <why>` and a failure is
+`update-throne: FAILED: <why>`. A second run after a failure finishes the work.
+Exit codes: 0 done or nothing to do, 1 refused or failed, 2 a bad argument.
 
 ## account
 

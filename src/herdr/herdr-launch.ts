@@ -85,7 +85,7 @@ export const SHELL_READY_CAPTURE_LINES = 200;
 export const START_EVIDENCE_PHASES = [
   "tab-created",
   "pane-output-observed",
-  "sentinel-executed",
+  "ready-marker-executed",
   "agent-start-accepted",
 ] as const;
 export const SHELL_READY_PROBE_COMMAND_MARKER =

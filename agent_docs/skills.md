@@ -38,9 +38,14 @@ piece of state the change keeps (section 3d), hunt for the bugs the
 checklist misses (section 3e), and report each defect with its cause and
 fix. It binds every role:
 `write-todos` stamps `frontend: true` on bundles whose slices touch CSS,
-markup, or component paths and puts the critique block into `99b`, so the
-verify gate runs it for campaign work; a Stager or a no-alpha session runs it
-directly (AGENTS.md "The Stager"; `no-alpha` step 5). It drives the browser
+markup, or component paths. `queue-objective` files a row that changes a web
+UI as a builder row and a critic row: the bundle stamped `frontend_row: builder`
+runs no critique and no accessibility review and delivers once its function
+gates pass, and the critic row's Alpha, stamped `frontend_row: critic`, runs
+the review on the delivered work and fixes everything it raises. A bundle with
+no `frontend_row:` stamp keeps the critique block in `99b`. A Stager or a
+no-alpha session runs it directly (AGENTS.md "The Stager"; `no-alpha` step 5).
+It drives the browser
 through the global `agent-browser` skill.
 
 `queue-objective` is throne-locally discovered AND Stager-only at runtime: the
@@ -61,14 +66,14 @@ every tick; no restart in either direction.
 `throne/.claude/skills/where-i-stand/`. It answers with the link to the
 Lord's page, the one agent-written file `where-i-stand.md` under the throne
 data home shown below a table of his pull requests, corrects it
-in the background from the forges, the queue and the live agents, and keeps
-its tailnet copy up. Any role may run it, and it carries the writing rules
+in the background from the forges, the queue and the live agents, and checks
+that the tailnet page is up. Any role may run it, and it carries the writing rules
 for every agent that edits the page. Its forge reader, `where_i_stand.py`,
 sits beside it with its own tests
 (`python3 .claude/skills/where-i-stand/test_where_i_stand.py`) and takes
 hosts and tokens from the user's own configuration, never from this
-repository. Serving the page uses the machine's own `tailnet-preview` skill,
-which `.claude/skill-dependencies.tsv` records as `global`.
+repository. The throne backend serves the page, from the compiled web app, and
+publishes it on the tailnet.
 
 Skills intentionally scoped to the throne for discovery too live under
 `throne/.claude/skills/`, alongside the todo skills: Claude Code discovers that

@@ -24,6 +24,7 @@ const SOURCE_EXCLUSIONS: readonly CampaignPathExclusion[] = [
   { pathPrefix: 'test/fixtures', reason: 'dedicated fixture tree' },
   { pathPrefix: 'test/__snapshots__', reason: 'snapshot tree' },
   { pathPrefix: 'data', reason: 'throne ledger data' },
+  { pathPrefix: 'web/src/components/ui', reason: 'generated component library' },
 ];
 
 const HAND_AUTHORED_SOURCE_EXTENSIONS = new Set([

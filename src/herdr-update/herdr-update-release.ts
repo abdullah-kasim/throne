@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -125,4 +125,43 @@ export async function downloadAndVerifyHerdrRelease(
     hashMatched: computedSha256 === asset.sha256,
     cleanup: () => rm(stagingDir, { recursive: true, force: true }),
   };
+}
+
+export const HERDR_INSTALL_OUTCOMES = {
+  INSTALLED: 'installed',
+  LEFT_IN_PLACE: 'left in place',
+} as const;
+
+export type HerdrInstallOutcome = (typeof HERDR_INSTALL_OUTCOMES)[keyof typeof HERDR_INSTALL_OUTCOMES];
+
+export async function installedBinaryHasHash(
+  destination: string,
+  sha256: string,
+  boundary: HerdrUpdateProcessBoundary = DEFAULT_HERDR_UPDATE_PROCESS_BOUNDARY,
+): Promise<boolean> {
+  const installed = await readFile(destination).catch(() => undefined);
+  return installed !== undefined && boundary.sha256(installed) === sha256;
+}
+
+export async function installRehearsedRelease(
+  tag: string,
+  rehearsedSha256: string,
+  destination: string,
+  boundary: HerdrUpdateProcessBoundary = DEFAULT_HERDR_UPDATE_PROCESS_BOUNDARY,
+): Promise<HerdrInstallOutcome> {
+  if (await installedBinaryHasHash(destination, rehearsedSha256, boundary)) {
+    return HERDR_INSTALL_OUTCOMES.LEFT_IN_PLACE;
+  }
+  const download = await downloadAndVerifyHerdrRelease(tag, boundary);
+  try {
+    if (!download.hashMatched || download.computedSha256 !== rehearsedSha256) {
+      throw new Error(`install download hash ${download.computedSha256} is not the rehearsed ${rehearsedSha256}`);
+    }
+    await mkdir(path.dirname(destination), { recursive: true });
+    await copyFile(download.artifactPath, destination);
+    await chmod(destination, 0o755);
+  } finally {
+    await download.cleanup();
+  }
+  return HERDR_INSTALL_OUTCOMES.INSTALLED;
 }

@@ -720,7 +720,7 @@ Once the breakdown is settled:
 1. `mkdir ~/.throne/data/<alpha-name>/todo-<timestamp>-<topic>/` — the campaign
    data dir is the bundle's only home: never the target repo root, never the
    throne root.
-2. Write `00_overview.md` first (see "The overview file" below) with the bundle-level `todo_run_personality:` stamp and, when the classification in "Front-end bundles" below fires, `frontend: true`; it is never executed.
+2. Write `00_overview.md` first (see "The overview file" below) with the bundle-level `todo_run_personality:` stamp and, when the classification in "Front-end bundles" below fires, `frontend: true` and any `frontend_row:` that section allows; it is never executed.
 3. Write each `NN_<task>.md` slice (one per title), each opening with the `deps:` and `touches:` lines settled there. Never emit legacy `tier:`/`model:` stamps.
 4. When the bundle is ticket-driven, write `98_ticket_<topic>.md` (see "The
    ticket-alignment todo" below) with `deps:` on every other ordinary slice.
@@ -731,7 +731,9 @@ Once the breakdown is settled:
    `deps: [99a]` frontmatter. It runs the
    bundle's tests and lint, and fixes what fails. When `00` stamps
    `frontend: true`, include the front-end critique block from that template;
-   a front-end bundle whose `99b` lacks it is malformed.
+   a front-end bundle whose `99b` lacks it is malformed. The exception is
+   `frontend_row: builder`, which takes the `## Browser function check` block
+   from that template instead (see "Front-end bundles").
 6. Write `99c_deliver_<topic>.md` last (see "The delivery todo" below) with
    `deps: [99b]` and the conflict-owning delivery
    contract. It merges the target branch into the campaign branch and re-checks
@@ -870,7 +872,9 @@ ships whatever the builder Shadow *claims* it looks like. This section is the
 one home for the three planning shapes that close that gap. Stamp
 `bundle_content: perceptual` in `00_overview.md` when the objective's
 `## Done when` contains any criterion a test cannot settle; skip the whole
-section otherwise. It adds machinery to nothing else.
+section otherwise. It adds machinery to nothing else. A `frontend_row: builder`
+bundle never stamps it: its critic row owns those criteria (see "Front-end
+bundles").
 
 **Everything below runs under the ONE campaign Alpha.** Builders, the
 evidence-tool slice, seam slices, critic gates, and corrective rounds are all
@@ -950,7 +954,9 @@ axis on that curve: in a bundle whose `00_overview.md` stamps
 `frontend: true`, every critique gate carries the **functional parity check**
 section below, a pass/fail check that fails the gate on any FAIL line whatever
 the score. A gate in any other bundle omits that section and keeps the generic
-rule: PASS at `≥ threshold` with zero errors in every JSON log.
+rule: PASS at `≥ threshold` with zero errors in every JSON log. A
+`frontend_row: builder` bundle has no critique gates, so none of this applies
+to it.
 
 Critique gates may run concurrently; `/execute-todos` owns the size of their
 pool. Each concurrent critic uses its own worktree, its own dev-server and e2e
@@ -1150,7 +1156,7 @@ leaving the gate to find living prose about dead code.
 
 ## The overview file (`00_overview.md`)
 
-Always the first file. It is **read-first context, never an executed todo** — `/execute-todos` loads it into every worker's prompt so each slice knows the whole it plugs into, and never runs a worker for it. It carries bundle metadata such as `todo_run_personality`, for bundles that change a web UI `frontend: true` (see "Front-end bundles"), and for a ticket-driven bundle `ticket: <key or URL>` (several tickets: comma-separated). A bundle is ticket-driven when the queue row carries a `TICKET:` block or the tasking names a ticket; the `ticket:` stamp is what "the overview names a ticket" means.
+Always the first file. It is **read-first context, never an executed todo** — `/execute-todos` loads it into every worker's prompt so each slice knows the whole it plugs into, and never runs a worker for it. It carries bundle metadata such as `todo_run_personality`, for bundles that change a web UI `frontend: true` and any `frontend_row:` (see "Front-end bundles"), and for a ticket-driven bundle `ticket: <key or URL>` (several tickets: comma-separated). A bundle is ticket-driven when the queue row carries a `TICKET:` block or the tasking names a ticket; the `ticket:` stamp is what "the overview names a ticket" means.
 
 It also carries a mandatory `## Exact user wording` section. Preserve the
 initial user request and every later amendment as separate, ordered, verbatim
@@ -1523,9 +1529,10 @@ lying under a directory named `web/`, `ui/`, `frontend/`, or `components/`.
 Decide this in step 2, from the `touches:` sets you have already settled; it
 is deterministic and costs nothing, unlike diffing at gate time. Stamp
 `frontend: true` in `00_overview.md`'s frontmatter and include the front-end
-critique block in `99b`. A bundle that turns out front-end only during
-execution (a slice touched markup the plan did not foresee) is an amendment:
-`00` gains the stamp and `99b` gains the block before `99b` runs.
+critique block in `99b`, unless the bundle stamps `frontend_row: builder`
+(below). A bundle that turns out front-end only during execution (a slice
+touched markup the plan did not foresee) is an amendment: `00` gains the stamps
+and `99b` gains the block they call for before `99b` runs.
 
 The rule exists because passing tests and a correct DOM do not prove a UI
 looks right. On 2026-09-08 a link that met every Playwright assertion still
@@ -1534,8 +1541,54 @@ describe, and prescribe the fix. The throne-local `frontend-critic` skill is
 the measured review that catches that before he sees it, and it also drives
 the state a change keeps through awkward orders (acting mid-request, leaving
 and coming back, returning from past the first page) and hunts the bugs its
-checklist misses. `99b` is where it runs for campaign work, because `99b` is
-the only moment the assembled UI exists to be looked at.
+checklist misses. A bundle with no `frontend_row:` runs it in `99b`, because
+`99b` is the only moment the assembled UI exists to be looked at. A critic
+bundle already has the assembled UI, delivered, so it runs the review from
+slice `01`.
+
+### The `frontend_row:` stamp — builder and critic rows
+
+That review takes far longer than the build, and working function comes first
+(Lord, 2026-11-05: "a quick first-round alpha (for functionality purposes
+usually) to finish first so that it can be used immediately"). So
+`/queue-objective` files a row that changes a web UI as two rows, a builder and
+a deferred critic. Each body carries one line, and one key in `00_overview.md`,
+beside `frontend: true`, tells the two bundles apart:
+
+| Body line | Stamp |
+| --- | --- |
+| `FRONTEND-ROW: builder, critic row <critic>` | `frontend_row: builder` |
+| `FRONTEND-ROW: critic of <builder>` | `frontend_row: critic` |
+
+- **`frontend_row: builder`** is stamped only when the body carries the builder
+  line AND `throne situation-brief --objective-code <builder>` lists the critic
+  under "Deferred rows waiting on this objective". Without both, the stamp is
+  refused: leave it out and the bundle keeps its `99b` critique, so a dropped
+  critic row costs speed and never the critic.
+
+  A builder bundle has no `## Front-end critique` block in `99b`, no
+  `NNz_critique_` gates, no `bundle_content: perceptual`, and no accessibility
+  review of any kind (keyboard walk, screen-reader checks,
+  `/screen-reader-check`, or the accessibility parts of `/frontend-critic`). A
+  builder `99b` that carries the critique block is malformed, and a stamped
+  builder whose `99b` lacks `## Browser function check` is malformed. Its gates
+  check function only, and it delivers as soon as they pass. Its Alpha then
+  asks for the critic's release by the "After the PASS" step of
+  `/execute-todos`.
+- **`frontend_row: critic`** is stamped when the body carries the critic line,
+  and it always also stamps `frontend: true`. Slice `01` first brings the tree
+  up to the target branch and confirms the builder's delivery commit is
+  present. If it is absent, the slice tells the Regent and parks on the
+  builder's Alpha, because a deferred row can launch early by design. The slice
+  then runs `/frontend-critic` and `/screen-reader-check` on the delivered
+  surfaces and fixes every defect they raise. That happens before `99a`, so the
+  conformance gate grades the fixed work. `99b` keeps the `## Front-end
+  critique` block, widened to `/screen-reader-check`, and finishes on empty
+  reports. `/screen-reader-check` runs its simulated pass; its real screen
+  reader pass stays a person's order, as that skill says.
+- **`frontend: true` with no `frontend_row:`** (a `/gauntlet` row, a row filed
+  before this rule, a row never split) keeps its `## Front-end critique` block
+  and its critique gates exactly as this skill describes them.
 
 ## The verify todo (`99b_verify_<topic>.md`)
 
@@ -1546,9 +1599,11 @@ the bundle's tests and lint/static analysis, fix whatever fails, and re-run
 until green; then hunt the whole diff for the bugs no test was written for,
 confirming each with a failing test (or, for UI behaviour, a recorded browser
 sequence) before fixing it. For a front-end bundle that job includes the
-`frontend-critic` review, and every defect it reports is a failure to fix;
-when the deliverable is a PR it also captures the change with `/pr-media`
-(screenshots, and every interaction the change touches recorded as
+`frontend-critic` review, and every defect it reports is a failure to fix; for
+a `frontend_row: builder` bundle it includes the browser function check
+instead, and every behaviour that does not work is a failure to fix. When a
+front-end bundle's deliverable is a PR it also captures the change with
+`/pr-media` (screenshots, and every interaction the change touches recorded as
 a video, as `/pr-media`'s video rule requires) into `~/tmp/pr-media-<pr>/`
 for `99c`'s `## Screenshots` section. It is a fixing gate, not a verdict gate
 — it commits its own repairs on the campaign branch. In `no-git` mode it runs
@@ -1655,11 +1710,21 @@ not slice by slice, and ask how it breaks.
   confirmed bug with its test and fix commit. A hunt that found nothing still
   lists what it examined.
 
-This hunt covers the whole diff. In a front-end bundle the critique below adds
-the critic's own front-end hunt; this one does not repeat the critic's
+This hunt covers the whole diff. When this todo carries the critique below, it
+adds the critic's own front-end hunt; this one does not repeat the critic's
 checklist.
 
-<!-- Include the block below only when 00_overview.md stamps frontend: true. -->
+<!-- Include the block below only when 00_overview.md stamps frontend_row: builder. -->
+## Browser function check
+
+This bundle is a builder row, so its gates check function only. Rebuild and
+serve the assembled candidate, confirm the served bytes carry the change, then
+perform each `## Done when` behaviour in Chromium with agent-browser. A
+behaviour that does not work is a failure you fix here and commit, exactly like
+a red test. Run no `/frontend-critic` review and no accessibility review; the
+critic row owns both.
+
+<!-- Include the block below only when 00_overview.md stamps frontend: true and not frontend_row: builder. -->
 ## Front-end critique
 
 This bundle changes a web UI. Rebuild and serve the assembled candidate,
@@ -1673,6 +1738,11 @@ box, an undersized click target, state lost or overwritten by a late answer)
 is a failure you fix here and commit, exactly like a red test. Re-run the
 critic after each fix and finish on an empty report.
 
+<!-- Include the paragraph below only when 00_overview.md stamps frontend_row: critic. -->
+This bundle is a critic row, so the surfaces include everything the builder
+delivered. Run `/screen-reader-check`'s simulated pass on them too, fix what it
+raises the same way, and finish on an empty report from both.
+
 ## Deliverable
 
 - End with exactly one `**Verify outcome:** PASS` or `**Verify outcome:** FAIL`.
@@ -1681,7 +1751,9 @@ critic after each fix and finish on an empty report.
   selected files, exit code and duration; the two Tier D decision lines; the
   bug-hunt list of
   state and contracts hunted, one line each, even when nothing was found; and
-  for a front-end bundle the critic's final empty report, naming Chromium.
+  with the critique block the critic's final empty report, naming Chromium, or
+  with the browser function check one line per behaviour performed, naming
+  Chromium. A critic row adds `/screen-reader-check`'s final empty report.
 - FAIL only when repair is genuinely impossible for you — a requirement nobody
   wrote, two slices whose designs contradict, or an environment you cannot fix.
   Name that precise blocker; never forward a raw test or lint failure as one.

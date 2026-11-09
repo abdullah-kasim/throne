@@ -143,7 +143,7 @@ export const HERDR_SERVER_SESSION_ARGUMENTS = [
 const LEFTOVER_TOKEN = /\{\{[^}\n]*\}\}/;
 
 /**
- * Sentinel exit code `runServiceManager` below synthesizes when the binary
+ * Marker exit code `runServiceManager` below synthesizes when the binary
  * can't be spawned at all (e.g. ENOENT), because Node reports a spawn failure
  * as a string `error.code` rather than a numeric status.
  *
@@ -154,7 +154,7 @@ const LEFTOVER_TOKEN = /\{\{[^}\n]*\}\}/;
  * man-page mirrors, never from a mac) enumerates no bounded set of codes, so a
  * real launchctl exiting 127 would be read as "launchctl absent".
  *
- * What the sentinel means is per-platform and per-caller: on linux a missing
+ * What the marker exit code means is per-platform and per-caller: on linux a missing
  * systemctl is a graceful skip, on mac a missing launchctl is a broken host.
  */
 export const SERVICE_MANAGER_ABSENT = 127;

@@ -119,10 +119,14 @@ export function renderSaveAnswer(attempt: SaveAttempt): string {
       return "Nothing to save; the entry is as it was.";
     case SaveOutcome.EntryChanged:
       return "Not saved: this entry changed since the page loaded, and nothing was overwritten.";
+    case SaveOutcome.EntryRepeated:
+      return "Not saved: this entry's text is on the page more than once, so the save cannot tell which one you mean, and nothing was overwritten.";
     case SaveOutcome.LockHeld:
       return `Not saved: the page's edit lock is held by ${attempt.holder}; save again once it is released.`;
     case SaveOutcome.FrameBroken:
       return `Not saved: the page would no longer keep its frame (${attempt.faults.join("; ")}).`;
+    case SaveOutcome.OutsideEpics:
+      return "Not saved: the page edits epics only, and this save would change the page outside ## Epics.";
     case SaveOutcome.Failed:
       return `Not saved: ${attempt.reason}.`;
   }

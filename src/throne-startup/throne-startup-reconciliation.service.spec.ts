@@ -13,10 +13,10 @@ import { harnessProvenance } from '../herdr/harness-provenance.ts';
 import type { HerdrAgent, HerdrForegroundProcess } from '../herdr/herdr-inventory.service.ts';
 import {
   REAL_DEPS as RESTART_HARNESSES_REAL_DEPS,
-  ensurePaneCarriesName,
   stopHarnessInPane,
   type RestartHarnessesDeps,
 } from '../restart-harnesses/restart-harnesses-runtime.ts';
+import { ensurePaneCarriesName } from '../restart-harnesses/restart-harnesses-relaunch.ts';
 import {
   REAL_RESUME_CONTRACT,
   ThroneStartupReconciliationService,

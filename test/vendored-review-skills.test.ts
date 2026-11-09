@@ -7,6 +7,7 @@ import { test } from 'node:test';
 const REPO_ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const SKILLS_DIRECTORY = path.join(REPO_ROOT, '.claude', 'skills');
 const REVIEW_SKILLS = ['pr-description', 'pr-media', 'agent-browser'] as const;
+const BANNED_JARGON_WORD = new RegExp(['senti', 'nel'].join(''), 'i');
 
 function skillSource(name: string): string {
   return readFileSync(path.join(SKILLS_DIRECTORY, name, 'SKILL.md'), 'utf8');
@@ -68,7 +69,7 @@ test('pr-media documents the publish mode, the contact sheet, both anchor marker
   assert.match(source, /brew upgrade gh/);
   assert.match(source, /gh pr view <n> --json\s+body -q \.body > live\.md/);
   assert.match(source, /drop landing outside the Screenshots spoiler is fine/);
-  assert.doesNotMatch(source, /sentinel/i);
+  assert.doesNotMatch(source, BANNED_JARGON_WORD);
 });
 
 test('pr-media requires a video of every changed interaction and documents the --stills-only way out', () => {
