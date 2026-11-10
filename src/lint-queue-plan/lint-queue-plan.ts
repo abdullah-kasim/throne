@@ -1,7 +1,7 @@
 import { accountLineFailureIn } from "../regent-queue/queue-row-account.ts";
 
 // Pure structural lint for a launch-ready consolidated plan body — the
-// mechanical half of the Stager consolidation checklist (AGENTS.md, "The
+// mechanical half of the Stager consolidation checklist (agent_docs/role-stager.md, "The
 // Stager", Lord-ordered 2026-08-19). The chain downstream of the Lord runs
 // on weaker models, so this lint's REFUSAL TEXT is the real interface: a
 // weak-model Stager does literally what the error says and nothing more.

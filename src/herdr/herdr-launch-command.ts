@@ -312,6 +312,8 @@ export function hideFromBashHistory(command: string): string {
   return ` ${command}`;
 }
 
+export const LAUNCH_REAPER_NAME = "throne-reaper";
+
 function harnessLifetimeCleanupScript(
   stagedArtifactPaths: readonly string[],
 ): string[] {
@@ -325,7 +327,7 @@ function harnessLifetimeCleanupScript(
   ].join("\n");
   return [
     "harness_pid=$$",
-    `{ setsid bash -c ${shellQuote(reaperProgram)} throne-reaper "$harness_pid" ${stagedArtifactPaths.map(shellQuote).join(" ")} </dev/null >/dev/null 2>&1 & } || :`,
+    `{ setsid bash -c ${shellQuote(reaperProgram)} ${LAUNCH_REAPER_NAME} "$harness_pid" ${stagedArtifactPaths.map(shellQuote).join(" ")} </dev/null >/dev/null 2>&1 & } || :`,
   ];
 }
 

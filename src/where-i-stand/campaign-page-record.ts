@@ -29,9 +29,7 @@ export type PageRecordVerdict =
   | { readonly recorded: true; readonly summary: string }
   | { readonly recorded: false; readonly reason: string };
 
-const PAGE_EDIT_FLOW =
-  '"throne where-i-stand show", then "throne where-i-stand lock --checksum <checksum>" run in the background, ' +
-  "a targeted edit of that entry with your edit tool, and stopping the lock";
+const PAGE_EDIT_FLOW = "\"throne where-i-stand put --code <code> --section '<section>' --text-file <file>\"";
 const SECTIONS_FOR_DELIVERED_WORK = [PageSection.DeliveredNotOnGitHub, PageSection.OnGitHub]
   .map((section) => `"${sectionHeadingOf(section)}"`)
   .join(" or ");

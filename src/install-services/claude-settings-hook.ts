@@ -21,11 +21,11 @@ export interface SettingsWithHookRegistered {
   change: SettingsHookRegistrationChange;
 }
 
-export type ClaudeHookEvent = 'PreToolUse' | 'PostToolUse' | 'SessionStart' | 'SessionEnd';
+export type ClaudeHookEvent = 'PreToolUse' | 'PostToolUse' | 'SessionStart' | 'SessionEnd' | 'UserPromptSubmit';
 
 export interface ClaudeSettingsHook {
   event: ClaudeHookEvent;
-  matcher: string;
+  matcher?: string;
   hookFileName: string;
 }
 
@@ -38,7 +38,10 @@ function isHookRunningFile(hook: unknown, hookFileName: string): boolean {
   return hook.command.includes(hookFileName);
 }
 
-function isEntryForMatcher(entry: unknown, matcher: string): entry is JsonObject & { hooks: unknown[] } {
+function isEntryForMatcher(
+  entry: unknown,
+  matcher: string | undefined,
+): entry is JsonObject & { hooks: unknown[] } {
   return isJsonObject(entry) && entry.matcher === matcher && Array.isArray(entry.hooks);
 }
 
@@ -81,7 +84,11 @@ export function withClaudeHookRegistered(
     nextEntries.push({ ...entry, hooks: keptHooks });
   }
   if (!placed) {
-    nextEntries.push({ matcher: hook.matcher, hooks: [commandHook] });
+    nextEntries.push(
+      hook.matcher === undefined
+        ? { hooks: [commandHook] }
+        : { matcher: hook.matcher, hooks: [commandHook] },
+    );
   }
   return {
     settings: { ...settings, hooks: { ...hooks, [hook.event]: nextEntries } },

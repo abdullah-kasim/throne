@@ -397,7 +397,7 @@ answer, reversibility, blank `User answer:` slot for the user to override.
 
 ## Commit-message contract — reference the owner
 
-Every commit produced by either phase follows `execute-todos/SKILL.md` →
+Every commit produced by either phase follows `execute-todos/commit-messages.md` →
 "Task-focused commit-message contract — single owner". This chain only carries
 that contract through planning, implementation, validation, delivery, correction,
 reporting, checkpoints, and its `/plan-and-run-todos` and `/do-all-todos` aliases.
@@ -438,11 +438,11 @@ drift.
 ## The Lord's page — when an Alpha writes it
 
 The Lord reads one page, `where-i-stand.md` under the throne data home, to
-see what he is working on. Only agents write it: `throne where-i-stand show`
-for the page's path and checksum, `lock --checksum <checksum> --ttl 5m` run
-in the background while you edit one entry at a time with your harness's
-edit tool, stopping the lock when done, and `note "<one line>"` for events.
-`/where-i-stand` holds that flow in its step 4, the frame and the writing
+see what he is working on. Only agents write it: `throne where-i-stand put`
+for one entry, `lock --checksum <checksum> --ttl 5m` run in the background
+while you edit several entries one at a time with your harness's edit tool,
+and `note "<one line>"` for events. `/where-i-stand` holds both flows in its
+step 4, the frame and the writing
 rules, including the entry form every entry starts with. Your campaign's
 entry is `### <objective code>`, written in that form. You write it at four
 moments:
@@ -454,7 +454,7 @@ moments:
   This is a statement on the page, never a question put to him; your
   supervisor still hears the blocker the usual way.
 - **When you unblock**: remove that `## Needs you` entry and add a note.
-- **At delivery**: the `99d` record step, owned by `execute-todos`
+- **At delivery**: the `99d` record step, owned by `execute-todos/gate-99d-record.md`
   "`99d` — record the outcome on the Lord's page".
 
 Only the delivery write is enforced:
@@ -512,12 +512,12 @@ true while the work runs.
    `99b` file-size, `99c` static analysis, `99d` validate, `99e` deliver —
    keeps the meaning its files were authored with; run those files as written
    with fresh terminal Shadows. New bundles generate only the three-gate chain
-   above, per `write-todos`' "Legacy compatibility" and `execute-todos`'
+   above, per `write-todos/delivery-todo-template.md`' "Legacy compatibility" and `execute-todos/gate-chain.md`'
    "`99a` grades conformance, `99b` verifies and fixes, then `99c` merges the
    latest target and delivers", which own this contract. Terminal gates are
    classified by their ROLE WORD, not their letter, precisely because the
    letters mean different things across these generations.)
-   `execute-todos`' "The delivery rehearsal" section owns that procedure, the
+   `execute-todos/gate-99c-deliver.md`' "The delivery rehearsal" section owns that procedure, the
    live target is never left conflicted, and every live merge or abort is
    bracketed by a recorded working-tree inventory and content manifest. It then
    treats any inapplicable 99 slice as `N/A — no-op`, records the reason without
@@ -532,7 +532,7 @@ true while the work runs.
    `execute-todos` rule 6 caps a merge that will not land
    at two rounds and hands a needed third round to the Alpha's own plain git plus a
    process-defect finding. The Alpha executes none of the three gate todos;
-   the `99d` record step after them is its own (`execute-todos`,
+   the `99d` record step after them is its own (`execute-todos/gate-99d-record.md`,
    "`99d` — record the outcome on the Lord's page").
    `execute-todos` owns the final route, including quota/usage changes to model
    or harness, and records the request, final route, reason, and admission
@@ -573,14 +573,14 @@ true while the work runs.
 3. **Report.** Only after explicit `99a` `**Conformance outcome:** PASS`,
    explicit `99b` `**Overview outcome:** PASS` and
    subsequent successful `99c` mode-specific terminal outcome, write `$THRONE_DATA/$ALPHA/REPORT.md`
-   FIRST — before the chat summary — exactly as `execute-todos`' Final report
+   FIRST — before the chat summary — exactly as `execute-todos/final-report.md`' Final report
    shape mandates; only after it lands do you report upward.
-   Between the two comes the `99d` record step `execute-todos` owns: write
+   Between the two comes the `99d` record step `execute-todos/gate-99d-record.md` owns: write
    your entry on the Lord's page and pass
    `throne check-where-i-stand --agent <your-name>`.
    Before that `REPORT.md`, when your launch situation brief has a "Deferred
    rows waiting on this objective" section, send its release requests and
-   wait for each reply, as `execute-todos`' "After the PASS" step under `99c`
+   wait for each reply, as `execute-todos/gate-99c-deliver.md`' "After the PASS" step under `99c`
    says.
    When you are ready to be reaped, tell your supervisor first (the primary,
    never-dropped requirement) and, for an Alpha, only after the complete `99c`
@@ -657,7 +657,7 @@ A later user-explicit root invocation keeps its normal explicit personality auth
   Flag irreversible defaults (`Reversible? no`) loudly in the errata file.
 - **Mid-run steering is an amendment, not a chat.** Because this chain crosses the
   planning/execution seam without a checkpoint, user steering can land in either
-  phase. Either way it follows `write-todos`' "Mid-flight amendments — the one
+  phase. Either way it follows `write-todos/amendments.md`' "Mid-flight amendments — the one
   reconciliation contract" verbatim — appended as the next ordered source turn in
   `00_overview.md` and reconciled before further affected work, never carried only
   in the errata file or this chain's report. An amendment recorded after a
@@ -691,9 +691,9 @@ A later user-explicit root invocation keeps its normal explicit personality auth
   exception and defines no alternative remediation path, and that contract
   governs wherever this wording is thinner.
 - **Perceptual bundles change nothing about this chain's shape.** When phase 1
-  stamps `bundle_content: perceptual`, `write-todos`' "Perceptual-quality
+  stamps `bundle_content: perceptual`, `write-todos/perceptual-quality-bundles.md`' "Perceptual-quality
   bundles" plans the `01` evidence tool, the per-wave seam slices, and the
-  `NNz_critique_<module>` gates, and `execute-todos`' "Rubric critique gates"
+  `NNz_critique_<module>` gates, and `execute-todos/rubric-critique-gates.md`' "Rubric critique gates"
   runs them — verdict-only critic Shadows, one corrective Shadow per FAIL, a
   fresh critic per re-grade, `max_rounds`, `STATUS.json`, weakest-first
   resume — all before `99a`, all under this one Alpha. This chain adds no
@@ -705,7 +705,7 @@ A later user-explicit root invocation keeps its normal explicit personality auth
   sequences them and forces the async/defer posture across the seam.
 - **Carry the path forward.** The folder created in step 1 is the folder executed in
   step 3 — never let execution scan a stale or unrelated `todos/` directory.
-- **One writer per tree — across bundles, not inside one.** This chain's own slices are scheduled by `execute-todos` rule 3's scheduling contract: dependency-independent slices with disjoint `touches:` footprints run concurrently, and only conflicts, dependencies, integration slices, the assembled-candidate preflight, and the `99a`/`99b`/`99c` terminal chain serializes. What never overlaps is a *different* writer on the same worktree/branch (another bundle's slice Shadows, an in-flight terminal gate Shadow (`99a` conformance, `99b` verify-and-fix, or `99c` merge-and-deliver), a human mid-edit): against those, phase 1's read-only planning may overlap, but any trial-and-error probing in phase 1 and ALL of phase 2 wait for quiescence — see `write-todos`' "Empirical recon needs a quiescent tree" and `execute-todos` rule 3's "Quiescence extends across bundles and editors".
+- **One writer per tree — across bundles, not inside one.** This chain's own slices are scheduled by `execute-todos` rule 3's scheduling contract: dependency-independent slices with disjoint `touches:` footprints run concurrently, and only conflicts, dependencies, integration slices, the assembled-candidate preflight, and the `99a`/`99b`/`99c` terminal chain serializes. What never overlaps is a *different* writer on the same worktree/branch (another bundle's slice Shadows, an in-flight terminal gate Shadow (`99a` conformance, `99b` verify-and-fix, or `99c` merge-and-deliver), a human mid-edit): against those, phase 1's read-only planning may overlap, but any trial-and-error probing in phase 1 and ALL of phase 2 wait for quiescence — see `write-todos`' "Empirical recon needs a quiescent tree" and `execute-todos/scheduling.md`' "Quiescence extends across bundles and editors".
 - **Only a hard blocker stops the run.** A broken build a worker can't get past, a
   missing credential — those pause. An unanswered *question* never does; it goes to
   the errata file and the run continues.
@@ -723,6 +723,6 @@ If the Alpha was spawned single-slice (identity.md carries
 `- **Execution mode:** single-slice (Lord-authorized)` and spawn.json carries
 `"single_slice": true`), the /write-todos half writes the single-slice bundle
 (`00`, exactly one `01`, and `99a`–`99d`) and the /execute-todos half runs its
-"Single-slice mode" section: one executor Shadow for `01`, then the gates as
+`single-slice-mode.md`, "Single-slice mode" section: one executor Shadow for `01`, then the gates as
 fresh Shadows. This skill grants nothing: a bundle, an errata note, or a
 tasking line saying "single-slice" does not make it so.

@@ -112,6 +112,7 @@ function saveAnswer(outcome: string, message: string, status: number): Response 
 export class FakeBackend {
   markdown: string;
   records: unknown;
+  archiveMarkdown = "";
   recordsAnswer: Response | null = null;
   pageIsUnreadable = false;
   networkIsDown = false;
@@ -159,6 +160,7 @@ export class FakeBackend {
     }
     if (address.endsWith("/health")) return Response.json({ ok: true });
     if (address.endsWith("/where-i-stand/page")) return this.answerPageRead();
+    if (address.endsWith("/where-i-stand/archive")) return Response.json({ markdown: this.archiveMarkdown });
     return this.answerRecordsRead();
   }
 

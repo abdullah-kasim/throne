@@ -54,7 +54,7 @@ test("no shipped skill or doc outside queue-objective and execute-todos still te
     return NEVER_STACK_WORDING.filter((wording) => text.includes(wording)).map((wording) => `${file}: ${wording}`);
   });
   assert.deepEqual(surviving, []);
-  for (const file of ["AGENTS.md", "agent_docs/commands.md"]) {
+  for (const file of ["agent_docs/role-stager.md", "agent_docs/commands.md"]) {
     assert.ok(
       readWithSingleSpaces(file).includes('"Prefer stacking"'),
       `${file} lets a pull request branch start from the open pull request it builds on`,

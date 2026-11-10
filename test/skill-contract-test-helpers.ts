@@ -48,8 +48,15 @@ export function unwrap(text: string): string {
   return text.replace(/\s*\n\s*/g, ' ');
 }
 
-export async function readSkillSource(name: string): Promise<string> {
-  return readFile(join(SKILLS_DIRECTORY, name, 'SKILL.md'), 'utf8');
+export async function readSkillSource(name: string, file = 'SKILL.md'): Promise<string> {
+  return readFile(join(SKILLS_DIRECTORY, name, file), 'utf8');
+}
+
+export async function readSkillFolderSource(name: string): Promise<string> {
+  const folder = join(SKILLS_DIRECTORY, name);
+  const files = readdirSync(folder).filter((file) => file.endsWith('.md')).sort();
+  const sources = await Promise.all(files.map((file) => readFile(join(folder, file), 'utf8')));
+  return sources.join('\n');
 }
 
 export async function readSkill(name: string): Promise<string> {

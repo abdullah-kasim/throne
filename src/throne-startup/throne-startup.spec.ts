@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
+import {
+  LIVE_QUEUE_ITEM_STATUSES,
+  renderRegentQueueAsMarkdown,
+} from "../regent-queue/regent-queue-render.ts";
+import { RegentQueueItemStatus } from "../regent-queue/regent-queue-item-state.ts";
+import type { RegentQueueItemRow, RegentQueueReadResult } from "../regent-queue/regent-queue.store.ts";
+import { resolveDigestReader, type DigestReader } from "./throne-startup-queue-digest.ts";
 import { pathExists } from "../git-lifecycle/git-command.service.ts";
 import { MOVED_NOTE_FILE_NAME } from "../migrate-home/migrate-home.ts";
 import { retiredBrowserProfilesDirectory } from "../migrate-home/migrate-home-items.ts";
@@ -38,7 +45,8 @@ function regentSessionStartWith(extraDeps: Record<string, unknown>): RegentSessi
     renameWorkspace: async () => {},
     throneRoot: THRONE_ROOT,
     installOmpExtension: async () => ({ kind: "already-installed" as const, target: "/x" }),
-    renderQueueDigest: async () => "",
+    readQueue: async () => ({ state: "positively-empty" as const }),
+    resolveDigestReader: async () => ({ kind: "whole-queue" as const }),
     readDesiredState: async () => DESIRED_STATES.RUNNING,
     reconcile: async (liveAgents: HerdrAgent[]) => {
       reconciledRosters.push(liveAgents);
@@ -247,4 +255,135 @@ test("throne startup never moves a browser profile", async () => {
 
   assert.equal(await readFile(path.join(oldProfile, "Cookies"), "utf8"), "signed in\n");
   assert.equal(await hasMovedNote(retiredBrowserProfilesDirectory(install.userHome)), false);
+});
+
+const LIVE_QUEUE: RegentQueueReadResult = {
+  state: "items",
+  items: [
+    queueRow("crumbcake", RegentQueueItemStatus.InFlight, "alpha-crumbcake-01", "full body of crumbcake"),
+    queueRow("ryeloaf", RegentQueueItemStatus.Open, null, "full body of ryeloaf"),
+    queueRow("scone", RegentQueueItemStatus.Deferred, null, "full body of scone"),
+    queueRow("landed", RegentQueueItemStatus.Complete, null, "full body of landed"),
+  ],
+};
+
+function queueRow(
+  objectiveCode: string,
+  status: RegentQueueItemStatus,
+  agentName: string | null,
+  body: string,
+): RegentQueueItemRow {
+  return {
+    id: `id-${objectiveCode}`,
+    objectiveCode,
+    status,
+    body,
+    prBranch: "main",
+    agentName,
+    targetRepo: "/repos/throne",
+    baseCommit: null,
+    deliveryCommit: null,
+    deliveryMirror: null,
+    absorption: null,
+    deferral: null,
+    priority: 0,
+    createdAt: 1,
+    updatedAt: 1,
+  } as unknown as RegentQueueItemRow;
+}
+
+function todaysDigest(): string {
+  return `throne-startup: QUEUE digest\n\n${renderRegentQueueAsMarkdown(LIVE_QUEUE, { statuses: LIVE_QUEUE_ITEM_STATUSES })}`;
+}
+
+async function dataDirectoryWith(identities: Record<string, string>): Promise<string> {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "startup-digest-"));
+  for (const [name, lines] of Object.entries(identities)) {
+    await mkdir(path.join(directory, name));
+    await writeFile(path.join(directory, name, "identity.md"), `# Identity — ${name}\n\n${lines}\n`);
+  }
+  return directory;
+}
+
+async function startupDigestFor(
+  t: TestContext,
+  sessionName: string,
+  resolveReader: (name: string | undefined) => Promise<DigestReader>,
+): Promise<string> {
+  const session = { ...regentSession, name: sessionName } as HerdrAgent;
+  const { deps } = regentSessionStartWith({
+    listAgents: async () => [session],
+    readQueue: async () => LIVE_QUEUE,
+    resolveDigestReader: resolveReader,
+    reconcile: undefined,
+  });
+  const written: string[] = [];
+  t.mock.method(process.stdout, "write", (chunk: string | Uint8Array) => {
+    written.push(String(chunk));
+    return true;
+  });
+  await run([], deps);
+  t.mock.restoreAll();
+  const digest = written.find((chunk) => chunk.startsWith("throne-startup: QUEUE digest"));
+  assert.ok(digest !== undefined, "the hook printed no queue digest");
+  return digest;
+}
+
+const IDENTITIES = {
+  "alpha-crumbcake-01": "- **Role:** Alpha\n- **Campaign objective code:** crumbcake",
+  "shadow-crumbcake-01-x": "- **Role:** Shadow\n- **Campaign objective code:** crumbcake",
+  "alpha-gone-01": "- **Role:** Alpha\n- **Campaign objective code:** gone",
+  "stager-floor": "- **Role:** Stager",
+};
+
+async function digestForRegisteredAgent(t: TestContext, name: string): Promise<string> {
+  const directory = await dataDirectoryWith(IDENTITIES);
+  return startupDigestFor(t, name, (readerName) => resolveDigestReader(readerName, directory));
+}
+
+test("the Regent's startup digest is byte-identical to today's for the same queue", async (t) => {
+  assert.equal(await digestForRegisteredAgent(t, REGENT_NAME), todaysDigest());
+});
+
+test("an agent with no registered identity still gets the full queue digest", async (t) => {
+  assert.equal(await digestForRegisteredAgent(t, "nobody-registered"), todaysDigest());
+});
+
+test("an Alpha's startup digest shows only its own row then the count of the others", async (t) => {
+  const digest = await digestForRegisteredAgent(t, "alpha-crumbcake-01");
+  assert.match(digest, /full body of crumbcake/);
+  assert.doesNotMatch(digest, /full body of ryeloaf|full body of scone|ryeloaf/);
+  assert.ok(digest.endsWith("2 other live rows; `throne render-queue` shows them\n"));
+});
+
+test("a Shadow's startup digest shows only its campaign's row then the count of the others", async (t) => {
+  const digest = await digestForRegisteredAgent(t, "shadow-crumbcake-01-x");
+  assert.match(digest, /full body of crumbcake/);
+  assert.doesNotMatch(digest, /ryeloaf|scone/);
+  assert.ok(digest.endsWith("2 other live rows; `throne render-queue` shows them\n"));
+});
+
+test("an Alpha whose objective has no live row gets only the one-line pointer", async (t) => {
+  assert.equal(
+    await digestForRegisteredAgent(t, "alpha-gone-01"),
+    "throne-startup: QUEUE digest\n\n3 other live rows; `throne render-queue` shows them\n",
+  );
+});
+
+test("a Stager's startup digest lists one line per live row without bodies", async (t) => {
+  assert.equal(
+    await digestForRegisteredAgent(t, "stager-floor"),
+    "throne-startup: QUEUE digest\n\n" +
+      "- crumbcake (in-flight), agent: alpha-crumbcake-01, repository: /repos/throne\n" +
+      "- ryeloaf (open), agent: none, repository: /repos/throne\n" +
+      "- scone (deferred), agent: none, repository: /repos/throne\n\n" +
+      "3 other live rows; `throne render-queue` shows them\n",
+  );
+});
+
+test("a failure working out the role falls back to the full queue digest", async (t) => {
+  const digest = await startupDigestFor(t, "stager-floor", async () => {
+    throw new Error("identity ledger unreadable");
+  });
+  assert.equal(digest, todaysDigest());
 });

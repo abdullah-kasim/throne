@@ -50,6 +50,8 @@ node <skill-dir>/scripts/update-harness.mjs update \
 
 Use `--harness codex` for Codex. The updater obtains `@anthropic-ai/claude-code` or `@openai/codex` metadata from the authoritative npm registry, requires matching package identity, registry-hosted tarball provenance, and SHA-512 integrity, then extracts outside active paths. It probes version, help, auth/login help, resume, remote/cloud help, the matching `claudey`/`codexy` launcher with a staged-binary override, and the throne launcher test `test/ompy-launcher.test.ts`. Create-agent is not probed, and the evidence's `probes` field says so. None of these probes may create a live agent, authenticate, mutate a remote session, touch Herdr, or mutate GitHub.
 
+For Claude, `--model-session-check` on `update` or `check` asks the binary which model id each of fable, opus, sonnet and haiku runs as, and an id the registry cannot resolve fails `update` (or is reported by `check`) naming `src/harness-routing/model-registry.ts`. It is off by default because the binary lists no model ids, so each alias costs one paid one-line session.
+
 On a passing probe, `update` rewrites `vendor-pins.json` (preserving its
 `_comment` array byte-for-byte) and `vendor/package.json` to the new version,
 runs `npm install --prefix vendor`, refreshes the `install.sh` vendor stamp,

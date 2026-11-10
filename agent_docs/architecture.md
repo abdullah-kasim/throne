@@ -752,7 +752,7 @@ commands in detail.
 ### Surfacing the queue at launch
 
 A booting Regent holds nothing in conversation, so its situational awareness must
-be reconstructed from disk (the "Regent's boot ritual" in `AGENTS.md`). To make
+be reconstructed from disk (the "Regent's boot ritual" in `agent_docs/role-regent.md`). To make
 that automatic, `throne-startup`'s confirmed-throne-root branch prints a compact
 digest of the Regent's durable backlog — the in-flight (🟢) and next-up (⚪)
 objective headings of `~/.throne/data/regent/QUEUE.md`, plus the file's

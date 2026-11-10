@@ -6,7 +6,7 @@ import { missingPhrases, readMarkdownSection } from './skill-contract-test-helpe
 import { parseReportOutcome, ReportOutcomeState } from '../src/reap-agent/report-outcome.ts';
 import { QueueOutcome } from '../src/regent-queue/regent-queue-outcome.ts';
 
-const EXECUTE_TODOS_SKILL = resolve(import.meta.dirname, '..', '.claude/skills/execute-todos/SKILL.md');
+const EXECUTE_TODOS_SKILL = resolve(import.meta.dirname, '..', '.claude/skills/execute-todos/final-report.md');
 
 function fencedMarkdownExamples(section: string): string[] {
   return [...section.matchAll(/```markdown\n([\s\S]*?)```/g)].map((match) => match[1]);

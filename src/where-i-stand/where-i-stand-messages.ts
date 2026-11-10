@@ -2,6 +2,7 @@ import { FRAME_HEADINGS, type PageEntry } from "./page-frame.ts";
 import type { EntryChanges } from "./page-journal.ts";
 import type { ReleasedEditLock } from "./edit-lock.ts";
 import type { UnrecordedEdit } from "./unrecorded-edit.ts";
+import { ENTRY_OPENING_LINES, PutOutcome, SECTIONS_PUT_ACCEPTS, type PutAttempt } from "./page-put.ts";
 import { SaveOutcome, type SaveAttempt } from "./page-save.ts";
 import { stillSays } from "./same-work-entries.ts";
 
@@ -13,6 +14,9 @@ function refusalOpening(unrecordedEditWasJournaled: boolean): string {
   return unrecordedEditWasJournaled ? ONLY_THE_UNRECORDED_EDIT_WAS_JOURNALED : NOTHING_WAS_WRITTEN;
 }
 
+export const PUT_ONE_ENTRY =
+  "For one entry, run \"throne where-i-stand put --code <code> --section '<section>' --text-file <file>\"; for edits across several entries:";
+
 export const PAGE_EDIT_STEPS = [
   '1. Run "throne where-i-stand show". It prints the page on stdout, and its path and checksum on stderr. Read the page with your own file tool at that path.',
   '2. Run "throne where-i-stand lock --checksum <checksum> --ttl 5m" in the background, with your harness\'s own way to run a command in the background. It prints one line saying who holds the lock and until when, then waits. If it refuses because the page changed or another lock is held, show and read the page again, then lock again.',
@@ -22,7 +26,7 @@ export const PAGE_EDIT_STEPS = [
 ].join("\n");
 
 export function renderWriteIsGone(): string {
-  return `${NOTHING_WAS_WRITTEN} "throne where-i-stand write" no longer exists. Edit the page in place instead:\n${PAGE_EDIT_STEPS}\n`;
+  return `${NOTHING_WAS_WRITTEN} "throne where-i-stand write" no longer exists. ${PUT_ONE_ENTRY}\n${PAGE_EDIT_STEPS}\n`;
 }
 
 function listOf(identities: readonly string[]): string {
@@ -129,5 +133,22 @@ export function renderSaveAnswer(attempt: SaveAttempt): string {
       return "Not saved: the page edits epics only, and this save would change the page outside ## Epics.";
     case SaveOutcome.Failed:
       return `Not saved: ${attempt.reason}.`;
+  }
+}
+
+export function renderPutRefusal(attempt: Exclude<PutAttempt, { outcome: typeof PutOutcome.Written | typeof PutOutcome.Unchanged }>): string {
+  switch (attempt.outcome) {
+    case PutOutcome.EpicsRefused:
+      return `${NOTHING_WAS_WRITTEN} Only the Lord edits "## Epics", so put does not write there.\n`;
+    case PutOutcome.UnknownSection:
+      return `${NOTHING_WAS_WRITTEN} "${attempt.section}" is not a section put writes to; use one of ${SECTIONS_PUT_ACCEPTS.map((section) => `"${section}"`).join(", ")}.\n`;
+    case PutOutcome.OpeningLineMissing:
+      return `${NOTHING_WAS_WRITTEN} The entry must start with the lines ${ENTRY_OPENING_LINES.map((line) => `"${line}"`).join(", ")} in that order, and its "${attempt.line}" line is missing.\n`;
+    case PutOutcome.FrameBroken:
+      return renderBrokenFrameOnNote(attempt.faults, attempt.unrecordedEdit !== undefined);
+    case PutOutcome.HeldByAnother:
+      return renderHeldByAnother(attempt.holder);
+    case PutOutcome.PageChanged:
+      return `${refusalOpening(attempt.unrecordedEdit !== undefined)} The page changed while the entry was being put; run put again.\n`;
   }
 }

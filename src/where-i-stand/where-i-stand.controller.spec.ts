@@ -10,7 +10,7 @@ import { startWebListener } from "../web-listener/web-listener-app.ts";
 import { EditLockOutcome, releaseEditLock, takeEditLock } from "./edit-lock.ts";
 import { versionOf } from "./page-frame.ts";
 import { readJournal, UNRECORDED_WRITER } from "./page-journal.ts";
-import { pagePathIn } from "./page-store.ts";
+import { archivePathIn, pagePathIn } from "./page-store.ts";
 import { SAVE_INPUT_REFUSED } from "./where-i-stand-messages.ts";
 import { runWhereIStand, WhereIStandExitCode } from "./where-i-stand-runtime.ts";
 import {
@@ -193,6 +193,20 @@ test("a page that was never written answers 404 with a message", async (t) => {
 
   assert.equal(response.status, 404);
   assert.deepEqual(await response.json(), { outcome: "failed", message: "The page has not been written yet." });
+});
+
+test("the archive comes back from the api read only, and a missing archive reads as empty", async (t) => {
+  const room = await roomHolding(t, PAGE);
+
+  assert.deepEqual(await (await get("archive")).json(), { markdown: "" });
+
+  await writeFile(archivePathIn(room.dataHome), `## Delivered, not on GitHub\n\n${FLOUR_DEAL}\n`);
+  const response = await get("archive");
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-cache");
+  assert.deepEqual(await response.json(), { markdown: `## Delivered, not on GitHub\n\n${FLOUR_DEAL}\n` });
+  assert.equal((await fetch(`${address}/api/where-i-stand/archive`, { method: "POST" })).status, 404);
 });
 
 test("the pull request records come back from the api", async () => {

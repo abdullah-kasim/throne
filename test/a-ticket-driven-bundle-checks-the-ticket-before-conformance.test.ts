@@ -4,21 +4,21 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { missingPhrases, readMarkdownSection } from "./skill-contract-test-helpers.ts";
 
-const WRITE_TODOS_SKILL = resolve(import.meta.dirname, "..", ".claude/skills/write-todos/SKILL.md");
+const WRITE_TODOS_FOLDER = resolve(import.meta.dirname, "..", ".claude/skills/write-todos");
 
-async function writeTodosSection(heading: string): Promise<string> {
-  const source = await readFile(WRITE_TODOS_SKILL, "utf8");
+async function writeTodosSection(heading: string, fileName = "SKILL.md"): Promise<string> {
+  const source = await readFile(resolve(WRITE_TODOS_FOLDER, fileName), "utf8");
   const section = readMarkdownSection(source, heading);
   assert.notEqual(section, "", `write-todos has a section headed ${heading}`);
   return section.replace(/\s+/g, " ");
 }
 
-const ticketAlignmentHeading = "## The ticket-alignment todo (`98_ticket_<topic>.md`)";
-const conformanceHeading = "## The conformance todo (`99a_conform_<topic>.md`)";
-const deliveryHeading = "## The delivery todo (`99c_deliver_<topic>.md`)";
+const ticketAlignmentHeading = "# The ticket-alignment todo (`98_ticket_<topic>.md`)";
+const conformanceHeading = "# The conformance todo (`99a_conform_<topic>.md`)";
+const deliveryHeading = "# The delivery todo (`99c_deliver_<topic>.md`)";
 
 test("a ticket-driven bundle gets a verdict-only ticket-alignment todo that depends on every ordinary slice", async () => {
-  const ticketAlignment = await writeTodosSection(ticketAlignmentHeading);
+  const ticketAlignment = await writeTodosSection(ticketAlignmentHeading, "ticket-todo-template.md");
   assert.deepEqual(
     missingPhrases(ticketAlignment, [
       "the queue row carries a `TICKET:` block, or `00_overview.md` stamps `ticket:`",
@@ -45,7 +45,7 @@ test("a ticket-driven bundle gets a verdict-only ticket-alignment todo that depe
 });
 
 test("the ticket-alignment todo runs the global ticket-check with the row's rulings and every amendment, and ends with a PASS or FAIL outcome line", async () => {
-  const ticketAlignment = await writeTodosSection(ticketAlignmentHeading);
+  const ticketAlignment = await writeTodosSection(ticketAlignmentHeading, "ticket-todo-template.md");
   assert.deepEqual(
     missingPhrases(ticketAlignment, [
       "It runs the global `/ticket-check` skill on the campaign branch candidate",
@@ -59,7 +59,7 @@ test("the ticket-alignment todo runs the global ticket-check with the row's ruli
 });
 
 test("the ticket-alignment todo writes its differences and warning block to the bundle for delivery", async () => {
-  const ticketAlignment = await writeTodosSection(ticketAlignmentHeading);
+  const ticketAlignment = await writeTodosSection(ticketAlignmentHeading, "ticket-todo-template.md");
   assert.deepEqual(
     missingPhrases(ticketAlignment, [
       "it writes `ticket-warning.md` into the bundle folder",
@@ -72,7 +72,7 @@ test("the ticket-alignment todo writes its differences and warning block to the 
 });
 
 test("conformance depends on the ticket-alignment todo and fails unless its outcome is PASS", async () => {
-  const conformance = await writeTodosSection(conformanceHeading);
+  const conformance = await writeTodosSection(conformanceHeading, "conformance-todo-template.md");
   assert.deepEqual(
     missingPhrases(conformance, [
       "`99a`'s `deps:` include it, and `99a` FAILs unless that todo's file carries `**Ticket alignment outcome:** PASS` on its own line",
@@ -84,7 +84,7 @@ test("conformance depends on the ticket-alignment todo and fails unless its outc
 });
 
 test("the delivery todo puts the warning block in a Ticket Status section at the bottom of the pull request body", async () => {
-  const delivery = await writeTodosSection(deliveryHeading);
+  const delivery = await writeTodosSection(deliveryHeading, "delivery-todo-template.md");
   assert.deepEqual(
     missingPhrases(delivery, [
       "`99c` puts that block verbatim at the very bottom of the PR body, after `## Agents`, as the `## Ticket Status` section `/pr-description` describes",
@@ -98,7 +98,7 @@ test("the delivery todo puts the warning block in a Ticket Status section at the
 });
 
 test("the ticket-alignment numbering is documented beside the terminal filename rule", async () => {
-  const delivery = await writeTodosSection(deliveryHeading);
+  const delivery = await writeTodosSection(deliveryHeading, "delivery-todo-template.md");
   const terminalFilenameRule = delivery.indexOf("Keep the verb in every terminal filename");
   const numberingNote = delivery.indexOf("`98_ticket_<topic>` keeps its role word too.");
   assert.notEqual(terminalFilenameRule, -1);

@@ -66,13 +66,11 @@ below the row's highest amendment: the push guard and `merge-git-tree` both run
 The row's entry on the Lord's page (`### <code>` in `where-i-stand.md`)
 says in its `Kind:` and `Where it stands:` lines what the work is. When the
 amendment changes that, correct the entry in the same sitting, keeping the
-page's entry form: `throne where-i-stand show`, read the page at the path it
-prints, run `throne where-i-stand lock --checksum <checksum> --ttl 5m` in
-the background, edit that entry alone with your harness's edit tool, stop
-the lock and read its output, then
-`throne where-i-stand note "amended <code>: <what changed>"`. An amendment
-that leaves those lines true needs no edit. `/where-i-stand` holds the
-page's writing rules and step 4 there gives the lock in full.
+page's entry form: write the corrected entry to a file and run
+`throne where-i-stand put --code <code> --section "<its section>" --text-file <file>`,
+then `throne where-i-stand note "amended <code>: <what changed>"`. An
+amendment that leaves those lines true needs no edit. `/where-i-stand` holds
+the page's writing rules and step 4 there gives `put` in full.
 
 ## Check before you run it
 

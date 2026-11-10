@@ -184,7 +184,7 @@ test("tabs name only their words until the counts are known", async () => {
   backend.pageIsUnreadable = true;
   const page = await openPage(backend);
 
-  expect(page.tabs().map((tab) => tab.getAttribute("aria-label"))).toEqual(["Now", "Epics", "Queue", "Delivered", "Pull requests"]);
+  expect(page.tabs().map((tab) => tab.getAttribute("aria-label"))).toEqual(["Now", "Epics", "Queue", "Delivered", "Pull requests", "Archive"]);
 });
 
 test("the page's title and its one first-level heading are Where I stand", async () => {

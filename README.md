@@ -29,7 +29,12 @@ Code and no Codex on it is the expected starting point.
    codex       # also fine
    ```
 
-3. **Ask the agent to run the installer**, in so many words:
+3. **Ask the agent to install throne** with `/install-throne`. It asks
+   whether to install Forgejo too, installs any missing Podman, Docker
+   compatibility and Docker CLI, runs the installers until clean, and checks
+   that the herdr service, the Regent and a Stager are up. Run it again
+   (or `/reinstall-throne`) after an update or to repair a broken install.
+   Without the skill, ask in so many words:
 
    > Run `./install.sh` and keep going until it finishes clean.
 

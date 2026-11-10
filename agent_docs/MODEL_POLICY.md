@@ -51,6 +51,60 @@ registered resumes retain their stored harness, model, and effort, subject to
 their existing lifecycle and availability checks. Effort is a launch setting;
 it neither ranks models nor alters admission.
 
+## Find the reader first
+
+Whoever writes a plan for another agent (a queue body, a todo bundle, a task
+split, a fork's brief) first finds which model and effort will read it, shapes
+the plan for that reader, and records who it was written for. Finding the
+reader reads the route; it never chooses or changes one.
+
+1. **How to find the reader**, in this order:
+   - The row's own order: its `--model-hint` and `--effort`, shown by
+     `throne render-queue`. The Lord gave those for that objective.
+   - Else the live route for the role that will read the plan:
+     `throne check-config` prints Alpha, Shadow and ShadowSlice99, each with
+     its model and effort. A campaign role pin or allowlist, where one exists,
+     narrows it (see "Campaign model allowlist operator override" below).
+   - Else, when a pool holds several models or nothing can be read, the
+     weakest model and lowest effort the reader could be. This is the old
+     "write for the weakest configured reader" rule, kept as the fallback.
+
+   Different plans have different readers: a queue body and a fork's brief are
+   read by the Alpha or the forked Stager; ordinary todo files by the Shadow
+   route; the 99 gate files by ShadowSlice99.
+
+2. **Read that model's guidance** when the machine has any: the per-model files
+   /gap-analysis-model writes, at the place its "Guidance output configuration"
+   names. No file for the model means go by item 3 alone.
+
+3. **What changes with the reader.** Effort counts as much as the model: the
+   same model at low effort is a weaker reader than at high effort.
+   - A weaker or lower-effort reader: smaller slices, each independently
+     executable; every fork carries a default; every sweep carries its literal
+     command and a stopping condition; files named by path; traps stated as
+     traps; the reuse list exact; acceptance given as commands to run.
+   - A stronger, higher-effort reader: state the outcome, the constraints, the
+     traps and the acceptance, and leave the steps to it; fewer and larger
+     slices; no line-by-line prescription, because a strong reader follows a
+     wrong prescription faithfully and a plan that dictates every step hides
+     the goal.
+   - Always, for every reader: the Lord's rulings quoted, verified nouns, the
+     reuse survey, the no-ask rule. These never thin out for a strong reader.
+   - A reader from another model family: read that family's guidance first,
+     since its failure modes differ.
+
+4. **Record it** in one line:
+   `Written for: <harness>/<model> at effort <n> (<how it was found>)`.
+   It goes under `RULINGS:` in a queue body or a fork's brief, and in
+   `00_overview.md` in a bundle (`verify.md` for a sliceless one).
+
+5. **When the reader changes** after the plan was written (the Lord re-routes
+   the campaign with /switch-campaign-model, or a row launches on another model
+   than it was written for): the Alpha compares the recorded line with its own
+   model at launch. When it is the weaker of the two, it treats the body as
+   under-specified, does its own recon before planning, and records that it
+   did. Nobody re-files the row.
+
 ## Campaign model allowlist operator override
 
 A campaign Alpha owns its allowlist at:

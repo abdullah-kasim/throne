@@ -2,12 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { missingPhrases, readMarkdownSection } from "./skill-contract-test-helpers.ts";
+import { missingPhrases, readMarkdownSection, readSkillFolderSource } from "./skill-contract-test-helpers.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
 async function readPullRequestDelivery(): Promise<string> {
-  const skill = await readFile(path.join(ROOT, ".claude/skills/execute-todos/SKILL.md"), "utf8");
+  const skill = await readFile(path.join(ROOT, ".claude/skills/execute-todos/gate-99c-deliver.md"), "utf8");
   const section = readMarkdownSection(skill, "#### Pull-request delivery — when the deliverable is a PR, not a merge");
   assert.notEqual(section, "", "execute-todos has no Pull-request delivery section");
   return section.replace(/\s*\n\s*/g, " ");
@@ -40,7 +40,7 @@ test("a stacked pull request body says which pull request it is stacked on and t
 });
 
 test("execute-todos no longer tells a campaign to copy another pull request's function under a twin name", async () => {
-  const skill = await readFile(path.join(ROOT, ".claude/skills/execute-todos/SKILL.md"), "utf8");
+  const skill = await readSkillFolderSource("execute-todos");
   const unwrapped = skill.replace(/\s*\n\s*/g, " ");
   const survivingOldRule = [
     "stands on the default branch, never on another PR",

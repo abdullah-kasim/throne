@@ -20,6 +20,7 @@ import {
   git,
   makeThroneRoot,
   writeJson,
+  writeExecutable,
   writePathBinary,
   writeVendoredClaude,
 } from './update-harness-fixtures.mjs';
@@ -259,6 +260,93 @@ test('rollback restores the previous pin from evidence and re-vendors it', () =>
     assert.equal(vendoredVersion, '2.1.226 (Claude Code)');
     assert.equal(evidence.vendoredVersion, '2.1.226 (Claude Code)');
     assert.equal(evidence.mutableServiceCaveat.includes('registry access'), false);
+  } finally {
+    process.env.PATH = originalPath;
+  }
+});
+
+function runModelCheckedUpdate(reportedModelId) {
+  const root = mkdtempSync(path.join(tmpdir(), 'update-harness-model-ids-'));
+  const throneRoot = makeThroneRoot(root, { pinnedVersion: '2.1.226' });
+  writeVendoredClaude(throneRoot, '2.1.226');
+  const npmDir = fakeNpmDir(root, { latestVersion: '2.1.267', reportedModelId });
+  const throneDir = fakeThroneDir(root);
+  const managedRoot = path.join(root, 'managed');
+  mkdirSync(managedRoot, { recursive: true });
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${npmDir}:${throneDir}:${originalPath}`;
+  try {
+    return {
+      throneRoot,
+      outcome: () => runUpdate({
+        harness: 'claude',
+        throneRoot,
+        managedRoot,
+        registry: 'https://registry.npmjs.org',
+        evidencePath: path.join(root, 'evidence.json'),
+        modelSessionCheck: true,
+      }),
+      restorePath: () => { process.env.PATH = originalPath; },
+    };
+  } catch (error) {
+    process.env.PATH = originalPath;
+    throw error;
+  }
+}
+
+test('a claude update whose candidate reports a model id the registry cannot resolve fails naming the id and the registry file', () => {
+  const update = runModelCheckedUpdate('claude-zeta-9-9');
+  try {
+    assert.throws(update.outcome, /claude-zeta-9-9.*src\/harness-routing\/model-registry\.ts/);
+    assert.equal(JSON.parse(readFileSync(path.join(update.throneRoot, 'vendor-pins.json'), 'utf8')).harnesses.claude.version, '2.1.226');
+  } finally {
+    update.restorePath();
+  }
+});
+
+test('a claude update whose candidate reports only known model ids proceeds', () => {
+  const update = runModelCheckedUpdate('claude-fable-5-2');
+  try {
+    const evidence = update.outcome();
+    assert.equal(evidence.newVersion, '2.1.267');
+    assert.ok(evidence.probes.some((probe) => probe.includes('model ids')));
+  } finally {
+    update.restorePath();
+  }
+});
+
+test('a claude check reports a model id the registry cannot resolve', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'update-harness-check-model-ids-'));
+  const throneRoot = makeThroneRoot(root, { pinnedVersion: '2.1.226' });
+  writeExecutable(
+    path.join(throneRoot, 'vendor', 'node_modules', '.bin', 'claude'),
+    `#!/usr/bin/env node\nif (process.argv.includes('-p')) process.stdout.write(${JSON.stringify(JSON.stringify({ modelUsage: { 'claude-zeta-9-9': {} } }))});\nelse process.stdout.write('2.1.226 (Claude Code)\\n');\n`,
+  );
+  const npmDir = fakeNpmDir(root, { latestVersion: '2.1.226' });
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${npmDir}:${originalPath}`;
+  try {
+    const state = resolveHarnessState({ harness: 'claude', throneRoot, modelSessionCheck: true });
+    assert.deepEqual(state.unresolvedModelIds, ['claude-zeta-9-9']);
+    assert.match(renderCheckReport(state), /claude-zeta-9-9.*src\/harness-routing\/model-registry\.ts/);
+  } finally {
+    process.env.PATH = originalPath;
+  }
+});
+
+test('without the model session check neither update nor check starts a model session', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'update-harness-no-session-'));
+  const throneRoot = makeThroneRoot(root, { pinnedVersion: '2.1.226' });
+  writeExecutable(
+    path.join(throneRoot, 'vendor', 'node_modules', '.bin', 'claude'),
+    `#!/usr/bin/env node\nif (process.argv.includes('-p')) process.exit(70);\nprocess.stdout.write('2.1.226 (Claude Code)\\n');\n`,
+  );
+  const npmDir = fakeNpmDir(root, { latestVersion: '2.1.226' });
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${npmDir}:${originalPath}`;
+  try {
+    const state = resolveHarnessState({ harness: 'claude', throneRoot });
+    assert.equal(state.unresolvedModelIds, undefined);
   } finally {
     process.env.PATH = originalPath;
   }

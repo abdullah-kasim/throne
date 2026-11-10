@@ -5,7 +5,7 @@ import { FakeBackend, openPage, SAMPLE_MARKDOWN, SAMPLE_RECORDS, startOpeningPag
 
 const TAB_WIDTH = 100;
 const TABS_THAT_FIT = 3;
-const TAB_NAMES = ["Now", "Epics", "Queue", "Delivered", "Pull requests"];
+const TAB_NAMES = ["Now", "Epics", "Queue", "Delivered", "Pull requests", "Archive"];
 const SPELT_MARKDOWN = SAMPLE_MARKDOWN.replace("Order rye flour", "Order spelt flour");
 const MARKDOWN_WITH_NOTHING_NEEDING_YOU = `## Needs you
 
@@ -123,7 +123,7 @@ async function openPageWithRecordsOnTheirWay(hash = ""): Promise<OpenedPage> {
   const backend = new FakeBackend();
   backend.holdRecordsReads = true;
   const page = startOpeningPage(backend, hash);
-  await waitFor(() => expect(labelsOf(page).slice(0, -1)).toEqual(LABELS_WITHOUT_PULL_REQUESTS));
+  await waitFor(() => expect(labelsOf(page).slice(0, -2)).toEqual(LABELS_WITHOUT_PULL_REQUESTS));
   await waitFor(() => expect(backend.heldRecordsReads).toHaveLength(1));
   return page;
 }
@@ -163,14 +163,14 @@ test("the Pull requests tab is scrolled inside its bar when its count arrives af
 test("the Pull requests tab shows no count until the records have answered", async () => {
   const page = await openPageWithRecordsOnTheirWay("#pull-requests");
 
-  expect(labelsOf(page)).toEqual([...LABELS_WITHOUT_PULL_REQUESTS, "Pull requests"]);
-  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", undefined]);
+  expect(labelsOf(page)).toEqual([...LABELS_WITHOUT_PULL_REQUESTS, "Pull requests", "Archive"]);
+  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", undefined, undefined]);
   expect(page.panel().querySelector("table")).toBeNull();
   expect(page.spoilers()).toEqual([]);
 
   await answerTheRecords(page);
 
-  expect(labelsOf(page)).toEqual([...LABELS_WITHOUT_PULL_REQUESTS, "Pull requests, 3 items"]);
+  expect(labelsOf(page)).toEqual([...LABELS_WITHOUT_PULL_REQUESTS, "Pull requests, 3 items", "Archive"]);
   expect(countOf(page.tab("Pull requests"))).toBe("3");
 });
 
@@ -179,8 +179,8 @@ test("a failed read of the records shows no count on the Pull requests tab", asy
   backend.recordsAnswer = new Response("missing", { status: 404 });
   const page = await openPage(backend, "#pull-requests");
 
-  expect(labelsOf(page)).toEqual([...LABELS_WITHOUT_PULL_REQUESTS, "Pull requests"]);
-  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", undefined]);
+  expect(labelsOf(page)).toEqual([...LABELS_WITHOUT_PULL_REQUESTS, "Pull requests", "Archive"]);
+  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", undefined, undefined]);
   expect(page.panel().textContent).toContain("Could not fetch the pull request records");
 });
 
@@ -197,13 +197,14 @@ test("a failed refresh keeps the count of the records still shown", async () => 
 test("each tab shows how many entries it holds", async () => {
   const page = await openPage();
 
-  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", "3"]);
+  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", "3", undefined]);
   expect(page.tabs().map((tab) => tab.getAttribute("aria-label"))).toEqual([
     "Now, 3 items, 2 needs you",
     "Epics, 2 items",
     "Queue, 1 item",
     "Delivered, 2 items",
     "Pull requests, 3 items",
+    "Archive",
   ]);
 
   await page.refreshWith(SAMPLE_MARKDOWN.replace("### alpha-flour", "### alpha-flour\n\n### alpha-spelt"));
@@ -214,7 +215,7 @@ test("Now highlights the Needs you count only when something needs you", async (
   const page = await openPage();
 
   expect(highlightOf(page.tab("Now"))?.textContent).toBe("2");
-  expect(page.tabs().slice(1).map(highlightOf)).toEqual([null, null, null, null]);
+  expect(page.tabs().slice(1).map(highlightOf)).toEqual([null, null, null, null, null]);
 
   await page.refreshWith(MARKDOWN_WITH_NOTHING_NEEDING_YOU);
   expect(highlightOf(page.tab("Now"))).toBeNull();
@@ -226,8 +227,8 @@ test("arrow keys move between tabs and wrap", async () => {
   page.tab("Now").focus();
 
   await page.user.keyboard("{ArrowLeft}");
-  await waitFor(() => expect(page.selectedTabs()).toEqual(["Pull requests"]));
-  expect(document.activeElement).toBe(page.tab("Pull requests"));
+  await waitFor(() => expect(page.selectedTabs()).toEqual(["Archive"]));
+  expect(document.activeElement).toBe(page.tab("Archive"));
 
   await page.user.keyboard("{ArrowRight}");
   await waitFor(() => expect(page.selectedTabs()).toEqual(["Now"]));
@@ -237,7 +238,7 @@ test("arrow keys move between tabs and wrap", async () => {
   expect(document.activeElement).toBe(page.tab("Epics"));
 
   await page.user.keyboard("{End}");
-  await waitFor(() => expect(page.selectedTabs()).toEqual(["Pull requests"]));
+  await waitFor(() => expect(page.selectedTabs()).toEqual(["Archive"]));
 
   await page.user.keyboard("{Home}");
   await waitFor(() => expect(page.selectedTabs()).toEqual(["Now"]));
@@ -257,7 +258,7 @@ test("the browser keeps Alt Left and every other key on the tab bar", async () =
   const page = await openPage(new FakeBackend(), "#queue");
   page.tab("Queue").focus();
 
-  expect(page.pressOnTabBar("a", 1000)).toBe(false);
+  expect(page.pressOnTabBar("x", 1000)).toBe(false);
   expect(page.pressOnTabBar("d", 3000, { ctrlKey: true })).toBe(false);
   await page.user.keyboard("{Alt>}{ArrowLeft}{/Alt}");
 

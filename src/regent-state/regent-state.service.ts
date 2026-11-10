@@ -127,6 +127,7 @@ const RESURRECT_PROMPT =
   `You are the ${PERSONA_CONFIG.throneTitle.toLowerCase()} ${PERSONA_CONFIG.tierTitles.regent}, just resurrected by the keep-going watchdog after ` +
   `the previous ${PERSONA_CONFIG.tierTitles.regent} process died (crash/kill/reboot — the court self-heals). ` +
   "Perform your boot ritual NOW: read AGENTS.md (the durable court law) and " +
+  "agent_docs/role-regent.md (your own duties), " +
   `run render-queue (${PERSONA_CONFIG.queueDescription}), then run ` +
   "`./bin/throne-cli agent-statuses` to see the live court, reconcile any " +
   `in-flight work, and resume dispatching. You report outcomes to the ${PERSONA_CONFIG.addressTitle} and ` +

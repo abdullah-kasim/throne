@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { describeRecordsTime, describeTime } from "@/features/where-i-stand/describe-times";
+import { ArchiveTab } from "@/features/where-i-stand/archive-tab";
 import { EpicsTab, isSaveShortcut } from "@/features/where-i-stand/epics-tab";
 import { UnsavedText } from "@/features/where-i-stand/markdown-text";
 import { useRecords, useStoredPage } from "@/features/where-i-stand/page-queries";
@@ -171,6 +172,7 @@ export function WhereIStandPage() {
   }
 
   function panelContent(tabName: TabName) {
+    if (tabName === TabName.Archive) return <ArchiveTab />;
     if (tabName === TabName.Epics) return <EpicsTab section={epicsSection} editors={editors} announce={announce} />;
     return (
       <>

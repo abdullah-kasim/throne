@@ -35,10 +35,15 @@ import {
 } from "../herdr/omp-extension-install.ts";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 import {
-  LIVE_QUEUE_ITEM_STATUSES,
-  renderRegentQueueAsMarkdown,
-} from "../regent-queue/regent-queue-render.ts";
-import { openRegentQueueStore } from "../regent-queue/regent-queue.store.ts";
+  openRegentQueueStore,
+  type RegentQueueReadResult,
+} from "../regent-queue/regent-queue.store.ts";
+import {
+  renderQueueDigestFor,
+  resolveDigestReader,
+  WHOLE_QUEUE_READER,
+  type DigestReader,
+} from "./throne-startup-queue-digest.ts";
 import { currentPaneId } from "../herdr/herdr-session.service.ts";
 import { THRONE_HERDR_SESSION_NAME } from "../herdr/herdr-client.ts";
 import { renameTab, renameWorkspace } from "../herdr/herdr-tab.service.ts";
@@ -91,11 +96,8 @@ export interface ThroneStartupDeps {
   /** Keeps omp's copy of the throne delivery extension pointing at this
    *  checkout. Injected so tests never touch a real ~/.omp. */
   installOmpExtension: () => Promise<OmpExtensionInstallOutcome>;
-  /**
-   * The live-items-only queue view, rendered from the SQLite store. Rejects
-   * when the store is unreadable.
-   */
-  renderQueueDigest: () => Promise<string>;
+  readQueue: () => Promise<RegentQueueReadResult>;
+  resolveDigestReader: (name: string | undefined) => Promise<DigestReader>;
   /**
    * Read the Regent's declared desired-state (running|dismissed) via J's
    * regentstate seam, so the boot digest surfaces the self-heal mode. Fails safe
@@ -142,16 +144,15 @@ export const REAL_DEPS: ThroneStartupDeps = {
         INSTALLED_EXTENSION_NAME,
       ),
     }),
-  renderQueueDigest: async () => {
+  readQueue: async () => {
     const store = openRegentQueueStore();
     try {
-      return renderRegentQueueAsMarkdown(store.readAll(), {
-        statuses: LIVE_QUEUE_ITEM_STATUSES,
-      });
+      return store.readAll();
     } finally {
       store.close();
     }
   },
+  resolveDigestReader,
   readDesiredState,
   writeRegentHarness,
   writeRegentRoute,
@@ -271,9 +272,21 @@ async function ensureThroneWorkspaceName(
  * single fallback line and returns. Surfacing the queue must never abort a
  * launch, so every path here is non-fatal.
  */
-async function printQueueDigest(deps: ThroneStartupDeps): Promise<void> {
+async function digestReaderOrWholeQueue(
+  deps: ThroneStartupDeps,
+  name: string | undefined,
+): Promise<DigestReader> {
   try {
-    const digest = await deps.renderQueueDigest();
+    return await deps.resolveDigestReader(name);
+  } catch {
+    return WHOLE_QUEUE_READER;
+  }
+}
+
+async function printQueueDigest(deps: ThroneStartupDeps, readerName: string | undefined): Promise<void> {
+  try {
+    const reader = await digestReaderOrWholeQueue(deps, readerName);
+    const digest = renderQueueDigestFor(await deps.readQueue(), reader);
     process.stdout.write(`throne-startup: QUEUE digest\n\n${digest}`);
   } catch (err) {
     process.stdout.write(
@@ -437,7 +450,7 @@ export async function run(
     await recordRegentRouteSafely(own, deps);
   }
   await printDesiredState(deps);
-  await printQueueDigest(deps);
+  await printQueueDigest(deps, own.name || deps.agentNameAtLaunch?.());
   // Step 5 — reconcile orphaned agents, but ONLY when this harness IS the
   // Regent. A create-agent-spawned Alpha also boots with cwd == throne root and
   // reaches this branch; gating on `isRegent` is what stops it from reaping or

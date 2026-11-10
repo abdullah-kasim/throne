@@ -53,6 +53,19 @@ skill people learn to skip, which costs more than it ever saved. The rough line
 is: **more than about three files, or more than one seam, or any work you would
 naturally describe in a numbered list.** Below that, just do the work.
 
+## The reader decides how fine the split is
+
+Before cutting, find out which model, at which effort, will do the work, and
+cut for that reader. A weaker or lower-effort reader gets more and smaller
+spokes, each finished and proven on its own. A stronger, higher-effort reader
+gets fewer and larger spokes; do not shred work it would do well whole. The
+star-not-chain rule below holds for every reader.
+
+Inside a throne, find the reader as `agent_docs/MODEL_POLICY.md` "Find the
+reader first" says. Outside one, the reader is the model that will do the
+work; when that is unknown, assume the weakest model and lowest effort it
+could be.
+
 ## The shape
 
 ```

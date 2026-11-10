@@ -10,6 +10,7 @@ export const TabName = {
   Queue: "queue",
   Delivered: "delivered",
   PullRequests: "pull-requests",
+  Archive: "archive",
 } as const;
 
 export type TabName = (typeof TabName)[keyof typeof TabName];
@@ -26,6 +27,7 @@ export const pageTabs: readonly PageTab[] = [
   { name: TabName.Queue, words: "Queue", sectionHeadings: ["Queued and deferred"] },
   { name: TabName.Delivered, words: "Delivered", sectionHeadings: ["Delivered, not on GitHub"] },
   { name: TabName.PullRequests, words: "Pull requests", sectionHeadings: [ON_GITHUB_HEADING] },
+  { name: TabName.Archive, words: "Archive", sectionHeadings: [] },
 ];
 
 export type TabCounts = Readonly<Record<TabName, number | undefined>>;
@@ -55,6 +57,7 @@ export function tabCounts(entries: readonly PageEntry[], records: PullRequestRec
     [TabName.Queue]: entriesInTab(TabName.Queue),
     [TabName.Delivered]: entriesInTab(TabName.Delivered),
     [TabName.PullRequests]: records === undefined ? undefined : pullRequestCount(entries, records),
+    [TabName.Archive]: undefined,
   };
 }
 

@@ -18,6 +18,12 @@ export interface AgentStatusesRosterEntry {
   readonly cwd?: string;
   readonly paneId?: string;
   readonly focused: boolean;
+  readonly backgroundWorkCorrection?: BackgroundWorkCorrection;
+}
+
+export interface BackgroundWorkCorrection {
+  readonly reportedStatus: AgentStatus;
+  readonly description: string;
 }
 
 export const AGENT_STATUSES_DESIRED_STATES = {

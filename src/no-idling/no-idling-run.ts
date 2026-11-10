@@ -54,6 +54,8 @@ import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
 import { noteExcludedFamilies } from './excluded-family-observations.ts';
 import { notifyRegentOfDeferredRows } from './deferred-row-belt.ts';
+import { noteAgentsCorrectedToWorking } from './corrected-to-working-log.ts';
+import { notifyRegentWhenSweepIsBlind } from './blind-sweep-notice.ts';
 import {
   writeOut,
   writeErr,
@@ -240,6 +242,17 @@ export async function runNoIdling(
     return 1;
   }
 
+  noteAgentsCorrectedToWorking(
+    (text) => writeOut(deps, text),
+    roster,
+    deps.now?.() ?? Date.now(),
+    rawDeps.correctedToWorkingLogTimes ?? new Map<string, number>(),
+  );
+  await notifyRegentWhenSweepIsBlind(
+    deps,
+    roster,
+    rawDeps.blindSweepMemory ?? { blindSweepsInARow: 0, noticeSent: false },
+  );
   const readRunningWork = runningWorkOfRosterAgents(roster, deps.readHarnessBackgroundWork);
   await notifyRegentOfUntaskedAgents(deps, roster, dataDir, readRunningWork);
   await notifyRegentOfStaleTabs(deps, dataDir);

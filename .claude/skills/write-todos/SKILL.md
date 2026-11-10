@@ -19,7 +19,7 @@ Shadow per file and lands the work on your campaign branch.
 ## Entry guard — throne context only
 
 This skill runs ONLY inside the throne orchestrator — the Lord's order of
-2026-07-20; the throne `AGENTS.md` section "Shadows are real harnesses in the
+2026-07-20; the throne `agent_docs/role-alpha.md` section "Shadows are real harnesses in the
 throne" carries the law. Before anything else, establish throne context with
 the one canonical resolver in `execute-todos/SKILL.md` → "Entry guard" (the
 source + main-checkout owner check, the unique-live-Regent fallback,
@@ -39,6 +39,13 @@ planner does not rank models or select routes. It records an explicit,
 nullable human `model_hint` from the queue request and leaves admission to the
 shared resolver at spawn time. A missing or malformed preset or role pool pauses
 authoring; never reconstruct it from prose or invent an out-of-pool fallback.
+
+**Find the reader first.** Before writing files, find who will read them, by
+`agent_docs/MODEL_POLICY.md` "Find the reader first": the Shadow route reads
+the ordinary slices and the ShadowSlice99 route reads the 99 files. Size and
+word each todo file for its reader, and write the `Written for:` line in
+`00_overview.md` (`verify.md` for a sliceless bundle). Finding the reader reads
+the route; it never chooses one, so the rule above still holds.
 
 The planning Alpha uses `rolePools.Alpha`; ordinary slices use
 `rolePools.Shadow`; terminal slices use `rolePools.ShadowSlice99`. A campaign
@@ -382,7 +389,7 @@ itself into a different objective. Then say so explicitly in `00_overview.md`
 rather than planning around it silently.
 
 **Correcting your own incomplete decomposition is not scope growth** and remains
-yours under the mid-flight amendment contract. The test is whether the
+yours under the mid-flight amendment contract (`amendments.md`). The test is whether the
 **Done-when changed** — not whether the slice list did. An unchanged Done-when
 whose slices could never have delivered it is an error you fix; a changed
 Done-when is a new objective and only the Lord may expand an active bundle.
@@ -576,14 +583,16 @@ forbids.
 - **Sequence number**: zero-padded. `00`, `99a`, `99b`, `99c`, and `99d` are reserved
   bookends — `00_overview.md` is read-first context,
   `99a_conform_<topic>.md` grades the candidate against what was literally
-  asked for, `99b_verify_<topic>.md` runs the tests and lint and fixes what
-  fails, and `99c_deliver_<topic>.md` merges the latest target and delivers.
+  asked for (by a report skill's own gate rule when the bundle runs one that
+  defines it; see `conformance-todo-template.md`), `99b_verify_<topic>.md` runs the
+  tests and lint and fixes what fails, and `99c_deliver_<topic>.md` merges the
+  latest target and delivers.
   `99d_record_<topic>.md` is the Alpha's own step after delivery: it records
   the outcome on the Lord's page.
   Slices take `01`–`98`; a perceptual bundle's `NNz_critique_<module>` gate
-  shares its builder's number with a `z` suffix (see "Perceptual-quality
-  bundles"). A ticket-driven bundle keeps `98` for `98_ticket_<topic>.md`
-  (see "The ticket-alignment todo"), so its other slices take `01`–`97`. Numbers order and cross-reference; ordinary slices do
+  shares its builder's number with a `z` suffix (see
+  `perceptual-quality-bundles.md`). A ticket-driven bundle keeps `98` for `98_ticket_<topic>.md`
+  (see `ticket-todo-template.md`), so its other slices take `01`–`97`. Numbers order and cross-reference; ordinary slices do
   NOT force numerical execution order. `00` reads first, then the fresh
   terminal Shadows run `99a`, `99b` and `99c` in order. Keep the role word in
   each terminal filename: the throne classifies terminal gates by verb, not by
@@ -644,7 +653,7 @@ planner does not rank or score slices. Spend the
 judgment on the CUT instead — whether each slice is genuinely independently
 testable, and whether its boundary is a real seam.
 
-`00`, `99a`, `99b`, `99c`, and `99d` are non-negotiable — every new bundle ships with all five. A ticket-driven bundle also ships `98_ticket_<topic>.md` (see "The ticket-alignment todo"). Draft `00`'s "Done when:" checklist HERE, out loud, and confirm **every criterion maps to a numbered slice and every slice maps to a criterion**. That mapping IS the answer to "do these steps actually achieve the goal?" — and catching a gap now costs one line of text, not an execution re-run.
+`00`, `99a`, `99b`, `99c`, and `99d` are non-negotiable — every new bundle ships with all five. A ticket-driven bundle also ships `98_ticket_<topic>.md` (see `ticket-todo-template.md`). Draft `00`'s "Done when:" checklist HERE, out loud, and confirm **every criterion maps to a numbered slice and every slice maps to a criterion**. That mapping IS the answer to "do these steps actually achieve the goal?" — and catching a gap now costs one line of text, not an execution re-run.
 
 **COUNT YOUR DEPENDENCY CHAIN BEFORE YOU COMMIT TO IT (Lord, 2026-08-25).**
 Slice by independently-testable unit, not by sequential phase. The test is one
@@ -720,21 +729,21 @@ Once the breakdown is settled:
 1. `mkdir ~/.throne/data/<alpha-name>/todo-<timestamp>-<topic>/` — the campaign
    data dir is the bundle's only home: never the target repo root, never the
    throne root.
-2. Write `00_overview.md` first (see "The overview file" below) with the bundle-level `todo_run_personality:` stamp and, when the classification in "Front-end bundles" below fires, `frontend: true` and any `frontend_row:` that section allows; it is never executed.
+2. Write `00_overview.md` first (see "The overview file" below) with the bundle-level `todo_run_personality:` stamp and, when the classification in `front-end-bundles.md` fires, `frontend: true` and any `frontend_row:` that section allows; it is never executed.
 3. Write each `NN_<task>.md` slice (one per title), each opening with the `deps:` and `touches:` lines settled there. Never emit legacy `tier:`/`model:` stamps.
-4. When the bundle is ticket-driven, write `98_ticket_<topic>.md` (see "The
-   ticket-alignment todo" below) with `deps:` on every other ordinary slice.
-   Then write `99a_conform_<topic>.md` (see "The conformance todo" below) with
+4. When the bundle is ticket-driven, write `98_ticket_<topic>.md` (see
+   `ticket-todo-template.md`) with `deps:` on every other ordinary slice.
+   Then write `99a_conform_<topic>.md` (see `conformance-todo-template.md`) with
    `deps: [<every ordinary slice>]`, which includes `98_ticket_<topic>` when
    that todo exists.
-5. Write `99b_verify_<topic>.md` (see "The verify todo" below) with
+5. Write `99b_verify_<topic>.md` (see `verify-todo-template.md`) with
    `deps: [99a]` frontmatter. It runs the
    bundle's tests and lint, and fixes what fails. When `00` stamps
    `frontend: true`, include the front-end critique block from that template;
    a front-end bundle whose `99b` lacks it is malformed. The exception is
    `frontend_row: builder`, which takes the `## Browser function check` block
-   from that template instead (see "Front-end bundles").
-6. Write `99c_deliver_<topic>.md` last (see "The delivery todo" below) with
+   from that template instead (see `front-end-bundles.md`).
+6. Write `99c_deliver_<topic>.md` last (see `delivery-todo-template.md`) with
    `deps: [99b]` and the conflict-owning delivery
    contract. It merges the target branch into the campaign branch and re-checks
    until the target goes quiet, then delivers with plain git — checking out the
@@ -742,7 +751,7 @@ Once the breakdown is settled:
    HEAD is unchanged since that final check, inspects the resulting target
    diff/content, and runs meaningful delivered-feature smoke checks on the
    target.
-7. Then write `99d_record_<topic>.md` (see "The record step" below) with
+7. Then write `99d_record_<topic>.md` (see `record-todo-template.md`) with
    `deps: [99c]`. It is the bundle's last file and is not a gate: the Alpha
    performs it itself, so `99c` stays the last todo a Shadow executes.
 8. Report the folder path and the file list in your report upward. That
@@ -860,176 +869,6 @@ unknown" — the scheduler then serializes the slice against every other. Bundle
 written before these stamps existed keep that behavior unchanged. Never stamp a
 `touches:` set narrower than the truth to buy parallelism: the concurrency is
 worth nothing if the merges collide.
-
-## Perceptual-quality bundles — evidence tool first, seam slices, rubric critique gates
-
-Some objectives are graded by eye, ear, or measurement rather than by a test
-that returns 0 or 1: a rendered scene, a UI, generated audio, a latency
-budget, a document judged against reference material. The tests-and-lint
-gates still run for these bundles, but they cannot answer "does this look
-AAA" — and a bundle that has no machine-runnable answer to that question
-ships whatever the builder Shadow *claims* it looks like. This section is the
-one home for the three planning shapes that close that gap. Stamp
-`bundle_content: perceptual` in `00_overview.md` when the objective's
-`## Done when` contains any criterion a test cannot settle; skip the whole
-section otherwise. It adds machinery to nothing else. A `frontend_row: builder`
-bundle never stamps it: its critic row owns those criteria (see "Front-end
-bundles").
-
-**Everything below runs under the ONE campaign Alpha.** Builders, the
-evidence-tool slice, seam slices, critic gates, and corrective rounds are all
-Shadows on this Alpha's branch. No shape here ever asks the Regent for a
-second Alpha (the Lord's ruling of 2026-09-02: a multi-Alpha fix chain once
-left the Regent queueing corrections forever). A critic that wants a fix
-files a FAIL; the Alpha spawns a corrective Shadow; nothing escalates.
-
-### 1. The evidence tool is slice `01`, before any feature slice
-
-When acceptance is perceptual, the first ordinary slice builds the thing that
-generates evidence, and every module slice declares `deps: [01]`. Its
-deliverable is a single command that loads the artefact under test, waits for
-a documented ready signal, drives it to a named preset (camera + time of day,
-route + viewport, input fixture — whatever the domain's axes are), and writes
-**an image or capture plus a JSON log** carrying at minimum: console/runtime
-errors, the domain's budget metrics (fps, draw calls, latency, file size),
-and the preset that produced it. Pin the command's exact invocation and the
-JSON keys in `01`'s `## Semantic contract`; every later critic gate cites
-them by name.
-
-Every module slice additionally ships a **showcase entrypoint** — a mode that
-stages a representative scene of only that module, so the critic can grade
-the module in isolation before integration hides its defects.
-
-**Where the evidence tool sits relative to the test suite.** Browsers are
-permitted test infrastructure again (the Lord's 2026-09-02 retraction,
-recorded under "NO END-TO-END TESTS"), so a slice MAY exercise the evidence
-tool from an integration test — a readiness check, a "showcase loads with
-zero console errors" assertion. But the tool's primary role is a **gate
-artefact**: a critic Shadow runs it at gate time and reads its output as
-evidence, exactly the way `99a` runs an installer to see what it writes. A
-green suite item that calls it is a floor, never the score; the score comes
-only from a critic looking at what it captured.
-
-### 2. Module ownership and the seam slice
-
-A perceptual bundle decomposes by module, and each builder slice stamps
-`touches:` as exactly its own folder (`src/terrain/`, `src/roads/`). The
-shared core — the world data model, the event bus, the render loop, whatever
-`ARCHITECTURE.md` names as shared — is owned by **no builder**. A builder
-that needs a core change does not make it: it appends a dated entry to the
-bundle's `core-requests.md` (what it needs, why, the smallest change that
-would do) and works around the gap inside its own folder until the seam
-lands.
-
-The **seam slice** (`NN_seam_<wave>`) is the one slice per dependency wave
-whose `touches:` includes the core paths. It declares `deps:` on every
-builder in its wave, consumes `core-requests.md`, applies the requests it
-accepts, records the ones it refuses with a reason, and fixes the
-integration seams the wave exposed. Because its footprint intersects every
-core path, the scheduler serializes it against everything — that is the
-point. Plan one seam slice per wave, numbered after that wave's builders and
-before the next wave's; a bundle with one wave still plans one seam slice.
-
-For a greenfield target, slice `01`'s predecessor is the architecture: the
-`## Architecture and invariants` and `## Proposed function contract map`
-sections of `00_overview.md` are committed as `ARCHITECTURE.md` in the target
-by the first slice that touches core (usually `01` itself), naming one folder
-per module, the shared data model, each module's public API and emitted
-events, units, determinism (seeded RNG only), the numeric performance budget,
-the asset policy, and the isolation rule that one module's failure never
-takes the whole down. Every later slice's `## Semantic contract` cites it
-rather than restating it.
-
-### 3. Rubric critique gates (`NNz_critique_<module>`)
-
-For every module slice `NN` whose criterion is perceptual, plan a paired gate
-file `NNz_critique_<module>.md`. It is a **separate gate class** from `99a`:
-`99a` grades literal conformance to the request and stays PASS/FAIL; a
-critique gate scores *quality* against a rubric and a threshold, and taste
-scores never dilute the conformance standard. Ordinary band (`01`–`98`),
-scheduled by `deps:`, always before `99a`.
-
-The rubric grades visual (perceptual) quality only. Functionality is never an
-axis on that curve: in a bundle whose `00_overview.md` stamps
-`frontend: true`, every critique gate carries the **functional parity check**
-section below, a pass/fail check that fails the gate on any FAIL line whatever
-the score. A gate in any other bundle omits that section and keeps the generic
-rule: PASS at `≥ threshold` with zero errors in every JSON log. A
-`frontend_row: builder` bundle has no critique gates, so none of this applies
-to it.
-
-Critique gates may run concurrently; `/execute-todos` owns the size of their
-pool. Each concurrent critic uses its own worktree, its own dev-server and e2e
-port (never one another live critic holds), and its own agent-browser session
-from `agent-browser session id --scope worktree --prefix <critic name>`, which
-it closes when it is done.
-
-```markdown
----
-deps: [NN, 01]                     # the builder it grades, plus the evidence tool
-gate: critique                     # role word; the executor spawns this verdict-only
-module: src/<module>/              # the folder under judgment — the critic never edits it
-threshold: 8.5                     # visual score to reach; PASS also needs zero evidence-log errors, and in a frontend bundle zero functional FAIL lines and a green e2e suite
-max_rounds: 4                      # builder-fix rounds before the gate records a residual
-evidence_cmd: <exact 01 invocation with the presets this gate uses>
-reference_set: <path or URL list of reference material; `none` ⇒ rubric-only>
----
-
-# NNz — Critique <module> against <reference>
-
-<One paragraph: what "good" means for this module in the target's own terms.>
-
-## Rubric
-
-| Score | Anchor |
-| --- | --- |
-| 10 | Indistinguishable from the reference set |
-| 8.5 | Reference quality with nits a reviewer would list, not reject |
-| 7 | Competent; a trained eye names what is missing |
-| 5 | Programmer art — placeholder materials, flat light, no depth |
-| 2 | Broken, or the showcase does not load |
-
-## Axes graded
-
-Visual (perceptual) axes only; functionality is the functional parity check, not an axis.
-
-- <Axis 1 — e.g. materials, lighting, silhouette, motion, timing>
-- <Axis 2>
-- <Every preset the critic must capture: at least three, spanning the domain's hard cases — night, dusk, close zoom, empty state, overload>
-
-## Functional parity check
-
-Mandatory when `00_overview.md` stamps `frontend: true`; omit this section in any other bundle.
-
-- Through the real UI in agent-browser, at the viewport the presets pin, in the critic's own session: list every interactive element the reference has (buttons, links, tabs, menus, sheets, forms and their fields, toggles, pickers, cards that open things, gestures) and every state change the reference shows.
-- Perform each and check the result against what the reference does: the screen or sheet that opens, the text that appears, the value that changes, the data created, edited or deleted and whether it is still there after navigating away and reloading, validation and empty or error states, back and dismiss behaviour.
-- Record one line per check: `action | expected (from the reference) | observed | PASS or FAIL | capture path`.
-- A FAIL line is: a reference element with no working counterpart, a control that does nothing, a wrong destination, a missing or wrong state change, data that does not persist after navigating away and reloading, a crash, a dead end, or any console or page error.
-
-## Deliverable
-
-- The critic runs `evidence_cmd` ITSELF for every listed preset — never grades a builder's own captures.
-- A score per axis and one overall visual score, with the evidence paths that justify each.
-- In a frontend bundle, every functional parity line, each with its capture.
-- A ranked issue list: functional FAIL lines first, worst first; then the rubric issues, most damaging first, each naming the axis, the preset, and the file the fix most likely lives in.
-- `**Critique outcome:** PASS` or `FAIL`. In a frontend bundle, PASS only at zero functional FAIL lines AND zero console or page errors AND the project's e2e suite green AND score `≥ threshold`; with any FAIL line the critic reports "visual N, capped at <cap> by functional failures", the cap one step of the gate's scale below `threshold` (79 at a threshold of 80). In any other bundle, PASS only at `≥ threshold` with zero errors in every JSON log.
-- Writes no product code; commits nothing to the campaign branch.
-```
-
-Write the rubric anchors in the target's own vocabulary — the table above is
-the shape, not the text. Pin the presets: an unpinned critic captures the
-flattering angle. `reference_set: none` is legal when nothing external exists
-to compare against; then the anchors carry the whole standard and must be
-concrete enough that two critics would score within a point of each other.
-
-**Scoring honesty is a hard rule.** The critic reports the number the
-evidence supports, never the number that closes the round; the capped report
-is that honesty applied, so a score at or above threshold always means
-functional parity held. A round that fails is a failed round in `STATUS.json`
-and in the final report, with what is still missing named. `/execute-todos`
-owns what happens next — the corrective round, the fresh critic, the round
-cap, and the weakest-first resume — under "Rubric critique gates" there; plan
-nothing about that here.
 
 ## Where new capability may be planned — the legacy-feature freeze
 
@@ -1156,7 +995,7 @@ leaving the gate to find living prose about dead code.
 
 ## The overview file (`00_overview.md`)
 
-Always the first file. It is **read-first context, never an executed todo** — `/execute-todos` loads it into every worker's prompt so each slice knows the whole it plugs into, and never runs a worker for it. It carries bundle metadata such as `todo_run_personality`, for bundles that change a web UI `frontend: true` and any `frontend_row:` (see "Front-end bundles"), and for a ticket-driven bundle `ticket: <key or URL>` (several tickets: comma-separated). A bundle is ticket-driven when the queue row carries a `TICKET:` block or the tasking names a ticket; the `ticket:` stamp is what "the overview names a ticket" means.
+Always the first file. It is **read-first context, never an executed todo** — `/execute-todos` loads it into every worker's prompt so each slice knows the whole it plugs into, and never runs a worker for it. It carries bundle metadata such as `todo_run_personality`, for bundles that change a web UI `frontend: true` and any `frontend_row:` (see `front-end-bundles.md`), and for a ticket-driven bundle `ticket: <key or URL>` (several tickets: comma-separated). A bundle is ticket-driven when the queue row carries a `TICKET:` block or the tasking names a ticket; the `ticket:` stamp is what "the overview names a ticket" means.
 
 It also carries a mandatory `## Exact user wording` section. Preserve the
 initial user request and every later amendment as separate, ordered, verbatim
@@ -1291,659 +1130,6 @@ migrating an existing authoritative path must state what retires the old path,
 or scope that retirement as a named follow-up with an owner — a bundle that
 leaves a transition state (old and new both live) must say what ends it.
 
-## Mid-flight amendments — the one reconciliation contract
-
-Steering arrives after authoring has started and after execution has started.
-This section is the single normative home for what happens then; `execute-todos`
-and `write-and-execute-todos` bind to it, add no exception, and define no
-alternative lifecycle. Each of them states only the operational obligations its
-own phase needs; wherever such a phase summary is thinner, this contract governs.
-
-**A direct user amendment is a source turn.** Any later user instruction that
-arrives through the chat or steering channel and changes the objective, scope, or
-acceptance is appended verbatim as the next ordered source turn in
-`00_overview.md` — never paraphrased into a summary, never edited into an earlier
-turn, never carried only in an agent's prose report or head. This holds whether
-it lands during authoring or mid-execution.
-
-**Only a direct Lord amendment may expand an active bundle.** A Regent message
-may append scope only when it relays the Lord's exact wording verbatim and keeps
-that direct-Lord provenance explicit. Regent may clarify existing requested
-scope and coordinate the minimum correction of a candidate-caused regression or
-a defect demonstrably blocking the requested outcome; those actions do not add
-new acceptance scope. A numbered queue amendment recorded with
-`throne amendment` carries the Lord's verbatim words with their provenance, so
-it has the same standing as a Regent relay of them, whichever of a Stager or
-the Regent recorded it. It reaches the Alpha as a short pointer message, and
-every amendment recorded before launch is listed in full under
-`## Situation at launch` in the opening prompt; fold each one in as a source
-turn during authoring. A Regent-originated feature, unrelated bug, robustness
-goal, cleanup outcome, or new acceptance criterion is a separate finding: queue
-it as a separate objective with a new Alpha, and never append it to the active
-bundle.
-
-**Append and reconcile before the affected work continues.** The append plus the
-reconciliation below happens BEFORE any further work in the area the amendment
-touches, and before an authoring bundle is handed to execution. Unaffected slices
-keep running; nothing pauses that the amendment does not touch.
-
-**Supersession is clause-scoped.** Mark the corrected ledger row
-`superseded by Source turn N` and keep it; add the amending clause as its own
-row. Earlier source turns and their rows are never deleted or rewritten, so the
-record of what the user originally asked for survives every correction.
-
-**A question-log answer is never a source turn.** Answers the user writes into
-`000_current_questions.md` are a separate reconciliation channel. They stay in the
-question log — they are never promoted, copied, or appended into the ordered
-source turns, and they never renumber or restate a source turn, even when the
-answer changes an execution decision. Their effect reaches the bundle only
-through the named-surface reconciliation rule below, which treats an answered
-question exactly like an amendment for reconciliation purposes while leaving the
-source-turn record untouched. The two channels never merge: chat/steering
-instructions become source turns, question-log answers do not.
-
-**Reconcile every named surface, then stamp freshness.** The surfaces are:
-`00_overview.md`'s source turns, clause ledger, `## Scope and boundaries`,
-`## Done when`, and `## Traceability`; and every affected numbered slice. Unstarted slices are rewritten in place;
-work already landed or in flight that the amendment contradicts earns a new
-numbered corrective slice rather than a silent edit to landed work. An answered
-question drives this same surface sweep, and records its reconciliation by citing
-the answered question's own entry — it never advances the source-turn count.
-Finish by setting `**Amendments reconciled through:** Source turn N` to the
-highest-numbered recorded turn. When any of those turns came from a numbered
-queue amendment, also set `**Queue amendments reconciled through:** <n>` to the
-highest amendment number reconciled. That line is read by code:
-`throne check-queue-amendments-reconciled` compares it with the queue row, and
-the push guard and `merge-git-tree` refuse delivery while it is lower than the
-row's highest amendment.
-
-**A late amendment staleness-kills a terminal PASS.** An amendment recorded
-after `99a` or `99b` has already passed makes that PASS stale: completion
-requires a fresh real Shadow re-run of every terminal gate the amendment
-invalidates — `99a` whenever the amendment changes what was asked for, `99b`
-whenever it changes code — over the amended bundle, before any `99c`
-delivery.
-
-## The ticket-alignment todo (`98_ticket_<topic>.md`)
-
-Present only in a ticket-driven bundle: the queue row carries a `TICKET:`
-block, or `00_overview.md` stamps `ticket:`. It exists because `99a` grades
-the candidate against the queue row, which is one reader's account of the
-ticket; a misread or narrowed ticket passes `99a` untouched. This todo grades
-the candidate against the ticket's own words.
-
-It is a fresh real Shadow and **verdict-only**: spawned with
-`--deliverable-shape verdict-only`, it writes no product code and commits
-nothing, so its empty branch is expected. Its `deps:` name every other
-ordinary slice, so it runs after all of them and before `99a`. It runs the
-global `/ticket-check` skill on the campaign branch candidate, passing as
-rulings the row's `RULINGS:`, every queue amendment, and every source-turn
-amendment in `00_overview.md`. It calls `/ticket-check` and never restates
-its procedure.
-
-Two outputs leave it. Its execution log ends with exactly one line,
-`**Ticket alignment outcome:** PASS` or `**Ticket alignment outcome:** FAIL`.
-And it writes `ticket-warning.md` into the bundle folder, holding either
-`/ticket-check`'s DIFFERENT BY RULING lines plus its warning block verbatim,
-or the single line `no warning needed`; `99c` reads that file when it writes
-the pull request body.
-
-A FAIL (a ticket line UNMET with no ruling behind it) is corrective work for
-the Alpha, exactly like a `99a` FAIL: one consolidated corrective slice, then
-a fresh `98` Shadow re-runs, and `99a` does not start until it passes.
-
-```markdown
----
-deps: [<every other ordinary slice>]
----
-
-# 98 — Check <feature> against the ticket
-
-Fresh independent Shadow, verdict-only. You are not grading the code against
-the queue row; you are grading it against the ticket.
-
-1. Run the global `/ticket-check` on the campaign branch candidate for the
-   ticket `00_overview.md` stamps in `ticket:`. Pass as its rulings the queue
-   row's `RULINGS:`, every queue amendment, and every source-turn amendment in
-   `00_overview.md`, each quoted in full.
-2. Write `ticket-warning.md` into this bundle folder: `/ticket-check`'s
-   DIFFERENT BY RULING lines and its warning block verbatim, or the single
-   line `no warning needed` when it reports none.
-
-## Out of scope
-
-- Fixing what you find. An UNMET ticket line is corrective work for the Alpha.
-- Grading against the queue row alone. That is `99a`'s job.
-
-## Deliverable
-
-- End with exactly one `**Ticket alignment outcome:** PASS` or
-  `**Ticket alignment outcome:** FAIL`, as `/ticket-check` decides it.
-- FAIL names each ticket line left UNMET with no ruling, quoting the ticket.
-- `ticket-warning.md` exists in the bundle folder either way.
-- Your branch carries no product commits. That is the expected shape.
-```
-
-## The conformance todo (`99a_conform_<topic>.md`)
-
-Always the FIRST terminal executable todo and always a fresh real Shadow. It
-exists because a bundle can be green on every test the campaign wrote for
-itself and still not be the thing that was asked for. Tests grade the code
-against the campaign's own understanding; this gate grades the campaign's
-understanding against the request.
-
-**The standard is literal.** Take what the Lord asked for — as recorded in the
-queue row's `INTENT:`/`SCOPE:`/`RULINGS:` sections and in `00_overview.md`'s
-`## Done when` — and check the delivered candidate against it word by word,
-not in spirit. If he said `./install.sh` installs the app and leaves him able
-to open a `.desktop` file, then the objective is unmet until you have shown
-that `./install.sh` writes a `.desktop` file and that the file actually
-launches the installed application. "The installer runs cleanly" is not that
-claim. "We implemented installation" is not that claim.
-
-**Addenda are the only thing that moves the standard.** A recorded amendment to
-the bundle — an errata entry, an explicit Lord ruling, a queue-row amendment —
-relaxes or redirects a requirement, and you grade against the amended text.
-Nothing else does: not a slice's own opinion that a requirement was
-unreasonable, not an Alpha's decision to descope, not a convenient reading. An
-unmet requirement with no addendum behind it is a FAIL.
-
-**This gate never blocks on a human.** It is a machine-checkable conformance
-pass, not a request for someone to come and look. Where a criterion genuinely
-needs human eyes, exercise the closest machine-checkable proxy — run the
-installer, assert the file exists, parse it, invoke what it points at, check
-the process starts — record the residual human half as UNPERFORMED in one line
-naming what a person would need to confirm, and grade on everything else. The
-Lord tests it himself afterwards; a false PASS wastes his time and an idle wait
-wastes everyone's.
-
-**It grades; it does not build.** This gate writes no product code and commits
-nothing to the campaign branch. Its branch is legitimately empty and the throne
-expects that (`isTerminalGateShadowName`). A gap it finds goes back as a FAIL
-naming the unmet requirement and the evidence, which is corrective work for the
-Alpha — unlike `99b`, which fixes what it finds.
-
-**A ticket-driven bundle's `99a` waits on the ticket check.** When the bundle
-has a `98_ticket_<topic>.md`, `99a`'s `deps:` include it, and `99a` FAILs
-unless that todo's file carries `**Ticket alignment outcome:** PASS` on its
-own line. The push guard already refuses delivery until `99a` records
-`**Conformance outcome:** PASS`, so it enforces the ticket check with no
-change of its own.
-
-```markdown
----
-deps: [<every ordinary slice, including 98_ticket_<topic> when it exists>]
----
-
-# 99a — Grade <feature> against what was literally asked for
-
-Fresh independent Shadow. You are not testing the code; you are testing whether
-the code is the thing that was requested.
-
-1. Reconstruct the standard. Quote the original request verbatim — the queue
-   row's `INTENT:`, `SCOPE:` and `RULINGS:`, and `00_overview.md`'s
-   `## Done when` checklist. List every addendum recorded since, and quote what
-   each one changed. That quoted set, and nothing else, is the standard.
-2. Turn it into a checklist of literal, observable claims. One line per claim,
-   each phrased so it can be marked met/unmet with evidence.
-3. Exercise the candidate against each claim. Run the actual entry point the
-   requester named. Generate the evidence — command, exit code, relevant
-   output — rather than transcribing it or reasoning about what it would do.
-   Reading the source and concluding it must work is not evidence.
-4. Mark each claim MET, UNMET, or UNPERFORMED (human-only residue), each with
-   its evidence or its one-line reason.
-
-## Out of scope
-
-- Fixing what you find. Gaps are reported, not repaired — `99b` owns fixing,
-  and it owns fixing test and lint failures, not unmet requirements.
-- Test and lint execution as such. That is `99b`'s job; you may run them for
-  context but a green suite is not evidence of conformance.
-- Judging whether the requirement was wise. It was asked for; that settles it.
-
-## Deliverable
-
-- End with exactly one `**Conformance outcome:** PASS` or
-  `**Conformance outcome:** FAIL`.
-- PASS requires every claim MET or UNPERFORMED-with-reason, with evidence
-  cited per claim. A claim you could not exercise at all is UNMET, not
-  UNPERFORMED — UNPERFORMED is only for the human-eyes residue of a claim you
-  otherwise proved.
-- FAIL names each unmet claim, quotes the requirement text it comes from, and
-  states what evidence would have satisfied it. Never a vague "does not meet
-  the objective".
-- When this bundle has a `98_ticket_<topic>.md`, FAIL unless that file carries
-  `**Ticket alignment outcome:** PASS` on its own line.
-- Your branch carries no product commits. That is the expected shape.
-- When you end a turn to wait on background work you started (a test or
-  suite run, a monitor, a queued container slot, a background agent), end
-  that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next ordinary
-  message clears it. Otherwise no-idling pages the Regent every minute.
-```
-
-## Front-end bundles
-
-A bundle is **front-end** when any slice's `touches:` set includes a path
-ending in `.css`, `.scss`, `.html`, `.jsx`, `.tsx`, `.vue`, or `.svelte`, or
-lying under a directory named `web/`, `ui/`, `frontend/`, or `components/`.
-Decide this in step 2, from the `touches:` sets you have already settled; it
-is deterministic and costs nothing, unlike diffing at gate time. Stamp
-`frontend: true` in `00_overview.md`'s frontmatter and include the front-end
-critique block in `99b`, unless the bundle stamps `frontend_row: builder`
-(below). A bundle that turns out front-end only during execution (a slice
-touched markup the plan did not foresee) is an amendment: `00` gains the stamps
-and `99b` gains the block they call for before `99b` runs.
-
-The rule exists because passing tests and a correct DOM do not prove a UI
-looks right. On 2026-09-08 a link that met every Playwright assertion still
-sat one to two pixels below its neighbours, and the Lord had to notice,
-describe, and prescribe the fix. The throne-local `frontend-critic` skill is
-the measured review that catches that before he sees it, and it also drives
-the state a change keeps through awkward orders (acting mid-request, leaving
-and coming back, returning from past the first page) and hunts the bugs its
-checklist misses. A bundle with no `frontend_row:` runs it in `99b`, because
-`99b` is the only moment the assembled UI exists to be looked at. A critic
-bundle already has the assembled UI, delivered, so it runs the review from
-slice `01`.
-
-### The `frontend_row:` stamp — builder and critic rows
-
-That review takes far longer than the build, and working function comes first
-(Lord, 2026-11-05: "a quick first-round alpha (for functionality purposes
-usually) to finish first so that it can be used immediately"). So
-`/queue-objective` files a row that changes a web UI as two rows, a builder and
-a deferred critic. Each body carries one line, and one key in `00_overview.md`,
-beside `frontend: true`, tells the two bundles apart:
-
-| Body line | Stamp |
-| --- | --- |
-| `FRONTEND-ROW: builder, critic row <critic>` | `frontend_row: builder` |
-| `FRONTEND-ROW: critic of <builder>` | `frontend_row: critic` |
-
-- **`frontend_row: builder`** is stamped only when the body carries the builder
-  line AND `throne situation-brief --objective-code <builder>` lists the critic
-  under "Deferred rows waiting on this objective". Without both, the stamp is
-  refused: leave it out and the bundle keeps its `99b` critique, so a dropped
-  critic row costs speed and never the critic.
-
-  A builder bundle has no `## Front-end critique` block in `99b`, no
-  `NNz_critique_` gates, no `bundle_content: perceptual`, and no accessibility
-  review of any kind (keyboard walk, screen-reader checks,
-  `/screen-reader-check`, or the accessibility parts of `/frontend-critic`). A
-  builder `99b` that carries the critique block is malformed, and a stamped
-  builder whose `99b` lacks `## Browser function check` is malformed. Its gates
-  check function only, and it delivers as soon as they pass. Its Alpha then
-  asks for the critic's release by the "After the PASS" step of
-  `/execute-todos`.
-- **`frontend_row: critic`** is stamped when the body carries the critic line,
-  and it always also stamps `frontend: true`. Slice `01` first brings the tree
-  up to the target branch and confirms the builder's delivery commit is
-  present. If it is absent, the slice tells the Regent and parks on the
-  builder's Alpha, because a deferred row can launch early by design. The slice
-  then runs `/frontend-critic` and `/screen-reader-check` on the delivered
-  surfaces and fixes every defect they raise. That happens before `99a`, so the
-  conformance gate grades the fixed work. `99b` keeps the `## Front-end
-  critique` block, widened to `/screen-reader-check`, and finishes on empty
-  reports. `/screen-reader-check` runs its simulated pass; its real screen
-  reader pass stays a person's order, as that skill says.
-- **`frontend: true` with no `frontend_row:`** (a `/gauntlet` row, a row filed
-  before this rule, a row never split) keeps its `## Front-end critique` block
-  and its critique gates exactly as this skill describes them.
-
-## The verify todo (`99b_verify_<topic>.md`)
-
-Always the second terminal executable todo and always a fresh real Shadow. It
-runs only after `99a` returns an explicit `**Conformance outcome:** PASS`, and
-its job is to find what is broken in the assembled candidate and fix it: run
-the bundle's tests and lint/static analysis, fix whatever fails, and re-run
-until green; then hunt the whole diff for the bugs no test was written for,
-confirming each with a failing test (or, for UI behaviour, a recorded browser
-sequence) before fixing it. For a front-end bundle that job includes the
-`frontend-critic` review, and every defect it reports is a failure to fix; for
-a `frontend_row: builder` bundle it includes the browser function check
-instead, and every behaviour that does not work is a failure to fix. When a
-front-end bundle's deliverable is a PR it also captures the change with
-`/pr-media` (screenshots, and every interaction the change touches recorded as
-a video, as `/pr-media`'s video rule requires) into `~/tmp/pr-media-<pr>/`
-for `99c`'s `## Screenshots` section. It is a fixing gate, not a verdict gate
-— it commits its own repairs on the campaign branch. In `no-git` mode it runs
-whatever checks are naturally applicable and records the rest as N/A with the
-classifier evidence.
-
-```markdown
----
-deps: [99a]
----
-
-# 99b — Run the tests and lint for <feature>, and fix what fails
-
-Fresh independent Shadow. Run the bundle's verification commands against the
-assembled candidate — the test suite, the linter, type/static analysis, and any
-repository contract check the project already owns. Record every command, its
-exit code, and its relevant output; generate that evidence rather than
-transcribing it.
-
-Fix every failure you find. A failing test, a lint violation, a type error, or a
-broken build is corrective work you do here and commit on the campaign branch —
-not a finding you hand back.
-
-Run the checks small first, then big, in rising tiers A, B, C, D, so a fix
-never throws away a bigger run. Run each tier, fix and commit what it finds,
-and re-run it until it is green; only then start the next tier. Find each
-command from this repository's own scripts and runner at run time.
-
-1. **Tier A — the tests nearest the change.** With build, type/static
-   analysis, every linter and contract check, and the diff sweep: first the
-   test files the campaign added or changed; then the test files that test
-   the source files it touched, by the repository's own convention (a
-   same-name spec or test beside the file, or a test folder mirror); then the
-   test files a grep finds importing the touched files. Run them with the
-   runner's own file selection: `node --test <files>`, `jest <files>` or
-   `jest --findRelatedTests <files>`, `vitest related <files>`,
-   `go test ./pkg/...`, `pytest <files>`.
-2. **Tier B — the tests coverage says reach the change.** Run the suite once
-   with the runner's coverage on, or read the repository's recorded coverage
-   map, to learn which test files execute the changed lines; then run
-   exactly those (`jest --findRelatedTests` or `jest --coverage`,
-   `vitest related`, `node --test --experimental-test-coverage`,
-   `go test -coverprofile`, coverage.py). With no cheap way to map tests to
-   files, say so and skip to Tier C. Never fake the mapping.
-3. **Tier C — the full suite without slow tests.** The repository's default
-   test command; with no slow or fast split, the plain full suite. Run it
-   beside the base suite when the project compares against one. Fix and
-   commit what it finds, re-run Tier A, then run Tier C once more. Finish on
-   a clean Tier C run. Run the base suite with
-   `node scripts/shared-base-suite.mjs <base-directory>`. It may reuse a
-   finished base result another campaign saved for the same base; when it
-   prints `shared base result used`, write its key and path into this file.
-   The candidate suite is never cached: always run it fresh.
-4. **Tier D — slow tests and container tests, each only by your decision.**
-   Two separate opt-in choices, both off by default: the slow tier, and
-   container tests (a test that starts podman or docker is presumed slow).
-   Decide each from the assembled diff, and run a group only when the change
-   reaches what it covers. Record one line per decision, either way, with
-   its reason, for example `container tests: not run; the change is skill
-   text only`. When the repository does not separate its container tests,
-   say so and treat them as part of its slow or default tier. The heavy tier
-   is never part of this decision: it runs only on the Lord's direct order,
-   and you never choose it.
-
-Do not start a bigger tier beside a smaller one. A fix the smaller tier
-forces makes that bigger run worthless and costs a second one (Lord,
-2026-10-15: "1 small test and 1 big test beats 2 big tests.").
-
-Record, for each tier, the command, the files it selected, the exit code and
-the duration.
-
-**You own the fixing. Do not punt to the Alpha.** Reporting a failure upward and
-waiting for someone else to repair it is not an available move, and neither is a
-FAIL whose stated blocker is "this needs a code change" — making the code change
-IS the assignment.
-
-For the suite command specifically, do not credit exit 0 alone: read
-`run-suite-container.mjs`'s own stdout to its end and record the
-`run-suite-container: tests executed: N` line it prints for every real run. A
-truncated log, a signal death, or a completed run reporting `tests executed: 0`
-or `tests executed: unknown` is never a PASS, whatever the exit code says.
-
-## Bug hunt
-
-Once the tests and lint are green, read the whole assembled diff against the
-campaign base (`git diff <base>...HEAD`) as a reviewer who did not write it,
-not slice by slice, and ask how it breaks.
-
-- List every piece of state the diff adds or edits (variables kept across
-  calls, caches, cursors, history or URL state, stored rows, flags) and every
-  contract it changes (function signatures, request and response shapes,
-  limits shared with another component or service).
-- For each, follow every way it can change and try to break it: the order
-  of events, concurrency and late answers, empty and boundary values, a limit
-  that disagrees between two places, navigating away and back, an error
-  part-way through. For example, a bookshop's basket that caps a title at 10
-  copies while its checkout accepts 99 is a limit that disagrees.
-- Confirm each suspected bug with a failing test (or, for UI behaviour, a
-  recorded browser sequence) before you fix it. A suspicion you cannot
-  confirm is listed, not fixed.
-- Fix only what the diff added or edited. A bug in code the diff did not
-  touch goes under "Pre-existing, not fixed".
-- Report the list of state and contracts hunted, one line each: PASS, or the
-  confirmed bug with its test and fix commit. A hunt that found nothing still
-  lists what it examined.
-
-This hunt covers the whole diff. When this todo carries the critique below, it
-adds the critic's own front-end hunt; this one does not repeat the critic's
-checklist.
-
-<!-- Include the block below only when 00_overview.md stamps frontend_row: builder. -->
-## Browser function check
-
-This bundle is a builder row, so its gates check function only. Rebuild and
-serve the assembled candidate, confirm the served bytes carry the change, then
-perform each `## Done when` behaviour in Chromium with agent-browser. A
-behaviour that does not work is a failure you fix here and commit, exactly like
-a red test. Run no `/frontend-critic` review and no accessibility review; the
-critic row owns both.
-
-<!-- Include the block below only when 00_overview.md stamps frontend: true and not frontend_row: builder. -->
-## Front-end critique
-
-This bundle changes a web UI. Rebuild and serve the assembled candidate,
-confirm the served bytes carry the change, then run the throne-local
-`/frontend-critic` skill against every surface the bundle touched, in every
-state it names (default, hover, focus, fallback), in Chromium only, as
-section 4 of that skill sets out, including its interleave moves for kept
-state and its open bug hunt (sections 3d and 3e). Each defect it reports (a
-baseline off by more than 0.5px, a shifted neighbour, a clipped or overlapping
-box, an undersized click target, state lost or overwritten by a late answer)
-is a failure you fix here and commit, exactly like a red test. Re-run the
-critic after each fix and finish on an empty report.
-
-<!-- Include the paragraph below only when 00_overview.md stamps frontend_row: critic. -->
-This bundle is a critic row, so the surfaces include everything the builder
-delivered. Run `/screen-reader-check`'s simulated pass on them too, fix what it
-raises the same way, and finish on an empty report from both.
-
-## Deliverable
-
-- End with exactly one `**Verify outcome:** PASS` or `**Verify outcome:** FAIL`.
-- PASS requires a final clean run of every applicable command, cited with its
-  exit code and the suite's `tests executed: N` line; each tier's command,
-  selected files, exit code and duration; the two Tier D decision lines; the
-  bug-hunt list of
-  state and contracts hunted, one line each, even when nothing was found; and
-  with the critique block the critic's final empty report, naming Chromium, or
-  with the browser function check one line per behaviour performed, naming
-  Chromium. A critic row adds `/screen-reader-check`'s final empty report.
-- FAIL only when repair is genuinely impossible for you — a requirement nobody
-  wrote, two slices whose designs contradict, or an environment you cannot fix.
-  Name that precise blocker; never forward a raw test or lint failure as one.
-- Fix and commit; do not merge, do not deliver, and do not touch the target
-  branch.
-- When you end a turn to wait on background work you started (a test or
-  suite run, a monitor, a queued container slot, a background agent), end
-  that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next ordinary
-  message clears it. Otherwise no-idling pages the Regent every minute.
-```
-
-## The delivery todo (`99c_deliver_<topic>.md`)
-
-Always the final executable todo and always a distinct fresh real Shadow. It
-runs only after explicit `99b` PASS and owns delivery together with the
-conflicts delivery hits in `git-repo` mode: it merges the latest target branch
-into the campaign branch, resolves every conflict there, and then delivers the
-result to the target. When the deliverable is a pull request (the queue row's
-launch facts carry `pr: <branch>`, or the objective says so), the todo also
-pushes the human-named PR branch with `throne forge push-branch` and opens the
-draft PR from it with `throne forge pr create --draft`, so on a host where
-Forgejo is installed the PR lands in Forgejo — see
-`/execute-todos` "Pull-request delivery": the branch, the PR title and body,
-and every pushed commit message are written as the repository's own
-contributor would write them, and never name `alpha`, `shadow`, an objective
-code, an agent, a bundle or a gate. Write the PR branch name and the base
-branch into the todo verbatim; a `99c` that has to guess them is a defect of
-this bundle. When the deliverable is a PR and the bundle's `ticket-warning.md`
-holds a warning block, `99c` puts that block verbatim at the very bottom of
-the PR body, after `## Agents`, as the `## Ticket Status` section
-`/pr-description` describes; `no warning needed` means the body has no
-`## Ticket Status` section at all. In `no-git` mode it invokes no merge tooling: it records
-Git delivery as N/A with the classifier reason, verifies the requested
-operational outcome with its naturally applicable evidence, and records the
-explicit final outcome.
-
-```markdown
----
-deps: [99b]
----
-
-# 99c — Merge the latest target into <feature>, then deliver it
-
-Fresh delivery Shadow. Use plain git throughout; this gate invokes no throne
-merge tooling. Merge the recorded target branch INTO the campaign branch with
-`git merge` and resolve every conflict there — never on the way past, and never
-on the target. Re-run the bundle's checks on the merged result.
-
-**You own the conflict resolution. Do not punt to the Alpha.** Every conflict
-this merge raises is yours to resolve, by reading both sides and deciding —
-never returned upward as a finding, never left for a corrective slice, never
-handed to a fresh Shadow. A merge conflict is the expected content of this
-assignment, not an obstacle to report. Escalate only if resolving one would
-require a decision the bundle never made — a genuine semantic fork between two
-landed slices — and say exactly which two. Then re-read the
-target HEAD: if it moved, absorb and re-check again, and repeat for as long as
-the target keeps moving.
-
-Only when the campaign branch is current with a target whose HEAD is unchanged
-since that final check, deliver it with plain git — check out the target branch
-and `git merge` the campaign branch, one integration round. No throne merge
-tooling. Inspect the resulting target diff and content, then run named smoke
-checks that exercise the delivered feature on the target.
-
-Prove delivery with plain git, do not assert it. Show the campaign's commits
-reachable from the target tip (`git log`) and an empty `git diff` between the
-delivered paths on the two branches, and paste that exact output into the
-report.
-
-Bracket the live merge: record a path-qualified working-tree inventory and
-content manifest — tracked, staged, and untracked alike — before you touch the
-target, compare it afterwards, and restore anything that changed. Plain git
-carries no stash-and-restore of its own, so this bracket is the only protection
-the ambient dirt has.
-
-When delivering a pull request and this bundle's `ticket-warning.md` holds a
-warning block, put that block verbatim at the very bottom of the PR body, after
-`## Agents`, as the `## Ticket Status` section `/pr-description` describes.
-When it reads `no warning needed`, the body has no `## Ticket Status` section
-at all.
-
-Never leave the live target in a conflicted merge state. An unexpected conflict
-during real integration is abandoned and the target is returned to its pre-merge
-baseline before any further attempt.
-
-## Deliverable
-
-- End with exactly one `**Delivery outcome:** PASS` or
-  `**Delivery outcome:** FAIL`.
-- A PASS without cited git output showing the campaign's content on the target
-  branch is not a valid terminal report.
-- Never fast-forward a target whose HEAD moved after the final check; that target
-  has not been checked against, so the absorb loop repeats instead.
-- The absorb loop is bounded by the target going quiet, never by a retry count.
-- Any integration failure, target-content mismatch, or failed smoke check leaves
-  the campaign incomplete and forbids `REPORT.md`.
-```
-
-**Legacy compatibility.** Pre-amendment bundles keep their authored meanings:
-a bare `99_validate` remains a historical validation gate, and any older
-multi-gate chain — the two-gate `99a` verify-and-fix → `99b` merge-and-deliver
-chain that preceded the 2026-08-25 renumber, `99b_validate`/`99c_merge`, or the
-five-gate `99a` absorb → `99b` file-size → `99c` static analysis → `99d`
-validate → `99e` deliver — keeps the meaning its files were authored with. Run
-those files as written with fresh terminal Shadows. New bundles generate only
-the three-gate `99a` conformance → `99b` verify-and-fix → `99c`
-merge-and-deliver chain above.
-
-Because the bare letter is therefore ambiguous across generations, the throne
-classifies a terminal gate by its ROLE WORD, not its letter
-(`terminalGateRoleFromShadowName` in `src/merge-git-tree/terminal-gate-shadow.ts`).
-Keep the verb in every terminal filename — `99a_conform_<topic>`,
-`99b_verify_<topic>`, `99c_deliver_<topic>` — or a delivery gate stops being
-recognisable as one.
-
-`98_ticket_<topic>` keeps its role word too. It is the last ordinary-band
-number, so it runs after every other ordinary slice and before `99a`, and it
-is not one of the three terminal gates the throne classifies by verb.
-
-## The record step (`99d_record_<topic>.md`)
-
-The bundle's last file. It is not a gate and no Shadow runs it: the Alpha
-performs it itself, after `99c` has passed, every release request is
-answered and `REPORT.md` is written, and before it reports DONE. `99c` stays
-the last todo a Shadow executes. `/execute-todos`
-"`99d` — record the outcome on the Lord's page" owns the procedure and its
-place in the order; the todo carries the campaign's own facts so the Alpha
-does not have to look them up. Write the objective code, the Alpha's name
-and the delivery target into the todo verbatim.
-
-```markdown
----
-deps: [99c]
----
-
-# 99d — Record the outcome of <feature> on the Lord's page
-
-Performed by the Alpha itself, after `99c` reports
-`**Delivery outcome:** PASS`, after every release request is answered, and
-after `REPORT.md` is written. No Shadow is spawned for this todo.
-
-1. `throne where-i-stand show`, read the page at the path it prints, and run
-   `throne where-i-stand lock --checksum <checksum> --ttl 5m` in the
-   background (the where-i-stand skill's step 4). While the lock lasts, edit
-   one entry at a time with the harness's edit tool, never the whole file.
-   Move the entry `### <objective code>` out of
-   `## In flight`: to `## On GitHub` when the work has a pull request on
-   GitHub, otherwise to `## Delivered, not on GitHub`. Start it with the
-   page's entry form from the where-i-stand skill's "Writing rules for the
-   page": its `- Links: …`, `- Kind: …` and `- Where it stands: …` lines.
-   Then one honest line on what is and is not verified. End it with who
-   wrote it and when.
-2. Correct every other entry about the same work: the same Forgejo or GitHub
-   pull request (a Forgejo pull request and its GitHub twin are the same
-   work), or, with no pull request, the same ticket and the same commit or
-   branch. When the entry carries only one of the two links, look up the
-   other with `throne forge status <pull request url> --json` (its
-   `mergeTarget`) and write both. Remove each such entry when this entry now
-   says everything it said, which is the default when its work was absorbed
-   or superseded; otherwise correct its `Where it stands:` and state lines
-   and add one line ``Superseded by `### <objective code>` on <date>``.
-3. Remove any `## Needs you` line this delivery settled.
-4. Stop the background lock and read its output. When it names a broken
-   heading, take the lock again and fix it. Then
-   `throne where-i-stand note "delivered <objective code>: <one line>"`.
-5. `throne check-where-i-stand --agent <alpha-name>` must pass. Do not edit
-   `REPORT.md` after this step: that would put the entry behind the report.
-
-## Out of scope
-
-- Any code change. A check that fails here for a reason other than a missing
-  entry, an entry still in `## In flight`, an entry that does not start with
-  its links line, or an older entry about the same work left uncorrected is
-  a defect to report, not something to work around.
-
-## Deliverable
-
-- The page holds `### <objective code>` outside `## In flight`, starting
-  with its links, kind and where-it-stands lines, and with the line on what
-  is not verified.
-- No other entry about the same work is left uncorrected: each is removed
-  or carries its ``Superseded by `### <objective code>` on <date>`` line.
-- `throne check-where-i-stand --agent <alpha-name>` passes; its output is in
-  this file's execution log and in the DONE message.
-```
-
-`99d_record_<topic>` keeps its role word as the gates do. No Shadow is named
-for it, so the throne's gate classification, which reads Shadow names, never
-meets it.
-
 ## What does NOT go in a todo
 
 - **Step-by-step recipes** ("first do X, then do Y, then …"). Give the executor the semantic contract and deliverable, not a procedure; recipes rot the moment surrounding code moves.
@@ -2014,3 +1200,14 @@ Without the verification command, the executor self-grades and the bar drifts. T
 ### Match the project's naming style
 
 Action-shaped titles, targets baked in: `Implement recipe page`, `Wire the release build into the pre-commit gate`, `Audit the orders table for a missing index`. No padding verbs (`Implement`, not `Go ahead and implement`). The "Naming user-facing actions" rule in `agent_docs/coding_principles.md` applies to todo titles too.
+
+## Supporting files
+
+- `ticket-todo-template.md` — read when the bundle is ticket-driven and you are writing the `98` file.
+- `conformance-todo-template.md` — read when writing the `99a` file.
+- `verify-todo-template.md` — read when writing the `99b` file.
+- `delivery-todo-template.md` — read when writing the `99c` file.
+- `record-todo-template.md` — read when writing the `99d` file.
+- `front-end-bundles.md` — read when any slice's `touches:` includes a front-end path, or the queue row stamps `frontend_row:`.
+- `perceptual-quality-bundles.md` — read when the objective's `## Done when` holds any criterion a test cannot settle (the bundle stamps `bundle_content: perceptual`).
+- `amendments.md` — read when an amendment arrives mid-flight, and before writing the overview's amendment ledger.

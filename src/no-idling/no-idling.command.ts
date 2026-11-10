@@ -106,6 +106,8 @@ export const REAL_NO_IDLING_DEPENDENCIES: NoIdlingDependencies = {
   unnamedAgentTracker: new ConfirmedObservationTracker(),
   excludedFamilyObservations: new Set<string>(),
   stillBlockedObservations: new Map<string, number>(),
+  correctedToWorkingLogTimes: new Map<string, number>(),
+  blindSweepMemory: { blindSweepsInARow: 0, noticeSent: false },
 };
 
 export type { NoIdlingDependencies };

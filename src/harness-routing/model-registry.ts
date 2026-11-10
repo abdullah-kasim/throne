@@ -3,6 +3,7 @@ import {
   MODEL_NAMES,
   type Harness,
 } from "./harness-identity.ts";
+import { claudeFamilyEntry } from "./registry-derivation.ts";
 
 export const MODEL_ROLES = {
   ALPHA: "Alpha",
@@ -256,19 +257,23 @@ export function parseModelRegistryEntry(value: unknown): ModelRegistryEntry {
 }
 
 export function registryEntry(model: string): ModelRegistryEntry | undefined {
-  return MODEL_REGISTRY.find((candidate) => candidate.model === model);
+  return (
+    MODEL_REGISTRY.find((candidate) => candidate.model === model) ??
+    claudeFamilyEntry(MODEL_REGISTRY, model)
+  );
 }
 
 /** Resolve a caller model alias to its canonical registry entry. */
 export function resolveRegistryModel(model: string): ModelRegistryEntry {
   const key = model.trim().toLowerCase();
-  const resolved = MODEL_REGISTRY.find(
-    (candidate) =>
-      candidate.model === key ||
-      Object.values(candidate.harnessAliases).some(
-        (alias) => alias.toLowerCase() === key,
-      ),
-  );
+  const resolved =
+    MODEL_REGISTRY.find(
+      (candidate) =>
+        candidate.model === key ||
+        Object.values(candidate.harnessAliases).some(
+          (alias) => alias.toLowerCase() === key,
+        ),
+    ) ?? claudeFamilyEntry(MODEL_REGISTRY, key);
   if (resolved !== undefined && resolved.enabled) return resolved;
   if (resolved !== undefined) {
     throw new Error(

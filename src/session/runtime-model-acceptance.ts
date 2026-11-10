@@ -32,6 +32,13 @@ export type RuntimeModelAcceptance =
   | { ok: true; outcome: "matching" | "not-applicable"; evidencePath?: string }
   | {
       ok: true;
+      outcome: "unknown-model";
+      requestedModel: string;
+      unknownModels: string[];
+      evidencePath: string;
+    }
+  | {
+      ok: true;
       outcome: "exempt-human-steered-role";
       role: HumanSteeredRole;
       recordedModel: string;
@@ -198,6 +205,22 @@ export async function checkAgentRuntimeModelAcceptance(
   }
   if (attestation.status === "matching") {
     return { ok: true, outcome: "matching", evidencePath };
+  }
+  if (
+    attestation.status === "mismatch" &&
+    attestation.observedModels.every(
+      (model) =>
+        model === attestation.requestedModel ||
+        attestation.unknownModels.includes(model),
+    )
+  ) {
+    return {
+      ok: true,
+      outcome: "unknown-model",
+      requestedModel: attestation.requestedModel,
+      unknownModels: attestation.unknownModels,
+      evidencePath,
+    };
   }
   const observed =
     attestation.status === "missing"

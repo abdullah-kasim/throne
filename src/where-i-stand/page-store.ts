@@ -3,6 +3,7 @@ import path from "node:path";
 import { withExclusiveFileLock } from "../shared-policy/exclusive-file-lock.ts";
 import { replaceFileAtomically } from "../shared-policy/replace-file-atomically.ts";
 import { fileIsMissing, readTextFileIfPresent } from "./file-presence.ts";
+import { archiveWith, trimPage, type ArchivedEntry } from "./page-trim.ts";
 import {
   EMPTY_FRAME,
   frameFaultsOf,
@@ -22,6 +23,7 @@ import {
 } from "./page-journal.ts";
 
 export const PAGE_FILE_NAME = "where-i-stand.md";
+export const ARCHIVE_FILE_NAME = "where-i-stand.archive.md";
 export const PREVIOUS_COPIES_KEPT = 5;
 const PAGE_LOCK_FILE_NAME = "where-i-stand.lock";
 const PAGE_LOCK_NAME = "where-i-stand page";
@@ -29,6 +31,10 @@ const NEWEST_PREVIOUS_COPY = 1;
 
 export function pagePathIn(dataHome: string): string {
   return path.join(dataHome, PAGE_FILE_NAME);
+}
+
+export function archivePathIn(dataHome: string): string {
+  return path.join(dataHome, ARCHIVE_FILE_NAME);
 }
 
 export function previousCopyPathIn(dataHome: string, writesAgo: number): string {
@@ -102,6 +108,18 @@ export async function replacePageContent(dataHome: string, content: string): Pro
   await replaceFileAtomically(pagePathIn(dataHome), content);
 }
 
+export async function writeArchivedEntries(dataHome: string, archived: readonly ArchivedEntry[]): Promise<void> {
+  if (archived.length === 0) return;
+  const archive = (await readTextFileIfPresent(archivePathIn(dataHome))) ?? "";
+  await replaceFileAtomically(archivePathIn(dataHome), archiveWith(archive, archived));
+}
+
+export async function trimmedIntoArchive(dataHome: string, content: string, now: Date): Promise<{ page: string; archived: string[] }> {
+  const trimmed = trimPage(content, now);
+  await writeArchivedEntries(dataHome, trimmed.archived);
+  return { page: trimmed.page, archived: trimmed.archived.map((entry) => entry.identity) };
+}
+
 export async function withPageLock<Result>(
   dataHome: string,
   work: () => Promise<Result>,
@@ -116,8 +134,14 @@ export async function recordInJournal(
   header: JournalRecordHeader,
   contentBefore: string,
   contentAfter: string,
+  archived: readonly string[] = [],
 ): Promise<JournalRecord> {
-  const record = { ...header, version: versionOf(contentAfter), ...entryChangesBetween(contentBefore, contentAfter) };
+  const record = {
+    ...header,
+    version: versionOf(contentAfter),
+    ...entryChangesBetween(contentBefore, contentAfter),
+    ...(archived.length > 0 ? { archived } : {}),
+  };
   await replaceFileAtomically(journaledPagePathIn(dataHome), contentAfter);
   await appendJournalLine(dataHome, record);
   return record;
@@ -127,14 +151,15 @@ export async function addEventToLockedPage(writer: PageWriter, event: string): P
   const current = await showPage(writer.dataHome);
   const faults = frameFaultsOf(current.content);
   if (faults.length > 0) return { outcome: PageWriteOutcome.FrameBroken, faults };
-  const next = withEventOnTop(current.content, event);
   await keepPreviousCopy(writer.dataHome);
-  await replacePageContent(writer.dataHome, next);
+  const next = await trimmedIntoArchive(writer.dataHome, withEventOnTop(current.content, event), writer.now());
+  await replacePageContent(writer.dataHome, next.page);
   const record = await recordInJournal(
     writer.dataHome,
     { at: writer.now().toISOString(), writer: writer.name, action: JournalAction.Note },
     current.content,
-    next,
+    next.page,
+    next.archived,
   );
   return { outcome: PageWriteOutcome.Written, version: record.version };
 }

@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 
-SKILL_FILE_PATH = re.compile(r"(?:^|/)\.(?:claude|agents)/skills/[^/]+/SKILL\.md$")
+SKILL_FILE_PATH = re.compile(r"(?:^|/)\.(?:claude|agents)/skills/[^/]+/[^/]+\.md$")
 VERIFY_LINE = re.compile(r"^#\s*verify:\s*(.+)$")
 IDENTIFIER_WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_-]{2,}")
 HOME_DIRECTORY_PATH = re.compile(r"/(?:Users|home)/([^/\s\"']+)")

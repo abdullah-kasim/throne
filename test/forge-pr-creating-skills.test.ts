@@ -3,13 +3,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { readMarkdownSection } from './skill-contract-test-helpers.ts';
+import { readMarkdownSection, readSkillFolderSource } from './skill-contract-test-helpers.ts';
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const SKILLS_DIRECTORY = path.join(REPO_ROOT, '.claude', 'skills');
 const PR_CREATING_SKILLS = ['pr-description', 'execute-todos', 'write-todos'] as const;
 const PULL_REQUEST_DELIVERY_HEADING = '#### Pull-request delivery — when the deliverable is a PR, not a merge';
-const DELIVERY_TODO_HEADING = '## The delivery todo (`99c_deliver_<topic>.md`)';
+const DELIVERY_TODO_HEADING = '# The delivery todo (`99c_deliver_<topic>.md`)';
 
 const GITHUB_COMMANDS_WITH_THEIR_FORGE_COMMAND = [
   { github: /\bgit\b.*\bpush -u\b/, forge: /^throne forge push-branch\b/m, label: 'push' },
@@ -27,7 +27,7 @@ type PrCreatingSkill = (typeof PR_CREATING_SKILLS)[number];
 
 const SKILL_SOURCES: Record<PrCreatingSkill, string> = Object.fromEntries(
   await Promise.all(
-    PR_CREATING_SKILLS.map(async (name) => [name, await readFile(path.join(SKILLS_DIRECTORY, name, 'SKILL.md'), 'utf8')] as const),
+    PR_CREATING_SKILLS.map(async (name) => [name, await readSkillFolderSource(name)] as const),
   ),
 ) as Record<PrCreatingSkill, string>;
 const COMMANDS_DOCUMENT = await readFile(path.join(REPO_ROOT, 'agent_docs', 'commands.md'), 'utf8');

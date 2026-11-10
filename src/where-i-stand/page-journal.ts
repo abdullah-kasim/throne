@@ -36,6 +36,7 @@ export interface JournalRecord extends EntryChanges {
   readonly writer: string;
   readonly action: JournalActionName;
   readonly version: string;
+  readonly archived?: readonly string[];
 }
 
 export function isTheLordsName(name: string): boolean {

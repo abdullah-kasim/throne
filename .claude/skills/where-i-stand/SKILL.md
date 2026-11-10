@@ -17,11 +17,12 @@ already there when he asks. The Lord's own page edits are for epics only: he
 adds, edits and removes them on the page's Epics tab, and every other tab is
 read-only. This skill points him at it first and corrects it second.
 
-Every change to the page is a targeted edit of one entry, made with your
-harness's own edit tool while you hold `throne where-i-stand lock` (step 4).
-Never rewrite the whole file, and never write it with a shell redirect or a
-script: the lock proves you read the current page, keeps the previous copy,
-and journals what you changed.
+Adding, moving, replacing or removing one entry is one command,
+`throne where-i-stand put` (step 4). A correction across several entries is
+a targeted edit of each, made with your harness's own edit tool while you
+hold `throne where-i-stand lock`. Never rewrite the whole file, and never
+write it with a shell redirect or a script: `put` and the lock keep the
+previous copy and journal what changed.
 
 ## The page's frame
 
@@ -154,6 +155,23 @@ only the exact text it is given, so an edit of one entry cannot drop an
 entry it never touched; a whole-file rewrite can, which is why the page is
 never rewritten whole.
 
+To add, move, replace or remove one entry, run `put` and stop there:
+
+```bash
+throne where-i-stand put --code <objective code or repo#number> --section "<section name as on the page>" --text-file <file>
+throne where-i-stand put --code <code> --remove
+```
+
+The file holds the entry's lines under its `### <code>` heading, starting
+with the entry form; `--text "<entry body>"` takes them inline instead.
+`put` writes the heading, removes every other entry with the same heading
+from every section, takes the lock for its own write, journals you as the
+writer and prints `checksum: <sha>`. It refuses an entry that does not start
+with the entry form, naming the missing line, refuses while another agent
+holds the lock, naming the holder, and refuses `## Epics`.
+
+For a correction across several entries, take the lock and edit:
+
 1. Read the page at that path with your harness's own file tool. When time
    has passed since step 1, run `show` again first and use its checksum.
 2. Take the lock with your harness's own background run, never a shell `&`:
@@ -251,6 +269,12 @@ an agent never runs `throne where-i-stand save`.
 These bind every agent that edits the page, whichever step or duty brought
 it there.
 
+- One entry is written with `put`; the lock and your edit tool are for
+  corrections across several entries (step 4).
+- `## Delivered, not on GitHub` trims itself on every `put`, `note`, lock
+  release and save: it keeps its newest 20 entries and every entry younger
+  than 3 days, and moves the rest whole to `where-i-stand.archive.md` beside
+  the page. Never trim it by hand.
 - Plain words. The Lord reads this between other things; write what a person
   outside the work would understand.
 - No agent adds, edits, closes or removes an epic unless the Lord says so in
@@ -332,7 +356,8 @@ An invented entry, for a bakery's order page:
 The page stays true only because each role writes at its own moments.
 AGENTS.md states each duty beside that role's other duties; this is the same
 list in one place. Every entry this table names is written in the entry form
-"Writing rules for the page" gives.
+"Writing rules for the page" gives. A write of one entry is one
+`throne where-i-stand put` (step 4).
 
 | Role | Moment | What it writes |
 | --- | --- | --- |

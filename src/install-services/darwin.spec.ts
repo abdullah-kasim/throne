@@ -328,3 +328,19 @@ test('installing twice leaves the herdr config and bashrc unchanged the second t
   assert.ok(lines.includes(`herdr agent resume: unchanged → ${installed.herdrConfig}`), lines.join('\n'));
   assert.ok(lines.some((line) => line.startsWith('throne shell block: unchanged → ')), lines.join('\n'));
 });
+
+test('installing services registers the hidden skill pointer', async () => {
+  let settingsText = '';
+  const deps: InstallServicesDeps = {
+    ...makeDeps(emptyWorld()),
+    readClaudeSettings: async () => (settingsText === '' ? null : settingsText),
+    writeClaudeSettings: async (_settingsPath, content) => {
+      settingsText = content;
+    },
+  };
+  await withInstallServicesOutput(
+    { writeLine: () => {}, writeError: () => {} },
+    () => installServices({ ...OPTIONS, throneRootExplicit: true }, deps),
+  );
+  assert.match(settingsText, /\/srv\/throne\/claude-hooks\/hidden-skill-pointer\.py/);
+});

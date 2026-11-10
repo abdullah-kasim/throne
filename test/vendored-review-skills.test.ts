@@ -98,7 +98,7 @@ test('pr-media captures desktop media in a 1080p browser at no zoom and checks t
 
 test('pr-description and write-todos point at the pr-media video rule', () => {
   const prDescription = skillSource('pr-description');
-  const writeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'write-todos', 'SKILL.md'), 'utf8');
+  const writeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'write-todos', 'verify-todo-template.md'), 'utf8');
   assert.match(prDescription, /every interaction the\s+change touches recorded as a video, as the `pr-media` skill's video rule/);
   assert.match(writeTodos, /every interaction the change touches recorded as\s+a video, as `\/pr-media`'s video rule requires/);
 });
@@ -342,8 +342,8 @@ test('install.sh installs the agent-browser CLI and its browser without a versio
 });
 
 test('99c composes the PR with pr-description and a UI change carries pr-media captures', () => {
-  const executeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'execute-todos', 'SKILL.md'), 'utf8');
-  const writeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'write-todos', 'SKILL.md'), 'utf8');
+  const executeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'execute-todos', 'gate-99c-deliver.md'), 'utf8');
+  const writeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'write-todos', 'verify-todo-template.md'), 'utf8');
   assert.match(executeTodos, /`\/pr-description`/);
   assert.match(executeTodos, /`\/pr-media`/);
   assert.match(writeTodos, /`\/pr-media`/);
@@ -359,7 +359,7 @@ function textBetween(source: string, start: string, end: string): string {
 
 test("a pull request's agent setup never moves the reviewer's own checkout", () => {
   const source = skillSource('pr-description');
-  const executeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'execute-todos', 'SKILL.md'), 'utf8');
+  const executeTodos = readFileSync(path.join(SKILLS_DIRECTORY, 'execute-todos', 'gate-99c-deliver.md'), 'utf8');
   const guidance = textBetween(source, '### `## Agents`', '\n## Rules');
   const example = textBetween(source, '## Agents\n\n<details>', '</details>\n````');
   const creatingThePullRequest = textBetween(source, '## Creating the PR', 'Push first');

@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { text as readStreamAsText } from "node:stream/consumers";
 import { promisify } from "node:util";
 import { resolveCurrentAgentName } from "../herdr/herdr-session.service.ts";
@@ -14,6 +15,7 @@ import {
   takeEditLock,
 } from "./edit-lock.ts";
 import { isTheLordsName } from "./page-journal.ts";
+import { putEntry, PutOutcome, type PutRequest } from "./page-put.ts";
 import { saveOneUnitAsTheLord, SaveOutcome, unitChangeOf, type SaveAttempt, type UnitChange } from "./page-save.ts";
 import { pagePathIn, PageWriteOutcome, showPage, type PageWriter } from "./page-store.ts";
 import type { UnrecordedEdit } from "./unrecorded-edit.ts";
@@ -30,6 +32,7 @@ import {
   renderHeldByAnother,
   renderLockHeld,
   renderNameReservedForTheLord,
+  renderPutRefusal,
   renderRelease,
   renderSaveAnswer,
   renderStaleChecksum,
@@ -155,6 +158,35 @@ async function addNote(writer: PageWriter, event: string, dependencies: WhereISt
   return WhereIStandExitCode.Done;
 }
 
+async function putRequestOf(parsed: Extract<WhereIStandArguments, { action: typeof WhereIStandAction.Put }>): Promise<PutRequest> {
+  if ("remove" in parsed) return { code: parsed.code, remove: true };
+  const text = parsed.textFile === undefined ? (parsed.text ?? "") : await readFile(parsed.textFile, "utf8");
+  return { code: parsed.code, section: parsed.section, text };
+}
+
+async function putTheEntry(
+  writer: PageWriter,
+  parsed: Extract<WhereIStandArguments, { action: typeof WhereIStandAction.Put }>,
+  dependencies: WhereIStandDependencies,
+): Promise<number> {
+  const attempt = await putEntry(writer, await putRequestOf(parsed));
+  await reportUnrecordedEdit(attempt.unrecordedEdit, dependencies);
+  if (attempt.outcome === PutOutcome.Unchanged) {
+    dependencies.out(`where-i-stand: the page already says this, so nothing was journaled. checksum: ${attempt.checksum}\n`);
+    return WhereIStandExitCode.Done;
+  }
+  if (attempt.outcome !== PutOutcome.Written) {
+    dependencies.err(renderPutRefusal(attempt));
+    return WhereIStandExitCode.Refused;
+  }
+  dependencies.out(renderRelease(attempt.released));
+  const faults = renderFaultsAtRelease(attempt.released);
+  if (faults === "") return WhereIStandExitCode.Done;
+  dependencies.err(faults);
+  await tellRegentOrSayWhyNot(`${writer.name} put an entry on the page with faults to fix. ${faults}`, dependencies);
+  return WhereIStandExitCode.ReleasedWithFaults;
+}
+
 async function holdTheEditLock(
   writer: PageWriter,
   parsed: Extract<WhereIStandArguments, { action: typeof WhereIStandAction.Lock }>,
@@ -183,7 +215,10 @@ async function holdTheEditLock(
 }
 
 async function changeThePage(
-  parsed: Extract<WhereIStandArguments, { action: typeof WhereIStandAction.Lock | typeof WhereIStandAction.Note }>,
+  parsed: Extract<
+    WhereIStandArguments,
+    { action: typeof WhereIStandAction.Lock | typeof WhereIStandAction.Note | typeof WhereIStandAction.Put }
+  >,
   dependencies: WhereIStandDependencies,
 ): Promise<number> {
   let writerName: string;
@@ -205,9 +240,9 @@ async function changeThePage(
   };
   try {
     await addEpicsSectionWhenMissing(dependencies);
-    return parsed.action === WhereIStandAction.Note
-      ? await addNote(writer, parsed.event, dependencies)
-      : await holdTheEditLock(writer, parsed, dependencies);
+    if (parsed.action === WhereIStandAction.Note) return await addNote(writer, parsed.event, dependencies);
+    if (parsed.action === WhereIStandAction.Put) return await putTheEntry(writer, parsed, dependencies);
+    return await holdTheEditLock(writer, parsed, dependencies);
   } catch (error) {
     dependencies.err(`${NOTHING_WAS_WRITTEN} ${messageOf(error)}\n`);
     return WhereIStandExitCode.Refused;

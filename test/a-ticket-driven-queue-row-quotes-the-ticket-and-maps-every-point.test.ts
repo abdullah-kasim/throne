@@ -14,7 +14,7 @@ function unwrap(text: string): string {
 
 async function readWriteTheBodyStep(): Promise<string> {
   const skill = await readFile(path.join(ROOT, ".claude/skills/queue-objective/SKILL.md"), "utf8");
-  const step = readMarkdownSection(skill, "### 2. Write the body — five markers, for the weakest configured reader");
+  const step = readMarkdownSection(skill, "### 2. Write the body — five markers, for the reader who will run it");
   assert.notEqual(step, "", "queue-objective has no write-the-body step");
   return step;
 }

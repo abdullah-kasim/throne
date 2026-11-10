@@ -58,6 +58,10 @@ export const pageResponse = z.object({
   lastModified: z.iso.datetime(),
 });
 
+export const archiveResponse = z.object({
+  markdown: z.string(),
+});
+
 export const recordsResponse = z.object({
   records: pullRequestRecords,
   lastModified: z.iso.datetime(),
@@ -80,6 +84,7 @@ export const saveResponse = z.object({
 });
 
 export type PageResponse = z.infer<typeof pageResponse>;
+export type ArchiveResponse = z.infer<typeof archiveResponse>;
 export type RecordsResponse = z.infer<typeof recordsResponse>;
 export type PullRequestRecords = z.infer<typeof pullRequestRecords>;
 export type FailedResponse = z.infer<typeof failedResponse>;

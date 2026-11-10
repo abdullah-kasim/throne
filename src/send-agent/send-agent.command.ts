@@ -45,6 +45,8 @@ const DIRECT_SEND_EXIT_CODE = {
   assumedFilled: 2,
 } as const;
 
+const REGENT_RECIPIENT_NAME = "Regent";
+
 let productionDependencies: SendAgentCommandDependencies | undefined;
 
 const DEFAULT_PRODUCTION_DEPENDENCIES: SendAgentCommandDependencies = {
@@ -119,6 +121,21 @@ export class SendAgentCommand extends CommandRunner {
       await runtimeModelTaskAcceptance.refuseTaskOnRuntimeModelMismatch(
         parsed.recipientName,
         dependencies.checkRuntimeModelAcceptance,
+        (modelId) =>
+          runtimeModelTaskAcceptance.tellRegentOnceAboutUnknownModel(
+            modelId,
+            (prompt) =>
+              runEnqueueSendAgent(
+                {
+                  recipientName: REGENT_RECIPIENT_NAME,
+                  prompt,
+                  senderName: parsed.senderName,
+                  clearBlocked: false,
+                  direct: false,
+                },
+                dependencies,
+              ),
+          ),
       )
     )
       return;

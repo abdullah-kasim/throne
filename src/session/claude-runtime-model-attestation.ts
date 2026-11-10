@@ -6,6 +6,7 @@ export type ClaudeRuntimeModelAttestation =
       status: "matching" | "mismatch";
       requestedModel: string;
       observedModels: string[];
+      unknownModels: string[];
       assistantRecords: number;
       source: string;
     }
@@ -32,9 +33,14 @@ function isHarnessPlaceholderModel(model: string): boolean {
   return HARNESS_PLACEHOLDER_MODEL_PATTERN.test(model);
 }
 
+interface ObservedClaudeModel {
+  model: string;
+  known: boolean;
+}
+
 function observedClaudeModel(
   record: ClaudeTranscriptRecord,
-): string | undefined {
+): ObservedClaudeModel | undefined {
   if (
     record.type !== "assistant" ||
     record.message?.role !== "assistant" ||
@@ -48,18 +54,18 @@ function observedClaudeModel(
     return undefined;
   }
   try {
-    return resolveModel(HARNESS_NAMES.CLAUDE, rawModel);
+    return { model: resolveModel(HARNESS_NAMES.CLAUDE, rawModel), known: true };
   } catch {
-    return rawModel.toLowerCase();
+    return { model: rawModel.toLowerCase(), known: false };
   }
 }
 
 export function latestObservedClaudeModel(transcript: string): string | undefined {
-  return observedClaudeModels(transcript).at(-1);
+  return observedClaudeModels(transcript).at(-1)?.model;
 }
 
-function observedClaudeModels(transcript: string): string[] {
-  const observed: string[] = [];
+function observedClaudeModels(transcript: string): ObservedClaudeModel[] {
+  const observed: ObservedClaudeModel[] = [];
   for (const line of transcript.split("\n")) {
     if (line.trim() === "") continue;
     let record: ClaudeTranscriptRecord;
@@ -92,11 +98,14 @@ export function attestClaudeRuntimeModel(
     };
   }
   return {
-    status: observed.every((model) => model === canonicalRequest)
+    status: observed.every(({ model }) => model === canonicalRequest)
       ? "matching"
       : "mismatch",
     requestedModel: canonicalRequest,
-    observedModels: [...new Set(observed)],
+    observedModels: [...new Set(observed.map(({ model }) => model))],
+    unknownModels: [
+      ...new Set(observed.filter(({ known }) => !known).map(({ model }) => model)),
+    ],
     assistantRecords: observed.length,
     source,
   };

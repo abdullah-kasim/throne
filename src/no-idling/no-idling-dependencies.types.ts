@@ -20,6 +20,11 @@ import type { StrandedSpawnRecoveryResult } from './stranded-spawn-recovery.ts';
 import type { DeferredRowPingQueue } from '../regent-queue/regent-queue.store.ts';
 import type { HarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
 
+export interface BlindSweepMemory {
+  blindSweepsInARow: number;
+  noticeSent: boolean;
+}
+
 export interface NoIdlingDependencies {
   resolveLiveRoot: () => Promise<string>;
   getRoster: (dataDir: string) => Promise<AgentStatusesRosterEntry[]>;
@@ -102,6 +107,8 @@ export interface NoIdlingDependencies {
   /** Process-lifetime set of unchanged exclusion diagnostics already emitted. */
   excludedFamilyObservations?: Set<string>;
   stillBlockedObservations?: Map<string, number>;
+  correctedToWorkingLogTimes?: Map<string, number>;
+  blindSweepMemory?: BlindSweepMemory;
   /**
    * Optional output sinks, defaulting to `process.stdout.write`/
    * `process.stderr.write` when absent -- mirrors `KeepGoingDependencies`'

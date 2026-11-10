@@ -461,6 +461,7 @@ test("every throne launch registers the memory read log hook once, beside the tw
       ["claude memory read log", "added"],
       ["claude jev fence", "added"],
       ["claude agent exit marker", "added"],
+      ["claude hidden skill pointer", "added"],
       ["codex session start", "added"],
     ],
   );

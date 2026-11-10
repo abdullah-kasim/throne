@@ -2,14 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { missingPhrases, readMarkdownSection, readSkill, readSkillSource, unwrap } from "./skill-contract-test-helpers.ts";
 
-async function readSection(skillName: string, heading: string): Promise<string> {
-  const section = readMarkdownSection(await readSkillSource(skillName), heading);
+async function readSection(skillName: string, heading: string, file = "SKILL.md"): Promise<string> {
+  const section = readMarkdownSection(await readSkillSource(skillName, file), heading);
   assert.notEqual(section, "", `${skillName} has no ${heading} section`);
   return unwrap(section);
 }
 
 test("a yolo repository's campaign is delivered by pushing its default branch, never by a pull request", async () => {
-  const delivery = await readSection("execute-todos", "#### Yolo delivery — when the repository pushes its default branch");
+  const delivery = await readSection("execute-todos", "#### Yolo delivery — when the repository pushes its default branch", "gate-99c-deliver.md");
   assert.deepEqual(
     missingPhrases(delivery, [
       'git -C "$repo" config --type=bool --get throne.yolo` prints `true`',
@@ -33,12 +33,12 @@ test("a yolo repository's campaign is delivered by pushing its default branch, n
     ]),
     [],
   );
-  const finalDelivery = await readSection("execute-todos", "#### `99c` — merge the latest target, resolve conflicts, deliver");
+  const finalDelivery = await readSection("execute-todos", "#### `99c` — merge the latest target, resolve conflicts, deliver", "gate-99c-deliver.md");
   assert.ok(finalDelivery.includes("outside a yolo repository this step issues no `git fetch` and never names `origin/...`"));
 });
 
 test("a single-slice campaign in a yolo repository delivers the same way", async () => {
-  const singleSlice = await readSection("execute-todos", "## Single-slice mode — Lord-authorized only");
+  const singleSlice = await readSection("execute-todos", "## Single-slice mode — Lord-authorized only", "single-slice-mode.md");
   assert.deepEqual(
     missingPhrases(singleSlice, [
       "`99c` then run exactly as for any bundle, each as a fresh Shadow distinct from the executor, and you do the `99d` record step yourself",

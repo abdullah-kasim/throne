@@ -35,6 +35,8 @@ const SECTION_HEADING_PREFIX = "## ";
 const ENTRY_HEADING_PREFIX = "### ";
 const EVENT_LINE_PREFIX = "- ";
 export const NEWEST_EVENTS_KEPT = 15;
+export const DELIVERED_ENTRIES_KEPT = 20;
+export const DELIVERED_ENTRY_DAYS_KEPT = 3;
 
 export function sectionHeadingOf(section: string): string {
   return `${SECTION_HEADING_PREFIX}${section}`;
@@ -52,7 +54,7 @@ export function versionOf(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-function sectionNamedBy(line: string): string | undefined {
+export function sectionNamedBy(line: string): string | undefined {
   return line.startsWith(SECTION_HEADING_PREFIX)
     ? line.slice(SECTION_HEADING_PREFIX.length).trim()
     : undefined;

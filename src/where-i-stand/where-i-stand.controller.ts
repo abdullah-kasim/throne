@@ -5,11 +5,13 @@ import { Body, Controller, Get, Header, HttpStatus, Post, Res } from "@nestjs/co
 import type { Response } from "express";
 import { resolveThroneHome } from "../shared-policy/throne-home.ts";
 import {
+  archiveResponse,
   failedResponse,
   pageResponse,
   recordsResponse,
   saveRequest,
   saveResponse,
+  type ArchiveResponse,
   type FailedResponse,
   type PageResponse,
   type RecordsResponse,
@@ -19,7 +21,7 @@ import { CACHE_CONTROL_HEADER, CHECKED_ON_EVERY_LOAD } from "../web-listener/res
 import { validatedRequest, validatedResponse } from "../web-listener/validated-boundary.ts";
 import { readTextFileIfPresent } from "./file-presence.ts";
 import { SaveOutcome } from "./page-save.ts";
-import { pagePathIn } from "./page-store.ts";
+import { archivePathIn, pagePathIn } from "./page-store.ts";
 import { realWhereIStandDependencies, saveChangeFromThePage, type SaveAnswer } from "./where-i-stand-runtime.ts";
 
 const RECORDS_FOLDER_NAME = "where-i-stand";
@@ -72,6 +74,13 @@ export class WhereIStandController {
     const page = await readFileAndItsTime(pagePathIn(resolveThroneHome()));
     if (page === undefined) return answerNotFound(response, PAGE_IS_MISSING);
     return validatedResponse(pageResponse, { markdown: page.text, lastModified: page.lastModified });
+  }
+
+  @Get("archive")
+  @Header(CACHE_CONTROL_HEADER, CHECKED_ON_EVERY_LOAD)
+  async archive(): Promise<ArchiveResponse> {
+    const markdown = (await readTextFileIfPresent(archivePathIn(resolveThroneHome()))) ?? "";
+    return validatedResponse(archiveResponse, { markdown });
   }
 
   @Get("records")

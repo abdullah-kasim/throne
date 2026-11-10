@@ -40,7 +40,12 @@ f1. Write the brief to `~/.throne/data/<fork-name>/brief.md` in the
     INHERITS NONE OF THIS CONVERSATION. Everything settled here — the
     rulings, the paths, the file names, the things ruled out — is lost
     unless it is in that file. Verify every code noun against the live tree
-    before writing it, the same way `/queue-objective` does.
+    before writing it, the same way `/queue-objective` does. Write it for
+    the fork's model: the `--model` the Lord named, else the parent's live
+    model, as "Model resolution" below says. Shape it as
+    `agent_docs/MODEL_POLICY.md` "Find the reader first" says, and put its
+    `Written for: <harness>/<model> at effort <n> (<how it was found>)`
+    line under `RULINGS:`.
 f2. Choose the fork's name as the invoker's own name plus a task slug
     (`stager-tenth-prmedia`), never a number.
 f3. Prepare its worktree with `spawn-git-tree <fork-name> --repo <repo>

@@ -308,7 +308,8 @@ with his quoted words, never `update-queue --append-body`.
 
 File each row with `/queue-objective`: its five markers, its noun
 verification, its reuse survey, `add-to-queue` with the launch facts, and the
-Regent pointer line, once per row. Run the lint bare, once per body:
+Regent pointer line, once per row. Each body is written for the reader who
+will run that row, per `/queue-objective` step 2. Run the lint bare, once per body:
 
 ```bash
 throne lint-queue-plan --body-file ~/tmp/<builder>-body.md

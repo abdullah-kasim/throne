@@ -6,20 +6,20 @@ import { missingPhrases, readMarkdownSection, unwrap } from "./skill-contract-te
 
 const SKILLS_DIRECTORY = resolve(import.meta.dirname, "..", ".claude/skills");
 
-async function skillSection(skillName: string, heading: string): Promise<string> {
-  const source = await readFile(resolve(SKILLS_DIRECTORY, skillName, "SKILL.md"), "utf8");
+async function skillSection(skillName: string, heading: string, file = "SKILL.md"): Promise<string> {
+  const source = await readFile(resolve(SKILLS_DIRECTORY, skillName, file), "utf8");
   const section = readMarkdownSection(source, heading);
   assert.notEqual(section, "", `${skillName} has a section headed ${heading}`);
   return unwrap(section);
 }
 
-const verifyGateSection = () => skillSection("execute-todos", "#### `99b` — run the tests and lint, and fix what fails");
-const verifyTemplate = () => skillSection("write-todos", "## The verify todo (`99b_verify_<topic>.md`)");
+const verifyGateSection = () => skillSection("execute-todos", "#### `99b` — run the tests and lint, and fix what fails", "gate-99b-verify.md");
+const verifyTemplate = () => skillSection("write-todos", "# The verify todo (`99b_verify_<topic>.md`)", "verify-todo-template.md");
 const verificationLayers = () =>
-  skillSection("execute-todos", "#### Three verification layers, and the layers are not interchangeable");
+  skillSection("execute-todos", "#### Three verification layers, and the layers are not interchangeable", "slice-work.md");
 const deliveryGateSection = () =>
-  skillSection("execute-todos", "#### `99c` — merge the latest target, resolve conflicts, deliver");
-const singleSliceSection = () => skillSection("execute-todos", "## Single-slice mode — Lord-authorized only");
+  skillSection("execute-todos", "#### `99c` — merge the latest target, resolve conflicts, deliver", "gate-99c-deliver.md");
+const singleSliceSection = () => skillSection("execute-todos", "## Single-slice mode — Lord-authorized only", "single-slice-mode.md");
 
 const TIER_OPENINGS_IN_ORDER = [
   "**Tier A — the tests nearest the change.**",

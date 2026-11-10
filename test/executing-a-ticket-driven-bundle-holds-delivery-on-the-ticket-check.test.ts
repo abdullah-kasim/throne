@@ -4,16 +4,16 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { missingPhrases, readMarkdownSection } from "./skill-contract-test-helpers.ts";
 
-const EXECUTE_TODOS_SKILL = resolve(import.meta.dirname, "..", ".claude/skills/execute-todos/SKILL.md");
+const EXECUTE_TODOS_FOLDER = resolve(import.meta.dirname, "..", ".claude/skills/execute-todos");
 
-async function readUnwrappedSection(heading: string): Promise<string> {
-  const section = readMarkdownSection(await readFile(EXECUTE_TODOS_SKILL, "utf8"), heading);
+async function readUnwrappedSection(heading: string, file: string): Promise<string> {
+  const section = readMarkdownSection(await readFile(resolve(EXECUTE_TODOS_FOLDER, file), "utf8"), heading);
   assert.notEqual(section, "", `no section is headed "${heading}"`);
   return section.replace(/\s*\n\s*/g, " ");
 }
 
 test("the ticket-alignment Shadow is spawned verdict-only", async () => {
-  const oneWorkerPerTodo = await readUnwrappedSection("### 2. One worker per todo — a fresh real Shadow every time, never continue");
+  const oneWorkerPerTodo = await readUnwrappedSection("### 2. One worker per todo — a fresh real Shadow every time, never continue", "shadow-spawning.md");
   assert.deepEqual(
     missingPhrases(oneWorkerPerTodo, [
       "A ticket-driven bundle's `98_ticket_<topic>` Shadow also carries `--deliverable-shape verdict-only`.",
@@ -25,13 +25,13 @@ test("the ticket-alignment Shadow is spawned verdict-only", async () => {
 });
 
 test("conformance waits for a PASS ticket-alignment outcome and fails without one", async () => {
-  const oneWorkerPerTodo = await readUnwrappedSection("### 2. One worker per todo — a fresh real Shadow every time, never continue");
+  const oneWorkerPerTodo = await readUnwrappedSection("### 2. One worker per todo — a fresh real Shadow every time, never continue", "shadow-spawning.md");
   assert.ok(
     oneWorkerPerTodo.includes(
       "When the bundle has a `98_ticket_` todo, `99a_conform` does not start until that todo records `**Ticket alignment outcome:** PASS`",
     ),
   );
-  const waitsForTheTicketCheck = await readUnwrappedSection("#### `99a` waits for the ticket-alignment check");
+  const waitsForTheTicketCheck = await readUnwrappedSection("#### `99a` waits for the ticket-alignment check", "gate-99a-conformance.md");
   assert.deepEqual(
     missingPhrases(waitsForTheTicketCheck, [
       "carries a `98_ticket_<topic>.md` todo that depends on every ordinary slice",
@@ -45,7 +45,7 @@ test("conformance waits for a PASS ticket-alignment outcome and fails without on
     ]),
     [],
   );
-  const conformance = await readUnwrappedSection("#### `99a` — grade the candidate against what was literally asked for");
+  const conformance = await readUnwrappedSection("#### `99a` — grade the candidate against what was literally asked for", "gate-99a-conformance.md");
   assert.ok(
     conformance.includes(
       "When the bundle has a `98_ticket_` todo, `99a` reads that todo's file and returns FAIL unless it carries `**Ticket alignment outcome:** PASS` on its own line.",
@@ -54,7 +54,7 @@ test("conformance waits for a PASS ticket-alignment outcome and fails without on
 });
 
 test("a failed ticket check is corrective work for the campaign owner, then a fresh check", async () => {
-  const waitsForTheTicketCheck = await readUnwrappedSection("#### `99a` waits for the ticket-alignment check");
+  const waitsForTheTicketCheck = await readUnwrappedSection("#### `99a` waits for the ticket-alignment check", "gate-99a-conformance.md");
   assert.ok(
     waitsForTheTicketCheck.includes(
       "A FAIL (a ticket line UNMET with no ruling behind it) is corrective work for the owning Alpha, exactly like a `99a` FAIL: one consolidated corrective slice, then a fresh `98_ticket_` Shadow re-runs the check.",
@@ -63,7 +63,7 @@ test("a failed ticket check is corrective work for the campaign owner, then a fr
 });
 
 test("pull-request delivery publishes the ticket warning in a Ticket Status section after Agents", async () => {
-  const pullRequestDelivery = await readUnwrappedSection("#### Pull-request delivery — when the deliverable is a PR, not a merge");
+  const pullRequestDelivery = await readUnwrappedSection("#### Pull-request delivery — when the deliverable is a PR, not a merge", "gate-99c-deliver.md");
   assert.deepEqual(
     missingPhrases(pullRequestDelivery, [
       "When the bundle's `ticket-warning.md` holds a warning block, `99c` publishes it verbatim at the very bottom, after `## Agents`, as the Ticket Status section `/pr-description` describes.",
@@ -76,7 +76,7 @@ test("pull-request delivery publishes the ticket warning in a Ticket Status sect
 });
 
 test("a single-slice campaign on a ticket keeps its ticket-alignment check ahead of conformance", async () => {
-  const singleSliceMode = await readUnwrappedSection("## Single-slice mode — Lord-authorized only");
+  const singleSliceMode = await readUnwrappedSection("## Single-slice mode — Lord-authorized only", "single-slice-mode.md");
   assert.deepEqual(
     missingPhrases(singleSliceMode, [
       "A ticket-driven row still gets its `98_ticket_` todo, which is not an implementation slice.",

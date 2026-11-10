@@ -11,7 +11,9 @@ import {
   newestPreviousCopyPathIn,
   pageFileLacksEpicsSection,
   recordInJournal,
+  replacePageContent,
   showPage,
+  trimmedIntoArchive,
   withPageLock,
   type PageWriter,
   type PageWriteResult,
@@ -120,19 +122,22 @@ export async function releaseEditLock(writer: PageWriter, taken: TakenEditLock):
       writer.dataHome,
       async () => {
         const current = await showPage(writer.dataHome);
+        const trimmed = await trimmedIntoArchive(writer.dataHome, current.content, writer.now());
+        if (trimmed.archived.length > 0) await replacePageContent(writer.dataHome, trimmed.page);
         const edit =
-          current.content === taken.lockTimeContent
+          trimmed.page === taken.lockTimeContent
             ? undefined
             : await recordInJournal(
                 writer.dataHome,
                 { at: writer.now().toISOString(), writer: writer.name, action: JournalAction.Edit },
                 taken.lockTimeContent,
-                current.content,
+                trimmed.page,
+                trimmed.archived,
               );
         return {
           edit,
-          frameFaults: frameFaultsOf(current.content),
-          sameWorkGroups: groupsOfTheSameWork(current.content),
+          frameFaults: frameFaultsOf(trimmed.page),
+          sameWorkGroups: groupsOfTheSameWork(trimmed.page),
           savedCopy: taken.savedCopy,
         };
       },

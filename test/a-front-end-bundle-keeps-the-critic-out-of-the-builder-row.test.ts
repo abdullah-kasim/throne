@@ -8,26 +8,26 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const BUILDER_STAMP = "`frontend_row: builder`";
 const CRITIC_STAMP = "`frontend_row: critic`";
 
-async function readSkillSection(skill: string, heading: string): Promise<string> {
-  const section = readMarkdownSection(await readSkillSource(skill), heading);
+async function readSkillSection(skill: string, heading: string, file = "SKILL.md"): Promise<string> {
+  const section = readMarkdownSection(await readSkillSource(skill, file), heading);
   assert.notEqual(section, "", `${skill} has no ${heading} section`);
   return unwrap(section);
 }
 
 function readFrontEndBundles(): Promise<string> {
-  return readSkillSection("write-todos", "## Front-end bundles");
+  return readSkillSection("write-todos", "# Front-end bundles", "front-end-bundles.md");
 }
 
 function readVerifyTodo(): Promise<string> {
-  return readSkillSection("write-todos", "## The verify todo (`99b_verify_<topic>.md`)");
+  return readSkillSection("write-todos", "# The verify todo (`99b_verify_<topic>.md`)", "verify-todo-template.md");
 }
 
 function readExecuteTodosVerifyGate(): Promise<string> {
-  return readSkillSection("execute-todos", "#### `99b` — run the tests and lint, and fix what fails");
+  return readSkillSection("execute-todos", "#### `99b` — run the tests and lint, and fix what fails", "gate-99b-verify.md");
 }
 
 function readExecuteTodosCritiqueGates(): Promise<string> {
-  return readSkillSection("execute-todos", "### Rubric critique gates — Shadow-run, bounded, resumed weakest-first");
+  return readSkillSection("execute-todos", "### Rubric critique gates — Shadow-run, bounded, resumed weakest-first", "rubric-critique-gates.md");
 }
 
 test("a builder bundle runs no front-end critic, no critique gate and no accessibility review", async () => {
@@ -60,7 +60,7 @@ test("a builder bundle runs no front-end critic, no critique gate and no accessi
     [],
   );
   assert.deepEqual(
-    missingPhrases(unwrap(await readSkillSource("write-todos")), [
+    missingPhrases(unwrap(await readSkillSource("write-todos", "perceptual-quality-bundles.md")), [
       "A `frontend_row: builder` bundle never stamps it",
       "A `frontend_row: builder` bundle has no critique gates, so none of this applies to it.",
     ]),

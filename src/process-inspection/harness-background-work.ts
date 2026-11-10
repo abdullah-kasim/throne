@@ -1,4 +1,5 @@
 import type { HerdrPaneProcessInfo } from '../herdr/herdr-inventory.service.ts';
+import { LAUNCH_REAPER_NAME } from '../herdr/herdr-launch-command.ts';
 import { harnessProcessOf, isHarnessCommandLine } from '../herdr/herdr-process-detection.ts';
 import { getPaneProcessInfo } from '../herdr/herdr-runtime.service.ts';
 import {
@@ -36,6 +37,18 @@ const DESCRIBED_PROCESS_LIMIT = 3;
 const DESCRIBED_COMMAND_LENGTH = 80;
 const NO_BACKGROUND_WORK: HarnessBackgroundWork = { kind: HARNESS_BACKGROUND_WORK_KINDS.NONE };
 const UNREADABLE_BACKGROUND_WORK: HarnessBackgroundWork = { kind: HARNESS_BACKGROUND_WORK_KINDS.UNKNOWN };
+
+const LAUNCH_REAPER_COMMAND = new RegExp(`^\\S*bash -c .* ${LAUNCH_REAPER_NAME} (\\d+)(?: |$)`);
+
+function watchedHarnessPidOfReaper(command: string): number | undefined {
+  const match = LAUNCH_REAPER_COMMAND.exec(command);
+  return match === null ? undefined : Number(match[1]);
+}
+
+export function isLaunchCleanupOfHarness(row: ProcessRow, harnessPid: number, parent: ProcessRow | undefined): boolean {
+  return watchedHarnessPidOfReaper(row.command) === harnessPid ||
+    (parent !== undefined && watchedHarnessPidOfReaper(parent.command) === harnessPid);
+}
 
 class ProcessFamily {
   private readonly rowByPid: ReadonlyMap<number, ProcessRow>;
@@ -81,6 +94,7 @@ function isToolWorkOfHarness(
   pidsInHarnessDirectory: ReadonlySet<number>,
 ): boolean {
   if (row.pid === harness.pid || isHarnessCommandLine(row.command)) return false;
+  if (isLaunchCleanupOfHarness(row, harness.pid, family.row(row.parentPid))) return false;
   const ancestors = family.ancestorsOf(row);
   if (ancestors.some((ancestor) => ancestor.pid === harness.pid)) {
     return row.processGroupId !== harness.processGroupId;

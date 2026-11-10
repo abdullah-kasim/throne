@@ -29,11 +29,17 @@ const ENTRY_FORM = [
 ];
 const ENTRY_FORM_FIRST_LINES = ['- Links: ', '- Kind: ', '- Where it stands: '];
 
-async function readSkillSection(skillName: string, heading: string): Promise<string> {
-  const source = await readFile(resolve(SKILLS_DIRECTORY, skillName, 'SKILL.md'), 'utf8');
+async function readSkillSection(skillName: string, heading: string, file = 'SKILL.md'): Promise<string> {
+  const source = await readFile(resolve(SKILLS_DIRECTORY, skillName, file), 'utf8');
   const section = readMarkdownSection(source, heading);
   assert.notEqual(section, '', `${skillName} has the section "${heading}"`);
   return unwrap(section);
+}
+
+async function readLawAndRoleFiles(): Promise<string> {
+  const files = ['AGENTS.md', ...['regent', 'stager', 'alpha', 'shadow'].map((role) => `agent_docs/role-${role}.md`)];
+  const texts = await Promise.all(files.map((file) => readFile(resolve(REPOSITORY_ROOT, file), 'utf8')));
+  return unwrap(texts.join('\n\n'));
 }
 
 test('the skill says no agent touches an epic unless the Lord says so in words', async () => {
@@ -251,7 +257,7 @@ test('every page entry starts with its links, its kind and where it stands', asy
     [],
   );
 
-  const law = unwrap(await readFile(resolve(REPOSITORY_ROOT, 'AGENTS.md'), 'utf8'));
+  const law = await readLawAndRoleFiles();
   assert.deepEqual(
     missingPhrases(law, [
       "Every entry starts with the three lines of the page's entry form those rules give: its links, its kind and where it stands.",
@@ -283,25 +289,27 @@ test('the where-i-stand skill says the check refuses a delivered entry without i
 });
 
 test("the record step writes its entry in the page's entry form", async () => {
-  const recordStep = await readSkillSection('execute-todos', RECORD_STEP_HEADING);
+  const recordStep = await readSkillSection('execute-todos', RECORD_STEP_HEADING, 'gate-99d-record.md');
   assert.deepEqual(
     missingPhrases(recordStep, [
       "Its first lines are the page's entry form, as the where-i-stand skill's \"Writing rules for the page\" gives it: `- Links: …`, `- Kind: …`, `- Where it stands: …`.",
       "Each of these writes starts the entry with the page's entry form, as step 2 does.",
+      'throne where-i-stand put --code <objective code> --section "<section>" --text-file <file>',
     ]),
     [],
   );
   assert.deepEqual(
-    missingPhrases(await readSkillSection('write-todos', '## The record step (`99d_record_<topic>.md`)'), [
+    missingPhrases(await readSkillSection('write-todos', '# The record step (`99d_record_<topic>.md`)', 'record-todo-template.md'), [
       "Start it with the page's entry form from the where-i-stand skill's \"Writing rules for the page\": its `- Links: …`, `- Kind: …` and `- Where it stands: …` lines.",
       'starting with its links, kind and where-it-stands lines',
+      'throne where-i-stand put --code <objective code> --section "<section>" --text-file <file>',
     ]),
     [],
   );
 });
 
-test("AGENTS.md tells the Stager, the Alpha and the Regent when to write the Lord's page", async () => {
-  const law = unwrap(await readFile(resolve(REPOSITORY_ROOT, 'AGENTS.md'), 'utf8'));
+test("AGENTS.md and the role files tell the Stager, the Alpha and the Regent when to write the Lord's page", async () => {
+  const law = await readLawAndRoleFiles();
   assert.deepEqual(
     missingPhrases(law, [
       "**A Stager writes the Lord's page when it files and when it amends.**",
@@ -320,7 +328,7 @@ test("AGENTS.md tells the Stager, the Alpha and the Regent when to write the Lor
 
   assert.deepEqual(
     missingPhrases(await readSkillSection('queue-objective', "### 6b. Put the row on the Lord's page"), [
-      'add an entry `### <code>` under `## Queued and deferred`',
+      'throne where-i-stand put --code <code> --section "Queued and deferred" --text-file <file>',
       'throne where-i-stand note "filed <code>: <what it is in one line>"',
     ]),
     [],
@@ -354,12 +362,12 @@ test("every bundle ends with a step that records the outcome on the Lord's page"
       '└── 99d_record_<topic>.md',
       "99d — Record the outcome on the Lord's page",
       '`00`, `99a`, `99b`, `99c`, and `99d` are non-negotiable — every new bundle ships with all five.',
-      'Then write `99d_record_<topic>.md` (see "The record step" below) with `deps: [99c]`',
+      'Then write `99d_record_<topic>.md` (see `record-todo-template.md`) with `deps: [99c]`',
     ]),
     [],
   );
   assert.deepEqual(
-    missingPhrases(await readSkillSection('write-todos', '## The record step (`99d_record_<topic>.md`)'), [
+    missingPhrases(await readSkillSection('write-todos', '# The record step (`99d_record_<topic>.md`)', 'record-todo-template.md'), [
       'It is not a gate and no Shadow runs it: the Alpha performs it itself',
       '`99c` stays the last todo a Shadow executes',
       'deps: [99c]',
@@ -368,7 +376,7 @@ test("every bundle ends with a step that records the outcome on the Lord's page"
     [],
   );
 
-  const recordStep = await readSkillSection('execute-todos', RECORD_STEP_HEADING);
+  const recordStep = await readSkillSection('execute-todos', RECORD_STEP_HEADING, 'gate-99d-record.md');
   assert.deepEqual(
     missingPhrases(recordStep, [
       'Every bundle ends with one more todo after `99c`: `99d_record_<topic>.md`',
@@ -392,7 +400,7 @@ test("every bundle ends with a step that records the outcome on the Lord's page"
   assert.deepEqual(deliveryOrder, [...deliveryOrder].sort((first, second) => first - second));
 
   assert.deepEqual(
-    missingPhrases(await readSkillSection('execute-todos', '## Final report shape'), [
+    missingPhrases(await readSkillSection('execute-todos', '## Final report shape', 'final-report.md'), [
       'Only after that file lands do you perform the `99d` record step',
       'only after its check passes do you send the chat summary to your supervisor',
     ]),
@@ -402,7 +410,7 @@ test("every bundle ends with a step that records the outcome on the Lord's page"
 
 test("a single-slice campaign records the outcome through its own record step", async () => {
   assert.deepEqual(
-    missingPhrases(await readSkillSection('execute-todos', '## Single-slice mode — Lord-authorized only'), [
+    missingPhrases(await readSkillSection('execute-todos', '## Single-slice mode — Lord-authorized only', 'single-slice-mode.md'), [
       'all of `99a_conform_`, `99b_verify_`, `99c_deliver_` and `99d_record_`',
       "the record step on the Lord's page are the ordinary sections above and below, unchanged.",
     ]),
@@ -412,7 +420,7 @@ test("a single-slice campaign records the outcome through its own record step", 
 
 test('the record step corrects every other entry about the same work', async () => {
   assert.deepEqual(
-    missingPhrases(await readSkillSection('execute-todos', RECORD_STEP_HEADING), [
+    missingPhrases(await readSkillSection('execute-todos', RECORD_STEP_HEADING, 'gate-99d-record.md'), [
       '3. Correct every other entry about the same work.',
       'a Forgejo pull request and its GitHub twin are the same work',
       'when neither has a pull request, the same ticket and the same commit or branch',
@@ -423,7 +431,7 @@ test('the record step corrects every other entry about the same work', async () 
     ]),
     [],
   );
-  const law = unwrap(await readFile(resolve(REPOSITORY_ROOT, 'AGENTS.md'), 'utf8'));
+  const law = await readLawAndRoleFiles();
   assert.deepEqual(
     missingPhrases(law, [
       'removes every other entry about the same work or marks it superseded, and adds a note',
@@ -435,7 +443,7 @@ test('the record step corrects every other entry about the same work', async () 
 
 test("every bundle's record step corrects older entries about the same work", async () => {
   assert.deepEqual(
-    missingPhrases(await readSkillSection('write-todos', '## The record step (`99d_record_<topic>.md`)'), [
+    missingPhrases(await readSkillSection('write-todos', '# The record step (`99d_record_<topic>.md`)', 'record-todo-template.md'), [
       '2. Correct every other entry about the same work',
       '`throne forge status <pull request url> --json` (its `mergeTarget`) and write both',
       'add one line ``Superseded by `### <objective code>` on <date>``',

@@ -20,13 +20,16 @@ class IsSkillFileTest(unittest.TestCase):
             "/a/b/.claude/skills/foo/SKILL.md",
             ".agents/skills/foo/SKILL.md",
             "/a/b/skills/.claude/skills/foo/SKILL.md",
+            ".claude/skills/foo/commit-messages.md",
+            "/a/b/.agents/skills/foo/README.md",
         ]:
             self.assertTrue(guard.is_skill_file(path), path)
 
     def test_unrecognized_paths(self):
         for path in [
             "SKILL.md",
-            ".claude/skills/foo/README.md",
+            ".claude/skills/foo/script.py",
+            ".claude/skills/foo/nested/notes.md",
             "/a/b/.claude/skills/SKILL.md",
             "src/tools.ts",
         ]:

@@ -97,6 +97,7 @@ export function forkedStagerAddendumInstruction(
 }
 export const SUPERVISOR_LINE_PREFIX = "- **Supervisor (routine):** ";
 export const SPAWNED_TAB_LABEL_LINE_PREFIX = "- **Spawned tab label:** ";
+export const OBJECTIVE_CODE_LINE_PREFIX = "- **Campaign objective code:** ";
 export const MEMORY_DIRECTORY_LINE_PREFIX = "- **Memory directory:** ";
 
 const NEVER_ASK_ADDRESSEE_INSTRUCTION =
@@ -332,7 +333,7 @@ export async function writeIdentity(
       ? canonicalIdentity.nonCampaign === true
         ? ["- **Campaign status:** non-campaign"]
         : []
-      : [`- **Campaign objective code:** ${canonicalIdentity.objectiveCode}`]),
+      : [`${OBJECTIVE_CODE_LINE_PREFIX}${canonicalIdentity.objectiveCode}`]),
     ...(canonicalIdentity.emptyWorktree === true
       ? ["- **Launch mode:** explicit empty-worktree (managed empty scratch)"]
       : []),
@@ -414,6 +415,13 @@ export function readAgentRole(
   baseDir: string = DEFAULT_DATA_DIR,
 ): Promise<IdentityLineRead> {
   return readIdentityLine(name, ROLE_LINE_PREFIX, baseDir);
+}
+
+export function readAgentObjectiveCode(
+  name: string,
+  baseDir: string = DEFAULT_DATA_DIR,
+): Promise<IdentityLineRead> {
+  return readIdentityLine(name, OBJECTIVE_CODE_LINE_PREFIX, baseDir);
 }
 
 export function readAgentSupervisor(

@@ -16,6 +16,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { landPinCommit } from '../../../../scripts/land-pin-commit.mjs';
+import { registryEntry } from '../../../../src/harness-routing/model-registry.ts';
 import { acquireTransactionLock } from './transaction-lock.mjs';
 import {
   installVendoredHarness,
@@ -32,6 +33,8 @@ import {
   writeVendorPin,
 } from './vendor-files.mjs';
 
+const MODEL_REGISTRY_FILE = 'src/harness-routing/model-registry.ts';
+
 const HARNESS = {
   claude: {
     packageName: '@anthropic-ai/claude-code',
@@ -39,6 +42,7 @@ const HARNESS = {
     safeProbes: [['--version'], ['--help'], ['auth', '--help'], ['resume', '--help'], ['remote-control', '--help']],
     launcher: 'claudey',
     binaryEnvironment: 'CLAUDE_BIN',
+    courtModelAliases: ['fable', 'opus', 'sonnet', 'haiku'],
   },
   codex: {
     packageName: '@openai/codex',
@@ -61,6 +65,7 @@ function parseArguments(argv) {
     registry: 'https://registry.npmjs.org',
     throneRoot: undefined,
     harness: undefined,
+    modelSessionCheck: false,
   };
   const positionals = [];
   for (let index = 0; index < argv.length; index += 1) {
@@ -70,6 +75,10 @@ function parseArguments(argv) {
       continue;
     }
     const key = argument.slice(2);
+    if (key === 'model-session-check') {
+      options.modelSessionCheck = true;
+      continue;
+    }
     if (!['managed-root', 'evidence', 'registry', 'throne-root', 'harness', 'source-evidence'].includes(key)) {
       fail(`unknown option --${key}`);
     }
@@ -79,7 +88,7 @@ function parseArguments(argv) {
     index += 1;
   }
   if (positionals.length !== 1 || !['check', 'update', 'pinned', 'rollback'].includes(positionals[0])) {
-    fail('usage: update-harness.mjs <check|update|pinned|rollback> --harness <claude|codex> --throne-root <path> [--managed-root <path>] [--evidence <path>] [--registry <url>] [--source-evidence <path>]');
+    fail('usage: update-harness.mjs <check|update|pinned|rollback> --harness <claude|codex> --throne-root <path> [--managed-root <path>] [--evidence <path>] [--registry <url>] [--source-evidence <path>] [--model-session-check]');
   }
   options.action = positionals[0];
   if (!HARNESS[options.harness]) fail('--harness must be claude or codex');
@@ -199,6 +208,26 @@ function probeStagedHarness(config, binary, throneRoot) {
   return results;
 }
 
+export function modelIdsReportedFor(config, binary) {
+  const reported = new Set();
+  for (const alias of config.courtModelAliases ?? []) {
+    const output = JSON.parse(run(binary, ['-p', '--model', alias, '--output-format', 'json', 'Reply with OK'], { cwd: tmpdir() }));
+    for (const id of Object.keys(output.modelUsage ?? {})) reported.add(id);
+  }
+  return [...reported];
+}
+
+export function modelIdsTheRegistryCannotResolve(config, binary) {
+  return modelIdsReportedFor(config, binary).filter((id) => registryEntry(id) === undefined);
+}
+
+function assertRegistryResolvesReportedModels(config, binary) {
+  const unknown = modelIdsTheRegistryCannotResolve(config, binary);
+  if (unknown.length > 0) {
+    fail(`candidate ${config.executable} reports model id ${unknown.join(', ')} that the registry cannot resolve; add it to ${MODEL_REGISTRY_FILE}`);
+  }
+}
+
 function readNativeVersionOutsideThroneRoot(throneRoot, executable) {
   const throneRootReal = existsSync(throneRoot) ? realpathSync(throneRoot) : path.resolve(throneRoot);
   const pathEntries = (process.env.PATH ?? '').split(path.delimiter);
@@ -223,7 +252,7 @@ function fetchLatestRegistryVersion(packageName, registry) {
   }
 }
 
-export function resolveHarnessState({ harness, throneRoot, registry = 'https://registry.npmjs.org' }) {
+export function resolveHarnessState({ harness, throneRoot, registry = 'https://registry.npmjs.org', modelSessionCheck = false }) {
   const config = HARNESS[harness];
   const pinnedVersion = readPinnedVersion(throneRoot, harness);
   const vendoredVersion = readVendoredVersion(throneRoot, config.executable);
@@ -238,6 +267,9 @@ export function resolveHarnessState({ harness, throneRoot, registry = 'https://r
     latestVersion,
     activeBinary: vendoredBinaryPath(throneRoot, config.executable),
     upToDate: pinnedVersion === latestVersion && versionOutputReports(vendoredVersion, pinnedVersion),
+    ...(modelSessionCheck && config.courtModelAliases
+      ? { unresolvedModelIds: modelIdsTheRegistryCannotResolve(config, vendoredBinaryPath(throneRoot, config.executable)) }
+      : {}),
   };
 }
 
@@ -251,6 +283,9 @@ export function renderCheckReport(state) {
     `${state.harness} native (PATH, outside throne): ${state.nativeVersion ?? 'none'}`,
     `${state.harness} registry latest: ${state.latestVersion ?? 'unknown'}`,
     verdict,
+    ...(state.unresolvedModelIds?.length
+      ? [`${state.harness} reports model id ${state.unresolvedModelIds.join(', ')} that the registry cannot resolve; add it to ${MODEL_REGISTRY_FILE}`]
+      : []),
   ].join('\n');
 }
 
@@ -319,19 +354,24 @@ function readCurrentHarness(throneRoot, config) {
   };
 }
 
-function probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry }) {
+function probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry, modelSessionCheck = false }) {
   const config = HARNESS[harness];
   const workRoot = mkdtempSync(path.join(managedRoot, `.stage-${harness}-`));
   try {
     const staged = stagePackage(config, metadata, registry, workRoot);
-    return probeStagedHarness(config, staged.binary, throneRoot);
+    const probes = probeStagedHarness(config, staged.binary, throneRoot);
+    if (modelSessionCheck && config.courtModelAliases) {
+      assertRegistryResolvesReportedModels(config, staged.binary);
+      probes.push(`${config.executable} model ids for ${config.courtModelAliases.join(', ')} all resolve in ${MODEL_REGISTRY_FILE}`);
+    }
+    return probes;
   } finally {
     rmSync(workRoot, { recursive: true, force: true });
   }
 }
 
-function installProbedHarness({ harness, throneRoot, managedRoot, metadata, registry }) {
-  const probes = probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry });
+function installProbedHarness({ harness, throneRoot, managedRoot, metadata, registry, modelSessionCheck }) {
+  const probes = probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry, modelSessionCheck });
   return { probes, ...applyHarnessVersion({ harness, throneRoot, version: metadata.version, registry }) };
 }
 
@@ -373,14 +413,14 @@ function landHarnessPin({ harness, throneRoot, version, evidence, evidencePath }
   return landedEvidence;
 }
 
-export function runUpdate({ harness, throneRoot, managedRoot, registry, evidencePath }) {
+export function runUpdate({ harness, throneRoot, managedRoot, registry, evidencePath, modelSessionCheck = false }) {
   const config = HARNESS[harness];
   assertCourtLivenessIsReadable();
   const oldVersion = readCommittedPinnedVersion(throneRoot, harness);
   const metadata = discoverPackage(config, registry);
   const { probes, diff, vendoredVersion } = harnessIsCurrent(throneRoot, config, readPinnedVersion(throneRoot, harness), metadata.version)
     ? readCurrentHarness(throneRoot, config)
-    : installProbedHarness({ harness, throneRoot, managedRoot, metadata, registry });
+    : installProbedHarness({ harness, throneRoot, managedRoot, metadata, registry, modelSessionCheck });
   const evidence = {
     action: 'update',
     harness,
@@ -452,7 +492,7 @@ async function main() {
   const transactionLock = acquireTransactionLock(options.managedRoot);
   try {
     if (options.action === 'check') {
-      const state = resolveHarnessState({ harness: options.harness, throneRoot: options.throneRoot, registry: options.registry });
+      const state = resolveHarnessState({ harness: options.harness, throneRoot: options.throneRoot, registry: options.registry, modelSessionCheck: options.modelSessionCheck });
       writeEvidence(options.evidence, {
         action: 'check',
         ...state,

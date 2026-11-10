@@ -21,8 +21,8 @@ async function readAgentsFile(): Promise<string> {
   return unwrap(await readFile(resolve(import.meta.dirname, '..', 'AGENTS.md'), 'utf8'));
 }
 
-async function readSkillSection(skillName: string, heading: string): Promise<string> {
-  const section = readMarkdownSection(await readSkillSource(skillName), heading);
+async function readSkillSection(skillName: string, heading: string, file = 'SKILL.md'): Promise<string> {
+  const section = readMarkdownSection(await readSkillSource(skillName, file), heading);
   assert.notEqual(section, '', `${skillName} has the section "${heading}"`);
   return unwrap(section);
 }
@@ -36,16 +36,16 @@ test('agents are told to end a turn waiting on background work with the blocked 
     ],
     [
       'execute-todos terminal suite run',
-      await readSkillSection('execute-todos', '#### Three verification layers, and the layers are not interchangeable'),
+      await readSkillSection('execute-todos', '#### Three verification layers, and the layers are not interchangeable', 'slice-work.md'),
     ],
     ['write-todos slice template', await readSkillSection('write-todos', '## What goes in a todo file')],
     [
       'write-todos 99a template',
-      await readSkillSection('write-todos', '## The conformance todo (`99a_conform_<topic>.md`)'),
+      await readSkillSection('write-todos', '# The conformance todo (`99a_conform_<topic>.md`)', 'conformance-todo-template.md'),
     ],
     [
       'write-todos 99b template',
-      await readSkillSection('write-todos', '## The verify todo (`99b_verify_<topic>.md`)'),
+      await readSkillSection('write-todos', '# The verify todo (`99b_verify_<topic>.md`)', 'verify-todo-template.md'),
     ],
   ];
   for (const [place, text] of places) {

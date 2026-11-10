@@ -91,7 +91,7 @@ export function npmCallLog(root) {
   return path.join(root, 'npm-calls.log');
 }
 
-export function fakeNpmDir(root, { latestVersion = '2.1.267', failingProbe = false, vendoredVersionOverride = null, dyingVendorInstall = false, packedIntegrity = 'sha512-AAAAAAAAAAAAAAAA' } = {}) {
+export function fakeNpmDir(root, { latestVersion = '2.1.267', failingProbe = false, vendoredVersionOverride = null, dyingVendorInstall = false, packedIntegrity = 'sha512-AAAAAAAAAAAAAAAA', reportedModelId = 'claude-opus-5-5' } = {}) {
   const dir = path.join(root, 'fake-npm-bin');
   mkdirSync(dir, { recursive: true });
   writeExecutable(path.join(dir, 'npm'), `#!/usr/bin/env node
@@ -106,6 +106,7 @@ const latest = ${JSON.stringify(latestVersion)};
 const failingProbe = ${JSON.stringify(failingProbe)};
 const vendoredVersionOverride = ${JSON.stringify(vendoredVersionOverride)};
 const dyingVendorInstall = ${JSON.stringify(dyingVendorInstall)};
+const sessionOutput = ${JSON.stringify(JSON.stringify({ modelUsage: { [reportedModelId]: {} } }))};
 
 function versionAskedFor(spec) {
   const asked = spec.slice(spec.lastIndexOf('@') + 1);
@@ -142,6 +143,7 @@ if (argv[0] === 'view') {
   }));
   writeFileSync(path.join(fixture, 'package', 'cli.js'), \`#!/usr/bin/env node
 if (\${JSON.stringify(failingProbe)} && process.argv.slice(2).join(' ') === 'auth --help') process.exit(23);
+if (process.argv.includes('-p')) { process.stdout.write(\${JSON.stringify(sessionOutput)}); process.exit(0); }
 process.stdout.write(\${JSON.stringify(versionAskedFor(spec))} + '\\\\n');
 \`);
   chmodSync(path.join(fixture, 'package', 'cli.js'), 0o755);

@@ -81,7 +81,27 @@ export function resolveModelAlias(
       (harnessAlias !== undefined && harnessAlias.toLowerCase() === key);
     if (matchesAlias) return entry.model;
   }
-  return undefined;
+  if (harness !== HARNESS_NAMES.CLAUDE) return undefined;
+  const family = claudeFamilyEntry(registry, key);
+  return family !== undefined && entryAvailableUnderHarness(family, harness)
+    ? family.model
+    : undefined;
+}
+
+const LONG_CLAUDE_MODEL_ID = /^claude-([a-z]+)-\d+-\d+(?:-\d{8})?$/;
+const SHORT_CLAUDE_MODEL_ID = /^([a-z]+)-\d+[.-]\d+$/;
+
+export function claudeFamilyEntry(
+  registry: readonly ModelRegistryEntry[],
+  modelId: string,
+): ModelRegistryEntry | undefined {
+  const key = modelId.trim().toLowerCase();
+  const family =
+    LONG_CLAUDE_MODEL_ID.exec(key)?.[1] ?? SHORT_CLAUDE_MODEL_ID.exec(key)?.[1];
+  if (family === undefined || family === "claude") return undefined;
+  return registry.find(
+    (entry) => entry.harness === HARNESS_NAMES.CLAUDE && entry.model === family,
+  );
 }
 
 /** Per-runtime-harness effort-range table, one row per model available under

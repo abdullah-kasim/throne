@@ -66,20 +66,21 @@ him before filing. Under `RULINGS:`, record his answer, the designs, their
 file counts and why the chosen one won. Skip only for single-seam work with
 one obvious design (one bug, one file), and say so in `SCOPE:`, as in step 1.
 
-### 2. Write the body — five markers, for the weakest configured reader
+### 2. Write the body — five markers, for the reader who will run it
 
-The consuming Alpha and its Shadows run the committed default `OpusOnly`
-(`claude/opus` at high effort) unless `config.user.ts` routes them
-elsewhere; `throne check-config` prints the live route. Write for the
-weakest reader it could be (AGENTS.md checklist item 4): every fork carries a default, every
-sweep carries its literal command and a stopping condition, traps are stated
-as traps, slice boundaries are independently executable.
+Find the reader first, then write for it, as `agent_docs/MODEL_POLICY.md`
+"Find the reader first" says: the row's own `--model-hint` and `--effort`,
+else the Alpha route `throne check-config` prints, else the weakest reader it
+could be (AGENTS.md checklist item 4). For a weaker or lower-effort reader,
+every fork carries a default, every sweep carries its literal command and a
+stopping condition, traps are stated as traps, slice boundaries are
+independently executable.
 
 | marker | what belongs under it |
 |---|---|
 | `INTENT:` | the outcome the Lord wants, in one or two sentences |
 | `SCOPE:` | what is touched and what is explicitly NOT; the star's spokes and core if split |
-| `RULINGS:` | every decision the Lord closed during consolidation, quoted or closely paraphrased with its outcome and date — agents never ask the Lord, so an unrecorded fork becomes a silent guess |
+| `RULINGS:` | every decision the Lord closed during consolidation, quoted or closely paraphrased with its outcome and date — agents never ask the Lord, so an unrecorded fork becomes a silent guess; and one `Written for: <harness>/<model> at effort <n> (<how it was found>)` line |
 | `VERIFIED-NOUNS:` | the exact code nouns you grepped against the live tree (see step 3), listed as the strings you checked |
 | `REUSE:` | the existing functions, types and modules in the target tree the work must build on or extend instead of duplicating (see step 3b), each as `path:line — what it already does`; or the words `none found` with the grep that proved it |
 
@@ -396,13 +397,11 @@ the body is the rot vector; the queue row is the single canonical text).
 
 The Lord reads one page to see what he is working on, `where-i-stand.md`
 under the throne data home, and a row he just had filed belongs on it at
-once. Run `throne where-i-stand show`, read the page at the path it prints,
-and run `throne where-i-stand lock --checksum <checksum> --ttl 5m` in the
-background. While the lock lasts, add an entry `### <code>` under
-`## Queued and deferred` with your harness's edit tool, as one targeted
-edit (the page's entry form first: its links, its kind, and where it
-stands, open or deferred and on what; then the closing line naming you and
-the time). Stop the lock, read its output, then add the event:
+once. Write the entry's lines to a file (the page's entry form first: its
+links, its kind, and where it stands, open or deferred and on what; then the
+closing line naming you and the time) and run
+`throne where-i-stand put --code <code> --section "Queued and deferred" --text-file <file>`.
+Then add the event:
 
 ```bash
 throne where-i-stand note "filed <code>: <what it is in one line>"

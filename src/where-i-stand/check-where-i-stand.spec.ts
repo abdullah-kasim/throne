@@ -32,9 +32,7 @@ const DELIVERED_AT = new Date("2026-10-14T09:00:00.000Z");
 const BEFORE_DELIVERY = new Date("2026-10-14T08:00:00.000Z");
 const AFTER_DELIVERY = new Date("2026-10-14T10:00:00.000Z");
 const MAY_NOT_BE_COMPLETED = `"${ALPHA}" may not be completed yet: `;
-const PAGE_EDIT_FLOW =
-  '"throne where-i-stand show", then "throne where-i-stand lock --checksum <checksum>" run in the background, ' +
-  'a targeted edit of that entry with your edit tool, and stopping the lock';
+const PAGE_EDIT_FLOW = "\"throne where-i-stand put --code <code> --section '<section>' --text-file <file>\"";
 const LINKS_LINE = "- Links: Forgejo https://forge.example/bakery/pulls/7 · GitHub not on GitHub yet · Ticket no ticket";
 
 async function places(t: TestContext): Promise<PageRecordPlaces> {
@@ -481,10 +479,28 @@ test("check-where-i-stand passes on a delivery recorded with lock, edit and rele
   await assertPasses(room);
 });
 
-test("check-where-i-stand's refusal names the new flow", async (t) => {
+test("check-where-i-stand's refusal names put as the way to record the entry", async (t) => {
   const room = await deliveredAlpha(t);
   const reason = await reasonRefused(room);
-  assert.match(reason, /"throne where-i-stand show", then "throne where-i-stand lock --checksum <checksum>" run in the background/);
-  assert.match(reason, /a targeted edit of that entry with your edit tool, and stopping the lock/);
+  assert.match(reason, /"throne where-i-stand put --code <code> --section '<section>' --text-file <file>"/);
   assert.doesNotMatch(reason, /where-i-stand write/);
+});
+
+test("check-where-i-stand passes for a campaign that recorded its delivery with put", async (t) => {
+  const room = await deliveredAlpha(t);
+  const exitCode = await runWhereIStand(
+    ["put", "--code", OBJECTIVE_CODE, "--section", PageSection.DeliveredNotOnGitHub, `--text=${LINKS_LINE}\n- Kind: Order page\n- Where it stands: merged. Written by ${ALPHA}.`],
+    {
+      dataHome: room.dataHome,
+      currentAgentName: async () => ALPHA,
+      now: () => AFTER_DELIVERY,
+      out: () => undefined,
+      err: () => undefined,
+      waitForRelease: async () => undefined,
+      tellRegent: async () => undefined,
+      readStandardInput: async () => "",
+    },
+  );
+  assert.equal(exitCode, 0);
+  await assertPasses(room);
 });

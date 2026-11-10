@@ -12,6 +12,7 @@ frontend-critic	shipped
 gap-analysis-model	shipped
 gauntlet	shipped
 herdr	generated
+install-throne	shipped
 ledger	not-a-skill
 loop	harness
 make-todos	shipped
@@ -38,6 +39,7 @@ promote-pr	shipped
 publish	shipped
 queue-objective	shipped
 recipes	not-a-skill
+reinstall-throne	shipped
 restart-harnesses	shipped
 review-loop	shipped
 run-todos	shipped

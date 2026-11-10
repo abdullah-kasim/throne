@@ -113,13 +113,6 @@ function needsLiveBackgroundWorkCheck(entry: AgentStatusesRosterEntry): boolean 
   );
 }
 
-function correctedLiveStatus(
-  rawStatus: AgentStatus,
-  backgroundWork: HarnessBackgroundWork,
-): AgentStatus {
-  return backgroundWork.kind === HARNESS_BACKGROUND_WORK_KINDS.RUNNING ? 'working' : rawStatus;
-}
-
 async function withLiveBackgroundWorkCorrection(
   entry: AgentStatusesRosterEntry,
   readBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>,
@@ -127,9 +120,12 @@ async function withLiveBackgroundWorkCorrection(
   if (!needsLiveBackgroundWorkCheck(entry) || entry.paneId === undefined) {
     return entry;
   }
+  const backgroundWork = await readBackgroundWork(entry.paneId);
+  if (backgroundWork.kind !== HARNESS_BACKGROUND_WORK_KINDS.RUNNING) return entry;
   return {
     ...entry,
-    liveStatus: correctedLiveStatus(entry.liveStatus!, await readBackgroundWork(entry.paneId)),
+    liveStatus: 'working',
+    backgroundWorkCorrection: { reportedStatus: entry.liveStatus!, description: backgroundWork.description },
   };
 }
 

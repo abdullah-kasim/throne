@@ -1,4 +1,4 @@
-import { pageResponse, recordsResponse, type PageResponse } from "@contract/where-i-stand.ts";
+import { archiveResponse, pageResponse, recordsResponse, type PageResponse } from "@contract/where-i-stand.ts";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { fetchParsed } from "@/lib/api-client";
 
@@ -6,6 +6,7 @@ const REFRESH_INTERVAL_MILLISECONDS = 60000;
 const ALL_PAGE_QUERIES_KEY = ["where-i-stand"];
 const STORED_PAGE_QUERY_KEY = [...ALL_PAGE_QUERIES_KEY, "page"];
 const RECORDS_QUERY_KEY = [...ALL_PAGE_QUERIES_KEY, "records"];
+const ARCHIVE_QUERY_KEY = [...ALL_PAGE_QUERIES_KEY, "archive"];
 
 export function useStoredPage() {
   return useQuery({
@@ -19,6 +20,14 @@ export function useRecords() {
   return useQuery({
     queryKey: RECORDS_QUERY_KEY,
     queryFn: () => fetchParsed("where-i-stand/records", recordsResponse),
+    refetchInterval: REFRESH_INTERVAL_MILLISECONDS,
+  });
+}
+
+export function useArchive() {
+  return useQuery({
+    queryKey: ARCHIVE_QUERY_KEY,
+    queryFn: () => fetchParsed("where-i-stand/archive", archiveResponse),
     refetchInterval: REFRESH_INTERVAL_MILLISECONDS,
   });
 }
