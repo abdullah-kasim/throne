@@ -3,11 +3,11 @@ import type { FullyIdleFamily, LastMessageTagState } from './idle-family.ts';
 function exclusionReason(state: LastMessageTagState | undefined): string | undefined {
   if (state === undefined) return undefined;
   switch (state.kind) {
-    case 'reapable-failed': return 'its last message is REAPABLE_FAIL-marked; supervisor repair is required before reap';
-    case 'reapable': return 'its last message carries a supported reapability JSON claim';
-    case 'blocked': return 'its latest message is the standalone JSON {"blocked":true}';
+    case 'reapable-failed': return 'its state file says reapable with a failed reason; supervisor repair is required before reap';
+    case 'reapable': return 'its state file says reapable';
+    case 'blocked': return 'its state file says blocked';
     case 'busy': return `its harness is running ${state.running} (herdr cannot see background work)`;
-    case 'unreadable': return 'its last message could not be read';
+    case 'unreadable': return 'its state file could not be read';
     case 'unmarked': return undefined;
   }
 }

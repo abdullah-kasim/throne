@@ -7,6 +7,7 @@ import { AssertHerdrCommand } from "./assert-herdr/assert-herdr.command.ts";
 import { ReadPayloadCommand } from "./read-payload/read-payload.command.ts";
 import { SendAgentCommand } from "./send-agent/send-agent.command.ts";
 import { McqCommand } from "./pane-prompts/mcq.command.ts";
+import { MyStateCommand } from "./my-state/my-state.command.ts";
 import { SendAgentLegacyCommand } from "./send-agent-legacy/send-agent-legacy.command.ts";
 import { MessageStatusCommand } from "./message-status/message-status.command.ts";
 import { CancelMessageCommand } from "./cancel-message/cancel-message.command.ts";
@@ -213,6 +214,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
       useFactory: () => new SendAgentCommand(),
     },
     McqCommand,
+    MyStateCommand,
     {
       provide: SendAgentLegacyCommand,
       useFactory: () => new SendAgentLegacyCommand(),

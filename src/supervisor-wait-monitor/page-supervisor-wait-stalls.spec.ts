@@ -13,6 +13,7 @@ import type { HerdrAgent, KeepGoingDependencies } from "../keep-going/keep-going
 import { DESIRED_STATES, UNTHROTTLED_EVALUATION } from "../keep-going/keep-going-context.ts";
 import { tendRegent } from "../keep-going/keep-going-regent-tending.ts";
 import { classifyStalls } from "../keep-going/keep-going-stalls.ts";
+import { declareAgentState, type AgentStateDeclaration } from "../agentdata/agent-state.service.ts";
 import { recordClaimSeen } from "../supervisor-wait/claim-seen.ts";
 import { SUPERVISOR_WAIT_STEPS } from "../supervisor-wait/read-supervisor-wait.ts";
 import {
@@ -30,7 +31,7 @@ const ACCEPTED_AT = "2026-11-11T10:05:00.000Z";
 const GO_AHEAD_AT = "2026-11-11T10:05:02.000Z";
 const FIRST_TICK = new Date("2026-11-11T11:00:00.000Z");
 const CAMPAIGN_KINDS: readonly AcceptanceMethod[] = ["merge", "verdict"];
-const CLAIMED_PANE = ['⏺ Merged; you may publish your reapability claim.', "", '  {"reapable":"completed"}', ""].join("\n");
+const CLAIMED: AgentStateDeclaration = { state: "reapable", reapableReason: "completed", declaredBy: "agent" };
 
 interface Court {
   readonly dataDir: string;
@@ -77,14 +78,14 @@ function roster(alphaStatus: "idle" | "working"): AgentStatusesRosterEntry[] {
 
 async function tick(
   court: Court,
-  options: { now: Date; alphaStatus?: "idle" | "working"; paneText?: string },
+  options: { now: Date; alphaStatus?: "idle" | "working"; state?: AgentStateDeclaration },
 ): Promise<SupervisorWaitPage[]> {
   const delivered: SupervisorWaitPage[] = [];
+  if (options.state !== undefined) await declareAgentState(SHADOW, options.state, court.dataDir);
   await pageSupervisorWaitStalls({
     roster: roster(options.alphaStatus ?? "idle"),
     now: options.now,
     regentName: REGENT,
-    readPaneText: async () => options.paneText ?? "",
     page: async (page) => {
       delivered.push(page);
     },
@@ -200,7 +201,7 @@ for (const how of CAMPAIGN_KINDS) {
         goAhead: { sentAt: GO_AHEAD_AT, sendOutcome: "failed", error: "queue refused" },
       });
       await recordClaimSeen(SHADOW, court.dataDir, new Date(GO_AHEAD_AT));
-      const pages = await tick(court, { now: FIRST_TICK, paneText: CLAIMED_PANE });
+      const pages = await tick(court, { now: FIRST_TICK, state: CLAIMED });
       assert.deepEqual(
         pages.map((page) => [page.recipient, page.step]),
         [[ALPHA, SUPERVISOR_WAIT_STEPS.CLAIMED_AWAITING_REAP]],
@@ -215,7 +216,7 @@ for (const how of CAMPAIGN_KINDS) {
         goAhead: { sentAt: GO_AHEAD_AT, sendOutcome: "enqueued", messageId: "1" },
       });
       await recordClaimSeen(SHADOW, court.dataDir, new Date(GO_AHEAD_AT));
-      const pages = await tick(court, { now: FIRST_TICK, paneText: CLAIMED_PANE });
+      const pages = await tick(court, { now: FIRST_TICK, state: CLAIMED });
       assert.deepEqual(
         pages.map((page) => [page.recipient, page.step]),
         [[ALPHA, SUPERVISOR_WAIT_STEPS.CLAIMED_AWAITING_REAP]],
@@ -250,15 +251,15 @@ async function writeUnreportedShadow(court: Court, sentTo: string | undefined): 
   }
 }
 
-function paneBlockedOn(name: string): string {
-  return ["⏺ DONE reported.", "", `  {"blocked":true} __BLOCKED_BY_${name}__`, ""].join("\n");
+function blockedOn(name: string): AgentStateDeclaration {
+  return { state: "blocked", blockedBy: [name], declaredBy: "agent" };
 }
 
 for (const kind of ["merging", "verdict-only"]) {
   test(`an idle Alpha whose ${kind} Shadow reported DONE without a REPORT.md is told to merge or accept it`, async () => {
     await withCourt(async (court) => {
       await writeUnreportedShadow(court, ALPHA);
-      const pages = await tick(court, { now: FIRST_TICK, paneText: paneBlockedOn(ALPHA) });
+      const pages = await tick(court, { now: FIRST_TICK, state: blockedOn(ALPHA) });
       assert.deepEqual(
         pages.map((page) => [page.recipient, page.step]),
         [[ALPHA, SUPERVISOR_WAIT_STEPS.DONE_AWAITING_ACCEPTANCE]],
@@ -269,10 +270,10 @@ for (const kind of ["merging", "verdict-only"]) {
   test(`an Alpha that never accepts its finished ${kind} Shadow still reaches the Regent past the limit`, async () => {
     await withCourt(async (court) => {
       await writeUnreportedShadow(court, ALPHA);
-      const paneText = paneBlockedOn(ALPHA);
+      const state = blockedOn(ALPHA);
       const recipients: string[][] = [];
       for (let window = 0; window <= ALPHA_PAGES_BEFORE_REGENT; window += 1) {
-        recipients.push((await tick(court, { now: tickAfter(window), paneText })).map((page) => page.recipient));
+        recipients.push((await tick(court, { now: tickAfter(window), state })).map((page) => page.recipient));
       }
       assert.deepEqual(recipients.at(-1), [ALPHA, REGENT]);
       assert.deepEqual(recipients.slice(0, -1).flat(), Array(ALPHA_PAGES_BEFORE_REGENT).fill(ALPHA));
@@ -282,14 +283,14 @@ for (const kind of ["merging", "verdict-only"]) {
   test(`a ${kind} Shadow blocked on its Alpha that never messaged it is not taken as finished`, async () => {
     await withCourt(async (court) => {
       await writeUnreportedShadow(court, undefined);
-      assert.deepEqual(await tick(court, { now: FIRST_TICK, paneText: paneBlockedOn(ALPHA) }), []);
+      assert.deepEqual(await tick(court, { now: FIRST_TICK, state: blockedOn(ALPHA) }), []);
     });
   });
 
   test(`a ${kind} Shadow blocked on someone other than its Alpha is not taken as finished`, async () => {
     await withCourt(async (court) => {
       await writeUnreportedShadow(court, ALPHA);
-      assert.deepEqual(await tick(court, { now: FIRST_TICK, paneText: paneBlockedOn("shadow-other") }), []);
+      assert.deepEqual(await tick(court, { now: FIRST_TICK, state: blockedOn("shadow-other") }), []);
     });
   });
 }
@@ -309,10 +310,10 @@ for (const how of CAMPAIGN_KINDS) {
         goAhead: { sentAt: GO_AHEAD_AT, sendOutcome: "enqueued", messageId: "1" },
       });
       const claimFirstSeen = FIRST_TICK;
-      const atClaim = await tick(court, { now: claimFirstSeen, paneText: CLAIMED_PANE });
+      const atClaim = await tick(court, { now: claimFirstSeen, state: CLAIMED });
       const pastGrace = await tick(court, {
         now: new Date(claimFirstSeen.getTime() + 11 * 60_000),
-        paneText: CLAIMED_PANE,
+        state: CLAIMED,
       });
       assert.deepEqual(atClaim, []);
       assert.deepEqual(
@@ -342,18 +343,18 @@ for (const kind of ["merging", "verdict-only"]) {
         path.join(dir, "sent-messages.jsonl"),
         `${JSON.stringify({ timestamp: PROOF_RUN3_DONE_AT, recipient: ALPHA, id: "25044", transport: "sqlite" })}\n`,
       );
-      const paneText = ["⏺ DONE run3.", "", `  {"blocked":true} __BLOCKED_BY_${ALPHA}__`, ""].join("\n");
+      const state = blockedOn(ALPHA);
       const secondPageAt = Date.parse(PROOF_RUN3_ALPHA_PAGES[1]!);
       const alphaPageTimes: string[] = [];
       let regentPagedAt: number | undefined;
       for (const at of PROOF_RUN3_ALPHA_PAGES) {
-        for (const page of await tick(court, { now: new Date(at), paneText })) {
+        for (const page of await tick(court, { now: new Date(at), state })) {
           if (page.recipient === ALPHA) alphaPageTimes.push(at);
         }
       }
       for (let minute = 1; minute <= 30 && regentPagedAt === undefined; minute += 1) {
         const now = secondPageAt + minute * 60_000;
-        const pages = await tick(court, { now: new Date(now), paneText });
+        const pages = await tick(court, { now: new Date(now), state });
         if (pages.some((page) => page.recipient === REGENT)) regentPagedAt = now;
       }
       assert.deepEqual(alphaPageTimes, PROOF_RUN3_ALPHA_PAGES);
@@ -361,3 +362,4 @@ for (const kind of ["merging", "verdict-only"]) {
     });
   });
 }
+

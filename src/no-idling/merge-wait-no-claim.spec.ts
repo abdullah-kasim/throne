@@ -3,13 +3,9 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import {
-  clearBlockedMarker,
-  readBlockedMarker,
-  writeBlockedMarker,
-} from '../agentdata/blocked-marker.service.ts';
+import { declareAgentState, readAgentState } from '../agentdata/agent-state.service.ts';
 import type { AcceptanceMethod } from '../agentdata/acceptance-data.service.ts';
-import { resolveBlockedTag, type BlockedMarkerLedger } from './blocked-marker-resolution.ts';
+import { readDeclaredTag } from './blocked-marker-resolution.ts';
 import { readSupervisorWaits } from './claim-wait.ts';
 import { findReapabilityProtocolViolations } from './reapability-protocol.ts';
 import { rosterEntry } from './no-idling-command-test-fixtures.ts';
@@ -48,22 +44,13 @@ async function writeShadowThatReportedDone(
     SENDS_TO_THE_SUPERVISOR.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
   );
   if (how === 'verdict') await writeFile(path.join(dir, 'REPORT.md'), 'DONE\n');
-  if (blockedOnItsSupervisor) await writeBlockedMarker(SHADOW, { blockedBy: [ALPHA] }, dataDir);
+  if (blockedOnItsSupervisor) await declareAgentState(SHADOW, { state: 'blocked', blockedBy: [ALPHA], declaredBy: 'agent' }, dataDir);
 }
 
-function ledgerIn(dataDir: string): BlockedMarkerLedger {
-  return {
-    readBlockedMarker: (name) => readBlockedMarker(name, dataDir),
-    writeBlockedMarker: (name, blockedBy) =>
-      writeBlockedMarker(name, blockedBy === undefined ? undefined : { blockedBy }, dataDir),
-    clearBlockedMarker: (name) => clearBlockedMarker(name, dataDir),
-  };
-}
-
-async function sweepThatReadsThePaneAsUnmarked(dataDir: string): Promise<readonly { agent: string; reason: string }[]> {
+async function sweepThatReadsTheStateFile(dataDir: string): Promise<readonly { agent: string; reason: string }[]> {
   const roster = [rosterEntry(SHADOW, 'Shadow', 'idle')];
   const waits = await readSupervisorWaits(roster, dataDir);
-  const tag = await resolveBlockedTag(SHADOW, async () => ({ kind: 'unmarked' }), ledgerIn(dataDir));
+  const tag = await readDeclaredTag(SHADOW, (name) => readAgentState(name, dataDir));
   return findReapabilityProtocolViolations(
     roster,
     new Map([[SHADOW, tag]]),
@@ -79,7 +66,7 @@ for (const how of CAMPAIGN_KINDS) {
   test(`a ${how} Shadow that reported DONE and waits for its merge is not reported for having no claim`, async () => {
     await withLedger(async (dataDir) => {
       await writeShadowThatReportedDone(dataDir, how, true);
-      assert.deepEqual(await sweepThatReadsThePaneAsUnmarked(dataDir), []);
+      assert.deepEqual(await sweepThatReadsTheStateFile(dataDir), []);
     });
   });
 }
@@ -87,7 +74,7 @@ for (const how of CAMPAIGN_KINDS) {
 test('a merge Shadow that messaged its supervisor but never declared itself blocked is still reported for having no claim', async () => {
   await withLedger(async (dataDir) => {
     await writeShadowThatReportedDone(dataDir, 'merge', false);
-    assert.deepEqual(await sweepThatReadsThePaneAsUnmarked(dataDir), [
+    assert.deepEqual(await sweepThatReadsTheStateFile(dataDir), [
       { agent: SHADOW, reason: 'idle-with-no-claim' },
     ]);
   });

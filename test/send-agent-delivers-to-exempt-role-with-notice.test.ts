@@ -17,7 +17,7 @@ test("an exempt Stager steered onto another model is delivered to, with a notice
   const { lines, restore } = captureStderr();
   const exitCodeBefore = process.exitCode;
   try {
-    const refused = await refuseTaskOnRuntimeModelMismatch("stager-second", async () => ({
+    const refused = await refuseTaskOnRuntimeModelMismatch("stager-west", async () => ({
       ok: true,
       outcome: "exempt-human-steered-role",
       role: "Stager",
@@ -28,7 +28,7 @@ test("an exempt Stager steered onto another model is delivered to, with a notice
     assert.equal(refused, false);
     assert.equal(process.exitCode, exitCodeBefore);
     assert.equal(lines.length, 1);
-    assert.match(lines[0], /"stager-second" is a Stager observed on opus, claude-fable-5-1 \(recorded opus\)/);
+    assert.match(lines[0], /"stager-west" is a Stager observed on opus, claude-fable-5-1 \(recorded opus\)/);
     assert.match(lines[0], /delivering anyway; evidence at \/x\/task-exempt\.json/);
   } finally {
     restore();
@@ -38,7 +38,7 @@ test("an exempt Stager steered onto another model is delivered to, with a notice
 test("an exempt role still on its recorded model gets no notice", async () => {
   const { lines, restore } = captureStderr();
   try {
-    const refused = await refuseTaskOnRuntimeModelMismatch("stager-second", async () => ({
+    const refused = await refuseTaskOnRuntimeModelMismatch("stager-west", async () => ({
       ok: true,
       outcome: "exempt-human-steered-role",
       role: "Stager",

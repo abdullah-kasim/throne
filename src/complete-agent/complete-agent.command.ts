@@ -7,7 +7,6 @@ import {
   resolveDeliveryRepoRoot,
 } from "../git-lifecycle/delivery-commit-proof.ts";
 import { checkAgentEvidenceRequirementByName } from "../slice-evidence/agent-evidence-gate.ts";
-import { readAgent } from "../herdr/herdr-runtime.service.ts";
 import { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import { refuseCompletionWithoutPageRecord } from "../where-i-stand/campaign-page-record.ts";
 import {
@@ -24,7 +23,6 @@ const REAL_DEPENDENCIES: CompleteAgentDependencies = {
   writeStderr: (text) => process.stderr.write(text),
   hasDeliveryCommit: (name) =>
     resolveDeliveryRepoRoot(name).then((root) => hasDeliveryCommit(name, root)),
-  readAgent,
   readSpawnSpec,
   checkEvidenceRequirement: checkAgentEvidenceRequirementByName,
   refuseCompletionWithoutPageRecord: (name) => refuseCompletionWithoutPageRecord(name),

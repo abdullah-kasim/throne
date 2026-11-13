@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, realpath } from 'node:fs/promises';
+import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -9,35 +9,18 @@ import { promisify } from 'node:util';
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
 import { readHarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
 import { harnessProcessHost, processTableCapture } from '../process-inspection/harness-background-work-test-fixtures.ts';
-import { classifyLastMessageTags } from './idle-pane-tag-classification.ts';
 import { runNoIdling } from './no-idling-run.ts';
-import { deps, rosterEntry } from './no-idling-command-test-fixtures.ts';
+import type { AgentState } from '../agentdata/agent-state.service.ts';
+import { declaredState, deps, rosterEntry } from './no-idling-command-test-fixtures.ts';
 
 const WAITING_SHADOW = 'shadow-bakery-01-oven';
-const CAPTURED_PANE = await readFile(
-  path.join(import.meta.dirname, 'fixtures', 'claude-pane-waiting-on-queued-suite-runs.txt'),
-  'utf8',
-);
-const PANE_SAYING_IT_WAITS_AFTER_THE_SHELLS_FINISHED = CAPTURED_PANE.replace(
-  /✻ Sautéed for 6m 57s · done 4:36 PM · 4 shells, 1 monitor still\n  running/,
-  '✻ Sautéed for 6m 57s',
-);
-const PANE_SAYING_IT_WAITS_WITH_AN_APOSTROPHE = [
-  "⏺ The oven's suite run is still queued for a container slot.",
-  '',
-  '✻ Baked for 9s',
-  '',
-].join('\n');
-const PANE_THAT_POSTED_THE_BLOCKED_MARKER = [
-  '⏺ Both suite runs are queued for a container slot.',
-  '',
-  '  {"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)',
-  '',
-  '✻ Crunched for 5s',
-  '',
-].join('\n');
 const CAPTURED_WAITING_SENTENCE =
   'Both suite runs (candidate and base) are still queued for a container slot';
+const WORKING_WHILE_SAYING_IT_WAITS = declaredState('working', { waitingOn: CAPTURED_WAITING_SENTENCE });
+const WORKING_WHILE_SAYING_IT_WAITS_WITH_AN_APOSTROPHE = declaredState('working', {
+  waitingOn: "The oven's suite run is still queued for a container slot",
+});
+const WAITING_ON_ITS_OWN_RUN = declaredState('waiting-on-own-run', { waitingOn: 'candidate and base suites' });
 const NOW_MS = Date.parse('2026-10-15T08:40:00.000Z');
 const NEVER_TASKED: SpawnSpec = {
   harness: 'claude',
@@ -51,15 +34,15 @@ const NEVER_TASKED: SpawnSpec = {
 
 const UNTASKED_NOTICE_KEY = /^no-idling-untasked:/;
 
-async function regentNoticesForAShadowShowing(
-  pane: string,
+async function regentNoticesForAShadowDeclaring(
+  declared: AgentState,
   spawnSpec: SpawnSpec | null = null,
   keyOfTheNotice: RegExp = /./,
 ): Promise<string[]> {
   const { dependencies, submitCalls } = deps({
     getRoster: async () => [rosterEntry(WAITING_SHADOW, 'Shadow', 'idle')],
     readSpawnSpec: async () => spawnSpec,
-    readAgent: async () => pane,
+    readAgentState: async () => declared,
     now: () => NOW_MS,
   });
   await runNoIdling(dependencies, { notify: true });
@@ -68,15 +51,15 @@ async function regentNoticesForAShadowShowing(
     .map((call) => call.prompt);
 }
 
-async function waitingNoticeForAShadowShowing(pane: string): Promise<string> {
-  const notices = await regentNoticesForAShadowShowing(pane);
+async function waitingNoticeForAShadowDeclaring(declared: AgentState): Promise<string> {
+  const notices = await regentNoticesForAShadowDeclaring(declared);
   const notice = notices.find((text) => text.includes('waiting on background work'));
   assert.ok(notice, `no waiting notice in: ${notices.join('\n')}`);
   return notice;
 }
 
 function lineToSendIn(notice: string): { agent: string; quotedMessage: string } {
-  const match = /throne send-agent (\S+) ('.*?resume\.')/.exec(notice);
+  const match = /throne send-agent (\S+) ('.*?as your latest message\.')/.exec(notice);
   assert.ok(match, `no send line in: ${notice}`);
   return { agent: match[1]!, quotedMessage: match[2]! };
 }
@@ -87,11 +70,11 @@ async function messageTheShellDelivers(quotedMessage: string): Promise<string> {
 }
 
 test("the regent's notice gives the own-background-run line to send", async () => {
-  const notice = await waitingNoticeForAShadowShowing(PANE_SAYING_IT_WAITS_AFTER_THE_SHELLS_FINISHED);
+  const notice = await waitingNoticeForAShadowDeclaring(WORKING_WHILE_SAYING_IT_WAITS);
 
   assert.ok(
     notice.includes(
-      `${WAITING_SHADOW} — waiting on background work: ${CAPTURED_WAITING_SENTENCE}. Send exactly: throne send-agent ${WAITING_SHADOW} 'Publish {"blocked":true} BLOCKED_BY_own-background-run (${CAPTURED_WAITING_SENTENCE}) as your latest message; clear it when you resume.'`,
+      `${WAITING_SHADOW} — waiting on background work: ${CAPTURED_WAITING_SENTENCE}. Send exactly: throne send-agent ${WAITING_SHADOW} 'Run throne my-state waiting-on-own-run "${CAPTURED_WAITING_SENTENCE}" and publish {"blocked":true} BLOCKED_BY_own-background-run (${CAPTURED_WAITING_SENTENCE}) as your latest message.'`,
     ),
     notice,
   );
@@ -99,8 +82,8 @@ test("the regent's notice gives the own-background-run line to send", async () =
 });
 
 test("the regent's notice names an untasked agent that says it is waiting on background work the same way", async () => {
-  const [untaskedNotice] = await regentNoticesForAShadowShowing(
-    PANE_SAYING_IT_WAITS_AFTER_THE_SHELLS_FINISHED,
+  const [untaskedNotice] = await regentNoticesForAShadowDeclaring(
+    WORKING_WHILE_SAYING_IT_WAITS,
     NEVER_TASKED,
     UNTASKED_NOTICE_KEY,
   );
@@ -112,35 +95,35 @@ test("the regent's notice names an untasked agent that says it is waiting on bac
 });
 
 test("the regent's notice says a waiting agent must not be reaped or sent a generic continue", async () => {
-  const notice = await waitingNoticeForAShadowShowing(PANE_SAYING_IT_WAITS_AFTER_THE_SHELLS_FINISHED);
+  const notice = await waitingNoticeForAShadowDeclaring(WORKING_WHILE_SAYING_IT_WAITS);
 
   assert.match(notice, /Such a pane is waiting, not idle: never reap it and never send it a generic continue\./);
   assert.match(notice, /once per wait/);
 });
 
-test('an agent whose latest message is the blocked marker naming background work is left out of the notice', async () => {
+test('an agent whose state file says it waits on its own run is left out of the notice', async () => {
   for (const spawnSpec of [null, NEVER_TASKED]) {
-    const notices = await regentNoticesForAShadowShowing(PANE_THAT_POSTED_THE_BLOCKED_MARKER, spawnSpec);
+    const notices = await regentNoticesForAShadowDeclaring(WAITING_ON_ITS_OWN_RUN, spawnSpec);
 
     assert.deepEqual(notices.filter((text) => text.includes(WAITING_SHADOW)), []);
   }
 });
 
-test('the line the notice gives delivers a blocked marker the reader accepts', async () => {
-  for (const pane of [PANE_SAYING_IT_WAITS_AFTER_THE_SHELLS_FINISHED, PANE_SAYING_IT_WAITS_WITH_AN_APOSTROPHE]) {
-    const notice = await waitingNoticeForAShadowShowing(pane);
+test('the line the notice gives tells the agent to declare its wait in its state file', async () => {
+  for (const declared of [WORKING_WHILE_SAYING_IT_WAITS, WORKING_WHILE_SAYING_IT_WAITS_WITH_AN_APOSTROPHE]) {
+    const notice = await waitingNoticeForAShadowDeclaring(declared);
     const { agent, quotedMessage } = lineToSendIn(notice);
     const delivered = await messageTheShellDelivers(quotedMessage);
     const backgroundWork = /waiting on background work: (.*?)\. Send exactly/.exec(notice)?.[1];
 
     assert.equal(agent, WAITING_SHADOW);
-    assert.deepEqual(classifyLastMessageTags(delivered), { kind: 'blocked', blockedBy: [], waitsOnOwnBackgroundRun: true });
+    assert.ok(delivered.includes(`throne my-state waiting-on-own-run "${backgroundWork}"`), delivered);
     assert.ok(delivered.includes(`{"blocked":true} BLOCKED_BY_own-background-run (${backgroundWork}) as`), delivered);
   }
 });
 
 test('the no-idling notice never tells the regent both to ask a waiting agent for the blocked marker and never to ask it', async () => {
-  const notice = await waitingNoticeForAShadowShowing(PANE_SAYING_IT_WAITS_AFTER_THE_SHELLS_FINISHED);
+  const notice = await waitingNoticeForAShadowDeclaring(WORKING_WHILE_SAYING_IT_WAITS);
 
   assert.ok(notice.includes(`Send exactly: throne send-agent ${WAITING_SHADOW} '`), notice);
   assert.doesNotMatch(notice, /must never be told to publish/);
@@ -151,7 +134,7 @@ test('the no-idling log does not say it reported a waiting agent as fully idle',
   const logLines: string[] = [];
   const { dependencies } = deps({
     getRoster: async () => [rosterEntry(WAITING_SHADOW, 'Shadow', 'idle')],
-    readAgent: async () => PANE_SAYING_IT_WAITS_AFTER_THE_SHELLS_FINISHED,
+    readAgentState: async () => WORKING_WHILE_SAYING_IT_WAITS,
     now: () => NOW_MS,
     stdout: (text) => logLines.push(text),
   });
@@ -175,7 +158,6 @@ test("the Regent's notice names the background processes an agent waits on", asy
   ];
   const { dependencies, submitCalls } = deps({
     getRoster: async () => [rosterEntry(WAITING_SHADOW, 'Shadow', 'idle')],
-    readAgent: async () => ['⏺ The crust is in.', '', '✻ Baked for 9s', ''].join('\n'),
     readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId, hostsInReadOrder.shift() ?? hostsInReadOrder[0]!),
     now: () => NOW_MS,
   });

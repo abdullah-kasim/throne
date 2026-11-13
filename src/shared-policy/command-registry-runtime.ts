@@ -5,6 +5,7 @@ import { AgentStatsCommand } from "../agent-stats/agent-stats.command.ts";
 import { ReadPayloadCommand } from "../read-payload/read-payload.command.ts";
 import { SendAgentCommand } from "../send-agent/send-agent.command.ts";
 import { McqCommand } from "../pane-prompts/mcq.command.ts";
+import { MyStateCommand } from "../my-state/my-state.command.ts";
 import { SendAgentLegacyCommand } from "../send-agent-legacy/send-agent-legacy.command.ts";
 import { MessageStatusCommand } from "../message-status/message-status.command.ts";
 import { CancelMessageCommand } from "../cancel-message/cancel-message.command.ts";
@@ -74,6 +75,14 @@ export const RUNTIME_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: true,
     description:
       "Answer (--answer <n>) or dismiss (--dismiss) the interactive prompt held up in a named agent's pane; Regent or Stager only.",
+  },
+  {
+    name: "my-state",
+    provider: MyStateCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Record your own state (working, blocked, waiting-on-own-run, waiting-on-supervisor, reapable) in your state file.",
   },
   {
     name: "send-agent-legacy",

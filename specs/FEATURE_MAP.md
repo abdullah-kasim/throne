@@ -6,6 +6,7 @@ Everything else is uncatalogued: search the code for it.
 
 ## agents
 
+- **Agent state file**: Records each agent's declared state (working, blocked, waiting on its own run, waiting on its supervisor, reapable) in one file that every state check reads instead of the agent's pane. ([agents/agent-state.md](agents/agent-state.md))
 - **Model and persona switching**: Moves a live agent to another model of the same family, or switches the court persona. ([agents/agent-steering.md](agents/agent-steering.md))
 - **Agent completion and reaping**: Verifies an agent finished and tears it down. ([agents/completion.md](agents/completion.md))
 - **Agent creation**: Spawns a new harness in herdr with a validated identity, model and spawn evidence. ([agents/create-agent.md](agents/create-agent.md))

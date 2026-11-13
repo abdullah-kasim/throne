@@ -17,11 +17,8 @@ function blockedAgentPageKey(agentName: string): string {
   return `blocked-agent-paging:${agentName}`;
 }
 
-function blockedStateFingerprint(
-  marker: Awaited<ReturnType<BlockedAgentPagingDependencies['blockedMarkerLedger']['readBlockedMarker']>>,
-  prompt: DetectedInteractivePrompt | undefined,
-): string {
-  return JSON.stringify({ blockedAt: marker?.blockedAt ?? null, prompt: prompt ?? null });
+function blockedStateFingerprint(declaredAt: string, prompt: DetectedInteractivePrompt | undefined): string {
+  return JSON.stringify({ declaredAt, prompt: prompt ?? null });
 }
 
 function courtTrustAcceptanceFor(prompt: DetectedInteractivePrompt | undefined): number | undefined {
@@ -49,7 +46,7 @@ export async function pageRegentForStuckBlock(
     return;
   }
   const pageKey = blockedAgentPageKey(agentName);
-  const fingerprint = blockedStateFingerprint(await deps.blockedMarkerLedger.readBlockedMarker(agentName), prompt);
+  const fingerprint = blockedStateFingerprint((await deps.readAgentState(agentName)).declaredAt, prompt);
   if (!shouldPageObservation(pageKey, fingerprint, deps.now?.() ?? Date.now(), await deps.readEscalationLedger())) {
     return;
   }

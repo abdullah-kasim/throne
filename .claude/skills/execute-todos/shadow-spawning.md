@@ -271,7 +271,8 @@ via plain`complete-agent`, and skipping the call because "there's
      and sends the same confirmation without touching git. If either command
      prints that the go-ahead FAILED, send the confirmation yourself with
      `send-agent`. Then end your
-     own turn idle, publishing `{"blocked":true}` with a
+     own turn idle: run `throne my-state blocked --by <slice_addr>` and
+     publish `{"blocked":true}` with a
      `__BLOCKED_BY_<slice_addr>__` marker per the existing blocked-marker
      convention (Rule 3 above) — do not call `reap-agent` in the same turn
      the confirmation is sent. Reaping immediately would give the Shadow no

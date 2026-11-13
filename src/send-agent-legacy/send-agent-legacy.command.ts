@@ -13,7 +13,7 @@ import {
   IdentityDataService,
   identityFieldForRecording,
 } from "../agentdata/identity-data.service.ts";
-import { clearBlockedMarker } from "../agentdata/blocked-marker.service.ts";
+import { clearBlockedState } from "../agentdata/agent-state.service.ts";
 import { resolveAgent } from "../herdr/herdr-runtime.service.ts";
 import { resolveCurrentAgentName } from "../herdr/herdr-session.service.ts";
 import { submitToAgent } from "../herdr/herdr-send.service.ts";
@@ -64,7 +64,7 @@ export interface SendAgentLegacyCommandDependencies<
   readAgentRole?: IdentityDataService['readAgentRole'];
   readAgentSupervisor?: IdentityDataService['readAgentSupervisor'];
   recordDeliveredEvent?: typeof recordDeliveredSupervisionEvent;
-  clearBlockedMarker?: typeof clearBlockedMarker;
+  clearBlockedState?: typeof clearBlockedState;
 }
 
 let productionDependencies: SendAgentLegacyCommandDependencies | undefined;
@@ -73,7 +73,7 @@ const DEFAULT_PRODUCTION_DEPENDENCIES: SendAgentLegacyCommandDependencies = {
   resolveAgent,
   resolveCurrentAgentName,
   submitToAgent,
-  clearBlockedMarker,
+  clearBlockedState,
 };
 
 export function configureSendAgentLegacyCommandDependencies(
@@ -195,9 +195,9 @@ async function runSendAgentLegacy(
     }
     throw error;
   }
-  await dependencies.clearBlockedMarker?.(senderName);
+  await dependencies.clearBlockedState?.(senderName);
   if (parsed.clearBlocked) {
-    await dependencies.clearBlockedMarker?.(recipient.name ?? parsed.recipientName);
+    await dependencies.clearBlockedState?.(recipient.name ?? parsed.recipientName);
   }
   process.exitCode = 0;
 }

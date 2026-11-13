@@ -1,4 +1,5 @@
 import { installAgentExitMarkerHook } from '../install-services/agent-exit-marker-hook.ts';
+import { installAgentStateHook } from '../install-services/agent-state-hook.ts';
 import { installClaudeGuardHook } from '../install-services/claude-guard-hook.ts';
 import type { SettingsHookOutcome } from '../install-services/claude-settings-hook.ts';
 import { installCodexHookRegistration } from '../install-services/hook-and-command.ts';
@@ -80,6 +81,11 @@ const HOOK_INSTALLERS: readonly HookInstaller[] = [
     hook: 'claude agent exit marker',
     install: async (deps, options) =>
       settingsHookState(await installAgentExitMarkerHook(deps, options)),
+  },
+  {
+    hook: 'claude agent state',
+    install: async (deps, options) =>
+      settingsHookState(await installAgentStateHook(deps, options)),
   },
   {
     hook: 'claude hidden skill pointer',

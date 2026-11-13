@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { readAgentState } from "../src/agentdata/agent-state.service.ts";
 import { reapAgent } from "../src/reap-agent/lifecycle.ts";
 import type {
   ReapDeps,
@@ -10,11 +11,9 @@ import type {
 } from "../src/reap-agent/reap-agent.types.ts";
 import type { HerdrAgent } from "../src/herdr/herdr-identity-contracts.ts";
 import {
-  writeSpawnSpec,
   readSpawnSpec,
 } from "../src/agentdata/spawn-data-contracts.ts";
-import { formatReapabilityClaim } from "../src/reap-agent/reapability-claim.ts";
-import { reapDepsWithNothingToTearDown } from "../src/reap-agent/reap-agent-test-fixtures.ts";
+import { landReapableVerdictOnlyShadow, reapDepsWithNothingToTearDown } from "../src/reap-agent/reap-agent-test-fixtures.ts";
 
 // The hiregent lie (2026-09-02): the queue write-back ran BEFORE teardown, so
 // a `--reason completed` reap marked the row `complete`, teardown then
@@ -47,20 +46,6 @@ function liveShadow(name: string): HerdrAgent {
   };
 }
 
-async function landVerdictOnlyShadow(name: string): Promise<void> {
-  await writeSpawnSpec(
-    name,
-    {
-      harness: "claude",
-      model: "sonnet",
-      effort: 1,
-      cwd: "/tmp/does-not-matter",
-      deliverable_shape: "verdict-only" as const,
-    },
-    ledgerBaseDir,
-  );
-}
-
 function request(name: string): ReapRequest {
   return {
     name,
@@ -83,8 +68,7 @@ function buildDeps(
 ): ReapDeps {
   return reapDepsWithNothingToTearDown({
     listAgents: async () => [liveShadow(name)],
-    readAgent: async () =>
-      `Reporting DONE.\n${formatReapabilityClaim("completed")}`,
+    readAgentState: (agentName) => readAgentState(agentName, ledgerBaseDir),
     readSpawnSpec: (agent) => readSpawnSpec(agent, ledgerBaseDir),
     resolveQueueReapEvidence: async () => ({ deliveryCommit: "abc123" }),
     writeQueueReapOutcome: async (_agent, reason, deps) => {
@@ -102,7 +86,7 @@ function buildDeps(
 
 test("a completed reap whose teardown succeeds writes the queue outcome once, with the pre-resolved delivery commit", async () => {
   const name = `${NAME_PREFIX}-1`;
-  await landVerdictOnlyShadow(name);
+  await landReapableVerdictOnlyShadow(name, ledgerBaseDir);
   const recorded: Recorded = { queueWrites: [], ledgerAppends: 0 };
   const code = await reapAgent(
     request(name),
@@ -118,7 +102,7 @@ test("a completed reap whose teardown succeeds writes the queue outcome once, wi
 
 test("a completed reap whose teardown is refused writes neither the queue outcome nor the launch ledger", async () => {
   const name = `${NAME_PREFIX}-2`;
-  await landVerdictOnlyShadow(name);
+  await landReapableVerdictOnlyShadow(name, ledgerBaseDir);
   const recorded: Recorded = { queueWrites: [], ledgerAppends: 0 };
   const deps = buildDeps(name, recorded, {
     // A tree-base whose canonical name is not this agent's makes teardown
@@ -139,7 +123,7 @@ test("a completed reap whose teardown is refused writes neither the queue outcom
 
 test("a scratch reap of the recorded launcher of an in-flight queue row refuses and tears nothing down", async () => {
   const name = `${NAME_PREFIX}-3`;
-  await landVerdictOnlyShadow(name);
+  await landReapableVerdictOnlyShadow(name, ledgerBaseDir);
   const recorded: Recorded = { queueWrites: [], ledgerAppends: 0 };
   let tabsClosed = 0;
   const deps = buildDeps(name, recorded, {
@@ -160,7 +144,7 @@ test("a scratch reap of the recorded launcher of an in-flight queue row refuses 
 
 test("a scratch reap of an agent no queue row records proceeds as before", async () => {
   const name = `${NAME_PREFIX}-4`;
-  await landVerdictOnlyShadow(name);
+  await landReapableVerdictOnlyShadow(name, ledgerBaseDir);
   const recorded: Recorded = { queueWrites: [], ledgerAppends: 0 };
   let tabsClosed = 0;
   const deps = buildDeps(name, recorded, {

@@ -3,15 +3,14 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { readAgentState } from "../src/agentdata/agent-state.service.ts";
 import { reapAgent } from "../src/reap-agent/lifecycle.ts";
 import type { ReapDeps, ReapRequest } from "../src/reap-agent/reap-agent.types.ts";
 import type { HerdrAgent } from "../src/herdr/herdr-identity-contracts.ts";
 import {
-  writeSpawnSpec,
   readSpawnSpec,
 } from "../src/agentdata/spawn-data-contracts.ts";
-import { formatReapabilityClaim } from "../src/reap-agent/reapability-claim.ts";
-import { reapDepsWithNothingToTearDown } from "../src/reap-agent/reap-agent-test-fixtures.ts";
+import { landReapableVerdictOnlyShadow, reapDepsWithNothingToTearDown } from "../src/reap-agent/reap-agent-test-fixtures.ts";
 import {
   checkAgentEvidenceRequirementByName,
   type SliceEvidenceResult,
@@ -66,20 +65,6 @@ function liveShadow(
   };
 }
 
-async function landVerdictOnlyShadow(name: string): Promise<void> {
-  await writeSpawnSpec(
-    name,
-    {
-      harness: "claude",
-      model: "sonnet",
-      effort: 1,
-      cwd: "/tmp/does-not-matter",
-      deliverable_shape: "verdict-only" as const,
-    },
-    ledgerBaseDir,
-  );
-}
-
 function baseRequest(name: string): ReapRequest {
   return {
     name,
@@ -92,11 +77,10 @@ function baseRequest(name: string): ReapRequest {
 
 function buildDeps(overrides: {
   name: string;
-  claimOutput: string;
 }): ReapDeps {
   return reapDepsWithNothingToTearDown({
     listAgents: async () => [liveShadow(overrides.name, "done")],
-    readAgent: async () => overrides.claimOutput,
+    readAgentState: (agentName) => readAgentState(agentName, ledgerBaseDir),
     readSpawnSpec: (name) => readSpawnSpec(name, ledgerBaseDir),
     writeQueueReapOutcome: async () => {},
     appendLaunchLedgerStatus: async () => {},
@@ -138,9 +122,9 @@ test("a verified runtime-model attestation passes the evidence gate with no mism
 
 test("reap-agent reaps an agent whose runtime model mismatched and prints both models", async () => {
   const name = `${SHADOW_NAME}-reap`;
-  await landVerdictOnlyShadow(name);
+  await landReapableVerdictOnlyShadow(name, ledgerBaseDir);
   const deps: ReapDeps = {
-    ...buildDeps({ name, claimOutput: formatReapabilityClaim("completed") }),
+    ...buildDeps({ name }),
     checkEvidenceRequirement: (agentName) =>
       checkAgentEvidenceRequirementByName(agentName, ledgerBaseDir, mismatchedAttestation),
   };
@@ -151,7 +135,7 @@ test("reap-agent reaps an agent whose runtime model mismatched and prints both m
 
 test("complete-agent reaps an agent whose runtime model mismatched and prints both models", async () => {
   const name = `${SHADOW_NAME}-complete`;
-  await landVerdictOnlyShadow(name);
+  await landReapableVerdictOnlyShadow(name, ledgerBaseDir);
   const reaped: string[] = [];
   let stderr = "";
   const code = await runCompleteAgent([name], {
@@ -166,7 +150,7 @@ test("complete-agent reaps an agent whose runtime model mismatched and prints bo
     writeStderr: (text) => {
       stderr += text;
     },
-    readAgent: async () => formatReapabilityClaim("completed"),
+    readAgentState: (agentName) => readAgentState(agentName, ledgerBaseDir),
     readSpawnSpec: (agentName) => readSpawnSpec(agentName, ledgerBaseDir),
     checkEvidenceRequirement: async (): Promise<SliceEvidenceResult> =>
       checkAgentEvidenceRequirementByName(name, ledgerBaseDir, mismatchedAttestation),

@@ -3,7 +3,7 @@ import type { MessageQueueStore } from "../message-queue/message-queue.store.ts"
 import type { recordDeliveredSupervisionEvent } from "../alpha-monitoring/alpha-monitoring.ts";
 import type { checkAndNotifySustainedOutage } from "../throne-work/sustained-outage-notifier.ts";
 import type { IdentityDataService } from "../agentdata/identity-data.service.ts";
-import type { clearBlockedMarker } from "../agentdata/blocked-marker.service.ts";
+import type { clearBlockedState } from "../agentdata/agent-state.service.ts";
 import type { markAgentTasked } from "../agentdata/spawn-data-contracts.ts";
 import type {
   appendSentMessageLedgerEntry,
@@ -31,7 +31,7 @@ export interface SendAgentCommandDependencies<
   readAgentRole?: IdentityDataService["readAgentRole"];
   readAgentSupervisor?: IdentityDataService["readAgentSupervisor"];
   recordDeliveredEvent?: typeof recordDeliveredSupervisionEvent;
-  clearBlockedMarker?: typeof clearBlockedMarker;
+  clearBlockedState?: typeof clearBlockedState;
   checkSustainedOutage?: typeof checkAndNotifySustainedOutage;
   // Spawn+task atomicity bookkeeping: closes off the recipient's
   // `tasked_at: null` window the moment it is genuinely sent a task, so a

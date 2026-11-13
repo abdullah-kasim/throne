@@ -51,11 +51,6 @@ export function isStagerRole(role: string | undefined): boolean {
 }
 
 export type { LastMessageTagState } from './idle-pane-tag-classification.ts';
-export {
-  classifyLastMessageTags,
-  classifyReapabilityAwareLastMessageTags,
-  lastMessageBlock,
-} from './idle-pane-tag-classification.ts';
 
 // Explicit predicate so "no live children" and "children, all idle" are two
 // distinct, separately named cases instead of an emergent property of
@@ -245,8 +240,6 @@ function findBareEntryPoints(evidence: IdleFamilyEvidence): FullyIdleFamily[] {
   return entries;
 }
 
-export type { BlockedMarkerLedger } from './blocked-marker-resolution.ts';
-export { resolveBlockedTag } from './blocked-marker-resolution.ts';
 
 export function findFullyIdleFamilies(
   evidence: IdleFamilyEvidence,

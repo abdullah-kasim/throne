@@ -90,7 +90,7 @@ export function buildNamelessBlockPagingMessage(params: AgentPaneParams): string
   const context = renderAgentPaneContext(params);
   return (
     `${params.agentName} is blocked but names no child the sweep can read (${context}). ` +
-    `Its {"blocked":true} carries no readable BLOCKED_BY_<name>, so nothing wakes it when its children finish -- ` +
+    `Its state file names no child (it ran \`throne my-state blocked\` without --by), so nothing wakes it when its children finish -- ` +
     `read its pane, check what it is waiting on, and tell it directly.`
   );
 }
@@ -108,7 +108,7 @@ const SUPERVISOR_ACTION_BY_STEP: Readonly<Record<SupervisorWaitStep, (shadow: st
   [SUPERVISOR_WAIT_STEPS.ACCEPTED_AWAITING_GO_AHEAD]: (shadow) =>
     `${shadow} is accepted but no go-ahead is recorded: send it "you may publish your reapability claim".`,
   [SUPERVISOR_WAIT_STEPS.GO_AHEAD_SENT_AWAITING_CLAIM]: (shadow) =>
-    `${shadow} has its go-ahead but has not claimed: tell it to publish {"reapable":"completed"}.`,
+    `${shadow} has its go-ahead but has not claimed: tell it to run \`throne my-state reapable completed\` and publish {"reapable":"completed"}.`,
   [SUPERVISOR_WAIT_STEPS.CLAIMED_AWAITING_REAP]: (shadow) =>
     `${shadow} has claimed: reap it with reap-agent ${shadow} --reason completed.`,
 };

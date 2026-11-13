@@ -102,7 +102,7 @@ test("a blocked SQLite delivery does not retain the drain tick or write transact
         messageDelivery: {
           resolveAgent: async () => ({}) as never,
           submitToAgent: async () => blockedDelivery.promise,
-          clearBlockedMarker: async () => {},
+          clearBlockedState: async () => {},
           readAgentRole: async () => ({ status: "absent" }) as never,
           readAgentSupervisor: async () => ({ status: "absent" }) as never,
           recordDeliveredEvent: async () => {},
@@ -139,7 +139,7 @@ test("the hosted SQLite drain keeps claiming while a pane delivery is blocked", 
       messageDelivery: {
         resolveAgent: async () => ({}) as never,
         submitToAgent: async () => blockedDelivery.promise,
-        clearBlockedMarker: async () => {},
+        clearBlockedState: async () => {},
         readAgentRole: async () => ({ status: "absent" }) as never,
         readAgentSupervisor: async () => ({ status: "absent" }) as never,
         recordDeliveredEvent: async () => {},
@@ -197,7 +197,7 @@ test("a delivery that keeps yielding on an occupied composer neither starves oth
         messageDelivery: {
           resolveAgent: async () => ({ name: "recipient", paneId: "pane", agent: "claude" }) as never,
           submitToAgent: async () => {},
-          clearBlockedMarker: async () => {},
+          clearBlockedState: async () => {},
           readAgentRole: async () => ({ status: "absent" }) as never,
           readAgentSupervisor: async () => ({ status: "absent" }) as never,
           recordDeliveredEvent: async () => {},

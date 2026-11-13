@@ -131,8 +131,9 @@ execution log records each check's command and exit code.
    false signal at the source instead of relying on the sweep's own busy-work
    detection to catch it after the fact. Any wait that still ends a turn — a
    run queued for a container slot, a second suite started beside the first —
-   ends that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; the next
-   ordinary message clears it. Otherwise no-idling pages the Regent every
+   runs `throne my-state waiting-on-own-run "<what>"` and ends that message with
+   `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; the next prompt records
+   the agent as working again. Otherwise no-idling pages the Regent every
    minute.
 3. **Repeat only on reach** — the full suite is re-run after a correction only
    when that correction can affect it, judged from the corrective diff's file

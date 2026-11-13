@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { declareAgentState, readAgentState } from "../src/agentdata/agent-state.service.ts";
 import {
   AGENT_LIFECYCLE_STATES,
   type AgentStatusesRosterEntry,
@@ -45,6 +46,7 @@ async function landVerdictOnlyShadow(options: {
     },
     ledgerBaseDir,
   );
+  await declareAgentState(options.name, { state: "reapable", reapableReason: "completed", declaredBy: "agent" }, ledgerBaseDir);
 }
 
 function liveNotWorkingWithoutReportEntry(
@@ -61,7 +63,6 @@ function liveNotWorkingWithoutReportEntry(
 }
 
 function buildDependencies(overrides: {
-  claimOutput: string;
   reaped: string[];
 }): CompleteAgentDependencies {
   return {
@@ -72,7 +73,7 @@ function buildDependencies(overrides: {
     },
     writeStdout: () => {},
     writeStderr: () => {},
-    readAgent: async () => overrides.claimOutput,
+    readAgentState: (agentName) => readAgentState(agentName, ledgerBaseDir),
     readSpawnSpec: (name) => readSpawnSpec(name, ledgerBaseDir),
   };
 }
@@ -82,7 +83,6 @@ test("a verdict-only Shadow is independently accepted by complete-agent's outer 
   await landVerdictOnlyShadow({ name, hasShape: true });
   const reaped: string[] = [];
   const dependencies = buildDependencies({
-    claimOutput: '{"reapable":"completed"}',
     reaped,
   });
   const code = await runCompleteAgent(
@@ -98,7 +98,6 @@ test("a Shadow without the durable verdict-only shape is still refused by comple
   await landVerdictOnlyShadow({ name, hasShape: false });
   const reaped: string[] = [];
   const dependencies = buildDependencies({
-    claimOutput: '{"reapable":"completed"}',
     reaped,
   });
   const code = await runCompleteAgent(
@@ -114,7 +113,6 @@ test("a Shadow still marked working is refused by complete-agent regardless of i
   await landVerdictOnlyShadow({ name, hasShape: true });
   const reaped: string[] = [];
   const dependencies = buildDependencies({
-    claimOutput: '{"reapable":"completed"}',
     reaped,
   });
   const code = await runCompleteAgent(

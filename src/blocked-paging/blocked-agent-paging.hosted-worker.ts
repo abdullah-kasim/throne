@@ -11,7 +11,6 @@ import {
   BLOCKED_TRANSITION_VERDICTS,
   OWN_BACKGROUND_RUN_WAITS,
   ownBackgroundRunWait,
-  waitsOnOwnBackgroundRun,
   type OwnBackgroundRunWait,
 } from './classify-blocked-transition.ts';
 import {
@@ -33,20 +32,14 @@ import {
   readAgentSupervisor,
   IdentityLineReadStatus,
 } from '../agentdata/identity-data.service.ts';
-import { readAgent, readVisibleText } from '../herdr/herdr-runtime.service.ts';
-import { clearBlockedMarker, readBlockedMarker, writeBlockedMarker } from '../agentdata/blocked-marker.service.ts';
+import { readVisibleText } from '../herdr/herdr-runtime.service.ts';
+import { readAgentState, type AgentStateName } from '../agentdata/agent-state.service.ts';
 import { resolveAgent } from '../herdr/herdr-runtime.service.ts';
 import { submitUnattributedToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
 import { openMessageQueueStore } from '../message-queue/message-queue.store.ts';
 import { MESSAGE_DELIVERY_WORK_ITEM_KIND } from '../send-agent/message-delivery-enqueue.ts';
 import { listLiveAgentStatuses } from '../agent-statuses/agent-statuses-herdr.ts';
 import { runNotifyLord } from '../notify-lord/notify-lord.command.ts';
-import {
-  classifyLastMessageTags,
-  lastMessageBlock,
-  resolveBlockedTag,
-  type LastMessageTagState,
-} from '../no-idling/idle-family.ts';
 import {
   appendBlockedPageLedgerEntry,
   hasBlockedPageCredit,
@@ -146,52 +139,39 @@ function readBlockedConfirmationSample(
   };
 }
 
-interface PagingPaneRead {
-  readonly blockedTag: LastMessageTagState;
+const WAITING_STATES: ReadonlySet<AgentStateName> = new Set(['blocked', 'waiting-on-own-run', 'waiting-on-supervisor']);
+
+interface PagingStateRead {
+  readonly declaresAWait: boolean;
   readonly ownBackgroundRun: OwnBackgroundRunWait | undefined;
 }
 
-async function readPaneTagAndWait(
+async function readStateAndOwnRun(
   agentName: string,
   paneId: string,
   deps: BlockedAgentPagingDependencies,
-): Promise<PagingPaneRead> {
-  const output = await deps.readAgent(agentName);
+): Promise<PagingStateRead> {
+  const declared = await deps.readAgentState(agentName);
   return {
-    blockedTag: await resolveBlockedTag(
-      agentName,
-      async () => classifyLastMessageTags(lastMessageBlock(output)),
-      deps.blockedMarkerLedger,
-    ),
-    ownBackgroundRun: waitsOnOwnBackgroundRun(output)
-      ? ownBackgroundRunWait(await deps.readHarnessBackgroundWork(paneId))
-      : undefined,
+    declaresAWait: WAITING_STATES.has(declared.state),
+    ownBackgroundRun:
+      declared.state === 'waiting-on-own-run'
+        ? ownBackgroundRunWait(await deps.readHarnessBackgroundWork(paneId))
+        : undefined,
   };
 }
 
-async function readPaneForPaging(
+async function readStateForPaging(
   agentName: string,
   paneId: string,
   deps: BlockedAgentPagingDependencies,
-): Promise<PagingPaneRead | undefined> {
+): Promise<PagingStateRead | undefined> {
   try {
-    return await readPaneTagAndWait(agentName, paneId, deps);
+    return await readStateAndOwnRun(agentName, paneId, deps);
   } catch (error) {
     (deps.stderr ?? ((text: string) => process.stderr.write(text)))(
-      `blocked-agent-paging: could not read ${agentName} to look for a blocked marker: ${errText(error)}\n`,
+      `blocked-agent-paging: could not read ${agentName}'s state: ${errText(error)}\n`,
     );
-    return undefined;
-  }
-}
-
-async function readOwnBackgroundRunWait(
-  agentName: string,
-  paneId: string,
-  deps: BlockedAgentPagingDependencies,
-): Promise<OwnBackgroundRunWait | undefined> {
-  try {
-    return (await readPaneTagAndWait(agentName, paneId, deps)).ownBackgroundRun;
-  } catch {
     return undefined;
   }
 }
@@ -202,8 +182,8 @@ async function pageRegentOnceForNoBackgroundRun(
   paneId: string,
   deps: BlockedAgentPagingDependencies,
 ): Promise<void> {
-  const marker = await deps.blockedMarkerLedger.readBlockedMarker(agentName);
-  const pageKey = `blocked-agent-paging:no-background-run:${agentName}:${marker?.blockedAt ?? ''}`;
+  const declared = await deps.readAgentState(agentName);
+  const pageKey = `blocked-agent-paging:no-background-run:${agentName}:${declared.declaredAt}`;
   if (hasBlockedPageCredit(agentName, pageKey, await deps.readEscalationLedger())) {
     return;
   }
@@ -249,24 +229,15 @@ async function pageRegentForNamelessBlock(
   if (!isAlphaRole(entry.role) || !isIdleStatus(entry)) {
     return;
   }
-  const marker = await deps.blockedMarkerLedger.readBlockedMarker(entry.name);
-  if (marker === null || marker.origin === 'regent' || (marker.blockedBy ?? []).length > 0) {
+  const declared = await deps.readAgentState(entry.name);
+  if (declared.state !== 'blocked' || declared.declaredBy === 'regent' || declared.blockedBy.length > 0) {
     return;
   }
-  const blockedForMilliseconds = (deps.now?.() ?? Date.now()) - Date.parse(marker.blockedAt);
+  const blockedForMilliseconds = (deps.now?.() ?? Date.now()) - Date.parse(declared.declaredAt);
   if (Number.isNaN(blockedForMilliseconds) || blockedForMilliseconds < DELAY_BEFORE_TELLING_THE_REGENT_MS) {
     return;
   }
-  const pane = await readPaneForPaging(entry.name, paneId, deps);
-  if (
-    pane === undefined ||
-    pane.blockedTag.kind !== 'blocked' ||
-    pane.blockedTag.blockedBy.length > 0 ||
-    pane.ownBackgroundRun !== undefined
-  ) {
-    return;
-  }
-  const pageKey = namelessBlockPageKey(entry.name, marker.blockedAt);
+  const pageKey = namelessBlockPageKey(entry.name, declared.declaredAt);
   if (hasBlockedPageCredit(entry.name, pageKey, await deps.readEscalationLedger())) {
     return;
   }
@@ -320,16 +291,16 @@ async function reconcileBlockedAgentPagesInOnePass(
     }
     let wait: OwnBackgroundRunWait | undefined;
     if (entry.liveStatus === 'blocked') {
-      wait = await readOwnBackgroundRunWait(entry.name, entry.paneId, deps);
+      wait = (await readStateForPaging(entry.name, entry.paneId, deps))?.ownBackgroundRun;
     } else {
       if (herdrReportsThePaneWorking(entry)) {
         continue;
       }
-      const pane = await readPaneForPaging(entry.name, entry.paneId, deps);
-      if (pane?.blockedTag.kind !== 'blocked') {
+      const declared = await readStateForPaging(entry.name, entry.paneId, deps);
+      if (declared?.declaresAWait !== true) {
         continue;
       }
-      wait = pane.ownBackgroundRun;
+      wait = declared.ownBackgroundRun;
     }
     await pageRegentUnlessWaitingOnItsOwnRun(
       entry.name,
@@ -413,7 +384,7 @@ export async function handlePaneAgentStatusChangedEvent(
   }
   await pageRegentUnlessWaitingOnItsOwnRun(
     agentName,
-    await readOwnBackgroundRunWait(agentName, event.paneId, deps),
+    (await readStateForPaging(agentName, event.paneId, deps))?.ownBackgroundRun,
     event,
     confirmationRoster,
     deps,
@@ -425,21 +396,16 @@ export const REAL_BLOCKED_AGENT_PAGING_DEPENDENCIES: BlockedAgentPagingDependenc
   listKnownPaneIds: async () => (await listLiveAgentStatuses()).map((agent) => agent.paneId),
   getRoster: async () => getAgentStatusesRoster(),
   readAgentSupervisor: resolvedSupervisorNameForPaging,
-  readAgent: async (name) => readAgent(name, { lines: 200 }),
+  readAgentState: (name) => readAgentState(name),
   readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId),
   readVisiblePaneText: readVisibleText,
-  readSupervisorWait: (agentName, paneText) => readSupervisorWait({ agentName, paneText, dataDir: THRONE_DATA_DIR }),
+  readSupervisorWait: (agentName) => readSupervisorWait({ agentName, dataDir: THRONE_DATA_DIR }),
   acceptFolderTrust: async (agentName, optionNumber) => {
     await answerPromptAs(
       BLOCKED_AGENT_PAGING_HOSTED_WORKER_NAME,
       { agentName, action: { kind: 'answer', optionNumber }, dryRun: false },
       REAL_MCQ_DEPENDENCIES,
     );
-  },
-  blockedMarkerLedger: {
-    readBlockedMarker: (name) => readBlockedMarker(name),
-    writeBlockedMarker: (name) => writeBlockedMarker(name),
-    clearBlockedMarker: (name) => clearBlockedMarker(name),
   },
   resolveAgent,
   // Regent pages route through the same durable queue no-idling already

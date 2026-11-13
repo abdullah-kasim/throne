@@ -1,10 +1,13 @@
 import { lstat, rm } from 'node:fs/promises';
+import path from 'node:path';
 import { findScratchDirHolders, indexClearsDirectory } from './scratch-dir-holders.ts';
 import { killScratchDirHolders } from './kill-scratch-dir-holders.ts';
 import {
   SCRATCH_DIR_REMOVAL_OUTCOMES,
   type ScratchDirHolder,
+  type ScratchDirRemovalDependencies,
   type ScratchDirRemovalResult,
+  type ScratchEntryStatus,
   type ScratchHolderIndex,
 } from './tmp-scratch-lifecycle.types.ts';
 
@@ -28,40 +31,85 @@ async function readScratchDirHolders(dirPath: string): Promise<{
   }
 }
 
-async function isEntryTooYoung(
-  dirPath: string,
-  minAgeMs: number,
-): Promise<boolean> {
+const SYSTEM_FOLDER_NAMES = new Set(['.X11-unix', '.ICE-unix', '.font-unix', '.XIM-unix']);
+const SYSTEMD_PRIVATE_PREFIX = 'systemd-private-';
+
+async function readRealEntryStatus(entryPath: string): Promise<ScratchEntryStatus> {
+  const stats = await lstat(entryPath);
+  return { ownerId: stats.uid, deviceId: stats.dev, modifiedMs: stats.mtimeMs };
+}
+
+async function removeDirectoryForGood(dirPath: string): Promise<void> {
+  await rm(dirPath, { recursive: true, force: true });
+}
+
+export const REAL_SCRATCH_DIR_REMOVAL_DEPENDENCIES: ScratchDirRemovalDependencies = {
+  readEntryStatus: readRealEntryStatus,
+  sweepingUserId: process.getuid?.() ?? -1,
+  removeDirectory: removeDirectoryForGood,
+};
+
+function isSystemFolderName(dirPath: string): boolean {
+  const name = path.basename(dirPath);
+  return SYSTEM_FOLDER_NAMES.has(name) || name.startsWith(SYSTEMD_PRIVATE_PREFIX);
+}
+
+function errorCodeOf(error: unknown): string {
+  if (error instanceof Error && 'code' in error && typeof error.code === 'string') {
+    return error.code;
+  }
+  return 'UNKNOWN';
+}
+
+type EntryStatusReading =
+  | { kind: 'read'; status: ScratchEntryStatus }
+  | { kind: 'missing' }
+  | { kind: 'unreadable' };
+
+async function readEntryStatusSafely(
+  entryPath: string,
+  dependencies: ScratchDirRemovalDependencies,
+): Promise<EntryStatusReading> {
   try {
-    const stats = await lstat(dirPath);
-    return Date.now() - stats.mtimeMs <= minAgeMs;
-  } catch {
-    // Nothing exists to be "too young"; let the liveness/delete steps
-    // below resolve this the same way they would for any missing dir.
-    return false;
+    return { kind: 'read', status: await dependencies.readEntryStatus(entryPath) };
+  } catch (error) {
+    return errorCodeOf(error) === 'ENOENT' ? { kind: 'missing' } : { kind: 'unreadable' };
   }
 }
 
-/**
- * Read-only variant of the delete-eligibility decision: age gate AND
- * liveness gate, the same two checks `removeScratchDir` acts on, without
- * killing a holder or deleting anything. `REMOVED` here means "eligible
- * for removal", not "removed" — callers that only want a report (a
- * dry-run) read it that way, while `removeScratchDir` treats it as
- * permission to proceed to the kill+delete steps below.
- *
- * When `index` is supplied, the liveness gate is answered from that
- * once-per-sweep snapshot instead of a fresh `/proc` walk — a fast-path
- * pre-filter only, per the race-safety invariant: this is never the last
- * word on an actual deletion, which always re-checks freshly in
- * `removeScratchDir` immediately before it deletes anything.
- */
+async function isMountPoint(
+  dirPath: string,
+  entry: EntryStatusReading,
+  dependencies: ScratchDirRemovalDependencies,
+): Promise<boolean> {
+  if (entry.kind === 'unreadable') return true;
+  if (entry.kind === 'missing') return false;
+  const parent = await readEntryStatusSafely(path.dirname(dirPath), dependencies);
+  return parent.kind !== 'read' || parent.status.deviceId !== entry.status.deviceId;
+}
+
+function isEntryTooYoung(entry: EntryStatusReading, minAgeMs: number | undefined): boolean {
+  if (minAgeMs === undefined || entry.kind !== 'read') return false;
+  return Date.now() - entry.status.modifiedMs <= minAgeMs;
+}
+
 export async function checkScratchDirRemovalEligibility(
   dirPath: string,
   minAgeMs?: number,
   index?: ScratchHolderIndex,
+  dependencies: ScratchDirRemovalDependencies = REAL_SCRATCH_DIR_REMOVAL_DEPENDENCIES,
 ): Promise<ScratchDirRemovalResult> {
-  if (minAgeMs !== undefined && (await isEntryTooYoung(dirPath, minAgeMs))) {
+  if (isSystemFolderName(dirPath)) {
+    return { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_SYSTEM_NAME };
+  }
+  const entry = await readEntryStatusSafely(dirPath, dependencies);
+  if (await isMountPoint(dirPath, entry, dependencies)) {
+    return { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_MOUNT_POINT };
+  }
+  if (entry.kind === 'read' && entry.status.ownerId !== dependencies.sweepingUserId) {
+    return { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_NOT_OURS };
+  }
+  if (isEntryTooYoung(entry, minAgeMs)) {
     return { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_TOO_YOUNG };
   }
 
@@ -102,8 +150,14 @@ export async function removeScratchDir(
   dirPath: string,
   minAgeMs?: number,
   index?: ScratchHolderIndex,
+  dependencies: ScratchDirRemovalDependencies = REAL_SCRATCH_DIR_REMOVAL_DEPENDENCIES,
 ): Promise<ScratchDirRemovalResult> {
-  const initialEligibility = await checkScratchDirRemovalEligibility(dirPath, minAgeMs, index);
+  const initialEligibility = await checkScratchDirRemovalEligibility(
+    dirPath,
+    minAgeMs,
+    index,
+    dependencies,
+  );
   if (initialEligibility.outcome !== SCRATCH_DIR_REMOVAL_OUTCOMES.REMOVED) {
     return initialEligibility;
   }
@@ -123,6 +177,10 @@ export async function removeScratchDir(
     }
   }
 
-  await rm(dirPath, { recursive: true, force: true });
+  try {
+    await dependencies.removeDirectory(dirPath);
+  } catch (error) {
+    return { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.FAILED, errorCode: errorCodeOf(error) };
+  }
   return { dirPath, outcome: SCRATCH_DIR_REMOVAL_OUTCOMES.REMOVED };
 }

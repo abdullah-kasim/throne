@@ -376,12 +376,12 @@ async function recordedSessionOf(
 
 test("a dead agent with no recorded session is brought back into the session herdr still holds for its pane", async () => {
   const { world, pane, sessionId } =
-    await courtWithAnAgentOnlyHerdrRemembers("stager-third");
+    await courtWithAnAgentOnlyHerdrRemembers("stager-south");
 
-  const outcome = await world.revive("stager-third");
+  const outcome = await world.revive("stager-south");
 
   assert.deepEqual(outcome, {
-    agentName: "stager-third",
+    agentName: "stager-south",
     kind: AGENT_REVIVAL_OUTCOMES.REVIVED,
     paneId: pane.paneId,
     sessionId,
@@ -394,28 +394,28 @@ test("a dead agent with no recorded session is brought back into the session her
 
 test("the session recovered from herdr is written to the agent's spawn record before it is resumed", async () => {
   const { world, sessionId } =
-    await courtWithAnAgentOnlyHerdrRemembers("stager-third");
+    await courtWithAnAgentOnlyHerdrRemembers("stager-south");
 
-  await world.revive("stager-third");
+  await world.revive("stager-south");
 
-  assert.equal(await recordedSessionOf(world, "stager-third"), sessionId);
+  assert.equal(await recordedSessionOf(world, "stager-south"), sessionId);
   assert.deepEqual(world.harnessStarts[0]!.argv.slice(-2), ["--resume", sessionId]);
 });
 
 test("a dry run reports the recovered session and writes nothing", async () => {
   const { world, pane, sessionId } =
-    await courtWithAnAgentOnlyHerdrRemembers("stager-third");
+    await courtWithAnAgentOnlyHerdrRemembers("stager-south");
 
-  const outcome = await world.revive("stager-third", true);
+  const outcome = await world.revive("stager-south", true);
 
   assert.deepEqual(outcome, {
-    agentName: "stager-third",
+    agentName: "stager-south",
     kind: AGENT_REVIVAL_OUTCOMES.WOULD_REVIVE,
     paneId: pane.paneId,
     sessionId,
   });
-  assert.equal(await recordedSessionOf(world, "stager-third"), undefined);
-  assert.equal(await revivalHistoryWasWritten(world, "stager-third"), false);
+  assert.equal(await recordedSessionOf(world, "stager-south"), undefined);
+  assert.equal(await revivalHistoryWasWritten(world, "stager-south"), false);
   assert.deepEqual(world.harnessStarts, []);
 });
 
@@ -425,50 +425,50 @@ const NO_RECORDED_SESSION_SKIP = {
 };
 
 test("a session herdr holds is not used when its transcript does not exist", async () => {
-  const { world } = await courtWithAnAgentOnlyHerdrRemembers("stager-third");
+  const { world } = await courtWithAnAgentOnlyHerdrRemembers("stager-south");
   await rm(path.join(world.throneHome, "claude-projects"), { recursive: true });
 
-  const outcome = await world.revive("stager-third");
+  const outcome = await world.revive("stager-south");
 
-  assert.deepEqual(outcome, { agentName: "stager-third", ...NO_RECORDED_SESSION_SKIP });
-  assert.equal(await recordedSessionOf(world, "stager-third"), undefined);
+  assert.deepEqual(outcome, { agentName: "stager-south", ...NO_RECORDED_SESSION_SKIP });
+  assert.equal(await recordedSessionOf(world, "stager-south"), undefined);
   assert.deepEqual(world.harnessStarts, []);
 });
 
 test("a session herdr holds is not used when it is not a full session id", async () => {
-  const { world, pane } = await courtWithAnAgentOnlyHerdrRemembers("stager-third");
+  const { world, pane } = await courtWithAnAgentOnlyHerdrRemembers("stager-south");
   pane.sessionId = "abcd1234";
   await world.writeClaudeTranscript("abcd1234");
 
-  const outcome = await world.revive("stager-third");
+  const outcome = await world.revive("stager-south");
 
-  assert.deepEqual(outcome, { agentName: "stager-third", ...NO_RECORDED_SESSION_SKIP });
+  assert.deepEqual(outcome, { agentName: "stager-south", ...NO_RECORDED_SESSION_SKIP });
   assert.deepEqual(world.harnessStarts, []);
 });
 
 test("the revival limit still stops an agent revived with a recovered session", async () => {
-  const { world } = await courtWithAnAgentOnlyHerdrRemembers("stager-third");
+  const { world } = await courtWithAnAgentOnlyHerdrRemembers("stager-south");
   const { REVIVED, LIMIT_REACHED } = AGENT_REVIVAL_OUTCOMES;
 
   assert.deepEqual(
-    await reviveEveryFiveMinutes(world, "stager-third", REVIVALS_ALLOWED_PER_HOUR + 1),
+    await reviveEveryFiveMinutes(world, "stager-south", REVIVALS_ALLOWED_PER_HOUR + 1),
     [REVIVED, REVIVED, REVIVED, LIMIT_REACHED],
   );
   assert.equal(world.harnessStarts.length, REVIVALS_ALLOWED_PER_HOUR);
 });
 
 test("an agent the Lord told to exit is not brought back", async () => {
-  const { world } = await courtWithAnAgentOnlyHerdrRemembers("stager-third");
-  await endTheHarnessSession(world, "stager-third", "prompt_input_exit");
+  const { world } = await courtWithAnAgentOnlyHerdrRemembers("stager-south");
+  await endTheHarnessSession(world, "stager-south", "prompt_input_exit");
 
-  const outcome = await world.revive("stager-third");
+  const outcome = await world.revive("stager-south");
 
   assert.deepEqual(outcome, {
-    agentName: "stager-third",
+    agentName: "stager-south",
     kind: AGENT_REVIVAL_OUTCOMES.SKIPPED,
     reason: AGENT_REVIVAL_SKIP_REASONS.TOLD_TO_EXIT,
   });
-  assert.equal(await recordedSessionOf(world, "stager-third"), undefined);
+  assert.equal(await recordedSessionOf(world, "stager-south"), undefined);
   assert.deepEqual(world.harnessStarts, []);
 });
 

@@ -1,64 +1,37 @@
-// Requirement: `resolveBlockedTag` returns the persisted `blockedBy` list on
-// a still-blocked turn even when the fresh pane read would not itself carry
-// it -- the durable ledger record is authoritative over observer inference.
-
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { resolveBlockedTag, type BlockedMarkerLedger } from './blocked-marker-resolution.ts';
-import { classifyLastMessageTags } from './idle-pane-tag-classification.ts';
+import { readDeclaredTag } from './blocked-marker-resolution.ts';
+import { declaredState } from './no-idling-command-test-fixtures.ts';
 
-function fakeLedger(
-  stored: { blockedAt: string; blockedBy?: readonly string[] } | null,
-): BlockedMarkerLedger & { readonly writes: (readonly string[] | undefined)[]; cleared: boolean } {
-  const writes: (readonly string[] | undefined)[] = [];
-  let marker = stored;
-  return {
-    writes,
-    cleared: false,
-    readBlockedMarker: async () => marker,
-    writeBlockedMarker: async (_name, blockedBy) => {
-      writes.push(blockedBy);
-      marker = { blockedAt: '2026-08-21T00:00:00.000Z', blockedBy };
-    },
-    clearBlockedMarker: async () => {
-      marker = null;
-    },
-  };
-}
-
-test('a still-blocked agent returns its durably persisted blockedBy list even when the fresh pane read carries none', async () => {
-  const ledger = fakeLedger({ blockedAt: '2026-08-21T00:00:00.000Z', blockedBy: ['shadow-1'] });
-
-  const state = await resolveBlockedTag(
-    'alpha-abc',
-    async () => ({ kind: 'blocked', blockedBy: [] }),
-    ledger,
-  );
-
-  assert.deepEqual(state, { kind: 'blocked', blockedBy: ['shadow-1'] });
+test('the tag no-idling decides from comes from the state file alone', async () => {
+  const cases = [
+    [declaredState('blocked', { blockedBy: ['shadow-1'] }), { kind: 'blocked', blockedBy: ['shadow-1'] }],
+    [declaredState('waiting-on-own-run'), { kind: 'blocked', blockedBy: [], waitsOnOwnBackgroundRun: true }],
+    [declaredState('waiting-on-supervisor'), { kind: 'blocked', blockedBy: [] }],
+    [declaredState('reapable', { reapableReason: 'completed' }), { kind: 'reapable' }],
+    [declaredState('reapable', { reapableReason: 'fail: the suite is red' }), { kind: 'reapable-failed' }],
+    [declaredState('working'), { kind: 'unmarked' }],
+  ] as const;
+  for (const [declared, expected] of cases) {
+    assert.deepEqual(await readDeclaredTag('shadow-bakery-01-oven', async () => declared), expected, declared.state);
+  }
 });
 
-test('the first observation of a block persists the pane-declared blockedBy list to the ledger', async () => {
-  const ledger = fakeLedger(null);
+test('a working agent with running tool work is busy, and a blocked one stays blocked while it runs', async () => {
+  const running = async () => 'sh ./hold.sh';
 
-  await resolveBlockedTag(
-    'alpha-abc',
-    async () => ({ kind: 'blocked', blockedBy: ['shadow-1', 'shadow-2'] }),
-    ledger,
-  );
-
-  assert.deepEqual(ledger.writes, [['shadow-1', 'shadow-2']]);
+  assert.deepEqual(await readDeclaredTag('shadow-a', async () => declaredState('working'), running), {
+    kind: 'busy',
+    running: 'sh ./hold.sh',
+  });
+  assert.equal((await readDeclaredTag('shadow-a', async () => declaredState('blocked'), running)).kind, 'blocked');
 });
 
-test('an agent still blocked on a later sweep keeps saying it waits on its own background run', async () => {
-  const ledger = fakeLedger({ blockedAt: '2026-10-15T08:43:00.000Z', blockedBy: [] });
+test('a state file that cannot be read is reported as unreadable', async () => {
+  const state = await readDeclaredTag('shadow-a', async () => {
+    throw new Error('disk is gone');
+  });
 
-  const state = await resolveBlockedTag(
-    'shadow-bakery-01-oven',
-    async () => classifyLastMessageTags('{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)'),
-    ledger,
-  );
-
-  assert.deepEqual(state, { kind: 'blocked', blockedBy: [], waitsOnOwnBackgroundRun: true });
+  assert.deepEqual(state, { kind: 'unreadable' });
 });

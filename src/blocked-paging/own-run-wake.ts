@@ -2,8 +2,6 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import { agentStatusAcceptsInput } from '../herdr/herdr-inventory.service.ts';
-import { classifyLastMessageTags, lastMessageBlock } from '../no-idling/idle-pane-tag-classification.ts';
-import { resolveBlockedTag } from '../no-idling/blocked-marker-resolution.ts';
 import { NO_IDLING_SENDER, NO_IDLING_SUBMIT_TIMEOUT_MS } from '../no-idling/no-idling-notify-guard.ts';
 import { formatDuration } from '../process-inspection/process-age.ts';
 import {
@@ -16,6 +14,7 @@ import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import type { BlockedAgentPagingDependencies } from './blocked-agent-paging-dependencies.types.ts';
 
 export const OWN_BACKGROUND_RUN_WAKE_INTERVAL_MS = 900_000;
+export const OWN_RUN_WAKE_MINIMUM_GAP_MS = 300_000;
 
 export interface WatchedProcess {
   readonly pid: number;
@@ -33,6 +32,7 @@ export interface RememberedOwnRunWait {
   readonly blockedAt: string;
   readonly processes: readonly WatchedProcess[];
   readonly lastWokenAt?: number;
+  readonly endedNotYetReported?: readonly WatchedProcess[];
   readonly undeliveredWake?: UndeliveredWake;
 }
 
@@ -51,16 +51,25 @@ export function ownRunWakeDecision(
   now: number,
 ): { readonly wake?: OwnRunWake; readonly nextRemembered: RememberedOwnRunWait } {
   const previous = remembered?.blockedAt === seenNow.blockedAt ? remembered : null;
-  const ended = (previous?.processes ?? []).filter(
-    (watched) => !seenNow.processes.some((seen) => sameProcess(seen, watched)),
-  );
+  const ended = [
+    ...(previous?.endedNotYetReported ?? []),
+    ...(previous?.processes ?? []).filter((watched) => !seenNow.processes.some((seen) => sameProcess(seen, watched))),
+  ];
   const lastWokenAt = previous?.lastWokenAt;
+  const wokenTooRecently = lastWokenAt !== undefined && now - lastWokenAt < OWN_RUN_WAKE_MINIMUM_GAP_MS;
   const markerAge = now - Date.parse(seenNow.blockedAt);
   const timedWakeIsDue =
     markerAge >= OWN_BACKGROUND_RUN_WAKE_INTERVAL_MS &&
     (lastWokenAt === undefined || now - lastWokenAt >= OWN_BACKGROUND_RUN_WAKE_INTERVAL_MS);
-  if (ended.length === 0 && !timedWakeIsDue) {
-    return { nextRemembered: { blockedAt: seenNow.blockedAt, processes: seenNow.processes, lastWokenAt } };
+  if (wokenTooRecently || (ended.length === 0 && !timedWakeIsDue)) {
+    return {
+      nextRemembered: {
+        blockedAt: seenNow.blockedAt,
+        processes: seenNow.processes,
+        lastWokenAt,
+        ...(ended.length > 0 ? { endedNotYetReported: ended } : {}),
+      },
+    };
   }
   return {
     wake: { ended, stillRunning: seenNow.processes },
@@ -86,7 +95,7 @@ export function buildOwnRunWakeMessage(wake: OwnRunWake, now: number): string {
     wake.stillRunning.length > 0
       ? `Still running: ${wake.stillRunning.map((process) => runningFor(process, now)).join('; ')}.`
       : 'Nothing is still running.',
-    'If your run has finished, read its result and continue. If you are still waiting, first check what is holding the run up, then publish the marker again. If a run has gone on far longer than it should, it is stuck: find out what is holding it up and fix that cause; do not just start it again.',
+    'If your run has finished, read its result and continue. If you are still waiting, first check what is holding the run up, then run `throne my-state waiting-on-own-run "<what>"` and publish the marker again. If a run has gone on far longer than it should, it is stuck: find out what is holding it up and fix that cause; do not just start it again.',
   ].join('\n');
 }
 
@@ -111,13 +120,8 @@ async function ownRunMarkerBlockedAt(
   entry: AgentStatusesRosterEntry,
   deps: BlockedAgentPagingDependencies,
 ): Promise<string | undefined> {
-  const tag = await resolveBlockedTag(
-    entry.name,
-    async () => classifyLastMessageTags(lastMessageBlock(await deps.readAgent(entry.name))),
-    deps.blockedMarkerLedger,
-  );
-  if (tag.kind !== 'blocked' || tag.waitsOnOwnBackgroundRun !== true || tag.blockedBy.length > 0) return undefined;
-  return (await deps.blockedMarkerLedger.readBlockedMarker(entry.name))?.blockedAt;
+  const declared = await deps.readAgentState(entry.name);
+  return declared.state === 'waiting-on-own-run' ? declared.declaredAt : undefined;
 }
 
 const WAKE_STILL_BEING_DELIVERED = 'still being delivered';

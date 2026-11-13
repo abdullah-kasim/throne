@@ -81,7 +81,7 @@ function buildAlphaRoleFamiliesSection(alphaFamilies: readonly NoIdlingFamilyNot
   const details = alphaFamilies
     .map(({ alpha, idleChildren }) => `${alpha} (${describeFamilyChildren(idleChildren)})`)
     .join('; ');
-  return `No-idling detected fully-idle Alpha(s) that need Regent unstalling: ${details}. Inspect each named Alpha and its children. If an Alpha is genuinely dependency-blocked, tell it to publish the standalone JSON {"blocked":true} as its latest message so future no-idling sweeps ignore it. Otherwise use send-agent with an actionable consume, repair, reap, and dependency-ready dispatch instruction. Do not send a generic continue message and do not start a validation round solely because of this notice.`;
+  return `No-idling detected fully-idle Alpha(s) that need Regent unstalling: ${details}. Inspect each named Alpha and its children. If an Alpha is genuinely dependency-blocked, tell it to run \`throne my-state blocked --by <child>\` and publish {"blocked":true} as its latest message so future no-idling sweeps ignore it. Otherwise use send-agent with an actionable consume, repair, reap, and dependency-ready dispatch instruction. Do not send a generic continue message and do not start a validation round solely because of this notice.`;
 }
 
 interface AgentWaitingOnBackgroundWork {
@@ -99,9 +99,9 @@ function singleQuotedForTheShell(text: string): string {
   return `'${text.replaceAll("'", `'\\''`)}'`;
 }
 
-function lineAskingForTheBlockedMarker({ agent, backgroundWork }: AgentWaitingOnBackgroundWork): string {
+function lineAskingToDeclareTheWait({ agent, backgroundWork }: AgentWaitingOnBackgroundWork): string {
   return `throne send-agent ${agent} ${singleQuotedForTheShell(
-    `Publish {"blocked":true} BLOCKED_BY_own-background-run (${backgroundWork}) as your latest message; clear it when you resume.`,
+    `Run throne my-state waiting-on-own-run "${backgroundWork}" and publish {"blocked":true} BLOCKED_BY_own-background-run (${backgroundWork}) as your latest message.`,
   )}`;
 }
 
@@ -111,7 +111,7 @@ function buildWaitingOnBackgroundWorkSection(
   const details = waitingAgents
     .map(
       (waiting) =>
-        `${waiting.agent} — waiting on background work: ${waiting.backgroundWork}. Send exactly: ${lineAskingForTheBlockedMarker(waiting)}`,
+        `${waiting.agent} — waiting on background work: ${waiting.backgroundWork}. Send exactly: ${lineAskingToDeclareTheWait(waiting)}`,
     )
     .join('; ');
   return `No-idling sees agent(s) waiting on background work that did not post the blocked marker: ${details}. Such a pane is waiting, not idle: never reap it and never send it a generic continue. Send each agent its line once per wait; the marker stops these pages until it resumes.`;
@@ -187,7 +187,7 @@ export function buildDependencyClearedMessage(params: DependencyClearedMessagePa
   if (params.reapableChildren.length > 0) {
     const plural = params.reapableChildren.length > 1;
     sentences.push(
-      `${childList(params.reapableChildren)} already published ${plural ? 'their' : 'its'} {"reapable":...} claim, ` +
+      `${childList(params.reapableChildren)} already declared ${plural ? 'themselves' : 'itself'} reapable, ` +
         `so ${plural ? 'they are' : 'it is'} finished and idle, not something to wait on. ` +
         `Read ${plural ? 'their' : 'its'} report, reap ${plural ? 'them' : 'it'} with reap-agent, and continue.`,
     );
@@ -210,7 +210,7 @@ export function buildStillBlockedOnClearedChildrenMessage(
   const details = params.agents
     .map(({ agentName, gone, reapable }) => {
       const parts: string[] = [];
-      if (reapable.length > 0) parts.push(`${childList(reapable)} already published a reapable claim`);
+      if (reapable.length > 0) parts.push(`${childList(reapable)} already declared ${reapable.length > 1 ? 'themselves' : 'itself'} reapable`);
       if (gone.length > 0) parts.push(`${childList(gone)} is already torn down`);
       return `${agentName} (${parts.join('; ')})`;
     })
@@ -350,5 +350,5 @@ export function buildClaimWakeMessage(childName: string): string {
 }
 
 export function buildClaimReminderMessage(supervisorName: string): string {
-  return `${supervisorName} accepted your slice and sent you the go-ahead. Publish your reapability claim {"reapable":"completed"} as your latest message now.`;
+  return `${supervisorName} accepted your slice and sent you the go-ahead. Run \`throne my-state reapable completed\` and publish your reapability claim {"reapable":"completed"} as your latest message now.`;
 }

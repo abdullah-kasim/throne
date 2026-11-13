@@ -15,6 +15,7 @@ import {
   type ClaimWaitSweep,
 } from './claim-wait.ts';
 import type { ClearedChildren } from './dependency-cleared-wake.ts';
+import { declareAgentState } from '../agentdata/agent-state.service.ts';
 import { readSupervisorWait, SUPERVISOR_WAIT_STEPS } from '../supervisor-wait/read-supervisor-wait.ts';
 import { deps, rosterEntry } from './no-idling-command-test-fixtures.ts';
 
@@ -312,11 +313,8 @@ for (const how of CAMPAIGN_KINDS) {
       await writeProofShadow(dataDir, how);
       const { sweep } = proofSweep(dataDir, { kind: 'unmarked' }, new Map());
       await notifySupervisorsOfClaims(sweep, await readSupervisorWaits(PROOF_ROSTER, dataDir));
-      const wait = await readSupervisorWait({
-        agentName: PROOF_SHADOW,
-        dataDir,
-        paneText: '\u23fa {"reapable":"completed"}\n',
-      });
+      await declareAgentState(PROOF_SHADOW, { state: 'reapable', reapableReason: 'completed', declaredBy: 'agent' }, dataDir);
+      const wait = await readSupervisorWait({ agentName: PROOF_SHADOW, dataDir });
       assert.deepEqual(wait, {
         waiting: true,
         step: SUPERVISOR_WAIT_STEPS.CLAIMED_AWAITING_REAP,

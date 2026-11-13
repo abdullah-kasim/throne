@@ -160,7 +160,7 @@ export async function notifyClearedDependencyWakes(
           composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
         },
       );
-      await deps.blockedMarkerLedger.clearBlockedMarker(agentName);
+      await deps.markAgentWorking(agentName);
       writeOut(
         deps,
         `no-idling: woke ${agentName} directly -- dependency cleared: ${resolvedChildren.join(', ')}\n`,

@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { closeAgentTab } from '../herdr/herdr-tab.service.ts';
-import { listAgents, readAgent } from '../herdr/herdr-runtime.service.ts';
+import { listAgents } from '../herdr/herdr-runtime.service.ts';
 import {
   deleteBranchCleanup,
   preflightBranchCleanup,
@@ -62,7 +62,6 @@ export async function readCompletionReport(
 
 export const REAL_DEPS: ReapDeps = {
   listAgents,
-  readAgent,
   readSpawnSpec,
   closeAgentTab,
   removeTree: WORKTREES.remove.bind(WORKTREES),

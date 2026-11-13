@@ -1,7 +1,7 @@
 import path from 'node:path';
 import {
   registerHookInClaudeSettings,
-  withClaudeHookRegistered,
+  withClaudeHooksRegistered,
   type ClaudeSettingsHook,
   type JsonObject,
   type SettingsHookOutcome,
@@ -30,16 +30,7 @@ export function withWebFetchFailurePointerRegistered(
   settings: JsonObject,
   command: string,
 ): SettingsWithHookRegistered {
-  return WEB_FETCH_FAILURE_POINTER_HOOKS.reduce<SettingsWithHookRegistered>(
-    (registered, hook) => {
-      const next = withClaudeHookRegistered(registered.settings, hook, command);
-      return {
-        settings: next.settings,
-        change: registered.change === 'unchanged' ? next.change : registered.change,
-      };
-    },
-    { settings, change: 'unchanged' },
-  );
+  return withClaudeHooksRegistered(settings, WEB_FETCH_FAILURE_POINTER_HOOKS, command);
 }
 
 export async function installWebFetchFailurePointerHook(

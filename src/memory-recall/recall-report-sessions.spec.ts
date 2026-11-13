@@ -78,7 +78,7 @@ test('a read with no agent name is attributed through its pane or transcript dir
   const agentLedgerDirectory = await agentLedgerWith([
     { name: 'shadow-painter-01', harness: 'claude', spawnedAt: '2026-10-01T08:00:00.000Z', cwd: '/work/painter' },
     { name: 'stager-first', harness: 'claude', spawnedAt: '2026-10-01T08:00:00.000Z', cwd: '/work/court' },
-    { name: 'stager-second', harness: 'claude', spawnedAt: '2026-10-01T08:00:00.000Z', cwd: '/work/court', reaped: true },
+    { name: 'stager-west', harness: 'claude', spawnedAt: '2026-10-01T08:00:00.000Z', cwd: '/work/court', reaped: true },
   ]);
   const dataDirectory = copyOfFixtureData(FIXTURE);
   const read = (minute: string, fields: object): object => ({

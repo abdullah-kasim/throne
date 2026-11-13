@@ -109,7 +109,7 @@ async function deliverOpeningPromptThroughTheQueue(
     recordDeliveredEvent: async () => null,
     readAgentRole: async () => ({ status: "field-absent" }),
     readAgentSupervisor: async () => ({ status: "field-absent" }),
-    clearBlockedMarker: async () => undefined,
+    clearBlockedState: async () => undefined,
     maxNotSentAttempts: 1,
     sleep: async () => undefined,
   };

@@ -1,7 +1,7 @@
 import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
 import { resolveAgentAcrossSessions } from "../herdr/herdr-runtime.service.ts";
 import { submitToAgent } from "../herdr/herdr-send.service.ts";
-import { clearBlockedMarker } from "../agentdata/blocked-marker.service.ts";
+import { clearBlockedState } from "../agentdata/agent-state.service.ts";
 import { markAgentTasked } from "../agentdata/spawn-data-contracts.ts";
 import {
   readAgentRole,
@@ -46,7 +46,7 @@ export interface MessageDeliveryHandlerDeps {
       messageId?: number;
     },
   ) => Promise<string | void>;
-  clearBlockedMarker: (name: string) => Promise<void>;
+  clearBlockedState: (name: string) => Promise<void>;
   readAgentRole: (name: string) => Promise<IdentityLineRead>;
   readAgentSupervisor: (name: string) => Promise<IdentityLineRead>;
   recordDeliveredEvent: typeof recordDeliveredSupervisionEvent;
@@ -60,7 +60,7 @@ export interface MessageDeliveryHandlerDeps {
 export const REAL_MESSAGE_DELIVERY_HANDLER_DEPS: MessageDeliveryHandlerDeps = {
   resolveAgent: resolveAgentAcrossSessions,
   submitToAgent,
-  clearBlockedMarker,
+  clearBlockedState,
   readAgentRole,
   readAgentSupervisor,
   recordDeliveredEvent: recordDeliveredSupervisionEvent,
@@ -218,7 +218,7 @@ export async function deliverMessageWorkItem(
         await recordScheduledDeliveryBookkeeping(item, payload, deps);
       }
       if (payload.clearRecipientBlockedOnDelivery) {
-        await deps.clearBlockedMarker(payload.recipientName);
+        await deps.clearBlockedState(payload.recipientName);
       }
       const finished = store.finishWorkItemIdempotently(item.id, MessageQueueWorkItemState.Delivered);
       scheduleReceiptCheckIgnoringFailure(store, finished, typedText);

@@ -3,33 +3,11 @@ import {
   HARNESS_BACKGROUND_WORK_KINDS,
   type HarnessBackgroundWork,
 } from '../process-inspection/harness-background-work.ts';
-import { lastMessageBlock } from './idle-pane-tag-classification.ts';
+import type { ReadAgentState } from './blocked-marker-resolution.ts';
 
 export type ReadRunningWork = (agentName: string) => Promise<HarnessBackgroundWork>;
 
-const WAITING_PHRASE =
-  /\b(?:waiting[ \t]+(?:on|for)|queued|still[ \t]+running|when[ \t]+(?:it|they)[ \t]+(?:reports?|finish(?:es)?))\b/i;
-const BACKGROUND_SUBJECT = /\b(?:runs?|suites?|monitors?|shells?|background[ \t]+agents?)\b/i;
-const SENTENCE_END = /(?<=[.!?])\s+/;
-const TRAILING_SENTENCE_PUNCTUATION = /[.!?]+$/;
 const UNREADABLE_RUNNING_WORK: HarnessBackgroundWork = { kind: HARNESS_BACKGROUND_WORK_KINDS.UNKNOWN };
-
-function saysItWaitsOnBackgroundWork(sentence: string): boolean {
-  return WAITING_PHRASE.test(sentence) && BACKGROUND_SUBJECT.test(sentence);
-}
-
-export function waitingSentenceInMessage(message: string): string | undefined {
-  const sentence = message
-    .replace(/\s+/g, ' ')
-    .trim()
-    .split(SENTENCE_END)
-    .find(saysItWaitsOnBackgroundWork);
-  return sentence?.replace(TRAILING_SENTENCE_PUNCTUATION, '');
-}
-
-export function waitingSentenceInPane(output: string): string | undefined {
-  return waitingSentenceInMessage(lastMessageBlock(output));
-}
 
 export function runningWorkDescription(work: HarnessBackgroundWork): string | undefined {
   return work.kind === HARNESS_BACKGROUND_WORK_KINDS.RUNNING ? work.description : undefined;
@@ -46,12 +24,12 @@ export function runningWorkOfRosterAgents(
   };
 }
 
-async function readWaitingSentence(
+export async function readWaitingOn(
   name: string,
-  readPane: (name: string) => Promise<string>,
+  readAgentState: ReadAgentState,
 ): Promise<string | undefined> {
   try {
-    return waitingSentenceInPane(await readPane(name));
+    return (await readAgentState(name)).waitingOn ?? undefined;
   } catch {
     return undefined;
   }
@@ -60,19 +38,19 @@ async function readWaitingSentence(
 async function readWhatTheAgentWaitsOn(
   name: string,
   readRunningWork: ReadRunningWork,
-  readPane: (name: string) => Promise<string>,
+  readAgentState: ReadAgentState,
 ): Promise<string | undefined> {
-  return runningWorkDescription(await readRunningWork(name)) ?? readWaitingSentence(name, readPane);
+  return runningWorkDescription(await readRunningWork(name)) ?? readWaitingOn(name, readAgentState);
 }
 
 export async function withWhatEachAgentWaitsOn<Listed extends { readonly agent: string }>(
   listed: readonly Listed[],
   readRunningWork: ReadRunningWork,
-  readPane: (name: string) => Promise<string>,
+  readAgentState: ReadAgentState,
 ): Promise<(Listed & { readonly backgroundWork?: string })[]> {
   const described: (Listed & { readonly backgroundWork?: string })[] = [];
   for (const entry of listed) {
-    const backgroundWork = await readWhatTheAgentWaitsOn(entry.agent, readRunningWork, readPane);
+    const backgroundWork = await readWhatTheAgentWaitsOn(entry.agent, readRunningWork, readAgentState);
     described.push(backgroundWork === undefined ? entry : { ...entry, backgroundWork });
   }
   return described;

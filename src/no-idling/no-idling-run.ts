@@ -2,14 +2,11 @@ import path from 'node:path';
 import type { HerdrAgent } from '../herdr/herdr-inventory.service.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import {
-  classifyReapabilityAwareLastMessageTags,
   findFullyIdleFamilies,
   isAlphaRole,
   isReapabilityProtocolCandidate,
   NO_IDLING_REGENT_NAME,
-  resolveBlockedTag,
   resolvedSupervisorName,
-  type BlockedMarkerLedger,
   type FullyIdleFamily,
   type LastMessageTagState,
 } from './idle-family.ts';
@@ -21,6 +18,7 @@ import {
   readRegisteredSupervisorNames,
   readSupervisors,
 } from './idle-family-evidence-assembly.ts';
+import { readDeclaredTag } from './blocked-marker-resolution.ts';
 import { findReapabilityProtocolViolations } from './reapability-protocol.ts';
 import { handleClaimWaits, isAcceptedLiveAgent, readSupervisorWaits } from './claim-wait.ts';
 import {
@@ -54,6 +52,7 @@ import {
 import { notifyRegentOfUnnamedAgents } from './notify-unnamed-agents.ts';
 import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import { inOneProcessTablePass } from '../process-inspection/harness-background-work.ts';
+import { isRegentOrStagerRoleName } from '../shared-policy/objective-contract.ts';
 import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
 import { noteExcludedFamilies } from './excluded-family-observations.ts';
 import { notifyRegentOfDeferredRows } from './deferred-row-belt.ts';
@@ -74,8 +73,6 @@ export type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
 export type { RunNoIdlingOptions };
 export { NO_IDLING_SENDER, NO_IDLING_SUBMIT_TIMEOUT_MS, regentAcceptsNotice };
 
-const NO_IDLING_MARKER_READ_LINES = 200;
-export const NO_IDLING_AGENT_READ_TIMEOUT_MS = 2_000;
 
 function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -112,7 +109,7 @@ async function notifyRegentOfUntaskedAgents(
     roster,
     readSpawnSpec: (name) => deps.readSpawnSpec(name, dataDir),
     hasFutureScheduledDelivery: deps.hasFutureScheduledDelivery,
-    readPane: (name) => readMemberPane(name, deps),
+    readAgentState: deps.readAgentState,
     readRunningWork,
     now: deps.now ?? Date.now,
   });
@@ -148,50 +145,24 @@ async function notifyRegentOfUntaskedAgents(
   }
 }
 
-function readMemberPane(member: string, deps: NoIdlingDependencies): Promise<string> {
-  return deps.readAgent(member, {
-    source: 'recent',
-    lines: NO_IDLING_MARKER_READ_LINES,
-    timeoutMilliseconds: NO_IDLING_AGENT_READ_TIMEOUT_MS,
-  });
-}
-
-async function readMemberPaneTag(
+function readMemberLastMessageTags(
   member: string,
   deps: NoIdlingDependencies,
   readRunningWork: ReadRunningWork,
 ): Promise<LastMessageTagState> {
-  try {
-    const output = await readMemberPane(member, deps);
-    const running = runningWorkDescription(await readRunningWork(member));
-    if (running !== undefined) {
-      return { kind: 'busy', running };
-    }
-    return classifyReapabilityAwareLastMessageTags(output);
-  } catch (error) {
-    writeErr(deps, `no-idling: could not read ${member} output: ${errText(error)}\n`);
-    return { kind: 'unreadable' };
-  }
-}
-
-async function readMemberLastMessageTags(
-  member: string,
-  deps: NoIdlingDependencies,
-  ledger: BlockedMarkerLedger,
-  readRunningWork: ReadRunningWork,
-): Promise<LastMessageTagState> {
-  return resolveBlockedTag(member, () => readMemberPaneTag(member, deps, readRunningWork), ledger);
+  return readDeclaredTag(member, deps.readAgentState, async () =>
+    runningWorkDescription(await readRunningWork(member)),
+  );
 }
 
 async function readFamilyLastMessageTags(
   family: FullyIdleFamily,
   deps: NoIdlingDependencies,
-  ledger: BlockedMarkerLedger,
   readRunningWork: ReadRunningWork,
 ): Promise<ReadonlyMap<string, LastMessageTagState>> {
   const tags = new Map<string, LastMessageTagState>();
   for (const member of [family.alpha, ...family.idleChildren]) {
-    tags.set(member, await readMemberLastMessageTags(member, deps, ledger, readRunningWork));
+    tags.set(member, await readMemberLastMessageTags(member, deps, readRunningWork));
   }
   return tags;
 }
@@ -311,7 +282,6 @@ async function runNoIdlingInOnePass(
     for (const [member, state] of await readFamilyLastMessageTags(
       family,
       deps,
-      deps.blockedMarkerLedger,
       readRunningWork,
     )) {
       lastMessageTags.set(member, state);
@@ -320,13 +290,14 @@ async function runNoIdlingInOnePass(
   for (const entry of roster) {
     if (
       lastMessageTags.has(entry.name) ||
+      isRegentOrStagerRoleName(entry.role) ||
       !(isReapabilityProtocolCandidate(entry) || (await isAcceptedLiveAgent(entry, dataDir)))
     ) {
       continue;
     }
     lastMessageTags.set(
       entry.name,
-      await readMemberLastMessageTags(entry.name, deps, deps.blockedMarkerLedger, readRunningWork),
+      await readMemberLastMessageTags(entry.name, deps, readRunningWork),
     );
   }
 
@@ -400,7 +371,7 @@ async function runNoIdlingInOnePass(
       nowMs,
     ),
     readRunningWork,
-    (name) => readMemberPane(name, deps),
+    deps.readAgentState,
   );
   if (completedAlphas.length > 0) {
     try {

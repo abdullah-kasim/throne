@@ -1,6 +1,6 @@
 import type { closeAgentTab } from '../herdr/herdr-tab.service.ts';
 import type { listAgents } from '../herdr/herdr-runtime.service.ts';
-import type { readAgent } from '../herdr/herdr-runtime.service.ts';
+import type { AgentState } from '../agentdata/agent-state.service.ts';
 import type {
   BranchCleanupPlan,
   deleteBranchCleanup,
@@ -45,7 +45,7 @@ export interface WorktreeProcessTeardownResult {
 
 export interface ReapDeps {
   listAgents: typeof listAgents;
-  readAgent?: typeof readAgent;
+  readAgentState?: (name: string) => Promise<AgentState>;
   readSpawnSpec?: typeof readSpawnSpec;
   /** Overrides the delay between confirmation resamples of `listAgents()`
    *  (`lifecycle.ts`'s `confirmedAgents`). Only ever needed by tests — real

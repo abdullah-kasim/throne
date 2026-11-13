@@ -4,12 +4,16 @@ import path from "node:path";
 import { buildScratchHolderIndex } from "../tmp-scratch-lifecycle/scratch-dir-holders.ts";
 import {
   checkScratchDirRemovalEligibility,
+  REAL_SCRATCH_DIR_REMOVAL_DEPENDENCIES,
   removeScratchDir,
 } from "../tmp-scratch-lifecycle/remove-scratch-dir.ts";
 import {
   SCRATCH_DIR_REMOVAL_OUTCOMES,
+  type ScratchDirRemovalDependencies,
+  type ScratchDirRemovalOutcome,
   type ScratchHolderIndex,
 } from "../tmp-scratch-lifecycle/tmp-scratch-lifecycle.types.ts";
+import { readRootUse, readRootUseAfterSweep, renderMeasure } from "./sweep-measure.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { throneCacheDirectory } from "../shared-policy/throne-home.ts";
 
@@ -34,6 +38,7 @@ interface SweepOptions {
   apply: boolean;
   tmpRoot: string;
   minFreeBytes: number | null;
+  removalDependencies: ScratchDirRemovalDependencies;
 }
 
 interface CacheSweepOptions extends SweepOptions {
@@ -61,7 +66,7 @@ function parseNonNegativeInteger(flag: string, value: string): number {
   return Number(value);
 }
 
-function parseSweepArgs(args: string[]): SweepOptions {
+function parseSweepArgs(args: string[]): Omit<SweepOptions, "removalDependencies"> {
   let minAgeMs = DEFAULT_MIN_AGE_MS;
   let apply = false;
   let tmpRoot = "/tmp";
@@ -92,23 +97,14 @@ function parseSweepArgs(args: string[]): SweepOptions {
   return { minAgeMs, apply, tmpRoot, minFreeBytes };
 }
 
-type SweepEntryOutcome =
-  | typeof SCRATCH_DIR_REMOVAL_OUTCOMES.REMOVED
-  | typeof SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_LIVE
-  | typeof SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_TOO_YOUNG;
-
 interface SweepEntry {
   entryPath: string;
-  outcome: SweepEntryOutcome;
+  outcome: ScratchDirRemovalOutcome;
+  errorCode?: string;
 }
 
 async function scratchDirsUnder(tmpRoot: string): Promise<string[]> {
-  let entries;
-  try {
-    entries = await readdir(tmpRoot, { withFileTypes: true });
-  } catch {
-    return [];
-  }
+  const entries = await readdir(tmpRoot, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(tmpRoot, entry.name));
@@ -119,14 +115,12 @@ async function sweepEntry(
   options: SweepOptions,
   holderIndex: ScratchHolderIndex,
 ): Promise<SweepEntry> {
-  const result = options.apply
-    ? await removeScratchDir(entryPath, options.minAgeMs, holderIndex)
-    : await checkScratchDirRemovalEligibility(entryPath, options.minAgeMs, holderIndex);
-  return { entryPath, outcome: result.outcome };
+  const check = options.apply ? removeScratchDir : checkScratchDirRemovalEligibility;
+  const result = await check(entryPath, options.minAgeMs, holderIndex, options.removalDependencies);
+  return { entryPath, outcome: result.outcome, errorCode: result.errorCode };
 }
 
-async function sweepScratchDirs(options: SweepOptions): Promise<SweepEntry[]> {
-  const dirs = await scratchDirsUnder(options.tmpRoot);
+async function sweepScratchDirs(dirs: string[], options: SweepOptions): Promise<SweepEntry[]> {
   const holderIndex = await buildScratchHolderIndex();
   const entries: SweepEntry[] = [];
   for (const dirPath of dirs) {
@@ -135,11 +129,14 @@ async function sweepScratchDirs(options: SweepOptions): Promise<SweepEntry[]> {
   return entries;
 }
 
-function outcomeLabel(outcome: SweepEntryOutcome, apply: boolean): string {
-  if (outcome === SCRATCH_DIR_REMOVAL_OUTCOMES.REMOVED) {
+function outcomeLabel(entry: SweepEntry, apply: boolean): string {
+  if (entry.outcome === SCRATCH_DIR_REMOVAL_OUTCOMES.REMOVED) {
     return apply ? "removed" : "would-remove";
   }
-  return outcome;
+  if (entry.outcome === SCRATCH_DIR_REMOVAL_OUTCOMES.FAILED) {
+    return `${entry.outcome} (${entry.errorCode})`;
+  }
+  return entry.outcome;
 }
 
 function modeName(options: SweepOptions): string {
@@ -148,7 +145,7 @@ function modeName(options: SweepOptions): string {
 
 function renderEntryLines(entries: SweepEntry[], options: SweepOptions): string[] {
   return entries.map(
-    (entry) => `${entry.entryPath}: ${outcomeLabel(entry.outcome, options.apply)}`,
+    (entry) => `${entry.entryPath}: ${outcomeLabel(entry, options.apply)}`,
   );
 }
 
@@ -284,6 +281,7 @@ export async function runSweepTmpScratch(
   args: string[],
   homedir: string = os.homedir(),
   readFreeBytes: FreeBytesReader = readFilesystemFreeBytes,
+  removalDependencies: ScratchDirRemovalDependencies = REAL_SCRATCH_DIR_REMOVAL_DEPENDENCIES,
 ): Promise<number> {
   if (args.length === 1 && (args[0] === "--help" || args[0] === "-h")) {
     process.stdout.write(help());
@@ -292,7 +290,7 @@ export async function runSweepTmpScratch(
 
   let options: SweepOptions;
   try {
-    options = parseSweepArgs(args);
+    options = { ...parseSweepArgs(args), removalDependencies };
   } catch (error) {
     process.stderr.write(
       `sweep-tmp-scratch: ${error instanceof Error ? error.message : String(error)}\n${renderEntranceRefusal(
@@ -319,7 +317,25 @@ export async function runSweepTmpScratch(
     );
     return 2;
   }
-  const entries = await sweepScratchDirs(options);
-  process.stdout.write(renderReport(entries, options));
+  let dirs: string[];
+  let useBefore;
+  try {
+    dirs = await scratchDirsUnder(options.tmpRoot);
+    useBefore = await readRootUse(options.tmpRoot);
+  } catch (error) {
+    process.stderr.write(
+      `sweep-tmp-scratch: cannot read --tmp-root ${options.tmpRoot}: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return 1;
+  }
+  const entries = await sweepScratchDirs(dirs, options);
+  const measure = renderMeasure(
+    options.tmpRoot,
+    entries,
+    options.apply,
+    useBefore,
+    await readRootUseAfterSweep(options.tmpRoot),
+  );
+  process.stdout.write(`${renderReport(entries, options)}${measure.join("\n")}\n`);
   return 0;
 }

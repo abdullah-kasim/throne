@@ -1,42 +1,23 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { test } from 'node:test';
 
 import { reconcileBlockedAgentPages } from './blocked-agent-paging.hosted-worker.ts';
-import { fakeBlockedAgentPagingDependencies, type StoredBlockedMarker } from './blocked-agent-paging-test-fixtures.ts';
+import { fakeBlockedAgentPagingDependencies, type DeclaredState } from './blocked-agent-paging-test-fixtures.ts';
 import { DELAY_BEFORE_TELLING_THE_REGENT_MS } from '../no-idling/dependency-cleared-wake.ts';
 
-const RENDERED_ALPHA_PANE = await readFile(
-  path.join(import.meta.dirname, '..', 'no-idling', 'fixtures', 'claude-pane-bold-stripped-blocked-marker.txt'),
-  'utf8',
-);
-const RENDERED_ALPHA_PANE_NAMING_NO_CHILD = [
-  '⏺ Slice 02 is photographing the menu. Waiting on it.',
-  '',
-  '  {"blocked":true}',
-  '',
-  '✻ Crunched for 9s · done 3:30 PM',
-  '',
-].join('\n');
 const NOW = Date.parse('2026-09-28T08:00:00.000Z');
+const ALPHA = 'alpha-bakery-01';
 
-function scenario(alphaPane: string, storedMarker?: StoredBlockedMarker) {
-  const blockedMarkers = new Map<string, StoredBlockedMarker>();
-  if (storedMarker !== undefined) blockedMarkers.set('alpha-bakery-01', storedMarker);
+function scenario(alphaState: DeclaredState) {
   return fakeBlockedAgentPagingDependencies({
     now: NOW,
     roster: [
       { name: 'regent', lifecycle: 'live', liveStatus: 'working', reportLanded: false, focused: false, paneId: 'w1:p1' },
-      { name: 'alpha-bakery-01', lifecycle: 'live', liveStatus: 'done', reportLanded: false, role: 'Alpha', focused: false, paneId: 'w1:p2', cwd: '/worktrees/alpha-bakery-01' },
+      { name: ALPHA, lifecycle: 'live', liveStatus: 'done', reportLanded: false, role: 'Alpha', focused: false, paneId: 'w1:p2', cwd: '/worktrees/alpha-bakery-01' },
       { name: 'shadow-bakery-02-photos', lifecycle: 'live', liveStatus: 'working', reportLanded: false, role: 'Shadow', focused: false, paneId: 'w1:p3' },
     ],
-    supervisorOf: (name) => (name.startsWith('shadow-') ? 'alpha-bakery-01' : 'regent'),
-    readAgent: async (name) => {
-      if (name === 'alpha-bakery-01') return alphaPane;
-      throw new Error(`herdr agent read ${name} failed (agent_not_idle)`);
-    },
-    blockedMarkers,
+    supervisorOf: (name) => (name.startsWith('shadow-') ? ALPHA : 'regent'),
+    states: { [ALPHA]: alphaState },
   });
 }
 
@@ -44,22 +25,22 @@ function blockedSince(milliseconds: number): string {
   return new Date(NOW - milliseconds).toISOString();
 }
 
-test('blocked paging reads the child name from a rendered pane and does not page an Alpha that names a live child', async () => {
-  const { dependencies, pages, blockedMarkers } = scenario(RENDERED_ALPHA_PANE, {
-    blockedAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS),
-    blockedBy: [],
+test('an Alpha whose state file names a live child is not paged', async () => {
+  const { dependencies, pages } = scenario({
+    state: 'blocked',
+    blockedBy: ['shadow-bakery-02-photos'],
+    declaredAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS * 10),
   });
 
   await reconcileBlockedAgentPages(dependencies);
 
-  assert.deepEqual(blockedMarkers.get('alpha-bakery-01')?.blockedBy, ['shadow-bakery-02-photos']);
   assert.deepEqual(pages, []);
 });
 
-test('an Alpha blocked with no readable child pages the Regent once the wake delay has passed, and only once', async () => {
-  const { dependencies, pages, escalationLedger } = scenario(RENDERED_ALPHA_PANE_NAMING_NO_CHILD, {
-    blockedAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS),
-    blockedBy: [],
+test('an Alpha whose state file is blocked with no child pages the Regent once the wake delay has passed, and only once', async () => {
+  const { dependencies, pages, escalationLedger } = scenario({
+    state: 'blocked',
+    declaredAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS),
   });
 
   await reconcileBlockedAgentPages(dependencies);
@@ -71,10 +52,10 @@ test('an Alpha blocked with no readable child pages the Regent once the wake del
   assert.equal(escalationLedger.filter((entry) => entry.kind === 'page-enqueued').length, 1);
 });
 
-test('an Alpha blocked with no readable child is not paged before the wake delay has passed', async () => {
-  const { dependencies, pages } = scenario(RENDERED_ALPHA_PANE_NAMING_NO_CHILD, {
-    blockedAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS - 1),
-    blockedBy: [],
+test('an Alpha blocked with no child is not paged before the wake delay has passed', async () => {
+  const { dependencies, pages } = scenario({
+    state: 'blocked',
+    declaredAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS - 1),
   });
 
   await reconcileBlockedAgentPages(dependencies);
@@ -83,9 +64,21 @@ test('an Alpha blocked with no readable child is not paged before the wake delay
 });
 
 test('a block the Regent recorded itself, which names no child by design, is not paged back to the Regent', async () => {
-  const { dependencies, pages } = scenario(RENDERED_ALPHA_PANE_NAMING_NO_CHILD, {
-    blockedAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS * 10),
-    origin: 'regent',
+  const { dependencies, pages } = scenario({
+    state: 'blocked',
+    declaredBy: 'regent',
+    declaredAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS * 10),
+  });
+
+  await reconcileBlockedAgentPages(dependencies);
+
+  assert.deepEqual(pages, []);
+});
+
+test('an Alpha whose state file says working is not paged however old the declaration', async () => {
+  const { dependencies, pages } = scenario({
+    state: 'working',
+    declaredAt: blockedSince(DELAY_BEFORE_TELLING_THE_REGENT_MS * 10),
   });
 
   await reconcileBlockedAgentPages(dependencies);

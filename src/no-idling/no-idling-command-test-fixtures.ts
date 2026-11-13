@@ -24,6 +24,27 @@ import type {
 } from '../herdr/keyed-submission-token.ts';
 import type { SubmitToAgentDeps } from '../herdr/herdr-send.types.ts';
 import { HARNESS_BACKGROUND_WORK_KINDS } from '../process-inspection/harness-background-work.ts';
+import type { AgentState, AgentStateName } from '../agentdata/agent-state.service.ts';
+import type { ReadAgentState } from './blocked-marker-resolution.ts';
+
+export function declaredState(
+  state: AgentStateName,
+  details: Partial<Omit<AgentState, 'state'>> = {},
+): AgentState {
+  return {
+    state,
+    blockedBy: [],
+    waitingOn: null,
+    reapableReason: null,
+    declaredAt: '2026-11-13T00:00:00.000Z',
+    declaredBy: 'agent',
+    ...details,
+  };
+}
+
+export function stateFiles(states: Readonly<Record<string, AgentState>>): ReadAgentState {
+  return async (name) => states[name] ?? declaredState('working', { declaredBy: 'turn-start' });
+}
 
 export interface SubmitCall {
   readonly target: HerdrAgent;
@@ -85,13 +106,9 @@ export function deps(overrides: Partial<NoIdlingDependencies> = {}): {
       submitToAgent: async (target, sender, prompt, options) => {
         submitCalls.push({ target, sender, prompt, options });
       },
-      readAgent: async () => '',
       readHarnessBackgroundWork: async () => ({ kind: HARNESS_BACKGROUND_WORK_KINDS.NONE }),
-      blockedMarkerLedger: {
-        readBlockedMarker: async () => null,
-        writeBlockedMarker: async () => {},
-        clearBlockedMarker: async () => {},
-      },
+      readAgentState: stateFiles({}),
+      markAgentWorking: async () => {},
       readSpawnSpec: async () => null,
       // Default false: existing tests assume no child carries the
       // idle-by-design marker unless a test explicitly exercises the

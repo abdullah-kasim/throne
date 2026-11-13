@@ -2,8 +2,9 @@ import { agentStatusAcceptsInput } from '../herdr/herdr-inventory.service.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import { isWithinSpawnGrace, spawnedAtAgeMs } from '../agentdata/spawn-starting.ts';
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
-import { latestMessageDeclaresBlockedOrReapable } from './idle-pane-tag-classification.ts';
-import { runningWorkDescription, waitingSentenceInPane, type ReadRunningWork } from './background-wait.ts';
+import type { AgentState } from '../agentdata/agent-state.service.ts';
+import type { ReadAgentState } from './blocked-marker-resolution.ts';
+import { runningWorkDescription, type ReadRunningWork } from './background-wait.ts';
 
 /**
  * Closes the gap `findFullyIdleFamilies` cannot: that check only fires once
@@ -30,19 +31,19 @@ export interface FindUntaskedAgentsEvidence {
   readonly readSpawnSpec: (name: string) => Promise<SpawnSpec | null>;
   /** A future scheduled assignment suppresses paging without changing tasked_at. */
   readonly hasFutureScheduledDelivery?: (name: string, nowMs: number) => Promise<boolean>;
-  readonly readPane?: (name: string) => Promise<string>;
+  readonly readAgentState?: ReadAgentState;
   readonly readRunningWork?: ReadRunningWork;
   readonly now?: () => number;
 }
 
 const TASKED_ROLES = new Set(['Alpha', 'Shadow']);
 
-async function readPaneIfReadable(
+async function readStateIfReadable(
   evidence: FindUntaskedAgentsEvidence,
   name: string,
-): Promise<string | undefined> {
+): Promise<AgentState | undefined> {
   try {
-    return await evidence.readPane?.(name);
+    return await evidence.readAgentState?.(name);
   } catch {
     return undefined;
   }
@@ -98,11 +99,11 @@ export async function findUntaskedAgents(
     if (await isRunningToolWork(evidence, entry.name)) {
       continue;
     }
-    const pane = await readPaneIfReadable(evidence, entry.name);
-    if (pane !== undefined && latestMessageDeclaresBlockedOrReapable(pane)) {
+    const declared = await readStateIfReadable(evidence, entry.name);
+    if (declared !== undefined && declared.state !== 'working') {
       continue;
     }
-    const backgroundWork = pane === undefined ? undefined : waitingSentenceInPane(pane);
+    const backgroundWork = declared?.waitingOn ?? undefined;
     untasked.push({
       name: entry.name,
       role: entry.role,

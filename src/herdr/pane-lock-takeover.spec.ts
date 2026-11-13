@@ -120,7 +120,7 @@ test("a delivery whose pane lock was taken over fails with that reason and is no
       const { holder } = await holderDisplacedBetweenWriteAndEnter({ typed: [] }, agent);
       return holder;
     },
-    clearBlockedMarker: async () => undefined,
+    clearBlockedState: async () => undefined,
     readAgentRole: async () => ({ status: "field-absent" }),
     readAgentSupervisor: async () => ({ status: "field-absent" }),
     recordDeliveredEvent: async () => null,

@@ -17,6 +17,8 @@ import { DELIVERY_EVIDENCE_DATA } from "../agentdata/delivery-evidence-data.serv
 import { hasCompletionReportForAgent, LedgerDataService } from "../agentdata/ledger-data.service.ts";
 import { isAncestor } from "../git-lifecycle/delivery.ts";
 import { hasDeliveryCommit } from "../git-lifecycle/delivery-commit-proof.ts";
+import { declareAgentState, readAgentState } from "../agentdata/agent-state.service.ts";
+import { requireLiveReapabilityClaim } from "./reapability-claim.ts";
 import type { DeliveryVerdict } from "../verify-delivery/verify-delivery-runtime.ts";
 
 const execFileAsync = promisify(execFile);
@@ -78,15 +80,12 @@ async function registerAgent(name: string, role: "Alpha" | "Shadow"): Promise<vo
   );
 }
 
-/** No published claim in any live message — proves each new leg satisfies
- *  the gate on its own, without the existing message-scan path helping. */
-const NO_CLAIM_OUTPUT = "just chatting, nothing that parses as a claim";
 
 function buildDeps(name: string): ReapDeps {
   return {
     listAgents: async () => [liveAgent(name)],
     sleep: async () => {},
-    readAgent: async () => NO_CLAIM_OUTPUT,
+    readAgentState: (agentName) => readAgentState(agentName, ledgerBaseDir),
     readSpawnSpec: (agentName) => readSpawnSpec(agentName, ledgerBaseDir),
     readAgentRole: (agentName) => readAgentRole(agentName, ledgerBaseDir),
     readDeliveryEvidence: (agentName) =>
@@ -228,3 +227,17 @@ test("an Alpha still genuinely working, with no delivery evidence and no REPORT.
   const code = await reapAgent(baseRequest(name), buildDeps(name), new Set());
   assert.equal(code, 1);
 });
+
+for (const [state, admitted] of [["reapable", true], ["working", false]] as const) {
+  test(`an agent whose state file says ${state} is ${admitted ? "admitted by" : "refused by"} the reap claim check`, async () => {
+    const name = `${SHADOW_NAME}-state-${state}`;
+    await mkdir(path.join(ledgerBaseDir, name), { recursive: true });
+    await declareAgentState(
+      name,
+      { state, reapableReason: state === "reapable" ? "completed" : null, declaredBy: "agent" },
+      ledgerBaseDir,
+    );
+    const admittedByClaim = await requireLiveReapabilityClaim(baseRequest(name), liveAgent(name), buildDeps(name));
+    assert.equal(admittedByClaim, admitted);
+  });
+}

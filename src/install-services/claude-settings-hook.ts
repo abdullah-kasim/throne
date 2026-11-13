@@ -21,7 +21,7 @@ export interface SettingsWithHookRegistered {
   change: SettingsHookRegistrationChange;
 }
 
-export type ClaudeHookEvent = 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'SessionStart' | 'SessionEnd' | 'UserPromptSubmit';
+export type ClaudeHookEvent = 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'SessionStart' | 'SessionEnd' | 'UserPromptSubmit' | 'Stop';
 
 export interface ClaudeSettingsHook {
   event: ClaudeHookEvent;
@@ -94,6 +94,23 @@ export function withClaudeHookRegistered(
     settings: { ...settings, hooks: { ...hooks, [hook.event]: nextEntries } },
     change: registeredCount + staleCount === 0 ? 'registered' : 'replaced',
   };
+}
+
+export function withClaudeHooksRegistered(
+  settings: JsonObject,
+  hooks: readonly ClaudeSettingsHook[],
+  command: string,
+): SettingsWithHookRegistered {
+  return hooks.reduce<SettingsWithHookRegistered>(
+    (registered, hook) => {
+      const next = withClaudeHookRegistered(registered.settings, hook, command);
+      return {
+        settings: next.settings,
+        change: registered.change === 'unchanged' ? next.change : registered.change,
+      };
+    },
+    { settings, change: 'unchanged' },
+  );
 }
 
 export async function registerHookInClaudeSettings(

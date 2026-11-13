@@ -31,7 +31,6 @@ export interface SupervisorWaitMonitorInputs {
   readonly roster: readonly AgentStatusesRosterEntry[];
   readonly now: Date;
   readonly regentName: string;
-  readonly readPaneText: (agentName: string) => Promise<string>;
   readonly page: (page: SupervisorWaitPage) => Promise<void>;
   readonly dataDir?: string;
   readonly ledgerPath?: string;
@@ -92,16 +91,7 @@ async function findStalls(inputs: SupervisorWaitMonitorInputs): Promise<Stall[]>
   const stalls: Stall[] = [];
   for (const entry of inputs.roster) {
     if (entry.role !== "Shadow" || entry.lifecycle !== "live") continue;
-    let wait = await readSupervisorWait({ agentName: entry.name, dataDir });
-    if (
-      wait.waiting
-        ? wait.step === SUPERVISOR_WAIT_STEPS.GO_AHEAD_SENT_AWAITING_CLAIM ||
-          wait.step === SUPERVISOR_WAIT_STEPS.ACCEPTED_AWAITING_GO_AHEAD
-        : entry.liveStatus === "idle"
-    ) {
-      const paneText = await inputs.readPaneText(entry.name).catch(() => "");
-      wait = await readSupervisorWait({ agentName: entry.name, dataDir, paneText });
-    }
+    const wait = await readSupervisorWait({ agentName: entry.name, dataDir });
     if (!wait.waiting) continue;
     const alpha = liveAlphas.get(wait.supervisor);
     if (alpha === undefined) continue;

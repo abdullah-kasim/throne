@@ -11,45 +11,14 @@ import {
 } from '../process-inspection/harness-background-work.ts';
 import { harnessProcessHost, processTableCapture } from '../process-inspection/harness-background-work-test-fixtures.ts';
 import { runNoIdling } from './no-idling-run.ts';
-import { deps, rosterEntry } from './no-idling-command-test-fixtures.ts';
+import type { AgentState } from '../agentdata/agent-state.service.ts';
+import { declaredState, deps, rosterEntry } from './no-idling-command-test-fixtures.ts';
 
 const WORKTREE = await realpath(await mkdtemp(path.join(tmpdir(), 'find-untasked-agents-')));
 const HOLD_SCRIPT_HOST = harnessProcessHost({
   processTable: await processTableCapture('macos-claude-harness-with-background-hold-script'),
   harnessDirectory: WORKTREE,
 });
-const PANE_AT_ITS_IDENTITY_PROMPT = [
-  '❯ You are shadow-bakery-01-oven (Shadow). Your supervisor is alpha-bakery-01.',
-  '',
-  '────────────────────────────────────────────────────────────────',
-  '❯',
-  '────────────────────────────────────────────────────────────────',
-  '  Opus 5.5 · effort:medium · ~/.throne/worktrees/bakery/shado…',
-  '',
-].join('\n');
-const PANE_THAT_ONLY_REPLIED_TO_ITS_IDENTITY_PROMPT = [
-  '❯ You are shadow-bakery-01-oven (Shadow). Your supervisor is alpha-bakery-01.',
-  '',
-  '  Ran 1 shell command',
-  '',
-  '⏺ Memory read. Waiting for my assignment from alpha-bakery-01.',
-  '',
-  '✻ Baked for 9s',
-  '',
-  '────────────────────────────────────────────────────────────────',
-  '❯',
-  '────────────────────────────────────────────────────────────────',
-  '  Opus 5.5 · effort:medium · ~/.throne/worktrees/bakery/shado…',
-  '',
-].join('\n');
-const PANE_THAT_PUBLISHED_THE_BLOCKED_MARKER = [
-  '⏺ Both suite runs are queued for a container slot.',
-  '',
-  '  {"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)',
-  '',
-  '✻ Crunched for 5s',
-  '',
-].join('\n');
 const NOW_MS = Date.parse('2026-10-15T08:40:00.000Z');
 const SPAWNED_TWELVE_MINUTES_EARLIER_AND_NEVER_TASKED: SpawnSpec = {
   harness: 'claude',
@@ -62,14 +31,14 @@ const SPAWNED_TWELVE_MINUTES_EARLIER_AND_NEVER_TASKED: SpawnSpec = {
 };
 const UNTASKED_NOTICE = /spawned but never tasked/;
 
-async function untaskedNoticesForAShadowShowing(
-  pane: () => Promise<string>,
+async function untaskedNoticesForAShadowDeclaring(
+  readState: () => Promise<AgentState>,
   processHost?: HarnessBackgroundWorkHost,
 ): Promise<string[]> {
   const { dependencies, submitCalls } = deps({
     getRoster: async () => [rosterEntry('shadow-bakery-01-oven', 'Shadow', 'idle')],
     readSpawnSpec: async () => SPAWNED_TWELVE_MINUTES_EARLIER_AND_NEVER_TASKED,
-    readAgent: pane,
+    readAgentState: readState,
     ...(processHost === undefined ? {} : { readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId, processHost) }),
     now: () => NOW_MS,
   });
@@ -77,30 +46,28 @@ async function untaskedNoticesForAShadowShowing(
   return submitCalls.map((call) => call.prompt).filter((prompt) => UNTASKED_NOTICE.test(prompt));
 }
 
+const WORKING = async (): Promise<AgentState> => declaredState('working', { declaredBy: 'turn-start' });
+
 test('an agent whose harness is running tool work counts as having acted', async () => {
-  assert.deepEqual(await untaskedNoticesForAShadowShowing(async () => PANE_AT_ITS_IDENTITY_PROMPT, HOLD_SCRIPT_HOST), []);
+  assert.deepEqual(await untaskedNoticesForAShadowDeclaring(WORKING, HOLD_SCRIPT_HOST), []);
 });
 
-test('an agent that never spoke after its identity prompt is still reported as untasked', async () => {
-  const notices = await untaskedNoticesForAShadowShowing(async () => PANE_AT_ITS_IDENTITY_PROMPT);
+test('an agent whose state file says working is still reported as untasked', async () => {
+  const notices = await untaskedNoticesForAShadowDeclaring(WORKING);
 
   assert.equal(notices.length, 1);
   assert.match(notices[0]!, /shadow-bakery-01-oven \(Shadow\)/);
 });
 
-test('an agent that only replied to its identity prompt is still reported as untasked', async () => {
-  const notices = await untaskedNoticesForAShadowShowing(async () => PANE_THAT_ONLY_REPLIED_TO_ITS_IDENTITY_PROMPT);
-
-  assert.equal(notices.length, 1);
+test('an agent whose state file says blocked or waiting is not reported as untasked', async () => {
+  for (const state of ['blocked', 'waiting-on-own-run', 'waiting-on-supervisor', 'reapable'] as const) {
+    assert.deepEqual(await untaskedNoticesForAShadowDeclaring(async () => declaredState(state)), [], state);
+  }
 });
 
-test('an agent whose latest message is the blocked marker is not reported as untasked', async () => {
-  assert.deepEqual(await untaskedNoticesForAShadowShowing(async () => PANE_THAT_PUBLISHED_THE_BLOCKED_MARKER), []);
-});
-
-test('an agent whose pane cannot be read is still reported as untasked', async () => {
-  const notices = await untaskedNoticesForAShadowShowing(async () => {
-    throw new Error('pane is gone');
+test('an agent whose state file cannot be read is still reported as untasked', async () => {
+  const notices = await untaskedNoticesForAShadowDeclaring(async () => {
+    throw new Error('state file is gone');
   });
 
   assert.equal(notices.length, 1);

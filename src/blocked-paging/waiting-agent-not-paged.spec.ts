@@ -8,7 +8,7 @@ import {
   handlePaneAgentStatusChangedEvent,
   reconcileBlockedAgentPages,
 } from './blocked-agent-paging.hosted-worker.ts';
-import { fakeBlockedAgentPagingDependencies, type StoredBlockedMarker } from './blocked-agent-paging-test-fixtures.ts';
+import { fakeBlockedAgentPagingDependencies, type DeclaredState } from './blocked-agent-paging-test-fixtures.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import { DELAY_BEFORE_TELLING_THE_REGENT_MS } from '../no-idling/dependency-cleared-wake.ts';
 import type { HarnessBackgroundWorkHost } from '../process-inspection/harness-background-work.ts';
@@ -18,7 +18,6 @@ import {
   PROCESS_HOST_WITHOUT_HERDR,
 } from '../process-inspection/harness-background-work-test-fixtures.ts';
 
-const OWN_BACKGROUND_RUN_MARKER = '{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)';
 const SHADOW_WORKTREE = await realpath(await mkdtemp(path.join(tmpdir(), 'waiting-agent-worktree-')));
 const IDLE_HARNESS = harnessProcessHost({
   processTable: await processTableCapture('macos-claude-idle-harness'),
@@ -34,26 +33,25 @@ const HARNESS_WITH_NOHUP_SUITE_IN_WORKTREE = harnessProcessHost({
   pidsInHarnessDirectory: [71120, 71135, 71136, 71180],
 });
 
-function paneEndingWith(message: string): string {
-  return ['⏺ Both suite runs are queued for a container slot.', '', `  ${message}`, '', '✻ Crunched for 9s · done 4:36 PM', ''].join('\n');
-}
-
 const NOW = Date.parse('2026-10-15T09:00:00.000Z');
+const WAITING_ON_OWN_RUN: DeclaredState = {
+  state: 'waiting-on-own-run',
+  waitingOn: 'candidate and base suites',
+  declaredAt: new Date(NOW - 60_000).toISOString(),
+};
+const BLOCKED_NAMING_NO_CHILD: DeclaredState = { state: 'blocked', declaredAt: new Date(NOW - 60_000).toISOString() };
 const SHADOW = 'shadow-bakery-99a-conform';
 const ALPHA = 'alpha-bakery-01';
 const SWEEPS = 4;
 
 interface Scenario {
   readonly shadowStatus: AgentStatusesRosterEntry['liveStatus'];
-  readonly panes: Readonly<Record<string, string>>;
+  readonly states: Readonly<Record<string, DeclaredState>>;
   readonly shadowProcesses?: HarnessBackgroundWorkHost;
   readonly alphaHasLiveChild?: boolean;
-  readonly alphaBlockedAt?: string;
 }
 
-function scenario({ shadowStatus, panes, shadowProcesses = IDLE_HARNESS, alphaHasLiveChild = false, alphaBlockedAt }: Scenario) {
-  const blockedMarkers = new Map<string, StoredBlockedMarker>();
-  if (alphaBlockedAt !== undefined) blockedMarkers.set(ALPHA, { blockedAt: alphaBlockedAt, blockedBy: [] });
+function scenario({ shadowStatus, states, shadowProcesses = IDLE_HARNESS, alphaHasLiveChild = false }: Scenario) {
   return fakeBlockedAgentPagingDependencies({
     now: NOW,
     roster: [
@@ -62,9 +60,8 @@ function scenario({ shadowStatus, panes, shadowProcesses = IDLE_HARNESS, alphaHa
       { name: SHADOW, lifecycle: 'live', liveStatus: shadowStatus, reportLanded: false, role: 'Shadow', focused: false, paneId: 'w1:p3' },
     ],
     supervisorOf: (name) => (name === SHADOW && alphaHasLiveChild ? ALPHA : 'regent'),
-    readAgent: async (name) => panes[name] ?? paneEndingWith('Working on it.'),
+    states,
     processHostOfPane: (paneId) => (paneId === 'w1:p3' ? shadowProcesses : IDLE_HARNESS),
-    blockedMarkers,
   });
 }
 
@@ -73,7 +70,7 @@ function pagesAbout(pages: readonly string[], agent: string): string[] {
 }
 
 function shadowWaitingOnABackgroundRunThatIsNotRunning() {
-  return scenario({ shadowStatus: 'done', panes: { [SHADOW]: paneEndingWith(OWN_BACKGROUND_RUN_MARKER) } });
+  return scenario({ shadowStatus: 'done', states: { [SHADOW]: WAITING_ON_OWN_RUN } });
 }
 
 function assertPagedOnceSayingNoBackgroundRunIsRunning(pages: readonly string[]): string {
@@ -93,7 +90,7 @@ async function assertNeverPagedRecordedOrSentToTheLord(shadowProcesses: HarnessB
   for (const shadowStatus of ['done', 'blocked'] as const) {
     const { dependencies, pages, escalationLedger, lordNotices } = scenario({
       shadowStatus,
-      panes: { [SHADOW]: paneEndingWith(OWN_BACKGROUND_RUN_MARKER) },
+      states: { [SHADOW]: WAITING_ON_OWN_RUN },
       shadowProcesses,
     });
 
@@ -125,7 +122,7 @@ test('a pane whose processes cannot be read is not paged as having no background
 test('an agent blocked on its own background run is not paged while herdr reports its pane working, as it does while a background agent runs', async () => {
   const { dependencies, pages, escalationLedger } = scenario({
     shadowStatus: 'working',
-    panes: { [SHADOW]: paneEndingWith(OWN_BACKGROUND_RUN_MARKER) },
+    states: { [SHADOW]: WAITING_ON_OWN_RUN },
   });
 
   await sweepRepeatedly(dependencies);
@@ -177,8 +174,13 @@ test('an alpha waiting on its own background run beside a live child is not page
   const { dependencies, pages } = scenario({
     shadowStatus: 'working',
     alphaHasLiveChild: true,
-    alphaBlockedAt: new Date(NOW - DELAY_BEFORE_TELLING_THE_REGENT_MS).toISOString(),
-    panes: { [ALPHA]: paneEndingWith('{"blocked":true} BLOCKED_BY_own-background-run (the merged candidate suite)') },
+    states: {
+      [ALPHA]: {
+        state: 'waiting-on-own-run',
+        waitingOn: 'the merged candidate suite',
+        declaredAt: new Date(NOW - DELAY_BEFORE_TELLING_THE_REGENT_MS).toISOString(),
+      },
+    },
   });
 
   await sweepRepeatedly(dependencies);
@@ -189,7 +191,7 @@ test('an alpha waiting on its own background run beside a live child is not page
 test('a blocked shadow that names no background run is still paged as stuck', async () => {
   const { dependencies, pages } = scenario({
     shadowStatus: 'done',
-    panes: { [SHADOW]: paneEndingWith('{"blocked":true}') },
+    states: { [SHADOW]: BLOCKED_NAMING_NO_CHILD },
   });
 
   await reconcileBlockedAgentPages(dependencies);
@@ -199,10 +201,10 @@ test('a blocked shadow that names no background run is still paged as stuck', as
   assert.match(shadowPages[0]!, /It is stuck/);
 });
 
-test('a blocked shadow whose harness runs background work but posted no own-background-run marker is still paged as stuck', async () => {
+test('a blocked shadow whose harness runs background work but declared no wait on its own run is still paged as stuck', async () => {
   const { dependencies, pages } = scenario({
     shadowStatus: 'done',
-    panes: { [SHADOW]: paneEndingWith('{"blocked":true}') },
+    states: { [SHADOW]: BLOCKED_NAMING_NO_CHILD },
     shadowProcesses: HARNESS_WITH_BACKGROUND_HOLD_SCRIPT,
   });
 
@@ -214,8 +216,7 @@ test('a blocked shadow whose harness runs background work but posted no own-back
 test('a session that twice says it waits on its own background run while none is running is paged once for each wait', async () => {
   for (const shadowStatus of ['done', 'blocked'] as const) {
     let now = NOW;
-    let shadowPane = paneEndingWith(OWN_BACKGROUND_RUN_MARKER);
-    const { dependencies, pages } = fakeBlockedAgentPagingDependencies({
+    const { dependencies, pages, declareState } = fakeBlockedAgentPagingDependencies({
       get now() {
         return now;
       },
@@ -224,15 +225,15 @@ test('a session that twice says it waits on its own background run while none is
         { name: SHADOW, lifecycle: 'live', liveStatus: shadowStatus, reportLanded: false, role: 'Shadow', focused: false, paneId: 'w1:p3' },
       ],
       supervisorOf: () => 'regent',
-      readAgent: async () => shadowPane,
+      states: { [SHADOW]: WAITING_ON_OWN_RUN },
       processHostOfPane: () => IDLE_HARNESS,
     });
 
     await sweepRepeatedly(dependencies);
-    shadowPane = paneEndingWith('Both suites finished; reading the results now.');
+    declareState(SHADOW, { state: 'working', declaredAt: new Date(now).toISOString() });
     await reconcileBlockedAgentPages(dependencies);
     now += 3_600_000;
-    shadowPane = paneEndingWith(OWN_BACKGROUND_RUN_MARKER);
+    declareState(SHADOW, { ...WAITING_ON_OWN_RUN, declaredAt: new Date(now).toISOString() });
     await sweepRepeatedly(dependencies);
 
     const noRunPages = pagesAbout(pages, SHADOW).filter((page) => page.includes('but none is running'));

@@ -158,7 +158,7 @@ test("the Stager that filed a row can release it", async () => {
 test("a Stager that did not file the row cannot release it", async () => {
   const queueFile = freshQueueFile();
   fileRow(queueFile, "upper", FILING_STAGER.name!, true);
-  const result = await releaseAs({ name: "stager-second", role: "Stager" }, queueFile, releaseArguments("upper"));
+  const result = await releaseAs({ name: "stager-west", role: "Stager" }, queueFile, releaseArguments("upper"));
   assert.equal(result.exitCode, ReleaseDeferredExitCode.Refused);
   assert.match(result.errors.join("\n"), /only the Regent or the Stager that filed "upper" \(stager-first\)/);
   assert.equal(readRow(queueFile, "upper").status, RegentQueueItemStatus.Deferred);

@@ -34,9 +34,9 @@ import { deliverOpeningPrompt } from "../herdr/herdr-opening-prompt.ts";
 import { PERSONA_CONFIG } from "../application-config.service.ts";
 import { LedgerDataService } from "../agentdata/ledger-data.service.ts";
 import {
-  clearBlockedMarker,
-  readBlockedMarker,
-} from "../agentdata/blocked-marker.service.ts";
+  clearBlockedState,
+  readAgentState,
+} from "../agentdata/agent-state.service.ts";
 import { flagLiveCwdOrphans } from "./throne-startup-cwd-guard.ts";
 import {
   relaunchLiveAgentsOffThePinnedHarness,
@@ -82,8 +82,8 @@ export interface StartupReconciliationContract extends PinnedHarnessGuardContrac
   readSpawnSpec: (name: string) => Promise<SpawnSpec | null>;
   resume: (name: string) => Promise<void>;
   reap: (name: string, reason: ReapReason) => Promise<void>;
-  readBlockedMarker: (name: string) => Promise<{ blockedAt: string } | null>;
-  clearBlockedMarker: (name: string) => Promise<void>;
+  readAgentState: (name: string) => Promise<{ state: string }>;
+  clearBlockedState: (name: string) => Promise<void>;
   /** Whether `target` still exists on disk. Backs the LIVE-agent cwd-occupancy
    *  check below — a LIVE agent whose recorded cwd is gone is the CWD
    *  campaign's defining symptom (its tree was removed out from under it,
@@ -356,8 +356,8 @@ const REAL_CONTRACT: StartupReconciliationContract = {
     const code = await runReapAgent([name, "--reason", reason]);
     if (code !== 0) throw new Error(`reap-agent exited ${code}`);
   },
-  readBlockedMarker: (name) => readBlockedMarker(name),
-  clearBlockedMarker: (name) => clearBlockedMarker(name),
+  readAgentState: (name) => readAgentState(name),
+  clearBlockedState: (name) => clearBlockedState(name),
   pathExists,
   findStagerTheCourtWouldReuse: (liveAgentNames) => findStagerTheCourtWouldReuse(liveAgentNames),
   harnessProvenance: (paneId) => harnessProvenance(paneId),
@@ -378,18 +378,18 @@ const REAL_CONTRACT: StartupReconciliationContract = {
  * only the blocked exclusion; the rest of the agent's ledger state is
  * untouched since SRR did not decide to reap it.
  */
-async function clearBlockedMarkerIfDeadWhileSkipped(
+async function clearBlockedStateIfDeadWhileSkipped(
   name: string,
   contract: StartupReconciliationContract,
 ): Promise<void> {
-  const marker = await contract.readBlockedMarker(name);
-  if (marker === null) return;
+  const current = await contract.readAgentState(name);
+  if (current.state !== "blocked") return;
   const stillDeathEvidenced = await confirmGenuinelyAbsent(
     name,
     contract.listLiveAgents,
   );
   if (!stillDeathEvidenced) return;
-  await contract.clearBlockedMarker(name);
+  await contract.clearBlockedState(name);
   contract.log(
     `throne-startup: reconciliation — cleared stale blocked marker for "${name}" (confirmed dead while skip-classified)\n`,
   );
@@ -471,7 +471,7 @@ export class ThroneStartupReconciliationService {
             name,
             isComplete ? REAP_REASON.COMPLETED : REAP_REASON.ORPHAN,
           );
-        else await clearBlockedMarkerIfDeadWhileSkipped(name, this.contract);
+        else await clearBlockedStateIfDeadWhileSkipped(name, this.contract);
         this.contract.log(
           `throne-startup: reconciliation — ${action} "${name}" (${reason})\n`,
         );

@@ -210,7 +210,7 @@ test("a real in-container omp receives queued and direct send-agent deliveries s
     await deliverMessageWorkItem(workerStore, claimedItem!, {
       resolveAgent: async () => recipient,
       submitToAgent: submitToOmp,
-      clearBlockedMarker: async () => {},
+      clearBlockedState: async () => {},
       readAgentRole: async () => undefined,
       readAgentSupervisor: async () => undefined,
       recordDeliveredEvent: async () => {},

@@ -3,7 +3,7 @@
 // reach an already-running agent (`PERSONA_CONFIG` is resolved once per
 // process at module load), so the only mechanism that can is a message.
 //
-// EDGE 1 (the dangerous one): this module NEVER calls `clearBlockedMarker`,
+// EDGE 1 (the dangerous one): this module NEVER calls `clearBlockedState`,
 // by construction — it uses `submitToAgent` directly, not the `send-agent`
 // CLI wrapper (whose command layer clears markers as a deliberate BLK
 // behaviour for genuine progress). A persona update is administrative

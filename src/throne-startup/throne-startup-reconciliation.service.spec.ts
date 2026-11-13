@@ -170,8 +170,8 @@ function reconciliationContract(court: FakeCourt): StartupReconciliationContract
     reap: async (name) => {
       throw new Error(`reap of ${name} was never expected`);
     },
-    readBlockedMarker: async () => null,
-    clearBlockedMarker: async () => {},
+    readAgentState: async () => ({ state: 'working' }),
+    clearBlockedState: async () => {},
     pathExists: async () => true,
     findStagerTheCourtWouldReuse: (liveAgentNames) => findStagerTheCourtWouldReuse(liveAgentNames, {
       listRegisteredAgentNames: () => ledger.listRegisteredAgents(court.ledgerDir),

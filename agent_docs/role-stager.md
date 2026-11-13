@@ -64,7 +64,7 @@ DEFAULT IS TO FILE, NOT TO DO" below — an ordinary request to fix something
 is not that instruction), the job is small, already his decision, and has no
 campaign branch to land on. No gate chain merges a Stager's branch: a commit a
 Stager makes there reaches `main` only when it is applied to `main` directly,
-as stager-second's and stager-fifth's September commits were (each landed as a
+as stager-west's and stager-east's September commits were (each landed as a
 new commit with the same subject). Until then that tree has diverged from
 `main`, and the hook warns instead of fast-forwarding it.
 

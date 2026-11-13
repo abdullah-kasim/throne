@@ -27,14 +27,11 @@ const IDLE_HOST = harnessProcessHost({
   processTable: await processTableCapture('macos-claude-idle-harness'),
   harnessDirectory: WORKTREE,
 });
-const PANE_OF_AN_ALPHA_THAT_SAYS_NOTHING_ABOUT_ITS_RUN = ['⏺ The oven slice is merged.', '', '✻ Baked for 9s', ''].join('\n');
-const PANE_OF_AN_IDLE_SHADOW = ['⏺ Done with the crust.', '', '✻ Baked for 4s', ''].join('\n');
 
 async function idleFamilyNoticesWhenTheAlphaHarnessRunsOn(alphaHost: HarnessBackgroundWorkHost): Promise<string[]> {
   const { dependencies, submitCalls } = deps({
     getRoster: async () => [rosterEntry(ALPHA, 'Alpha', 'idle'), rosterEntry(SHADOW, 'Shadow', 'idle')],
     readAgentSupervisor: async (name) => identityFound(name === SHADOW ? ALPHA : 'Regent'),
-    readAgent: async (name) => (name === ALPHA ? PANE_OF_AN_ALPHA_THAT_SAYS_NOTHING_ABOUT_ITS_RUN : PANE_OF_AN_IDLE_SHADOW),
     readHarnessBackgroundWork: (paneId) =>
       readHarnessBackgroundWork(paneId, paneId === `pane-${ALPHA}` ? alphaHost : IDLE_HOST),
     isRegisteredAgent: async () => true,

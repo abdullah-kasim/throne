@@ -17,7 +17,7 @@ import { openMessageQueueStore } from "../message-queue/message-queue.store.ts";
 import { deriveDefaultMessageDeliveryIdempotencyKey } from "../message-queue/message-delivery-idempotency.ts";
 import { productionAlphaMonitoringDependencies } from "../alpha-monitoring/alpha-monitoring.ts";
 import { checkAndNotifySustainedOutage } from "../throne-work/sustained-outage-notifier.ts";
-import { clearBlockedMarker } from "../agentdata/blocked-marker.service.ts";
+import { clearBlockedState } from "../agentdata/agent-state.service.ts";
 import { markAgentTasked } from "../agentdata/spawn-data-contracts.ts";
 import {
   identityFieldForRecording,
@@ -58,7 +58,7 @@ const DEFAULT_PRODUCTION_DEPENDENCIES: SendAgentCommandDependencies = {
   forceEnter,
   openMessageQueueStore: () => openMessageQueueStore(),
   now: () => Date.now(),
-  clearBlockedMarker,
+  clearBlockedState,
   checkSustainedOutage: checkAndNotifySustainedOutage,
   markAgentTasked,
   appendSentMessageLedgerEntry,
@@ -287,7 +287,7 @@ async function runEnqueueSendAgent(
     store.close();
   }
 
-  await dependencies.clearBlockedMarker?.(senderName);
+  await dependencies.clearBlockedState?.(senderName);
   await recordAgentTasked(
     dependencies,
     recipient.name ?? parsed.recipientName,
@@ -395,9 +395,9 @@ async function runDirectSendAgent(
     }
     throw error;
   }
-  await dependencies.clearBlockedMarker?.(senderName);
+  await dependencies.clearBlockedState?.(senderName);
   if (parsed.clearBlocked) {
-    await dependencies.clearBlockedMarker?.(
+    await dependencies.clearBlockedState?.(
       recipient.name ?? parsed.recipientName,
     );
   }

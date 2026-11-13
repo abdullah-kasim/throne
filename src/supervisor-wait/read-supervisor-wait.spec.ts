@@ -5,6 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { ACCEPTANCE_DATA, type AcceptanceMethod } from "../agentdata/acceptance-data.service.ts";
 import { DELIVERY_EVIDENCE_DATA } from "../agentdata/delivery-evidence-data.service.ts";
+import { declareAgentState } from "../agentdata/agent-state.service.ts";
 import { readSupervisorWait, SUPERVISOR_WAIT_STEPS } from "./read-supervisor-wait.ts";
 
 const ALPHA = "alpha-scratch-01";
@@ -13,10 +14,6 @@ const REPORT_TIME = new Date("2026-11-11T10:00:00.000Z");
 const ACCEPTED_AT = "2026-11-11T10:05:00.000Z";
 const GO_AHEAD_AT = "2026-11-11T10:05:02.000Z";
 const CAMPAIGN_KINDS: readonly AcceptanceMethod[] = ["merge", "verdict"];
-
-function paneEndingWith(message: string): string {
-  return ["⏺ Slice merged and accepted.", "", `  ${message}`, "", "✻ Crunched for 3s", ""].join("\n");
-}
 
 async function withLedger(run: (dataDir: string) => Promise<void>): Promise<void> {
   const dataDir = await mkdtemp(path.join(tmpdir(), "supervisor-wait-"));
@@ -95,11 +92,8 @@ for (const how of CAMPAIGN_KINDS) {
         { acceptedAt: ACCEPTED_AT, by: ALPHA, how, goAhead: { sentAt: GO_AHEAD_AT, sendOutcome: "enqueued" } },
         dataDir,
       );
-      const wait = await readSupervisorWait({
-        agentName: SHADOW,
-        dataDir,
-        paneText: paneEndingWith(`{"blocked":true} __BLOCKED_BY_${ALPHA}__`),
-      });
+      await declareAgentState(SHADOW, { state: "blocked", blockedBy: [ALPHA], declaredBy: "agent" }, dataDir);
+      const wait = await readSupervisorWait({ agentName: SHADOW, dataDir });
       assert.deepEqual(wait, {
         waiting: true,
         step: SUPERVISOR_WAIT_STEPS.GO_AHEAD_SENT_AWAITING_CLAIM,
@@ -117,11 +111,8 @@ for (const how of CAMPAIGN_KINDS) {
         { acceptedAt: ACCEPTED_AT, by: ALPHA, how, goAhead: { sentAt: GO_AHEAD_AT, sendOutcome: "enqueued" } },
         dataDir,
       );
-      const wait = await readSupervisorWait({
-        agentName: SHADOW,
-        dataDir,
-        paneText: paneEndingWith('{"reapable":"completed"}'),
-      });
+      await declareAgentState(SHADOW, { state: "reapable", reapableReason: "completed", declaredBy: "agent" }, dataDir);
+      const wait = await readSupervisorWait({ agentName: SHADOW, dataDir });
       assert.equal(wait.waiting && wait.step, SUPERVISOR_WAIT_STEPS.CLAIMED_AWAITING_REAP);
     });
   });
@@ -180,3 +171,18 @@ test("an acceptance record with an unreadable time reads as not waiting", async 
     assert.equal(wait.waiting, false);
   });
 });
+
+for (const [state, waiting] of [["waiting-on-supervisor", true], ["working", false]] as const) {
+  test(`a Shadow that messaged its supervisor and whose state file says ${state} is ${waiting ? "" : "not "}waiting on it`, async () => {
+    await withLedger(async (dataDir) => {
+      await writeShadow(dataDir, { report: false });
+      await writeFile(
+        path.join(dataDir, SHADOW, "sent-messages.jsonl"),
+        `${JSON.stringify({ timestamp: REPORT_TIME.toISOString(), recipient: ALPHA, id: "1", transport: "sqlite" })}\n`,
+      );
+      await declareAgentState(SHADOW, { state, waitingOn: ALPHA, declaredBy: "agent" }, dataDir);
+      const wait = await readSupervisorWait({ agentName: SHADOW, dataDir });
+      assert.equal(wait.waiting && wait.step, waiting && SUPERVISOR_WAIT_STEPS.DONE_AWAITING_ACCEPTANCE);
+    });
+  });
+}

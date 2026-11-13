@@ -42,7 +42,7 @@ export function goAheadText(shadowName: string, supervisor: string, how: Accepta
   const accepted = how === "merge" ? "merged" : "accepted as a verdict";
   return (
     `${shadowName}: your slice was ${accepted} by ${supervisor} at ${acceptedAt}. ` +
-    'You may now publish your reapability claim: {"reapable":"completed"}.'
+    'You may now run `throne my-state reapable completed` and publish your reapability claim: {"reapable":"completed"}.'
   );
 }
 

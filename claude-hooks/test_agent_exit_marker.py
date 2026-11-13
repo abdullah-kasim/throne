@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent-exit-marker.py")
-AGENT_NAME = "stager-third"
+AGENT_NAME = "stager-south"
 
 
 class AgentExitMarkerTest(unittest.TestCase):

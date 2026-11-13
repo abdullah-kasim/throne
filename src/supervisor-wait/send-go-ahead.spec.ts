@@ -82,7 +82,7 @@ test("merging a Shadow's tree sends it the go-ahead and records it", async () =>
     assert.equal(sent.length, 1);
     assert.equal(sent[0]!.recipient, SHADOW);
     assert.equal(sent[0]!.sender, ALPHA);
-    assert.match(sent[0]!.prompt, /may now publish your reapability claim/);
+    assert.match(sent[0]!.prompt, /may now run `throne my-state reapable completed` and publish your reapability claim/);
     const record = await ACCEPTANCE_DATA.read(SHADOW, dataDir);
     assert.equal(record?.how, "merge");
     assert.equal(record?.by, ALPHA);

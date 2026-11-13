@@ -205,7 +205,7 @@ throne_harness_hook_gaps() {
     local settings_path="$HOME/.claude/settings.json"
     hook_gaps_ref=()
     local hook_name hook_path
-    for hook_name in scratch-path-guard.py skill-write-guard.py memory-read-log.py jev-fence.py agent-exit-marker.py hidden-skill-pointer.py web-fetch-failure-pointer.py; do
+    for hook_name in scratch-path-guard.py skill-write-guard.py memory-read-log.py jev-fence.py agent-exit-marker.py agent-state.py hidden-skill-pointer.py web-fetch-failure-pointer.py; do
         hook_path="$throne_root/claude-hooks/$hook_name"
         if ! grep -qF "$hook_path" "$settings_path" 2>/dev/null; then
             hook_gaps_ref+=("$hook_name is not registered in $settings_path")
@@ -220,7 +220,7 @@ throne_launch_check() {
     local launcher_name="$1"
     local throne_root="$2"
     local hook_name
-    for hook_name in scratch-path-guard.py skill-write-guard.py memory-read-log.py jev-fence.py agent-exit-marker.py hidden-skill-pointer.py web-fetch-failure-pointer.py; do
+    for hook_name in scratch-path-guard.py skill-write-guard.py memory-read-log.py jev-fence.py agent-exit-marker.py agent-state.py hidden-skill-pointer.py web-fetch-failure-pointer.py; do
         if [[ ! -f "$throne_root/claude-hooks/$hook_name" ]]; then
             echo "$launcher_name: launch check: $throne_root/claude-hooks/$hook_name is missing from the throne checkout" >&2
         fi

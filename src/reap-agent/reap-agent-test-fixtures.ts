@@ -1,6 +1,17 @@
 import { IdentityLineReadStatus } from "../agentdata/identity-data.service.ts";
 import type { DeliveryVerdict } from "../verify-delivery/verify-delivery-runtime.ts";
 import type { ReapDeps } from "./reap-agent.types.ts";
+import { writeSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
+import { declareAgentState } from "../agentdata/agent-state.service.ts";
+
+export async function landReapableVerdictOnlyShadow(name: string, ledgerBaseDir: string): Promise<void> {
+  await writeSpawnSpec(
+    name,
+    { harness: "claude", model: "sonnet", effort: 1, cwd: "/tmp/does-not-matter", deliverable_shape: "verdict-only" },
+    ledgerBaseDir,
+  );
+  await declareAgentState(name, { state: "reapable", reapableReason: "completed", declaredBy: "agent" }, ledgerBaseDir);
+}
 
 export function reapDepsWithNothingToTearDown(
   dependencies: Pick<ReapDeps, "listAgents"> & Partial<ReapDeps>,

@@ -2,9 +2,9 @@ import { getAgentStatusesRoster } from '../agent-statuses/agent-statuses-roster.
 import { AGENT_LIFECYCLE_STATES } from '../agent-statuses/agent-statuses.types.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import {
-  readBlockedMarker,
-  type BlockedMarker,
-} from '../agentdata/blocked-marker.service.ts';
+  readAgentState,
+  type AgentState,
+} from '../agentdata/agent-state.service.ts';
 import type { AlphaReadinessRecord } from '../keep-going/alpha-capacity.ts';
 
 export interface ActiveAlphaCapacityInputs {
@@ -14,13 +14,13 @@ export interface ActiveAlphaCapacityInputs {
 
 export interface ActiveAlphaCapacityDependencies {
   readonly getRoster: () => Promise<readonly AgentStatusesRosterEntry[]>;
-  readonly readBlockedMarker: (name: string) => Promise<BlockedMarker | null>;
+  readonly readAgentState: (name: string) => Promise<AgentState>;
   readonly now: () => Date;
 }
 
 const DEFAULT_DEPENDENCIES: ActiveAlphaCapacityDependencies = {
   getRoster: getAgentStatusesRoster,
-  readBlockedMarker,
+  readAgentState: (name) => readAgentState(name),
   now: () => new Date(),
 };
 
@@ -33,23 +33,23 @@ export async function readActiveAlphaCapacityInputs(
     (entry) =>
       entry.role === 'Alpha' && entry.lifecycle === AGENT_LIFECYCLE_STATES.LIVE,
   );
-  const markers = await Promise.all(
-    liveAlphas.map((entry) => dependencies.readBlockedMarker(entry.name)),
+  const states = await Promise.all(
+    liveAlphas.map((entry) => dependencies.readAgentState(entry.name)),
   );
   const activeRecords: AlphaReadinessRecord[] = liveAlphas.map(
     (entry, index) => {
-      const marker = markers[index];
+      const state = states[index];
       return {
         name: entry.name,
         role: 'Alpha',
         live: true,
         dependencyReady: true,
         executableWork: true,
-        ...(marker === null || entry.liveStatus === undefined
+        ...(state.state !== 'blocked' || entry.liveStatus === undefined
           ? {}
           : {
               blockedEvidence: {
-                blockedAt: marker.blockedAt,
+                blockedAt: state.declaredAt,
                 observedAt,
                 liveStatus: entry.liveStatus,
               },

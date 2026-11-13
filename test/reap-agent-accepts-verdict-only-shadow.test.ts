@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { declareAgentState, readAgentState } from "../src/agentdata/agent-state.service.ts";
 import { reapAgent } from "../src/reap-agent/lifecycle.ts";
 import type { ReapDeps, ReapRequest } from "../src/reap-agent/reap-agent.types.ts";
 import type { HerdrAgent } from "../src/herdr/herdr-identity-contracts.ts";
@@ -60,6 +61,7 @@ async function landVerdictOnlyShadow(options: {
     },
     ledgerBaseDir,
   );
+  await declareAgentState(options.name, { state: "reapable", reapableReason: "completed", declaredBy: "agent" }, ledgerBaseDir);
 }
 
 function baseRequest(name: string): ReapRequest {
@@ -74,7 +76,6 @@ function baseRequest(name: string): ReapRequest {
 
 function buildDeps(overrides: {
   name: string;
-  claimOutput: string;
   liveStatus?: HerdrAgent["agentStatus"];
 }): ReapDeps {
   return {
@@ -82,7 +83,7 @@ function buildDeps(overrides: {
       liveShadow(overrides.name, overrides.liveStatus ?? "done"),
     ],
     sleep: async () => {},
-    readAgent: async () => overrides.claimOutput,
+    readAgentState: (agentName) => readAgentState(agentName, ledgerBaseDir),
     readSpawnSpec: (name) => readSpawnSpec(name, ledgerBaseDir),
     closeAgentTab: async () => {},
     removeTree: async () => false,
@@ -111,7 +112,6 @@ test("a verdict-only Shadow that published a completed verdict can be reaped wit
   await landVerdictOnlyShadow({ name, hasShape: true });
   const deps = buildDeps({
     name,
-    claimOutput: '{"reapable":"completed"}',
   });
   // `requireLiveReapabilityClaim` and the still-working liveness check are
   // the only paths that can return a nonzero code for a LIVE, non-force
@@ -131,7 +131,6 @@ test("a published claim is sufficient without the durable verdict-only shape", a
   await landVerdictOnlyShadow({ name, hasShape: false });
   const deps = buildDeps({
     name,
-    claimOutput: '{"reapable":"completed"}',
   });
   const code = await reapAgent(baseRequest(name), deps, new Set());
   assert.equal(code, 0);
@@ -142,7 +141,6 @@ test("a Shadow still marked working is refused regardless of its verdict-only sh
   await landVerdictOnlyShadow({ name, hasShape: true });
   const deps = buildDeps({
     name,
-    claimOutput: '{"reapable":"completed"}',
     liveStatus: "working",
   });
   const code = await reapAgent(baseRequest(name), deps, new Set());

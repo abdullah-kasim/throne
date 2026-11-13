@@ -465,7 +465,10 @@ was filed with.
   agent is FINISHED with it, and conflating those is what made `--force`
   routine — a healthy delivery gate matched none of the artifact shapes and
   was refused, while a wedged agent holding a stale `REPORT.md` was waved
-  through. The claim vocabulary is four STRING statuses (`completed`,
+  through. The agent makes the claim by running
+  `throne my-state reapable completed`, which writes its `state.json`, and
+  keeps the marker line in its message for whoever reads the pane;
+  `reap-agent` reads the file, never the pane. The claim vocabulary is four STRING statuses (`completed`,
   `abandoned`, `task_restart_required`, `fail`), deliberately not a boolean:
   a campaign published `{"reapable":true,"reason":"completed"}` and was
   rejected twice over, and a boolean form would have made that malformed
@@ -577,20 +580,30 @@ was filed with.
   arithmetic says it should be, it presses nothing further and pages the
   Regent to take over by hand. Every answer lands in
   `~/.throne/data/regent/mcq-answers.jsonl`.
-- **An agent waiting on background work says so with the blocked marker.**
+- **An agent waiting on background work says so with `throne my-state`.**
   An agent that ends a turn to wait on background work it started (a test or
-  suite run, a monitor, a queued container slot, a background agent) ends that
+  suite run, a monitor, a queued container slot, a background agent) runs
+  `throne my-state waiting-on-own-run "<what>"` and ends that
   message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`, for
   example `{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)`.
+  The command writes `~/.throne/data/<agent>/state.json`, which every check
+  reads. An agent may declare by command or by marker: on Claude, the
+  turn-end hook reads the turn's final message (never the pane) and writes
+  the state a marker line declares into the same file, so both land in one
+  place. When a turn has both and they disagree, the command wins. Codex has
+  no turn-end hook, so there only the command declares. A child wait is
+  `throne my-state blocked --by <child>` with one `--by` per child, beside
+  `{"blocked":true}` and one `__BLOCKED_BY_<child>__` per child.
   `own-background-run` is not a child agent: the blocked-agent pager stays
   silent while a process the agent's harness started for the run is still
-  alive, and pages the Regent once if the marker stays up after the run is
+  alive, and pages the Regent once if the state stays up after the run is
   gone. The throne reads running work from the process table, never from the
-  pane's text. Its next ordinary message
-  clears the marker; it never repeats the marker when it resumes work.
+  pane's text. Its next prompt records it as working again (the turn-start
+  hook writes `working`); it never repeats the marker when it resumes work.
   Otherwise no-idling pages the Regent every minute about an agent that is not
   idle. The throne wakes an agent on this marker when a process it waited on
-  ends, and every 15 minutes while it still waits. Start a run you will wait
+  ends, and every 15 minutes while it still waits, but never twice within 5
+  minutes: runs that end in between are listed in the next wake. Start a run you will wait
   on with your harness's own background mode, never a shell `&`, because only
   that wakes you when it ends. Stop any server you started before you end a
   turn with the marker.
@@ -606,7 +619,7 @@ was filed with.
 - **The Regent tells a waiting agent the one line to send.** When a no-idling
   notice names an agent "waiting on background work", the Regent sends it
   exactly
-  `throne send-agent <agent> 'Publish {"blocked":true} BLOCKED_BY_own-background-run (<what>) as your latest message; clear it when you resume.'`
+  `throne send-agent <agent> 'Run throne my-state waiting-on-own-run "<what>" and publish {"blocked":true} BLOCKED_BY_own-background-run (<what>) as your latest message.'`
   with `<agent>` and `<what>` filled in, once per agent per wait. Such a pane
   is waiting, not idle: the Regent never reaps it and never sends it a generic
   continue.

@@ -26,7 +26,6 @@ function shadowAtFolderTrustPromptFor(folder: string) {
       { name: SHADOW, lifecycle: 'live', liveStatus: 'blocked', reportLanded: false, role: 'Shadow', focused: false, paneId: SHADOW_PANE },
     ],
     supervisorOf: () => 'regent',
-    readAgent: async () => FOLDER_TRUST_PANE.replaceAll(CAPTURED_FOLDER, folder),
     visiblePaneText: (paneId) => (paneId === SHADOW_PANE ? FOLDER_TRUST_PANE.replaceAll(CAPTURED_FOLDER, folder) : ''),
   });
 }

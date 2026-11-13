@@ -8,7 +8,7 @@ import {
   handlePaneAgentStatusChangedEvent,
   reconcileBlockedAgentPages,
 } from './blocked-agent-paging.hosted-worker.ts';
-import { fakeBlockedAgentPagingDependencies } from './blocked-agent-paging-test-fixtures.ts';
+import { fakeBlockedAgentPagingDependencies, type DeclaredState } from './blocked-agent-paging-test-fixtures.ts';
 import { ACCEPTANCE_DATA } from '../agentdata/acceptance-data.service.ts';
 import { DELIVERY_EVIDENCE_DATA } from '../agentdata/delivery-evidence-data.service.ts';
 import { readSupervisorWait } from '../supervisor-wait/read-supervisor-wait.ts';
@@ -41,11 +41,8 @@ interface Court {
   readonly alpha: string;
   readonly ledger: Ledger;
   readonly blockedOn?: string;
+  readonly declared?: DeclaredState;
   readonly shadowStatus?: 'done' | 'blocked';
-}
-
-function paneEndingWith(message: string): string {
-  return ['⏺ DONE reported to my supervisor.', '', `  ${message}`, '', '✻ Crunched for 4s', ''].join('\n');
 }
 
 async function writeLedger(dataDir: string, { shadow, alpha, ledger }: Court): Promise<void> {
@@ -98,11 +95,15 @@ async function withCourt(court: Court, run: (fake: ReturnType<typeof fakeBlocked
         },
       ],
       supervisorOf: (name) => (name === court.shadow ? court.alpha : 'regent'),
-      readAgent: async (name) =>
-        name === court.shadow
-          ? paneEndingWith(`{"blocked":true} BLOCKED_BY_${court.blockedOn ?? court.alpha}`)
-          : paneEndingWith('Working on it.'),
-      readSupervisorWait: (agentName, paneText) => readSupervisorWait({ agentName, paneText, dataDir }),
+      stateFolder: dataDir,
+      states: {
+        [court.shadow]: court.declared ?? {
+          state: 'blocked',
+          blockedBy: [court.blockedOn ?? court.alpha],
+          declaredAt: new Date(NOW - 60_000).toISOString(),
+        },
+      },
+      readSupervisorWait: (agentName) => readSupervisorWait({ agentName, dataDir }),
     });
     await run(fake);
   } finally {
@@ -224,3 +225,34 @@ for (const kind of ['merging', 'verdict-only']) {
     });
   });
 }
+
+test('a merged Shadow whose state file says it waits on its supervisor pages the Alpha and not the regent', async () => {
+  await withCourt(
+    {
+      shadow: 'shadow-rptheadnum-99c-deliver',
+      alpha: 'alpha-rptheadnum-01',
+      ledger: 'merged-without-report',
+      declared: { state: 'waiting-on-supervisor', declaredAt: new Date(NOW - 60_000).toISOString() },
+    },
+    async (fake) => {
+      await sweepRepeatedly(fake.dependencies);
+      assert.deepEqual(pagesTo(fake, 'regent'), []);
+      assert.equal(pagesTo(fake, 'alpha-rptheadnum-01').length, 1);
+    },
+  );
+});
+
+test('a merged Shadow whose state file says working pages neither its Alpha nor the regent', async () => {
+  await withCourt(
+    {
+      shadow: 'shadow-rptheadnum-99c-deliver',
+      alpha: 'alpha-rptheadnum-01',
+      ledger: 'merged-without-report',
+      declared: { state: 'working', declaredAt: new Date(NOW - 60_000).toISOString() },
+    },
+    async (fake) => {
+      await sweepRepeatedly(fake.dependencies);
+      assert.deepEqual(fake.pages, []);
+    },
+  );
+});

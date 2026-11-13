@@ -39,7 +39,7 @@ test("the queue handler hands the pane the work item's own id as the message id"
     submitToAgent: async (_agent, _senderName, prompt, options) => {
       seen.push({ prompt, messageId: options.messageId });
     },
-    clearBlockedMarker: async () => undefined,
+    clearBlockedState: async () => undefined,
     readAgentRole: async () => ({ status: "field-absent" }),
     readAgentSupervisor: async () => ({ status: "field-absent" }),
     recordDeliveredEvent: async () => undefined,

@@ -10,14 +10,10 @@ import { Inject, Optional } from '@nestjs/common';
 import { Command, CommandRunner } from 'nest-commander';
 import { getAgentStatusesRoster } from '../agent-statuses/agent-statuses-roster.ts';
 import { readAgentSupervisor } from '../agentdata/identity-data.service.ts';
-import { resolveAgent, readAgent } from '../herdr/herdr-runtime.service.ts';
+import { resolveAgent } from '../herdr/herdr-runtime.service.ts';
 import { readHarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
 import { submitUnattributedToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
-import {
-  clearBlockedMarker,
-  readBlockedMarker,
-  writeBlockedMarker,
-} from '../agentdata/blocked-marker.service.ts';
+import { declareAgentState, readAgentState } from '../agentdata/agent-state.service.ts';
 import {
   agentRegistrationExists,
   fileExists,
@@ -89,12 +85,10 @@ export const REAL_NO_IDLING_DEPENDENCIES: NoIdlingDependencies = {
   // becomes a server-side retry instead of a failed sweep. See
   // `enqueue-heartbeat-message.ts`.
   submitToAgent: submitUnattributedToAgentViaQueue,
-  readAgent,
   readHarnessBackgroundWork: (paneId) => readHarnessBackgroundWork(paneId),
-  blockedMarkerLedger: {
-    readBlockedMarker: (name) => readBlockedMarker(name),
-    writeBlockedMarker: (name, blockedBy) => writeBlockedMarker(name, { blockedBy }),
-    clearBlockedMarker: (name) => clearBlockedMarker(name),
+  readAgentState: (name) => readAgentState(name),
+  markAgentWorking: async (name) => {
+    await declareAgentState(name, { state: 'working', declaredBy: 'agent' });
   },
   readSpawnSpec: (name, dataDir) => readSpawnSpec(name, dataDir),
   hasFutureScheduledDelivery,

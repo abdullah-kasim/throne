@@ -1,10 +1,6 @@
 import { sameAgentName } from '../herdr/herdr-identity-contracts.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import {
-  classifyLastMessageTags,
-  lastMessageBlock,
-} from '../no-idling/idle-pane-tag-classification.ts';
-import {
   HARNESS_BACKGROUND_WORK_KINDS,
   type HarnessBackgroundWork,
 } from '../process-inspection/harness-background-work.ts';
@@ -78,11 +74,6 @@ export const OWN_BACKGROUND_RUN_WAITS = {
 } as const;
 
 export type OwnBackgroundRunWait = (typeof OWN_BACKGROUND_RUN_WAITS)[keyof typeof OWN_BACKGROUND_RUN_WAITS];
-
-export function waitsOnOwnBackgroundRun(output: string): boolean {
-  const tag = classifyLastMessageTags(lastMessageBlock(output));
-  return tag.kind === 'blocked' && tag.waitsOnOwnBackgroundRun === true;
-}
 
 const OWN_BACKGROUND_RUN_WAIT_BY_WORK_KIND = {
   [HARNESS_BACKGROUND_WORK_KINDS.RUNNING]: OWN_BACKGROUND_RUN_WAITS.RUNNING,

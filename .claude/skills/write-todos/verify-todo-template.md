@@ -169,6 +169,7 @@ raises the same way, and finish on an empty report from both.
   branch.
 - When you end a turn to wait on background work you started (a test or
   suite run, a monitor, a queued container slot, a background agent), end
-  that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next ordinary
-  message clears it. Otherwise no-idling pages the Regent every minute.
+  that message by running `throne my-state waiting-on-own-run "<what>"` and publishing
+  `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next prompt records
+  you as working again. Otherwise no-idling pages the Regent every minute.
 ```

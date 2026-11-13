@@ -6,7 +6,7 @@ import type { HerdrAgent } from '../herdr/herdr-identity-contracts.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import type { SubmitToAgentOptions } from '../herdr/herdr-send.types.ts';
 import type { BlockedPageLedgerEntry } from './blocked-agent-escalation-ledger.ts';
-import type { BlockedMarkerLedger } from '../no-idling/idle-family.ts';
+import type { AgentState } from '../agentdata/agent-state.service.ts';
 import type { HarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
 import type { SupervisorWait } from '../supervisor-wait/read-supervisor-wait.ts';
 import type { AgentPresentState } from '../agentdata/agent-present-state.ts';
@@ -19,12 +19,11 @@ export interface BlockedAgentPagingDependencies {
   readonly listKnownPaneIds: () => Promise<readonly string[]>;
   readonly getRoster: (dataDir: string) => Promise<AgentStatusesRosterEntry[]>;
   readonly readAgentSupervisor: (name: string, dataDir: string) => Promise<string>;
-  readonly readAgent: (name: string) => Promise<string>;
+  readonly readAgentState: (name: string) => Promise<AgentState>;
   readonly readHarnessBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>;
   readonly readVisiblePaneText: (paneId: string) => Promise<string>;
   readonly acceptFolderTrust: (agentName: string, optionNumber: number) => Promise<void>;
-  readonly blockedMarkerLedger: BlockedMarkerLedger;
-  readonly readSupervisorWait: (agentName: string, paneText: string) => Promise<SupervisorWait>;
+  readonly readSupervisorWait: (agentName: string) => Promise<SupervisorWait>;
   readonly resolveAgent: (name: string) => Promise<HerdrAgent>;
   readonly submitToAgent: (
     target: HerdrAgent,

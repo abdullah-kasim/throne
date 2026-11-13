@@ -39,6 +39,7 @@ and each table keeps its family's own order.
 | `create-agent-legacy` | Spawn a new herdr harness through the older model-steering path. |
 | `keep-going` | Nudge the live Regent or a named agent. |
 | `no-idling` | Sweep Alpha families that are fully idle. |
+| `my-state` | Record the calling agent's state (working, blocked, waiting on its own run, waiting on its supervisor, reapable) in its `state.json`; only the Regent may write another agent's. |
 | `find-untasked-agents` | Flag any live Alpha or Shadow that `create-agent` spawned but `send-agent` never tasked, whether or not its family is fully idle. |
 | `usage-rate` | Report the plan-usage burn rate. |
 | `derive-shadow-name-from-alpha` | Derive the canonical Shadow name from its supervising Alpha and slice id. |

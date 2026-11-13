@@ -186,7 +186,7 @@ export function deliveryHandlerDeps(
     recordDeliveredEvent: async () => null,
     readAgentRole: async () => ({ status: 'field-absent' }),
     readAgentSupervisor: async () => ({ status: 'field-absent' }),
-    clearBlockedMarker: async () => undefined,
+    clearBlockedState: async () => undefined,
     now: () => scene.nowMs,
     maxNotSentAttempts: 1,
     sleep: async () => undefined,

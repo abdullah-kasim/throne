@@ -11,11 +11,7 @@ import {
   hasCompletionReportForAgent,
 } from "../agentdata/ledger-data.service.ts";
 import { DEFAULT_DATA_DIR } from "../agentdata/spawn-data-contracts.ts";
-import { readBlockedMarker } from "../agentdata/blocked-marker.service.ts";
-import {
-  classifyLastMessageTags,
-  findLatestQualifyingReapabilityClaim,
-} from "../no-idling/idle-pane-tag-classification.ts";
+import { readAgentState, type AgentState } from "../agentdata/agent-state.service.ts";
 import { readClaimSeenAt } from "./claim-seen.ts";
 import { sentMessageLedgerPath } from "../send-agent/sent-message-ledger.ts";
 
@@ -40,7 +36,6 @@ export type SupervisorWait =
 
 export interface SupervisorWaitInputs {
   readonly agentName: string;
-  readonly paneText?: string;
   readonly dataDir?: string;
 }
 
@@ -54,7 +49,6 @@ export async function readSupervisorWait(inputs: SupervisorWaitInputs): Promise<
 
 async function readWaitFromLedger({
   agentName,
-  paneText = "",
   dataDir = DEFAULT_DATA_DIR,
 }: SupervisorWaitInputs): Promise<SupervisorWait> {
   const acceptance = await ACCEPTANCE_DATA.read(agentName, dataDir);
@@ -68,27 +62,21 @@ async function readWaitFromLedger({
     !(await hasCompletionReportForAgent(agentName, dataDir)) &&
     (await DELIVERY_EVIDENCE_DATA.read(agentName, dataDir)) === null
   ) {
-    return readWaitBeforeAnyRecord(agentName, supervisor, paneText, dataDir);
+    return readWaitBeforeAnyRecord(agentName, supervisor, dataDir);
   }
   if (acceptance === null) {
     return readWaitWithoutAcceptanceRecord(agentName, supervisor, dataDir);
   }
-  return readWaitAfterAcceptance(acceptance, supervisor, paneText, agentName, dataDir);
+  return readWaitAfterAcceptance(acceptance, supervisor, agentName, dataDir);
 }
 
 async function readWaitBeforeAnyRecord(
   agentName: string,
   supervisor: string,
-  paneText: string,
   dataDir: string,
 ): Promise<SupervisorWait> {
   const notWaiting = { waiting: false, reason: "no REPORT.md and not accepted" } as const;
-  const tag = classifyLastMessageTags(paneText);
-  const blockedOn = [
-    ...(tag.kind === "blocked" ? tag.blockedBy : []),
-    ...((await readBlockedMarker(agentName, dataDir))?.blockedBy ?? []),
-  ];
-  if (!blockedOn.some((name) => sameName(name, supervisor))) {
+  if (!isWaitingOn(await readAgentState(agentName, dataDir), supervisor)) {
     return notWaiting;
   }
   const lastSentToSupervisor = await readLastSendTo(agentName, supervisor, dataDir);
@@ -110,6 +98,11 @@ async function readLastSendTo(
     if (!Number.isNaN(sentAt.getTime()) && (latest === undefined || sentAt > latest)) latest = sentAt;
   }
   return latest;
+}
+
+function isWaitingOn(current: AgentState, supervisor: string): boolean {
+  if (current.state === "waiting-on-supervisor") return true;
+  return current.state === "blocked" && current.blockedBy.some((name) => sameName(name, supervisor));
 }
 
 function sameName(left: string, right: string): boolean {
@@ -136,14 +129,13 @@ async function readWaitWithoutAcceptanceRecord(
 async function readWaitAfterAcceptance(
   acceptance: AcceptanceRecord,
   supervisor: string,
-  paneText: string,
   agentName: string,
   dataDir: string,
 ): Promise<SupervisorWait> {
   const acceptedAt = parseRecordedTime(acceptance.acceptedAt);
   const goAhead = acceptance.goAhead;
   const goAheadSentAt = goAhead === undefined ? acceptedAt : parseRecordedTime(goAhead.sentAt);
-  if (findLatestQualifyingReapabilityClaim(paneText) !== undefined) {
+  if ((await readAgentState(agentName, dataDir)).state === "reapable") {
     const claimSeenAt = await readClaimSeenAt(agentName, dataDir);
     return waitingAt(SUPERVISOR_WAIT_STEPS.CLAIMED_AWAITING_REAP, supervisor, claimSeenAt ?? goAheadSentAt);
   }

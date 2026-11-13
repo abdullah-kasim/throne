@@ -95,7 +95,7 @@ async function deliverOnlyQueuedMessage(store: MessageQueueStore): Promise<{ typ
     recordDeliveredEvent: async () => null,
     readAgentRole: async () => ({ status: 'field-absent' }),
     readAgentSupervisor: async () => ({ status: 'field-absent' }),
-    clearBlockedMarker: async () => undefined,
+    clearBlockedState: async () => undefined,
     sleep: async () => undefined,
     maxNotSentAttempts: 1,
   };

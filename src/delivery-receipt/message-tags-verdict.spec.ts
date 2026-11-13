@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { submittedPayload } from '../herdr/herdr-send.helpers.ts';
 import { OTHER_PROMPT, RELAYED_PROMPT, promptKindOf } from '../memory-recall/prompt-kind.ts';
-import { lastMessageBlock } from '../no-idling/idle-pane-tag-classification.ts';
 import { deliveryReceiptVerdict } from './delivery-receipt-verdict.ts';
 
 const MESSAGE_ID = 12;
@@ -71,9 +70,4 @@ test('a tagged message is classified as delivered whole, cut, or folded into a c
   assert.equal(promptKindOf('line two\n</message12>'), RELAYED_PROMPT);
   assert.equal(promptKindOf(chipFolded(TYPED_TEXT)), RELAYED_PROMPT);
   assert.equal(promptKindOf('<system-reminder>hello</system-reminder>'), OTHER_PROMPT);
-});
-
-test('a pane reply after a tagged message is read without the closing tag', () => {
-  const pane = ['› <message12>', 'alpha-example said: report', '</message12>', '{"blocked":true}'].join('\n');
-  assert.equal(lastMessageBlock(pane), '{"blocked":true}');
 });

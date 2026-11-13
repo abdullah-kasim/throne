@@ -10,8 +10,8 @@ import {
   describeRuntimeModelMismatch,
   describeUnmetEvidenceRefusal,
 } from "../slice-evidence/agent-evidence-gate.ts";
-import type { readAgent } from "../herdr/herdr-runtime.service.ts";
 import type { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
+import type { AgentState } from "../agentdata/agent-state.service.ts";
 import {
   hasDurableVerdictOnlyShape,
   isCompletionProvenVerdictOnlyAgent,
@@ -34,8 +34,8 @@ export interface CompleteAgentDependencies {
    *  reachable in its target repository's history. Falls back to refusing
    *  on REPORT.md alone when omitted (e.g. in older/simplified callers). */
   hasDeliveryCommit?: (name: string) => Promise<boolean>;
-  readAgent?: typeof readAgent;
   readSpawnSpec?: typeof readSpawnSpec;
+  readAgentState?: (name: string) => Promise<AgentState>;
   /** A stated-evidence gate: `ok: true` when the agent's own ASSIGNMENT.md
    *  states no `Evidence required:` line, or its REPORT.md satisfies the one
    *  it does state. Falls back to allowing reap when omitted (e.g. in

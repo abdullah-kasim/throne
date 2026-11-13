@@ -32,7 +32,7 @@ function deliveryHandlerDeps(deliveries: Delivery[]): MessageDeliveryHandlerDeps
     submitToAgent: async (agent, senderName) => {
       deliveries.push({ senderName, recipientName: agent.name ?? "" });
     },
-    clearBlockedMarker: async () => undefined,
+    clearBlockedState: async () => undefined,
     readAgentRole: async () => ({ status: "field-absent" }),
     readAgentSupervisor: async () => ({ status: "field-absent" }),
     recordDeliveredEvent: async () => undefined,

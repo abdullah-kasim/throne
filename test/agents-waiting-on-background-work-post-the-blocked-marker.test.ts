@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { composeOpeningPrompt } from '../src/agentdata/identity-data.service.ts';
-import { classifyLastMessageTags } from '../src/no-idling/idle-pane-tag-classification.ts';
 import {
   missingPhrases,
   readMarkdownSection,
@@ -12,10 +11,11 @@ import {
 } from './skill-contract-test-helpers.ts';
 
 const BACKGROUND_WAIT_MARKER = '`{"blocked":true} BLOCKED_BY_own-background-run (<what>)`';
-const NEXT_MESSAGE_CLEARS_IT = 'next ordinary message clears';
+const DECLARES_THE_WAIT = 'throne my-state waiting-on-own-run';
+const NEXT_PROMPT_CLEARS_IT = 'next prompt records';
 const REASON = 'Otherwise no-idling pages the Regent every minute';
 const REGENT_SEND_LINE =
-  "`throne send-agent <agent> 'Publish {\"blocked\":true} BLOCKED_BY_own-background-run (<what>) as your latest message; clear it when you resume.'`";
+  "`throne send-agent <agent> 'Run throne my-state waiting-on-own-run \"<what>\" and publish {\"blocked\":true} BLOCKED_BY_own-background-run (<what>) as your latest message.'`";
 
 async function readAgentsFile(): Promise<string> {
   return unwrap(await readFile(resolve(import.meta.dirname, '..', 'AGENTS.md'), 'utf8'));
@@ -50,7 +50,7 @@ test('agents are told to end a turn waiting on background work with the blocked 
   ];
   for (const [place, text] of places) {
     assert.deepEqual(
-      missingPhrases(text, [BACKGROUND_WAIT_MARKER, NEXT_MESSAGE_CLEARS_IT, REASON]),
+      missingPhrases(text, [BACKGROUND_WAIT_MARKER, DECLARES_THE_WAIT, NEXT_PROMPT_CLEARS_IT, REASON]),
       [],
       `${place} carries the background-wait rule`,
     );
@@ -81,16 +81,12 @@ test('every agent identity prompt covers waiting on background work', () => {
       missingPhrases(unwrap(prompt), [
         'When you end a turn to wait on background work you started',
         BACKGROUND_WAIT_MARKER,
-        NEXT_MESSAGE_CLEARS_IT,
+        DECLARES_THE_WAIT,
+        NEXT_PROMPT_CLEARS_IT,
       ]),
       [],
       `the ${role} prompt carries the background-wait rule`,
     );
     assert.match(prompt, /Otherwise no-idling pages the \S+ every minute/);
   }
-});
-
-test('the marker the rule teaches is read as waiting on the agent\'s own background run', () => {
-  const tag = classifyLastMessageTags('Both suite runs are queued.\n\n{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)');
-  assert.deepEqual(tag, { kind: 'blocked', blockedBy: [], waitsOnOwnBackgroundRun: true });
 });

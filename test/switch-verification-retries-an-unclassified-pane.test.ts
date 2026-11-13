@@ -7,7 +7,7 @@ test("a pane whose status is not yet classified is retried, not failed", () => {
     isTransientVerificationReadiness({
       outcome: "refused",
       code: "status-rejects-input",
-      reason: 'recipient "stager-fifth" is unknown and does not accept input',
+      reason: 'recipient "stager-east" is unknown and does not accept input',
     }),
     true,
   );

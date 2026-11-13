@@ -855,8 +855,9 @@ mechanics, and call-graph shape to the executing Shadow after recon.>
   literal protocol in authored todo prose.
 - When you end a turn to wait on background work you started (a test or
   suite run, a monitor, a queued container slot, a background agent), end
-  that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next ordinary
-  message clears it. Otherwise no-idling pages the Regent every minute.
+  that message by running `throne my-state waiting-on-own-run "<what>"` and publishing
+  `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`; your next prompt records
+  you as working again. Otherwise no-idling pages the Regent every minute.
 ```
 
 For slices (`01`–`98`), the `## Out of scope` and `## Deliverable` sections are non-negotiable, and `## Kill list` is non-negotiable whenever the slice supersedes existing code (omit it only when nothing is superseded — see "Code cleanup is mandatory"). Everything else is shaped by the slice's semantic contract — a cross-slice contract todo emphasizes externally fixed interfaces and invariants; an implement-the-page todo emphasizes observable UX states and validation evidence; a fix-the-bug todo emphasizes the failing reproduction, the shared decision, and the invariant being restored. (`00`, `99a`, `99b`, `99bs`, and `99c` follow their own templates below.)

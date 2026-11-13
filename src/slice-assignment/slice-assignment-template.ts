@@ -25,8 +25,9 @@ completion stamp that makes you reapable via plain \`complete-agent\`, so
 Your wait has two ways to end, both finishing the same way:
 
 1. **Primary:** the moment your supervisor's merge-confirmation message
-   arrives, publish \`${formatReapabilityClaim("completed")}\` as your latest
-   message. No other action is required first.
+   arrives, run \`throne my-state reapable completed\` and publish
+   \`${formatReapabilityClaim("completed")}\` as your latest message. No other
+   action is required first.
 2. **Fallback, usable without waiting on that message at all — but ONLY
    after you have reported DONE, never before:** a send is not a delivery,
    so if the confirmation is slow or lost you may independently check

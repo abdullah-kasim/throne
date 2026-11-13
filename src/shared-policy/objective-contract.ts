@@ -173,6 +173,10 @@ export function isQueueFilerRoleName(role: string): boolean {
   return normalized === 'stager' || normalized === 'bot';
 }
 
+export function isRegentOrStagerRoleName(role: string | undefined): boolean {
+  return role !== undefined && (role.trim().toLowerCase() === 'regent' || isQueueFilerRoleName(role));
+}
+
 export function newAgentObjectiveContract(opts: {
   role: string;
   name: string;

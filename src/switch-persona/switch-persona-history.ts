@@ -2,7 +2,7 @@
 // persona so that transitions can fallback". Recorded in the DURABLE LEDGER
 // (`THRONE_DATA_DIR`, home-anchored — not gitignored worktree state and not
 // pane content), the same class of move BLK made for blocked state
-// (`agentdata/blocked-marker.service.ts`) and for the identical reason: pane
+// (`agentdata/agent-state.service.ts`) and for the identical reason: pane
 // scraping is not a source of truth.
 //
 // Keeps only the single immediately-previous record, not a history: the

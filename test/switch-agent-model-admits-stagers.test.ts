@@ -10,7 +10,7 @@ const STAGER_SPAWN: SpawnSpec = {
   harness: STAGER_PAIR.harness,
   model: STAGER_PAIR.model,
   effort: 1,
-  cwd: "/Users/theuser/.throne/worktrees/throne/stager-fifth",
+  cwd: "/Users/theuser/.throne/worktrees/throne/stager-east",
 };
 
 const NO_BYPASS = { model: false, effort: false, zeroQuota: false };
@@ -30,7 +30,7 @@ const NO_ROLE_PREFIX = /has no recognized role prefix/;
 
 test("a Stager is admitted by its identity role rather than a name prefix", async () => {
   const resolved = await resolveRegisteredSwitchPolicy({
-    agentName: "stager-fifth",
+    agentName: "stager-east",
     spawn: STAGER_SPAWN,
     requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,
@@ -46,7 +46,7 @@ test("a Stager is admitted by its identity role rather than a name prefix", asyn
 
 test("the identity role is read case-insensitively, as identity.md casing drifts", async () => {
   const resolved = await resolveRegisteredSwitchPolicy({
-    agentName: "stager-second",
+    agentName: "stager-west",
     spawn: STAGER_SPAWN,
     requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,
@@ -59,7 +59,7 @@ test("the identity role is read case-insensitively, as identity.md casing drifts
 
 test("a Stager needs no objective contract to be switched", async () => {
   const resolved = await resolveRegisteredSwitchPolicy({
-    agentName: "stager-fifth",
+    agentName: "stager-east",
     spawn: { ...STAGER_SPAWN, objective_code: undefined },
     requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,
@@ -72,7 +72,7 @@ test("a Stager needs no objective contract to be switched", async () => {
 
 test("the Stager name alone does not admit it; the identity role is what does", async () => {
   const resolved = await resolveRegisteredSwitchPolicy({
-    agentName: "stager-fifth",
+    agentName: "stager-east",
     spawn: STAGER_SPAWN,
     requested: { model: STAGER_PAIR.model, effort: 1 },
     bypass: NO_BYPASS,

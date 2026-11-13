@@ -4,10 +4,10 @@
 // (test/campaign-evidence/source-file-structure.spec.ts's dependency-graph
 // check forbids cycles even where TS's `import type` erasure would make one
 // runtime-harmless).
-import type { HerdrAgent, ReadOptions } from '../herdr/herdr-inventory.service.ts';
+import type { HerdrAgent } from '../herdr/herdr-inventory.service.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import type { IdentityLineRead } from '../agentdata/identity-data.service.ts';
-import type { BlockedMarkerLedger } from './idle-family.ts';
+import type { ReadAgentState } from './blocked-marker-resolution.ts';
 import type { SubmitToAgentOptions } from '../herdr/herdr-send.types.ts';
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
 import type { StaleTabReport, StrandedSpawnReport } from './stale-tab-report.ts';
@@ -49,9 +49,9 @@ export interface NoIdlingDependencies {
     prompt: string,
     options?: SubmitToAgentOptions,
   ) => Promise<void>;
-  readAgent: (name: string, opts?: ReadOptions) => Promise<string>;
   readHarnessBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>;
-  blockedMarkerLedger: BlockedMarkerLedger;
+  readAgentState: ReadAgentState;
+  markAgentWorking: (name: string) => Promise<void>;
   readSpawnSpec: (name: string, dataDir: string) => Promise<SpawnSpec | null>;
   hasFutureScheduledDelivery?: (name: string, nowMs: number) => Promise<boolean>;
   // Whether the named agent's ledger directory carries the positive

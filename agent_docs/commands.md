@@ -15,6 +15,7 @@ sending nothing) on a zero-or-ambiguous match — the reliability rule.
 | Command | Purpose |
 |---------|---------|
 | `assert-herdr` | Refuse to run unless inside a herdr session. |
+| `my-state <state> [--by <child>]... [--agent <name>] [<words>]` | Declare the caller's state (`working`, `blocked`, `waiting-on-own-run`, `waiting-on-supervisor`, `reapable`) in `~/.throne/data/<agent>/state.json`, written to a temporary file and renamed. `--by` names each child a `blocked` agent waits on; the words are what a waiting agent waits on, or the reason a `reapable` agent gives (`completed`, `abandoned`, `task_restart_required`, `fail`). Every check that asks an agent's state reads this file, never the pane. An agent may declare by command or by marker: `my-state --turn-end` reads a turn's final message on stdin and, when it carries a marker line (`{"blocked":true}` with `__BLOCKED_BY_<child>__` or `BLOCKED_BY_own-background-run (<what>)`, or `{"reapable":"<reason>"}`), writes the matching state as `declaredBy: agent`; Claude's turn-end hook calls it, Codex has no such hook. When a turn has both the command and a disagreeing marker, the command wins. Only the Regent may pass `--agent` to write another agent's file, recorded as `declaredBy: regent`. An unknown state is refused. The turn-start hook writes `working` at each prompt. |
 | `agent-statuses` | Table of every herdr agent + its status (idle/working/blocked). |
 | `scratch-pane register <pane> --owner <agent> --until <ISO-8601 time>` | Record that a live agent owns an unnamed herdr pane it opened on purpose until a time, so no-idling's unnamed-agent sweep stays silent about it; the sweep reports it once when the time passes and once when the owner is gone. Refuses an owner that is not a known agent and a time that has passed. |
 | `agent-logs <name> [--lines N] [--source visible\|recent\|recent-unwrapped]` | Read what an agent has been doing (its recent/visible output). An Alpha uses it for one completion review, an explicit blocker, or silence beyond the 30-minute Regent heartbeat interval; the Regent uses it for diagnostics and to answer the Lord without blocking. It is never an Alpha short-cadence polling loop. |
@@ -1161,11 +1162,11 @@ entirely.
   `send-agent` after the agent was already working do not count. A starting
   spawn is also never redelivered as stranded, nor reported as untasked.
 - **Live reapability claim required.** Before any live agent teardown,
-  `reap-agent` reads the target's latest pane message and requires the exact
-  one-key JSON claim `{"reapable":"completed"}` (also accepting `abandoned`
-  and `task_restart_required`). The same claim may appear as an anchored token
-  within the latest message. Retired `reapable_status` / `__REAPABLE_*__`
-  markers never authorize teardown. An absent or unreadable claim refuses and
+  `reap-agent` reads the target's `state.json` and requires the state
+  `reapable` with the reason `completed` (also accepting `abandoned` and
+  `task_restart_required`), declared by `throne my-state reapable completed`.
+  The agent's `{"reapable":"completed"}` marker line is for whoever reads the
+  pane; the pane is never read. An absent or unreadable claim refuses and
   directs the caller to message the agent to distinguish reapable from merely
   idle. `--bypass-marker` alone overrides this precondition; `--force` does not.
   For a non-working live agent whose durable spawn record declares

@@ -34,6 +34,10 @@ export const SCRATCH_DIR_REMOVAL_OUTCOMES = {
   REMOVED: 'removed',
   SKIPPED_LIVE: 'skipped-live',
   SKIPPED_TOO_YOUNG: 'skipped-too-young',
+  SKIPPED_NOT_OURS: 'skipped-not-ours',
+  SKIPPED_MOUNT_POINT: 'skipped-mount-point',
+  SKIPPED_SYSTEM_NAME: 'skipped-system-name',
+  FAILED: 'failed',
 } as const;
 
 export type ScratchDirRemovalOutcome =
@@ -42,4 +46,17 @@ export type ScratchDirRemovalOutcome =
 export interface ScratchDirRemovalResult {
   dirPath: string;
   outcome: ScratchDirRemovalOutcome;
+  errorCode?: string;
+}
+
+export interface ScratchEntryStatus {
+  ownerId: number;
+  deviceId: number;
+  modifiedMs: number;
+}
+
+export interface ScratchDirRemovalDependencies {
+  readEntryStatus: (entryPath: string) => Promise<ScratchEntryStatus>;
+  sweepingUserId: number;
+  removeDirectory: (dirPath: string) => Promise<void>;
 }

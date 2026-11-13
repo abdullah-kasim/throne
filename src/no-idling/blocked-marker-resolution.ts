@@ -1,65 +1,36 @@
+import type { AgentState } from '../agentdata/agent-state.service.ts';
 import type { LastMessageTagState } from './idle-pane-tag-classification.ts';
 
-export interface BlockedMarkerLedger {
-  readBlockedMarker: (
-    name: string,
-  ) => Promise<
-    | {
-        blockedAt: string;
-        reason?: string;
-        origin?: 'agent' | 'regent';
-        blockedBy?: readonly string[];
-      }
-    | null
-  >;
-  writeBlockedMarker: (name: string, blockedBy?: readonly string[]) => Promise<void>;
-  clearBlockedMarker: (name: string) => Promise<void>;
+export type ReadAgentState = (name: string) => Promise<AgentState>;
+
+const FAILED_REAPABLE_REASON = /^\s*fail/i;
+
+export function tagOfAgentState(declared: AgentState, running: string | undefined): LastMessageTagState {
+  switch (declared.state) {
+    case 'blocked':
+      return { kind: 'blocked', blockedBy: declared.blockedBy };
+    case 'waiting-on-own-run':
+      return { kind: 'blocked', blockedBy: [], waitsOnOwnBackgroundRun: true };
+    case 'waiting-on-supervisor':
+      return { kind: 'blocked', blockedBy: [] };
+    case 'reapable':
+      return FAILED_REAPABLE_REASON.test(declared.reapableReason ?? '')
+        ? { kind: 'reapable-failed' }
+        : { kind: 'reapable' };
+    case 'working':
+      return running === undefined ? { kind: 'unmarked' } : { kind: 'busy', running };
+  }
 }
 
-/**
- * The durable ledger record is authoritative over observer inference, while
- * the agent's own latest declaration remains authoritative over its earlier
- * declaration. A later ordinary or reapable turn retires the marker. Pane
- * chrome and read failures cannot retire it. A marker authored by the Regent
- * about an agent that cannot speak for itself (origin 'regent') is retired
- * only by that agent's own later ordinary or reapable turn, never by an
- * unmarked pane, since an unmarked pane is not an agent declaration.
- *
- * The persisted `blockedBy` list is written once, at first observation of
- * the block, from the agent's own pane declaration, and is returned
- * unchanged from the ledger on every later "still blocked" sweep -- never
- * re-derived from a fresh pane read, matching every other durable field on
- * this record.
- */
-export async function resolveBlockedTag(
+export async function readDeclaredTag(
   name: string,
-  paneTag: () => Promise<LastMessageTagState>,
-  ledger: BlockedMarkerLedger,
+  readAgentState: ReadAgentState,
+  readRunning: () => Promise<string | undefined> = async () => undefined,
 ): Promise<LastMessageTagState> {
-  const marker = await ledger.readBlockedMarker(name);
-  const tag = await paneTag();
-  if (marker !== null) {
-    const clearingKinds =
-      marker.origin === 'regent'
-        ? tag.kind === 'reapable' || tag.kind === 'reapable-failed'
-        : tag.kind === 'unmarked' || tag.kind === 'reapable' || tag.kind === 'reapable-failed';
-    if (clearingKinds) {
-      await ledger.clearBlockedMarker(name);
-      return tag;
-    }
-    const persistedChildren = marker.blockedBy ?? [];
-    if (persistedChildren.length === 0 && tag.kind === 'blocked' && tag.blockedBy.length > 0) {
-      await ledger.writeBlockedMarker(name, tag.blockedBy);
-      return tag;
-    }
-    return {
-      kind: 'blocked',
-      blockedBy: persistedChildren,
-      ...(tag.kind === 'blocked' && tag.waitsOnOwnBackgroundRun ? { waitsOnOwnBackgroundRun: true } : {}),
-    };
+  try {
+    const declared = await readAgentState(name);
+    return tagOfAgentState(declared, declared.state === 'working' ? await readRunning() : undefined);
+  } catch {
+    return { kind: 'unreadable' };
   }
-  if (tag.kind === 'blocked') {
-    await ledger.writeBlockedMarker(name, tag.blockedBy);
-  }
-  return tag;
 }
