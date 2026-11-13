@@ -178,6 +178,62 @@ if config.items exists:
 
 "What if it's not set?" → Make it set. Problem solved.
 
+## Orchestration code: an agent always forgets
+
+The Lord's rules for writing orchestrators, verbatim:
+
+> "ok one important rule for writing orchestrators - an agent always forgets. You can tell it instructions in the beginning, but it will forget to do it at the end of it. Hence why we ahve all sorts of monitors, no-idle, etc." (Lord, 2026-11-11)
+
+> "ok a few more rules for writing orchestrators. 1. They always forget. 2. Instructions, as well as fences. We can instruct agents not to push, but they tend to forget, hence why `git push` needs `git push --bypass` for example. 3. Monitoring. We can instruct agents to finish until the very end but for some reason they'll stop midway. Hence, why we have `no-idle` and `keep-going`, and many more." (Lord, 2026-11-11)
+
+> "and yes, since it's a fence, we can always jump over the fence. Don't make a fence too tight - I suppose that's another rule. Always leave a way out." (Lord, 2026-11-11)
+
+His reason for the fourth rule:
+
+> "if we make a wall rather than a fence, the orchestrator becomes too rigid and agents stop becoming... agents" (Lord, 2026-11-11)
+
+A fence leaves the agent its judgement and a wall takes it away; an orchestrator that walls every path has replaced the agent with a script and kept the cost of an agent. They build on his earlier rulings in AGENTS.md: "things that we forget, has to be codified" (2026-09-17) and "The skill is just for an agent to monitor it. This is so that we can make it repeatable." (2026-11-06).
+
+Everything below is guidance that follows from those rules, not his ruling.
+
+**Why.** An instruction given at the start of a long task is gone by its end. Skill text, an opening prompt or a role file can explain a step; none of them is what makes it happen, and none of them stops the wrong action.
+
+**Three layers for any step the court depends on.** None replaces another.
+
+- **Instruction** says what and why. It does not survive a long task.
+- **Fence**: the wrong action refuses, with a named bypass for the cases where it is right.
+- **Monitor** notices what should have happened and did not, and pages whoever can act.
+
+A command the agent already runs that does the step as a side effect removes the step from the agent's memory altogether. It still keeps a monitor behind it, because the command's message can fail too.
+
+**Which layer for which failure.** A wrong action gets a fence. A missing action gets a monitor. Both keep their instruction. Never fix a failure in one layer by leaning harder on the instruction.
+
+**Fences, and the way out.** Examples in this repository: `bin/git` refuses a push from a court session that skips the push checks, and a push the Lord's order names passes `git --bypass push`; `reap-agent` refuses a live agent with no reapability claim, and `--bypass-marker` overrides that one check; `reap-agent` refuses while live children report to the target, and `--force` cascades. AGENTS.md already requires that every refusal a `--bypass-*` flag would waive names that flag.
+
+- Every fence has a way out: a named bypass, printed by the refusal itself. A fence with no way out is a wall, and an agent that meets a wall stops midway or reaches for something more destructive.
+- A bypass the court restricts to the Lord's order is still a way out. "Always leave a way out" does not mean any agent may jump any fence.
+- Do not draw a fence tighter than the wrong action it exists to stop. A fence that also refuses harmless cases teaches agents to pass the bypass by habit, and then it stops nothing.
+- Stager's corollary: a bypass used routinely means the fence is drawn in the wrong place. Move the fence, keep the bypass.
+
+**Monitors are part of the design, not noise.** Examples: the per-minute no-idling sweep, which pages about idle agents and honours a published blocked marker; the 30-minute `keep-going` heartbeat. When a monitor raises false alarms, fix what it believes (a stale roster, a weak signal, a wait it does not know is healthy) and whom it pages. Never remove the backstop.
+
+- A page goes to the agent that can act and names the action. It is not repeated for an unchanged observation. It reaches the next supervisor only after a limit.
+- A healthy wait must be known to the monitors. When a protocol makes an agent wait, the same change teaches every monitor that this wait is fine, or the monitor pages it as stuck.
+- Decide from durable facts (the ledger, the transcript, git), not from a status that can lag.
+
+**Checklist for a change that adds or alters a step.** Answer each for every step:
+
+| Question | Answer for the step |
+| --- | --- |
+| Which agent must act? | |
+| Instruction: where is the what and why written? | |
+| Command: which command does it as a side effect, if any? | |
+| Fence: if a wrong action is possible, what refuses it, what is its way out, and who may use it? | |
+| Monitor: if a missing action is possible, which monitor notices, whom does it page, and after how long? | |
+| Healthy waits: what waits does the change create, and which monitors were taught them? | |
+
+**Example, in an invented kitchen.** The closing cook was told at the start of each shift to switch off the fryer. By closing time the cook had forgotten often enough that the fryer ran all night. Leaning harder on the instruction (a bigger sign) changed nothing. Now the till's "close the day" button switches the fryer off as a side effect, so nobody has to remember. A temperature monitor behind it still texts the manager on duty, naming the fryer, if it is hot thirty minutes after close, because the button's relay can fail too; it texts once per change, and calls the owner only if the manager has not acted in an hour. Deep-cleaning nights, when the fryer is meant to stay on, are entered in the same change so the monitor does not page them.
+
 ## No leaking a cohesive concern across files
 
 A cohesive concern lives in ONE module — a single source of truth. Do not scatter one responsibility's logic across the files that happen to touch it; leakage is what happens when a concern grows a piece wherever it was locally convenient instead of in its own home.

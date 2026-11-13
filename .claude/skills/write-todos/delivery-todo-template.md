@@ -1,7 +1,7 @@
 # The delivery todo (`99c_deliver_<topic>.md`)
 
 Always the final executable todo and always a distinct fresh real Shadow. It
-runs only after explicit `99b` PASS and owns delivery together with the
+runs only after explicit `99bs` PASS and owns delivery together with the
 conflicts delivery hits in `git-repo` mode: it merges the latest target branch
 into the campaign branch, resolves every conflict there, and then delivers the
 result to the target. When the deliverable is a pull request (the queue row's
@@ -25,7 +25,7 @@ explicit final outcome.
 
 ```markdown
 ---
-deps: [99b]
+deps: [99bs]
 ---
 
 # 99c — Merge the latest target into <feature>, then deliver it
@@ -44,6 +44,11 @@ require a decision the bundle never made — a genuine semantic fork between two
 landed slices — and say exactly which two. Then re-read the
 target HEAD: if it moved, absorb and re-check again, and repeat for as long as
 the target keeps moving.
+
+When the merge changed code beyond a clean merge, run the spec gate's steps
+(`gate-99bs-spec.md`) again for the areas it changed, and commit that, before
+delivering. A merge is beyond clean when `git merge` stopped on a conflict or
+you committed anything to the campaign branch after the merge commit.
 
 Only when the campaign branch is current with a target whose HEAD is unchanged
 since that final check, deliver it with plain git — check out the target branch
@@ -92,16 +97,16 @@ chain that preceded the 2026-08-25 renumber, `99b_validate`/`99c_merge`, or the
 five-gate `99a` absorb → `99b` file-size → `99c` static analysis → `99d`
 validate → `99e` deliver — keeps the meaning its files were authored with. Run
 those files as written with fresh terminal Shadows. New bundles generate only
-the three-gate `99a` conformance → `99b` verify-and-fix → `99c`
+the `99a` conformance → `99b` verify-and-fix → `99bs` spec → `99c`
 merge-and-deliver chain above.
 
 Because the bare letter is therefore ambiguous across generations, the throne
 classifies a terminal gate by its ROLE WORD, not its letter
 (`terminalGateRoleFromShadowName` in `src/merge-git-tree/terminal-gate-shadow.ts`).
 Keep the verb in every terminal filename — `99a_conform_<topic>`,
-`99b_verify_<topic>`, `99c_deliver_<topic>` — or a delivery gate stops being
+`99b_verify_<topic>`, `99bs_spec_<topic>`, `99c_deliver_<topic>` — or a delivery gate stops being
 recognisable as one.
 
 `98_ticket_<topic>` keeps its role word too. It is the last ordinary-band
 number, so it runs after every other ordinary slice and before `99a`, and it
-is not one of the three terminal gates the throne classifies by verb.
+is not one of the terminal gates the throne classifies by verb.

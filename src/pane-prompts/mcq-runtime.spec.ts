@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -46,6 +46,7 @@ function fakeCourt(
     readonly caller?: string;
     readonly role?: string;
     readonly initialScreen?: string;
+    readonly screenAt?: (selectedRow: number) => string;
     readonly behaviour?: Partial<FakePaneBehaviour>;
   } = {},
 ): FakeCourt {
@@ -56,8 +57,9 @@ function fakeCourt(
     escapeClears: true,
     ...options.behaviour,
   };
+  const screenAt = options.screenAt ?? permissionScreen;
   let selectedRow = 1;
-  let screen = options.initialScreen ?? permissionScreen(selectedRow);
+  let screen = options.initialScreen ?? screenAt(selectedRow);
   const pressed: string[] = [];
   const paneLocksHeldAtEachPress: (number | null)[] = [];
   const paneLock = new RecipientPaneLockService();
@@ -82,22 +84,22 @@ function fakeCourt(
     resolveAgent: async () => agent,
     readPaneText: async () => screen,
     withRecipientPaneLock: (paneId, action) =>
-      paneLock.withRecipientPaneLock(paneId, action, { lockDirectory }),
+      paneLock.withRecipientPaneLock(paneId, action, { throneHome: lockDirectory }),
     pressKey: async (_pane, key) => {
-      paneLocksHeldAtEachPress.push(await countInFlightRecipientPaneLocks({ lockDirectory }));
+      paneLocksHeldAtEachPress.push(await countInFlightRecipientPaneLocks({ throneHome: lockDirectory }));
       pressed.push(key);
       if (/^\d$/u.test(key)) {
         if (behaviour.digitSelectsAndSubmits) screen = CLEARED_SCREEN;
         else if (behaviour.digitMovesCursor) {
           selectedRow = Number(key);
-          screen = permissionScreen(selectedRow);
+          screen = screenAt(selectedRow);
         }
         return;
       }
       if (key === 'down' || key === 'up') {
         if (!behaviour.arrowsMove) return;
         selectedRow = behaviour.arrowJumpsTo ?? selectedRow + (key === 'down' ? 1 : -1);
-        screen = permissionScreen(selectedRow);
+        screen = screenAt(selectedRow);
         return;
       }
       if (key === 'enter') screen = CLEARED_SCREEN;
@@ -248,4 +250,21 @@ test('unknown flags and missing actions are usage errors', async () => {
     assert.equal(await runMcq(args, court.deps), McqExitCode.Usage, args.join(' '));
     assert.match(court.stderr.join(''), /usage: throne mcq --agent <name>/u);
   }
+});
+
+const FOLDER_TRUST_FIXTURE = await readFile(path.join(import.meta.dirname, 'fixtures', 'claude-folder-trust-prompt.txt'), 'utf8');
+
+function folderTrustScreen(selectedRow: number): string {
+  return FOLDER_TRUST_FIXTURE.replace(' ❯ No, exit', `${selectedRow === 1 ? ' ❯' : '  '} No, exit`).replace(
+    '   Yes, I trust this folder',
+    `${selectedRow === 2 ? ' ❯' : '  '} Yes, I trust this folder`,
+  );
+}
+
+test('mcq can answer the folder-trust prompt', async () => {
+  const court = fakeCourt({ screenAt: folderTrustScreen, behaviour: { digitSelectsAndSubmits: false } });
+  assert.equal(await runMcq(['--agent', 'shadow-x', '--answer', '2'], court.deps), McqExitCode.Done);
+  assert.deepEqual(court.pressed, ['2', 'down', 'enter']);
+  assert.equal(court.ledger[0]!.kind, 'folder-trust');
+  assert.deepEqual(court.ledger[0]!.chosen, { number: 2, label: 'Yes, I trust this folder' });
 });

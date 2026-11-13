@@ -54,5 +54,5 @@ test("the pre-guards that do not need the suite session run while the image buil
   assert.deepEqual(imageBuild, { startedAtMs: 0, finishedAtMs: 100 });
   const testIsolated = JSON.parse(readFileSync(path.join(repositoryRoot, "package.json"), "utf8")).scripts["test:isolated"];
   assert.doesNotMatch(testIsolated, /dist-staleness-guard/);
-  assert.match(testIsolated, /--pre-guard node --import \.\/test\/register-typescript\.mjs scripts\/herdr-tab-leak-guard\.mjs pretest/);
+  assert.match(testIsolated, /--pre-guard bun scripts\/herdr-tab-leak-guard\.mjs pretest/);
 });

@@ -230,7 +230,7 @@ export function checkDistIsFresh(repoRoot, distDir) {
 
 function printUsageAndExit() {
   console.error(
-    'usage: node scripts/dist-staleness-guard.mjs <checkout-root>\n' +
+    'usage: bun scripts/dist-staleness-guard.mjs <checkout-root>\n' +
       'The checkout root to audit must be named explicitly -- it is never inferred from the ' +
       'caller\'s current working directory.',
   );

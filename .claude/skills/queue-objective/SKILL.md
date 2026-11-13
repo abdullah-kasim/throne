@@ -141,7 +141,16 @@ discount precisely and named nothing to build on. Code reuse
 decreases complexity (Lord, 2026-09-23); the survey is the Stager's job
 because the Stager is the one reading the tree before the work starts.
 
-For every verb in the objective (sign, verify, retry, page, resolve, render,
+Read the feature map first. `throne spec-location <repo> --json` names where
+the target's spec folder and `FEATURE_MAP.md` live (`map.path`); when one
+exists, read it, open the spec files whose features look relevant, and cite
+each under `REUSE:` as `<spec file> — what it already covers`. Then grep as
+below anyway: the map points at code, it does not replace reading it. The
+map's first lines name the areas it covers; an area it does not cover, or a
+repository with no map yet, is searched in the code as before. Planning
+(`/write-todos`) and `/plan-task-split` follow this same rule from here.
+
+Then, for every verb in the objective (sign, verify, retry, page, resolve, render,
 parse, cache, notify), grep the target tree for the existing implementation:
 
 ```bash
@@ -280,13 +289,13 @@ throne add-to-queue --objective-code <code> \
   (`/execute-todos`, "Pull-request delivery"); that base branch is never
   merged into or pushed. State the branch and the base in the
   body's `SCOPE:` too.
-- **A repository that lands on main is always filed this way (Lord,
+- **A repository whose pull requests stay on Forgejo is always filed this way (Lord,
   2026-10-22, choosing its delivery: "Forgejo PR, wait for me").** When
-  `git -C <repo> config --type=bool --get throne.forge.landsOnMain` prints
+  `git -C <repo> config --type=bool --get throne.forge.pullRequestsStayOnForgejo` prints
   `true`, file the row with a human-named `--pr-branch` exactly as the
   bullet above says, so it delivers a Forgejo pull request and waits.
-  Nothing reaches `main` until the Lord says /pr-merge or /pr-promote on
-  that pull request.
+  Nothing reaches `main` until the Lord says /pr-merge on that pull
+  request.
 - **A yolo repository pushes its default branch (Lord, 2026-10-30: "When a
   repo is in yolo mode, branches are allowed, but once a campaign is done,
   everything needs to be merged into `main`").** When `git -C <repo> config --type=bool --get
@@ -395,12 +404,13 @@ the body is the rot vector; the queue row is the single canonical text).
 
 ### 6b. Put the row on the Lord's page
 
-The Lord reads one page to see what he is working on, `where-i-stand.md`
-under the throne data home, and a row he just had filed belongs on it at
+The Lord reads one page to see what he is working on, kept in the throne
+database, and a row he just had filed belongs on it at
 once. Write the entry's lines to a file (the page's entry form first: its
 links, its kind, and where it stands, open or deferred and on what; then the
-closing line naming you and the time) and run
-`throne where-i-stand put --code <code> --section "Queued and deferred" --text-file <file>`.
+closing line naming you and the time). Run `throne where-i-stand list` and
+keep the id of `Queued and deferred` and the listing token, then run
+`throne where-i-stand put --code <code> --section-id <id from list> --listing-token <token from list> --text-file <file>`.
 Then add the event:
 
 ```bash
@@ -408,9 +418,9 @@ throne where-i-stand note "filed <code>: <what it is in one line>"
 ```
 
 `/where-i-stand` holds the page's frame, its writing rules, and in step 4
-the lock in full. A lock refused because the page changed since your `show`
-means another agent wrote in between: run `show` again, read the page again,
-and take the lock with the new checksum.
+the commands in full. A token refused because the structure changed since
+your `list` means another agent added a tab or section in between: list
+again and use the new token.
 
 ### 7. Tell the Lord what to expect
 

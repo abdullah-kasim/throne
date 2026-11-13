@@ -66,20 +66,21 @@ detection_source=""
 probe_succeeded=0
 
 session_name="${THRONE_HERDR_SESSION_NAME_OVERRIDE:-throne}"
-if command -v herdr >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+runtime_launcher="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)/bin/throne-runtime"
+if command -v herdr >/dev/null 2>&1 && [ -x "$runtime_launcher" ]; then
     if herdr_panes=$(herdr --session "$session_name" pane list 2>/dev/null); then
         # Every pane object carrying a top-level "agent" field is a live
         # agent-bearing pane. The raw pane list has no throne registry name,
         # so identify each hit by its pane_id — best-effort, not an
-        # authoritative throne name. Parsed with `node -e` (real JSON.parse)
+        # authoritative throne name. Parsed with `throne-runtime -e` (real JSON.parse)
         # rather than grep/sed: pane objects nest a second "agent" key inside
         # "agent_session", which broke a naive brace-split/regex approach —
         # only real JSON parsing distinguishes the top-level field reliably.
-        # The node script exits nonzero on any parse failure so a malformed
+        # The script exits nonzero on any parse failure so a malformed
         # response is never mistaken for "zero panes" (fail closed, not open).
         parsed_panes=""
         parse_rc=0
-        parsed_panes=$(printf '%s' "$herdr_panes" | node -e '
+        parsed_panes=$(printf '%s' "$herdr_panes" | "$runtime_launcher" -e '
             let raw = "";
             process.stdin.on("data", c => raw += c);
             process.stdin.on("end", () => {
@@ -104,8 +105,8 @@ fi
 # primary probe above could not run at all.
 if [ "$probe_succeeded" -eq 0 ]; then
     throne_root="${THRONE_ROOT_OVERRIDE:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)}"
-    if { [ -x "$throne_root/dist/src/tools.js" ] || [ -f "$throne_root/dist/src/tools.js" ]; } && command -v node >/dev/null 2>&1; then
-        if statuses_output=$(node "$throne_root/dist/src/tools.js" agent-statuses 2>/dev/null); then
+    if { [ -x "$throne_root/dist/src/tools.js" ] || [ -f "$throne_root/dist/src/tools.js" ]; } && [ -x "$throne_root/bin/throne-runtime" ]; then
+        if statuses_output=$("$throne_root/bin/throne-runtime" "$throne_root/dist/src/tools.js" agent-statuses 2>/dev/null); then
             probe_succeeded=1
             detection_source="agent-statuses (fallback; herdr pane list unavailable)"
             while IFS= read -r name; do
@@ -158,4 +159,4 @@ log "done — throne-herdr.service is now the live herdr server"
 log "every agent pane, including the Regent, is now dead."
 log "resurrection is throne-backend's keep-going cron (EVERY_30_MINUTES, so :00/:30 marks) — up to a 30-minute gap."
 log "to resurrect sooner: once throne-herdr.service is confirmed active, run (from a non-pane shell, e.g. ssh/tty):"
-log "  node <throne root>/dist/src/tools.js keep-going"
+log "  <throne root>/bin/throne-runtime <throne root>/dist/src/tools.js keep-going"

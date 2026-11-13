@@ -10,11 +10,6 @@
 		<string>-lc</string>
 		<string>mkdir -p "{{THRONE_LOGS}}" &amp;&amp; exec {{THRONE_ROOT}}/systemd/forgejo-serve &gt;&gt; "{{THRONE_LOGS}}/forgejo.log" 2&gt;&amp;1</string>
 	</array>
-	<key>EnvironmentVariables</key>
-	<dict>
-		<key>FORGEJO_NODE_BIN</key>
-		<string>{{NODE_BIN}}</string>
-	</dict>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>KeepAlive</key>

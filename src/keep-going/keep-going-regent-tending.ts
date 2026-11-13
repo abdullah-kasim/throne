@@ -107,6 +107,17 @@ async function detectStalledAlphaRecovery(
   return families;
 }
 
+async function pageSupervisorWaits(deps: KeepGoingDependencies): Promise<void> {
+  if (deps.pageSupervisorWaits === undefined) return;
+  try {
+    const roster = await deps.getRoster!(await deps.resolveHeartbeatRoot!());
+    const pages = await deps.pageSupervisorWaits(roster);
+    writeOut(deps, `keep-going: sent ${pages} supervisor-wait page(s).\n`);
+  } catch (err) {
+    writeErr(deps, `keep-going: supervisor-wait monitor failed (${errText(err)})\n`);
+  }
+}
+
 async function detectInFlightRowsWithoutLiveAlpha(
   deps: KeepGoingDependencies,
 ): Promise<readonly InFlightRowWithoutLiveAlpha[]> {
@@ -186,6 +197,7 @@ export async function tendRegent(
         `keep-going: stalled Alpha detection failed (${errText(err)}); continuing Regent heartbeat\n`,
       );
     }
+    await pageSupervisorWaits(deps);
     let inFlightRowsWithoutLiveAlpha: readonly InFlightRowWithoutLiveAlpha[] = [];
     try {
       inFlightRowsWithoutLiveAlpha = await detectInFlightRowsWithoutLiveAlpha(deps);

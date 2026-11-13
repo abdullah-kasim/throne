@@ -30,7 +30,7 @@ export const REAL_RUN_SYSTEMCTL_SHOW: RunSystemctlShow = (unitName) =>
  * rendered as `{ path=... ; argv[]=<command line> ; ... }`, so the command
  * line is the ` ; `-delimited field after `argv[]=` -- not the `path=`
  * field, which for both protected units is a bare interpreter
- * (`/usr/bin/bash`, `.../bin/node`) and would match half the process table.
+ * (`/usr/bin/bash`, `.../bin/throne-runtime`) and would match half the process table.
  */
 export function parseSystemctlShow(stdout: string): ProtectedUnitFacts {
   const commands: string[] = [];

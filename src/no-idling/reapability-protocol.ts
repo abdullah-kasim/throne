@@ -1,15 +1,13 @@
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 import type { LastMessageTagState } from './idle-pane-tag-classification.ts';
-import {
-  AGENT_MIN_AGE_MS,
-  isReapabilityProtocolCandidate,
-} from './idle-family.ts';
-import { canEvaluateReapabilityClaim } from '../autoreap/supervising-wait.ts';
+import { isReapabilityProtocolCandidate } from './idle-family.ts';
+import { canEvaluateReapabilityClaim } from './supervising-wait.ts';
+import type { SupervisorWait } from '../supervisor-wait/read-supervisor-wait.ts';
+import { isWaitingBeforeItMayClaim } from './claim-wait.ts';
 
 export type ReapabilityProtocolViolationReason =
   | 'idle-with-no-claim'
-  | 'retired-marker-still-emitting'
-  | 'claimed-but-refused';
+  | 'retired-marker-still-emitting';
 
 export interface ReapabilityProtocolViolation {
   readonly agent: string;
@@ -17,32 +15,28 @@ export interface ReapabilityProtocolViolation {
   readonly backgroundWork?: string;
 }
 
-/** Project applicable idle agents onto protocol violations using shared tags. */
 export function findReapabilityProtocolViolations(
   roster: readonly AgentStatusesRosterEntry[],
   lastMessageTags: ReadonlyMap<string, LastMessageTagState>,
   idleByDesignChildren: ReadonlySet<string>,
-  agentAgeMs?: ReadonlyMap<string, number>,
-  claimedButRefused: ReadonlySet<string> = new Set(),
+  withinSpawnGrace: ReadonlySet<string> = new Set(),
   supervisors: ReadonlyMap<string, string> = new Map(),
+  supervisorWaits: ReadonlyMap<string, SupervisorWait> = new Map(),
+  nowMs: number = Date.now(),
 ): ReapabilityProtocolViolation[] {
   const violations: ReapabilityProtocolViolation[] = [];
   for (const entry of roster) {
     if (
       !isReapabilityProtocolCandidate(entry) ||
-      idleByDesignChildren.has(entry.name)
+      idleByDesignChildren.has(entry.name) ||
+      withinSpawnGrace.has(entry.name)
     ) {
       continue;
     }
-    const ageMs = agentAgeMs?.get(entry.name);
-    if (ageMs !== undefined && ageMs < AGENT_MIN_AGE_MS) {
-      continue;
-    }
     const kind = lastMessageTags.get(entry.name)?.kind;
-    if (claimedButRefused.has(entry.name) && kind === 'reapable') {
-      violations.push({ agent: entry.name, reason: 'claimed-but-refused' });
-    } else if (
+    if (
       kind === 'unmarked' &&
+      !isWaitingBeforeItMayClaim(supervisorWaits.get(entry.name), nowMs) &&
       canEvaluateReapabilityClaim(entry, roster, supervisors)
     ) {
       violations.push({ agent: entry.name, reason: 'idle-with-no-claim' });

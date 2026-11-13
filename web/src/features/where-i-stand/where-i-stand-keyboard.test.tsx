@@ -179,12 +179,12 @@ test("text typed while a save is on its way is announced as unsaved, as the epic
   expect(statusWords()).not.toContain("Saved.");
 });
 
-test("tabs name only their words until the counts are known", async () => {
+test("a tab whose count is not known yet is named by its words alone", async () => {
   const backend = new FakeBackend();
-  backend.pageIsUnreadable = true;
+  backend.recordsAnswer = Response.json({ outcome: "failed", message: "gone" }, { status: 500 });
   const page = await openPage(backend);
 
-  expect(page.tabs().map((tab) => tab.getAttribute("aria-label"))).toEqual(["Now", "Epics", "Queue", "Delivered", "Pull requests", "Archive"]);
+  expect(page.tab("Pull requests").getAttribute("aria-label")).toBe("Pull requests");
 });
 
 test("the page's title and its one first-level heading are Where I stand", async () => {

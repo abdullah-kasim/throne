@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Proves the role-pool admissibility predicate SKILL.md documents is
 // actually checkable: fed a `list-harnesses-and-models`-shaped registry, it
 // refuses a model in no role pool and accepts a model that is admitted.

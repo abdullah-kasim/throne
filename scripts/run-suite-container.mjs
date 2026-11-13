@@ -1,15 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // container path (docker or podman — see container-runtime.mjs; set
 // THRONE_CONTAINER_RUNTIME to force one). Composes the Herdr session seam and the tmpfs concurrency
 // guard exactly as shipped; it does not reimplement either.
-//
-//   node --import ./test/register-typescript.mjs scripts/run-suite-container.mjs \
-//     <runId> -- <suite command...>
-//
-// The `--import` is required because herdr-suite-session.mjs transitively
-// imports decorated `.ts` sources (herdr-update-session.ts and its own
-// dependency chain). package.json's `test` script supplies it at the public
-// entrypoint, and the guarded re-exec below supplies it again for the child.
 //
 // This script's own body (buildSuite, below) is the thing
 // suite-concurrency-guard.mjs execs once a tmpfs slot is free: on the
@@ -19,7 +11,7 @@
 // separate slot-acquisition logic lives here — see main() below.
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,6 +55,7 @@ const SUITE_APP_IMAGE_NAME = "localhost/throne-suite-app";
 // view as it is on the host — nothing here needs to invent a container-only
 // mechanism. See the execution log for the direct evidence run.
 const DEFAULT_THRONE_LIVE_ROOT = "./test/fixtures/empty-live-root";
+const IMAGE_MISE_INSTALLS = "/opt/mise/installs";
 
 // A linked worktree's `.git` file points at host-owned history that is neither
 // valid nor intended inside the hermetic suite image. The image build creates
@@ -89,6 +82,8 @@ export function resolveSuiteRunPaths(runId, hostHome = os.homedir()) {
   ]) {
     mkdirSync(directory, { recursive: true });
   }
+  mkdirSync(path.join(home, ".local", "share", "mise"), { recursive: true });
+  symlinkSync(IMAGE_MISE_INSTALLS, path.join(home, ".local", "share", "mise", "installs"));
   return {
     runRoot,
     home,
@@ -303,6 +298,7 @@ export function createSuiteContainerRunArguments(
     // tmpfs concurrency guard accounts quota by host uid, so neither runtime
     // may run the suite as a different uid.
     ...containerRunUserArguments(runtime, { uid, gid }),
+    "--init",
     // `:z`/`:Z` SELinux relabeling was rejected: this box refuses to
     // relabel a directory the size of $HOME outright ("SELinux
     // relabeling of $HOME is not allowed" — verified live, see
@@ -372,9 +368,7 @@ async function runComposedSuite(runId, suiteCommand) {
         ...envArgs,
         imageReference,
         ...createSuiteContainerCommand(suitePaths, [
-          "node",
-          "--import",
-          "./test/register-typescript.mjs",
+          "bun",
           "./scripts/herdr-suite-session.mjs",
           "run",
           runId,
@@ -420,18 +414,11 @@ async function runComposedSuite(runId, suiteCommand) {
 function reexecUnderConcurrencySlot(runId, suiteCommand) {
   const guardScript = path.join(HERE, "suite-concurrency-guard.mjs");
   const selfScript = fileURLToPath(import.meta.url);
-  const registerTypescript = path.join(
-    REPO_ROOT,
-    "test",
-    "register-typescript.mjs",
-  );
   const result = spawnSync(
-    "node",
+    process.execPath,
     [
       guardScript,
-      "node",
-      "--import",
-      registerTypescript,
+      process.execPath,
       selfScript,
       "--slot-held",
       runId,

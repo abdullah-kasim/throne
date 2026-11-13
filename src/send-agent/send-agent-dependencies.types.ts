@@ -1,3 +1,4 @@
+import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
 import type { MessageQueueStore } from "../message-queue/message-queue.store.ts";
 import type { recordDeliveredSupervisionEvent } from "../alpha-monitoring/alpha-monitoring.ts";
 import type { checkAndNotifySustainedOutage } from "../throne-work/sustained-outage-notifier.ts";
@@ -24,6 +25,7 @@ export interface SendAgentCommandDependencies<
     prompt: string,
     options: { key?: string; onDeliveredWhileLocked?: () => Promise<void> },
   ): Promise<unknown>;
+  forceEnter?: (recipient: HerdrAgent) => Promise<void>;
   openMessageQueueStore?: () => MessageQueueStore;
   now?: () => number;
   readAgentRole?: IdentityDataService["readAgentRole"];

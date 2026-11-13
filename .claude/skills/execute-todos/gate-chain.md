@@ -1,13 +1,15 @@
 # The 99 gate chain
 
-### `99a` grades conformance, `99b` verifies and fixes, then `99c` merges the latest target and delivers
+### `99a` grades conformance, `99b` verifies and fixes, `99bs` updates the spec, then `99c` merges the latest target and delivers
 
-The terminal chain is three fresh real Shadows: one that checks the assembled
+The terminal chain is four fresh real Shadows: one that checks the assembled
 candidate is the thing that was actually asked for, one that makes it green,
-and one that gets it onto the target branch. Nothing else. The older five-gate
+one that brings the spec and feature map up to date with the whole change
+(`gate-99bs-spec.md`), and one that gets it onto the target branch. Nothing
+else. The older five-gate
 chain (absorb, file-size, static analysis, overview validation, delivery) was
 retired for being more machinery than any executor could hold in one head; the
-three gates below carry its whole job.
+gates below carry its whole job.
 
 The conformance gate was inserted at the Lord's direct order on 2026-08-25,
 ahead of the existing pair, because a bundle can pass every test the campaign
@@ -16,7 +18,7 @@ against the campaign's own understanding; `99a` grades that understanding
 against the request.
 
 **Persist the raw suite log before DONE/reapable.** Any terminal gate or
-ordinary slice whose deliverable runs a full suite (`npm test`) must write
+ordinary slice whose deliverable runs a full suite (`bun run test`) must write
 that run's raw stdout/stderr to its own `$THRONE_DATA/<its-own-name>/` ledger
 directory — the same directory every other mandatory artifact (`ASSIGNMENT.md`,
 `identity.md`, evidence files) already lands in — before it reports DONE or

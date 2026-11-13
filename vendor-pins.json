@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "Pinned third-party harness versions the throne vendors into ./vendor/.",
+    "Pinned third-party versions the throne vendors into ./vendor/ or pulls.",
     "install.sh reads this file; nothing resolves 'latest' at install time, so",
     "two machines cloning the same commit get byte-identical harnesses.",
     "herdr is pinned separately in src/install-services/herdr-release.service.ts,",
@@ -16,6 +16,9 @@
     "tools.tea pins the tea CLI release install-forgejo.sh installs, with the",
     "sha256 of each platform's binary from the release's checksums.txt;",
     "agent_docs/forgejo.md records where each sha256 came from.",
+    "harnesses.jscpd pins the duplicate-code checker both todo gates run. It is vendored",
+    "with claude and codex and reached through bin/jscpd; npm records its integrity",
+    "in vendor/package-lock.json.",
     "To move a pin: edit the version here, run ./install.sh, verify, commit."
   ],
   "tools": {
@@ -56,6 +59,11 @@
       "package": "@openai/codex",
       "version": "0.167.0",
       "bin": "codex"
+    },
+    "jscpd": {
+      "package": "jscpd",
+      "version": "5.4.3",
+      "bin": "jscpd"
     }
   }
 }

@@ -55,7 +55,7 @@ test("a fork's plan reads its pins from the tree the merge will make", async (t)
   const court = forkWithItsOwnCommit(t, {
     ...pinsMoving({ codex: '0.51.0' }),
     ...herdrPinMovingTo('0.9.6'),
-    'package-lock.json': '{ "lockfileVersion": 3, "fork": true }\n',
+    'bun.lock': '{ "lockfileVersion": 3, "fork": true }\n',
   });
   land(court, 'upstream', pinsMoving({ claude: '2.1.0' }));
   const { code, output } = await runUpdate(court, ['--check']);
@@ -87,7 +87,7 @@ test("a herdr move in a fork's merged tree refuses before the merge when there i
   assert.equal(code, 1);
   assert.match(output, /^update-throne: REFUSING — the update moves herdr from 0\.9\.5 to 0\.9\.6, /m);
   assert.deepEqual(snapshotCheckout(court), before);
-  assert.deepEqual(callsTo(court, 'npm'), []);
+  assert.deepEqual(callsTo(court, 'bun'), []);
   assert.deepEqual(callsTo(court, 'herdr-upgrade.mjs'), []);
 });
 
@@ -107,7 +107,7 @@ test('a merge that will conflict refuses before anything changes', async (t) => 
   assert.equal(code, 1);
   assert.match(output, new RegExp(`^update-throne: REFUSING — ${ABANDONED_WORDS}: .*package\\.json`, 'm'));
   assert.deepEqual(snapshotCheckout(court), before);
-  assert.deepEqual(callsTo(court, 'npm'), []);
+  assert.deepEqual(callsTo(court, 'bun'), []);
   assert.deepEqual(restartCalls(court), []);
 });
 
@@ -171,7 +171,7 @@ test('a merge that stops after a clean plan is abandoned and leaves nothing owed
   assert.match(output, new RegExp(`^update-throne: FAILED: ${ABANDONED_WORDS}: `, 'm'));
   assert.deepEqual(snapshotCheckout(court), before);
   assert.deepEqual(readPendingRestarts(court.checkout), []);
-  assert.deepEqual(callsTo(court, 'npm'), []);
+  assert.deepEqual(callsTo(court, 'bun'), []);
 });
 
 test('a fast-forward pulls on an install with no git identity', async (t) => {

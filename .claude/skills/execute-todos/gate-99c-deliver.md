@@ -2,7 +2,7 @@
 
 #### `99c` — merge the latest target, resolve conflicts, deliver
 
-Only after explicit `99b` PASS, `99c_deliver_<topic>.md` runs as the final fresh
+Only after explicit `99bs` PASS, `99c_deliver_<topic>.md` runs as the final fresh
 real Shadow, and it owns delivery together with the conflicts delivery hits. It
 uses **plain git throughout** — no `absorb-git-tree`, no `merge-git-tree`, no
 throne merge tooling of any kind. Merge the recorded target branch INTO the
@@ -18,6 +18,12 @@ what a yolo repository does instead). Bracket the live operation with path-quali
 tracked-diff, and untracked-content evidence so ambient dirt is unchanged —
 plain git carries no stash-and-restore of its own, so the bracket is the only
 protection that dirt has.
+
+**A merge beyond a clean one runs the spec gate again.** The merge is beyond
+clean when `git merge` stopped on a conflict or `99c` committed anything to the
+campaign branch after the merge commit. Then, before delivering, `99c` runs
+`gate-99bs-spec.md`'s steps itself for the areas that merge changed, and
+commits the result on the campaign branch.
 
 **`99c` owns the conflict resolution outright. It does not punt to the Alpha.**
 Every conflict the absorb raises is `99c`'s to resolve, on the campaign branch,
@@ -135,12 +141,12 @@ git -C "$repo" push origin "$default"
    resolve every conflict there.
 3. Merge the target branch into `<default>`.
 4. Run the build, the tests and the lint on that merged commit. In the throne
-   that is `npm run build`, `npm test` and `npm run lint`; never the heavy
+   that is `bun run build`, `bun run test` and `bun run lint`; never the heavy
    tier. Elsewhere it is the repository's own commands.
 5. `git push origin <default>`, never forced. If the push is refused because
    origin moved, fetch and go round again from step 2. Never `--force`.
 
-Where the throne is the target, rebuild the live `dist/` with `npm run build`
+Where the throne is the target, rebuild the live `dist/` with `bun run build`
 in the live checkout after the merge.
 
 It passes when, after a fresh fetch, `git -C "$repo" merge-base --is-ancestor
@@ -548,7 +554,7 @@ authored chain too. Because the same letter means different things across these
 generations, terminal gates are classified by their ROLE WORD, not their letter.
 Run those legacy files with fresh terminal Shadows under
 `rolePools.ShadowSlice99`; do not reinterpret or rewrite ledger history. New
-bundles use only the three-gate chain
+bundles use only the `99a` → `99b` → `99bs` → `99c` chain
 above.
 
 **Fresh-worker independence, not provider identity or effort, is what makes a

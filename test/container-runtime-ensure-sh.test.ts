@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, test } from 'node:test';
@@ -8,7 +8,6 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { REPO_ROOT, run, type Outcome } from './push-check-sandbox.fixture.ts';
 import { findOnPath, linkRealCommands, writeFakeExecutable } from './support/fake-command-host.support.ts';
 
-const HELPER = path.join(REPO_ROOT, 'systemd', 'container-runtime-ensure');
 const REAL_COMMANDS = ['date', 'dirname', 'mkdir', 'perl', 'sleep'];
 const RECORD_OWN_PROCESS_GROUP = "perl -e 'print getpgrp()'";
 const LEFT_RUNNING_PROCESSES = 'left-running-processes';
@@ -26,6 +25,7 @@ type Runtime = 'docker' | 'podman';
 
 interface Host {
   root: string;
+  helper: string;
   fakeBin: string;
   home: string;
   callerDirectory: string;
@@ -54,16 +54,21 @@ async function buildHost(platform: Platform): Promise<Host> {
     fakeBin: path.join(root, 'fake-bin'),
     home: path.join(root, 'home'),
     callerDirectory: path.join(root, 'caller'),
+    helper: path.join(root, 'throne', 'systemd', 'container-runtime-ensure'),
   };
   for (const directory of [host.fakeBin, host.home, host.callerDirectory]) await mkdir(directory);
+  await mkdir(path.dirname(host.helper), { recursive: true });
+  await copyFile(path.join(REPO_ROOT, 'systemd', 'container-runtime-ensure'), host.helper);
+  await symlink(path.join(REPO_ROOT, 'scripts'), path.join(root, 'throne', 'scripts'));
+  await mkdir(path.join(root, 'throne', 'bin'));
   await linkRealCommands(host.fakeBin, REAL_COMMANDS);
   await writeFakeExecutable(
     path.join(host.fakeBin, 'uname'),
     `${RECORD_OWN_PROCESS_GROUP} > "${recordFile(host, 'helper-process-group')}"\necho ${platform}`,
   );
   await writeFakeExecutable(
-    path.join(host.fakeBin, 'flock'),
-    `echo locked >> "${recordFile(host, 'lock-requests')}"\nexec "${await findOnPath('flock')}" "$@"`,
+    path.join(root, 'throne', 'bin', 'throne-runtime'),
+    `echo locked >> "${recordFile(host, 'lock-requests')}"\nexec "${process.execPath}" "$@"`,
   );
   return host;
 }
@@ -105,7 +110,7 @@ async function stopProcessesLeftRunning(host: Host): Promise<void> {
 }
 
 async function askForRuntime(host: Host, extraEnv: NodeJS.ProcessEnv = {}): Promise<Outcome> {
-  return run(await findOnPath('sh'), [HELPER], host.callerDirectory, {
+  return run(await findOnPath('sh'), [host.helper], host.callerDirectory, {
     PATH: host.fakeBin,
     HOME: host.home,
     XDG_STATE_HOME: path.join(host.root, 'state'),

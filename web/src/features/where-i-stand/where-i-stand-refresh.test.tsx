@@ -45,7 +45,7 @@ test("the page refreshes when it becomes visible", async () => {
 test("the page says when the file was last modified", async () => {
   await openPage();
 
-  expect(screen.getByText(/^File last modified /)).toBeTruthy();
+  expect(screen.getByText(/^Page last changed /)).toBeTruthy();
 });
 
 test("the page says what could not be fetched when nothing has been fetched yet", async () => {
@@ -54,7 +54,7 @@ test("the page says what could not be fetched when nothing has been fetched yet"
 
   await openPage(backend);
 
-  expect(screen.getByText(/^Could not fetch the file at .+\. Nothing has been fetched yet\.$/)).toBeTruthy();
+  expect(screen.getByText(/^Could not fetch the page at .+\. Nothing has been fetched yet\.$/)).toBeTruthy();
 });
 
 test("the page keeps what it showed and says so when a refresh cannot fetch the file", async () => {
@@ -64,12 +64,12 @@ test("the page keeps what it showed and says so when a refresh cannot fetch the 
 
   await page.refresh();
 
-  expect(screen.getByText(/^Could not fetch the file at .+\. Showing what was last fetched\.$/)).toBeTruthy();
+  expect(screen.getByText(/^Could not fetch the page at .+\. Showing what was last fetched\.$/)).toBeTruthy();
   expect(page.headings(2)).toEqual(["Needs you", "Just happened", "In flight"]);
 
   backend.pageIsUnreadable = false;
   await page.refresh();
-  expect(screen.queryByText(/^Could not fetch the file/)).toBeNull();
+  expect(screen.queryByText(/^Could not fetch the page/)).toBeNull();
 });
 
 test("offline, a read says it could not fetch and keeps what was last fetched", async () => {
@@ -78,7 +78,7 @@ test("offline, a read says it could not fetch and keeps what was last fetched", 
 
   await page.refresh();
 
-  expect(screen.getByText(/^Could not fetch the file at .+\. Showing what was last fetched\.$/)).toBeTruthy();
+  expect(screen.getByText(/^Could not fetch the page at .+\. Showing what was last fetched\.$/)).toBeTruthy();
   expect(page.panel().textContent).toMatch(/Could not fetch the pull request records at .+\. Showing what was last fetched\./);
   expect(page.panel().querySelector(".work tbody")?.textContent).toContain("Add a gift card page");
   expect(page.headings(2)).toEqual(["Your work", "On GitHub"]);
@@ -91,7 +91,7 @@ test("coming back online clears what the failed reads said without waiting for t
 
   await page.comeBackOnline();
 
-  await waitFor(() => expect(screen.queryByText(/^Could not fetch the file/)).toBeNull());
+  await waitFor(() => expect(screen.queryByText(/^Could not fetch the page/)).toBeNull());
   await waitFor(() => expect(page.panel().textContent).not.toMatch(/Could not fetch the pull request records/));
 });
 
@@ -106,7 +106,7 @@ test("a read that keeps failing is announced once, and its recovery once", async
   await act(() => vi.advanceTimersByTimeAsync(2 * REFRESH_INTERVAL_MILLISECONDS));
 
   const pageAndRecordsWords = announced.filter((words) => !words.includes("backend"));
-  expect(pageAndRecordsWords.toSorted()).toEqual(["Could not fetch the file. Showing what was last fetched.", "Could not fetch the pull request records. Showing what was last fetched.", "The file was fetched again.", "The pull request records were fetched again."]);
+  expect(pageAndRecordsWords.toSorted()).toEqual(["Could not fetch the page. Showing what was last fetched.", "Could not fetch the pull request records. Showing what was last fetched.", "The page was fetched again.", "The pull request records were fetched again."]);
 });
 
 test("a read that has never answered is announced once, however often it is asked again", async () => {
@@ -126,7 +126,7 @@ test("a read that has never answered is announced once, however often it is aske
   await page.settle();
 
   const regionWords = screen.getAllByRole("status").map(({ textContent }) => textContent);
-  expect(regionWords).toContain("Could not fetch the file. Nothing has been fetched yet.");
+  expect(regionWords).toContain("Could not fetch the page. Nothing has been fetched yet.");
   expect(regionWords).toContain("Could not fetch the pull request records.");
   expect(announced).toEqual([]);
 });

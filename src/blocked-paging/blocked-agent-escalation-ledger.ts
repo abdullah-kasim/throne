@@ -3,6 +3,7 @@ import path from 'node:path';
 import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 
 export const BLOCKED_PAGE_ESCALATION_BOUND = 3;
+export const UNCHANGED_OBSERVATION_REPAGE_INTERVAL_MS = 30 * 60 * 1000;
 export const DEFAULT_BLOCKED_PAGE_LEDGER_PATH = path.join(
   THRONE_DATA_DIR,
   'regent',
@@ -12,8 +13,9 @@ export const DEFAULT_BLOCKED_PAGE_LEDGER_PATH = path.join(
 export interface BlockedPageLedgerEntry {
   readonly agentName: string;
   readonly observedAt: string;
-  readonly kind: 'page-enqueued' | 'lord-notified';
+  readonly kind: 'page-enqueued' | 'lord-notified' | 'supervisor-paged';
   readonly pageKey?: string;
+  readonly fingerprint?: string;
 }
 
 export async function readBlockedPageLedger(
@@ -46,7 +48,11 @@ export function blockedPageEscalationState(
   const distinctPageCredits = new Set(
     matching
       .filter((entry) => entry.kind === 'page-enqueued')
-      .map((entry, index) => entry.pageKey ?? `legacy:${index}`),
+      .map((entry, index) =>
+        entry.fingerprint === undefined
+          ? (entry.pageKey ?? `legacy:${index}`)
+          : `${entry.pageKey}@${entry.observedAt}`,
+      ),
   );
   return {
     pageCount: distinctPageCredits.size,
@@ -65,4 +71,25 @@ export function hasBlockedPageCredit(
       entry.kind === 'page-enqueued' &&
       entry.pageKey === pageKey,
   );
+}
+
+export function repageIntervalElapsed(
+  lastPagedMs: number | undefined,
+  nowMs: number,
+  intervalMs: number = UNCHANGED_OBSERVATION_REPAGE_INTERVAL_MS,
+): boolean {
+  return lastPagedMs === undefined || nowMs - lastPagedMs >= intervalMs;
+}
+
+export function shouldPageObservation(
+  pageKey: string,
+  fingerprint: string,
+  nowMs: number,
+  entries: readonly BlockedPageLedgerEntry[],
+): boolean {
+  const lastPage = entries.findLast(
+    (entry) => entry.kind === 'page-enqueued' && entry.pageKey === pageKey,
+  );
+  if (lastPage === undefined || lastPage.fingerprint !== fingerprint) return true;
+  return repageIntervalElapsed(Date.parse(lastPage.observedAt), nowMs);
 }

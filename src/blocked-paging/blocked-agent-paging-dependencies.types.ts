@@ -8,6 +8,9 @@ import type { SubmitToAgentOptions } from '../herdr/herdr-send.types.ts';
 import type { BlockedPageLedgerEntry } from './blocked-agent-escalation-ledger.ts';
 import type { BlockedMarkerLedger } from '../no-idling/idle-family.ts';
 import type { HarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
+import type { SupervisorWait } from '../supervisor-wait/read-supervisor-wait.ts';
+import type { AgentPresentState } from '../agentdata/agent-present-state.ts';
+import type { RememberedOwnRunWait } from './own-run-wake.ts';
 
 export interface BlockedAgentPagingDependencies {
   readonly herdrClient: HerdrClientService;
@@ -19,7 +22,9 @@ export interface BlockedAgentPagingDependencies {
   readonly readAgent: (name: string) => Promise<string>;
   readonly readHarnessBackgroundWork: (paneId: string) => Promise<HarnessBackgroundWork>;
   readonly readVisiblePaneText: (paneId: string) => Promise<string>;
+  readonly acceptFolderTrust: (agentName: string, optionNumber: number) => Promise<void>;
   readonly blockedMarkerLedger: BlockedMarkerLedger;
+  readonly readSupervisorWait: (agentName: string, paneText: string) => Promise<SupervisorWait>;
   readonly resolveAgent: (name: string) => Promise<HerdrAgent>;
   readonly submitToAgent: (
     target: HerdrAgent,
@@ -33,6 +38,12 @@ export interface BlockedAgentPagingDependencies {
   readonly readEscalationLedger: () => Promise<BlockedPageLedgerEntry[]>;
   readonly appendEscalationLedger: (entry: BlockedPageLedgerEntry) => Promise<void>;
   readonly notifyLord: (message: string) => Promise<boolean>;
+  readonly readPresentState: (agentName: string) => Promise<AgentPresentState>;
+  readonly readMessageDeliveryOutcome: (
+    key: string,
+  ) => Promise<{ readonly state: string; readonly failureReason: string | null } | undefined>;
+  readonly readRememberedOwnRunWait: (agentName: string) => Promise<RememberedOwnRunWait | null>;
+  readonly writeRememberedOwnRunWait: (agentName: string, remembered: RememberedOwnRunWait) => Promise<void>;
   readonly now?: () => number;
   readonly stderr?: (text: string) => void;
 }

@@ -268,7 +268,7 @@ image and video in the folder (a `.md` cannot play a video locally, so
 it is HTML):
 
 ```bash
-node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/contact-sheet.mjs" ~/tmp/pr-media-<pr>
+bun "$THRONE_LIVE_ROOT/.claude/skills/pr-media/contact-sheet.mjs" ~/tmp/pr-media-<pr>
 ```
 
 It writes `~/tmp/pr-media-<pr>/index.html`: one section per pair or
@@ -498,7 +498,7 @@ camo on that host.
 ```
 
 ```bash
-node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url|number> [--folder <dir>] [--dry-run] [--replace-all] [--stills-only "<reason>"]
+bun "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url|number> [--folder <dir>] [--dry-run] [--replace-all] [--stills-only "<reason>"]
 ```
 
 **A folder with no video is refused.** Right after listing the folder,
@@ -513,7 +513,7 @@ option where the reason should be, is refused too), it says why there
 is nothing to record, and publish prints it in its summary.
 
 ```bash
-node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" 99 --folder ~/tmp/pr-media-99 --stills-only "copy change only, no interaction"
+bun "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" 99 --folder ~/tmp/pr-media-99 --stills-only "copy change only, no interaction"
 ```
 
 ### After a refused copy between the forges
@@ -564,7 +564,7 @@ reuse the Before images though - no problem with that".
   in the body whose file is not in the new folder, with what it holds.
 
   ```bash
-  node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" 99 --folder ~/tmp/pr-media-99-v2 --replace-all
+  bun "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" 99 --folder ~/tmp/pr-media-99-v2 --replace-all
   ```
 
   The summary names what it removed on one line,
@@ -744,7 +744,7 @@ the script sorts the uploads into their anchors afterwards. Two steps:
 1. `--wizard` prints the drop list and sends nothing:
 
    ```bash
-   node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url> --folder <dir> --wizard
+   bun "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url> --folder <dir> --wizard
    ```
 
    Relay it through the harness's question tool (AskUserQuestion in
@@ -781,7 +781,7 @@ the script sorts the uploads into their anchors afterwards. Two steps:
    github.com path:
 
    ```bash
-   node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url> --folder <dir> --collect
+   bun "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url> --folder <dir> --collect
    ```
 
    It refuses, changing nothing, when a file in the folder has no loose

@@ -1,10 +1,13 @@
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import { checkDistIsFresh } from "./dist-staleness-guard.mjs";
+import { findSchemaChangeWithoutMigration } from "./schema-migration-guard.mjs";
 
 export const SUITE_IMAGE_REPOSITORY_ROOT = "/throne";
 
 export function checkHostDistIsFresh(repositoryRoot) {
+  const schemaFailure = findSchemaChangeWithoutMigration(repositoryRoot);
+  if (schemaFailure !== undefined) return { ok: false, kind: "schema-without-migration", message: schemaFailure };
   const distLink = path.join(repositoryRoot, "dist");
   const result = checkDistIsFresh(repositoryRoot, distLink);
   return result.ok ? { ...result, distDirectory: realpathSync(distLink) } : result;

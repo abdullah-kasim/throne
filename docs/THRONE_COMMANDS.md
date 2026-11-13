@@ -44,6 +44,7 @@ and each table keeps its family's own order.
 | `derive-shadow-name-from-alpha` | Derive the canonical Shadow name from its supervising Alpha and slice id. |
 | `notify-lord` | Send one explicit message to the Lord through the configured ntfy transport. |
 | `check-config` | Load and validate `config.user.ts` and print each role's model and effort. |
+| `check-jscpd` | Check that the vendored jscpd is the pinned version and that `jscpd` on `PATH` is the throne's `bin/jscpd` shim. |
 | `list-harnesses-and-models` | List the active role pools, the launcher policy and the model scores. |
 | `switch-agent-model` | Safely resume a registered live agent, exactly where it was, under a different model of the same family. |
 | `switch-persona` | Switch, show or list the active roleplay persona preset; switching also syncs the ledger's addressing links for live agents and never renames them. |
@@ -55,6 +56,7 @@ and each table keeps its family's own order.
 | --- | --- |
 | `reap-agent` | Tear an agent down; a `--reason` is required. |
 | `spawn-git-tree` | Create a git worktree for a coding slice. |
+| `accept-slice` | Accept a no-merge (verdict-only) Shadow's slice without touching git: record the acceptance and send the Shadow its go-ahead to publish its reapability claim. The Shadow's supervisor only. |
 | `merge-git-tree` | Merge a coding worktree's branch back into its target. |
 | `make-squash-commit` | Preview, on a scratch ref, the one-commit squash a delivery would land; never touches the candidate or target branch. |
 | `lint-slice-assignment` | Exit 1 with a reason when a slice's `ASSIGNMENT.md` is missing its mandatory completion section. |
@@ -107,6 +109,9 @@ and each table keeps its family's own order.
 | `memory-dir` | Print the durable cross-session memory directory for the project containing a directory, deferring to any memory convention already in force. |
 | `semaphore` | Create a named counting semaphore with a slot count, run a command in one of its free slots (waiting while every slot is held, and keeping the slot until the command exits even if throne is killed), or show who holds each slot. |
 | `skill-extension` | Print the operator's own extension to a named skill, kept outside the repository in the throne home's `skill-extensions` folder, or nothing when there is none; `--list` names every extension present. |
+| `spec-location` | Print where a repository's spec folder and feature map are and the state of each (none yet; in the throne data home; in the project, made with throne's tooling; in the project, made another way), from one settings file per project under the throne data home keyed by the main checkout; `--owned yes\|no` supplies ownership, `--record spec\|map` records an artefact once it is created, `--json` prints the same fields. |
+| `feature-map` | Build `FEATURE_MAP.md` in a spec folder from its spec files' headers and run the set checks (duplicate names and sub-feature IDs, missing paths, the size limit, missing sections are fatal; overlapping code paths and, with `--registry throne`, unclaimed commands are reported); `--check` exits non-zero when the map on disk is out of date. |
+| `spec-lock` | Hold the edit lock on a repository's spec folder under the throne data home (`--repository <path>`, `--ttl <seconds>s\|<minutes>m`, default 5m, at most 15m) until the process is stopped with TERM or INT or the ttl ends; edit the external spec and feature map only while it prints `locked by`. A second writer is refused with exit 1, naming the holder. |
 | `scratch-pane` | Register an unnamed herdr pane a live agent opened on purpose, with its owner and a time it may stay until, so the unnamed-agent sweep stays silent about it until the time passes or the owner is gone. |
 | `recall` | Print the recorded memories that apply to a task, most relevant first and capped in size, from the named repositories or memory directories plus the global memories; also serves the prompt-submit hook. |
 | `rank` | Rank files or input items by how likely each answers yes to a question, most likely first, so only the top few get opened; never prints item contents. |
@@ -120,6 +125,7 @@ and each table keeps its family's own order.
 | `work-log` | List the queue rows completed or updated since a date, with each row's recorded outcome and the first sentence of its intent, and the GitHub actions the gh guard logged since that date; `--json` for one machine-readable object. |
 | `where-i-stand` | Show the Lord's where-i-stand page and its version, replace it from a file when the version still matches, or add one event to its Just happened list. Any agent may write; every write is locked, keeps the previous copy and is journaled. |
 | `check-where-i-stand` | Exit 0 when an Alpha's campaign recorded its outcome on the Lord's where-i-stand page after it delivered, and 66 with one sentence saying what to write when it has not; `complete-agent` refuses an Alpha on the same decision. |
+| `where-i-stand-import` | Import the Markdown where-i-stand page and its archive file into the where-i-stand database once, only reading the files, with `--journal` supplying event and archive times; `--compare --page <file>` exits 0 when the database shows the same entries under the same sections in the same order, 1 with each difference when not. |
 | `preview` | Add, remove or list the tailnet previews in `config.user.ts`. A preview is a tailnet path or port showing a local address or a folder, on the tailnet only and never through funnel. |
 | `consume-fence-handoff-on-start` | Read and clear the current fence handoff record, so a freshly summoned Regent learns why its predecessor was fenced before it handles any pane message. |
 | `record-suite-hold` | Record that a campaign now holds full-suite access, so a fenced Regent's successor can learn who was mid-sequence. |

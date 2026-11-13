@@ -87,7 +87,7 @@ throne_from() { d="$1"; while [ "$d" != / ]; do \
 
 registered_campaign_repo_from() { agent_dir="$THRONE_DATA/$ALPHA"; \
   [ -f "$agent_dir/identity.md" ] || return 0; \
-  node -e 'try{const b=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));const p=require("node:path");if(b.name===process.argv[2]&&typeof b.repo==="string"&&p.isAbsolute(b.repo))process.stdout.write(b.repo)}catch{}' "$agent_dir/tree-base.json" "$ALPHA" 2>/dev/null; }
+  bun -e 'try{const b=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));const p=require("node:path");if(b.name===process.argv[2]&&typeof b.repo==="string"&&p.isAbsolute(b.repo))process.stdout.write(b.repo)}catch{}' "$agent_dir/tree-base.json" "$ALPHA" 2>/dev/null; }
 
 THRONE="$(throne_from "$PWD")"
 CAMPAIGN_REPO=""
@@ -98,7 +98,7 @@ if [ -z "$THRONE" ]; then
   # `sameAgentName` (case-insensitive both sides) + `resolveAgent`'s exactly-one
   # rule. `herdr agent get <name>` matches EXACTLY, so one hardcoded spelling
   # (`Regent` vs the live lowercase `regent`) misses the live Regent entirely.
-  REGENT_CWD="$(herdr agent list 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const want=process.argv[1].toLowerCase();const m=(JSON.parse(s).result?.agents??[]).filter(a=>typeof a?.name==="string"&&a.name.toLowerCase()===want);if(m.length===1&&typeof m[0].cwd==="string")process.stdout.write(m[0].cwd)}catch{}})' Regent 2>/dev/null)"
+  REGENT_CWD="$(herdr agent list 2>/dev/null | bun -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const want=process.argv[1].toLowerCase();const m=(JSON.parse(s).result?.agents??[]).filter(a=>typeof a?.name==="string"&&a.name.toLowerCase()===want);if(m.length===1&&typeof m[0].cwd==="string")process.stdout.write(m[0].cwd)}catch{}})' Regent 2>/dev/null)"
   if [ -n "$REGENT_CWD" ]; then
     CAND="$(throne_from "$REGENT_CWD")"
     [ -n "$CAND" ] && CAMPAIGN_REPO="$(registered_campaign_repo_from "$CAND")"
@@ -361,7 +361,7 @@ After the spawn, the launcher verifies durable spawn evidence and refuses on
 any mismatch:
 
 ```bash
-node -e 'const s=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));
+bun -e 'const s=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));
 const [h,m,e]=process.argv.slice(2);
 if(s.harness!==h||s.model!==m||String(s.effort)!==e){console.error("pin mismatch",s);process.exit(1)}' \
   "$THRONE_DATA/$addr/spawn.json" "$HARNESS_A" "$MODEL_A" "$COMPARE_EFFORT"
@@ -556,7 +556,7 @@ for guidance in \
   "$A_OUTPUT_DIR/$HARNESS_A-$MODEL_A.md" \
   "$B_OUTPUT_DIR/$HARNESS_B-$MODEL_B.md"
 do
-  node "$validator" "$guidance" \
+  bun "$validator" "$guidance" \
     "$A_WORKLOG_PATH" "$A_RESULT_PATH" "$B_WORKLOG_PATH" "$B_RESULT_PATH" || exit 1
 done
 ```

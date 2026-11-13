@@ -33,6 +33,7 @@
  * behind `runThroneBackendForever`, which the `throne-backend` command also
  * calls — one boot path, two entry points, no drift.
  */
+import { logBackendVitalsEachMinute } from "./process-inspection/launch-count.ts";
 import { THRONE_BACKEND_SERVICE_UNIT_NAME } from "./status/service-health.ts";
 import { writeServiceGenerationMarkerSafely } from "./status/service-generation-marker.ts";
 import { runThroneBackendForever } from "./throne-backend/throne-backend-app.ts";
@@ -43,5 +44,7 @@ writeServiceGenerationMarkerSafely(
   new Date().toISOString(),
   process.pid,
 );
+
+logBackendVitalsEachMinute();
 
 await runThroneBackendForever();

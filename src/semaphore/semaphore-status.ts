@@ -9,14 +9,13 @@ export interface SemaphoreStatus {
 export async function readSemaphoreStatuses(
   throneHome: string,
   name: string | undefined,
-  flockExecutable?: string,
 ): Promise<SemaphoreStatus[]> {
   const names = name === undefined ? await listSemaphoreNames(throneHome) : [name];
   const statuses: SemaphoreStatus[] = [];
   for (const semaphore of names) {
     const slots = await readSlotCount(throneHome, semaphore);
     if (slots !== undefined) {
-      statuses.push({ name: semaphore, slots, heldSlots: await heldSlotsOf(throneHome, semaphore, flockExecutable) });
+      statuses.push({ name: semaphore, slots, heldSlots: heldSlotsOf(throneHome, semaphore) });
     }
   }
   return statuses;

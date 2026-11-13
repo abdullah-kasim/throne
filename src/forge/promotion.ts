@@ -16,7 +16,6 @@ import {
   runGithub,
 } from "./github-pull-requests.ts";
 import { FORGE } from "./host-forge.ts";
-import { landPullRequestOnMain, type Landing } from "./landing-on-main.ts";
 import { closeTwinMergedOnGithub, isMergedOnGithub } from "./merging-on-github.ts";
 import {
   downloadMediaForGithub,
@@ -30,7 +29,7 @@ import { GITHUB_PROGRAM, githubProgramForHost } from "./pull-request-forge.ts";
 import { parsePullRequestTarget } from "./pull-request-forge.ts";
 import type { ForgeContext } from "./pull-request-operations.ts";
 import type { PullRequestView } from "./pull-request-shapes.ts";
-import { repositoryLandsOnMain } from "./repository-lands-on-main.ts";
+import { pullRequestsStayOnForgejo } from "./pull-requests-stay-on-forgejo.ts";
 import { forgejoPullRequestFor, githubTwinOf, type ForgejoPullRequest } from "./staged-pair.ts";
 import { writeStagingMetadataComment } from "./staging-metadata.ts";
 
@@ -107,8 +106,11 @@ async function markReadyForReviewWhileDraft(context: ForgeContext, pair: Promote
   await runGithubForTheLord(context, githubReadyArguments(pair.githubUrl));
 }
 
-export async function promotePullRequest(context: ForgeContext, targetText: string): Promise<Promotion | Landing> {
-  if (await repositoryLandsOnMain(context.repo, context.dependencies)) return landPullRequestOnMain(context, targetText);
+export function nothingToPromoteLine(repo: string): string {
+  return `${repo} keeps its pull requests on Forgejo, so there is nothing to promote; land it with /pr-merge. Nothing was changed.`;
+}
+
+export async function promotePullRequest(context: ForgeContext, targetText: string): Promise<Promotion> {
   const pullRequest = await forgejoPullRequestFor(context, targetText);
   const promotedUrl = await githubTwinOf(pullRequest);
   if (promotedUrl !== undefined && (await isMergedOnGithub(context, promotedUrl))) {

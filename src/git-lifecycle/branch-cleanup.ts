@@ -9,10 +9,12 @@ import {
   requireReachableFromMergeTarget,
   requireValidLifecycleBranch,
   resolveLifecycleRepo,
+  UnmergedLifecycleBranchError,
 } from './branch-authority.ts';
 import { requireContentDeliveredToMergeTarget } from './path-wise-delivery.ts';
 import { canonicalPath, readGitStatus, runGit } from './git-command.service.ts';
 import { shadowTipIsStamped } from './absorb-and-stamp.ts';
+import { findCommitWithIdenticalTree, isAncestor } from './delivery.ts';
 
 export type BranchCleanupPlan =
   | {
@@ -31,6 +33,7 @@ export type BranchCleanupPlan =
       retention:
         | { kind: 'branch'; branch: string }
         | { kind: 'delivery-content'; commit: string }
+        | { kind: 'identical-tree'; commit: string; onOrigin: boolean }
         | { kind: 'forced-missing-target' };
       worktreePath?: string;
     };
@@ -82,7 +85,9 @@ async function chooseRetentionAuthority(
       await requireReachableFromMergeTarget(root, branch, tip, mergeTargetBranch);
       return { kind: 'branch', branch: mergeTargetBranch };
     } catch (error) {
-      if (contentDeliveryCommit === undefined) throw error;
+      if (contentDeliveryCommit === undefined) {
+        return identicalTreeRetention(root, tip, mergeTargetBranch, error);
+      }
       await requireContentDeliveredToMergeTarget(
         root,
         branch,
@@ -100,6 +105,30 @@ async function chooseRetentionAuthority(
     kind: 'branch',
     branch: await requireDurableDefaultRetention(root, branch, tip),
   };
+}
+
+async function identicalTreeRetention(
+  root: string,
+  tip: string,
+  mergeTargetBranch: string,
+  refusal: unknown,
+): Promise<ReadyBranchCleanupPlan['retention']> {
+  if (!(refusal instanceof UnmergedLifecycleBranchError)) throw refusal;
+  const commit = await findCommitWithIdenticalTree(root, tip, mergeTargetBranch);
+  if (commit === undefined) throw refusal;
+  const originTarget = `refs/remotes/origin/${mergeTargetBranch}`;
+  const originTip = await readGitStatus(['rev-parse', '--verify', '--quiet', originTarget], root);
+  const onOrigin =
+    originTip.code === 0 && (await isAncestor(root, commit, originTip.stdout.trim()));
+  return { kind: 'identical-tree', commit, onOrigin };
+}
+
+export function describeRetention(plan: ReadyBranchCleanupPlan): string {
+  if (plan.retention.kind !== 'identical-tree') return '';
+  const where = plan.retention.onOrigin
+    ? `on origin/${plan.mergeTargetBranch}`
+    : `on local ${plan.mergeTargetBranch} only, not on origin`;
+  return ` (its tree is identical to ${plan.retention.commit}, ${where})`;
 }
 
 export async function preflightBranchCleanup(
@@ -169,6 +198,14 @@ async function requireUnchangedCleanupAuthority(
       plan.mergeTargetBranch,
       plan.retention.commit,
     );
+  } else if (plan.retention.kind === 'identical-tree') {
+    const commit = await findCommitWithIdenticalTree(plan.root, tip, plan.mergeTargetBranch);
+    if (commit !== plan.retention.commit) {
+      throw new Error(
+        `branch "${plan.branch}" no longer has a tree identical to ` +
+          `${plan.retention.commit} on "${plan.mergeTargetBranch}"; refusing deletion`,
+      );
+    }
   } else if (plan.retention.kind === 'branch') {
     if (plan.retention.branch === plan.mergeTargetBranch) {
       await requireReachableFromMergeTarget(

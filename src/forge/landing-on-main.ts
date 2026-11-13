@@ -20,7 +20,7 @@ import { landingCommitMessage } from "./landing-commit-message.ts";
 import { parsePullRequestTarget } from "./pull-request-forge.ts";
 import type { ForgeContext } from "./pull-request-operations.ts";
 import type { PullRequestView } from "./pull-request-shapes.ts";
-import { refuseUnlessRepositoryLandsOnMain } from "./repository-lands-on-main.ts";
+import { refuseUnlessPullRequestsStayOnForgejo } from "./pull-requests-stay-on-forgejo.ts";
 import { forgejoPullRequestFor } from "./staged-pair.ts";
 
 const SCRATCH_TREE_NAME = "tree";
@@ -29,6 +29,7 @@ const COMMIT_MESSAGE_FILE_NAME = "commit-message.txt";
 export interface Landing {
   readonly forgejoUrl: string;
   readonly landedCommit: string;
+  readonly mirror: string;
   readonly base: string;
   readonly closed: boolean;
 }
@@ -97,9 +98,18 @@ async function recordLandingAsMerged(address: ForgejoPullRequestAddress, commit:
   }
 }
 
+async function refuseUnlessMirrorHolds(repo: string, baseBranchRef: string, commit: string, dependencies: ForgeDependencies): Promise<string> {
+  const mirror = (await gitOutput(repo, ["remote", "get-url", ORIGIN_REMOTE_NAME], dependencies)) ?? ORIGIN_REMOTE_NAME;
+  const advertised = (await gitOutput(repo, ["ls-remote", ORIGIN_REMOTE_NAME, baseBranchRef], dependencies)) ?? "";
+  if (advertised.split(/\s/)[0] === commit) return mirror;
+  throw new ForgeRefusal(
+    `${commit} was pushed to ${mirror}, but GitHub's ${baseBranchRef} does not hold the commit (it reads "${advertised}"), so it was not pushed to Forgejo and the Forgejo pull request was neither commented on nor closed.`,
+  );
+}
+
 export async function landPullRequestOnMain(context: ForgeContext, targetText: string): Promise<Landing> {
   const { repo, dependencies } = context;
-  await refuseUnlessRepositoryLandsOnMain(repo, dependencies);
+  await refuseUnlessPullRequestsStayOnForgejo(repo, dependencies);
   const pullRequest = await forgejoPullRequestFor(context, targetText);
   const { api, address, url } = pullRequest;
   const view = await viewForgejoPullRequest(repo, parsePullRequestTarget(url), api, dependencies);
@@ -110,8 +120,9 @@ export async function landPullRequestOnMain(context: ForgeContext, targetText: s
   const commit = await squashCommitOnScratchWorktree({ repo, baseRef, headRef, message: landingCommitMessage(view), pullRequestUrl: url }, dependencies);
   const baseBranchRef = `${BRANCH_REF_PREFIX}${base}`;
   await runGitOrRefuse(repo, ["push", ORIGIN_REMOTE_NAME, `${commit}:${baseBranchRef}`], dependencies);
+  const mirror = await refuseUnlessMirrorHolds(repo, baseBranchRef, commit, dependencies);
   await pushToForgejo(repo, `${commit}:${baseBranchRef}`, address.repository, api, dependencies);
   await postForgejoConversationComment(address, landedOnMainMessage(commit), api);
   await recordLandingAsMerged(address, commit, url, api);
-  return { forgejoUrl: url, landedCommit: commit, base, closed: true };
+  return { forgejoUrl: url, landedCommit: commit, mirror, base, closed: true };
 }

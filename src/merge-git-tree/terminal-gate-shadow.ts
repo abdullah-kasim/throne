@@ -68,7 +68,7 @@
  * discriminator.
  */
 const TERMINAL_GATE_SLICE_ID_PATTERN =
-  /^shadow-[a-z0-9]+-(99[abcde])(?:[-_](.*))?$/;
+  /^shadow-[a-z0-9]+-(99bs|99[abcde])(?:[-_](.*))?$/;
 
 type TerminalGateRole = "absorb" | "verdict" | "delivery";
 

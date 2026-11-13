@@ -44,7 +44,7 @@ export const SINGLE_SLICE_STANDING_INSTRUCTION =
   "Execution mode: SINGLE-SLICE, authorized by the Lord for this campaign at filing: \"a single executor shadow, " +
   "the 99 verification slices, and the alpha to act as the place where lord can still send messages to without " +
   "interrupting the shadow\" (Lord, 2026-11-04). Run /write-todos for exactly ONE implementation slice, `01`, plus " +
-  "the ordinary 99a, 99b, 99c and 99d files. One executor Shadow does `01`; each 99 gate runs as a fresh Shadow " +
+  "the ordinary 99a, 99b, 99bs, 99c and 99d files. One executor Shadow does `01`; each 99 gate runs as a fresh Shadow " +
   "distinct from the executor. You stay the orchestrator: you manage your Shadows, route every gate failure back " +
   "as a fix round on `01`, and are where the Lord sends messages without interrupting the executor. Code refuses " +
   "any other shape (\"Best to codify it or alphas tend to ignore\").";

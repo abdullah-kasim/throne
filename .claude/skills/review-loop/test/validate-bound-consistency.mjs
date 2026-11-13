@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Proves SKILL.md never states two contradicting numbers for the same named
 // bound (e.g. "cap 5" in one place and "cap 3" in another for the same
 // concept) — every mention of a tracked concept must agree.

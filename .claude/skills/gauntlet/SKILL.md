@@ -80,6 +80,26 @@ the two sides show different content and no score means anything. Slice 01
 proves the fixture is absent from production builds (a grep of the built
 output for the fixture's marker returns nothing).
 
+Slice 01 captures its presets concurrently, and its body states which
+presets run together, the cap, and which run serially and why.
+
+**Independent cases run together, not one after another.** When slice 01's
+tool has more than one independent preset, it starts those captures at the
+same time and collects every result. It runs presets serially only when two
+of them share one real machine, one lock, one account or one counter, and
+the body says that reason in one sentence. Each capture gets its own pane,
+port, temporary folder, data home and container name, chosen by the tool at
+run time, never fixed. It runs at most 6 captures at once by default, and
+fewer when each one starts a browser, a container or a harness and the host
+shows strain. Several independent commands run by hand start together (the
+harness's background mode, or one command that starts them all and waits
+for all), never one wait after another. The JSON log records the
+wall-clock seconds of each preset and of the whole run. The rule does not
+reach the repository's own suites or the single assembled full-suite run;
+those keep their existing rules, including running that suite in the
+foreground. A recipe app's tool that captures twelve screens starts six
+capture browsers at once, each on its own port and temporary folder.
+
 ## 5. A critic gate on every slice
 
 Stamp the builder bundle's `00_overview.md` with `bundle_content: perceptual`

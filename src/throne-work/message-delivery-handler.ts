@@ -18,13 +18,13 @@ import {
   type MessageQueueStore,
   type WorkItemRow,
 } from "../message-queue/message-queue.store.ts";
-import { isDeliveryNotice } from "../delivery-notice/delivery-notice.ts";
 import { scheduleDeliveryReceiptCheck } from "../delivery-receipt/delivery-receipt-check.ts";
 import type { MessageDeliveryWorkItemPayload } from "../send-agent/message-delivery-enqueue.ts";
 import { appendSentMessageLedgerEntry } from "../send-agent/sent-message-ledger.ts";
 import {
   MAX_NOT_SENT_RETRY_ATTEMPTS,
   NOT_SENT_RETRY_BACKOFF_MS,
+  UNADDRESSABLE_RECIPIENT_FAILURE_PREFIX,
   classifySubmitAttemptError,
 } from "./message-delivery-retry-policy.ts";
 
@@ -164,8 +164,8 @@ async function recordScheduledDeliveryBookkeeping(
   }
 }
 
-function messageIdTypedAfter(item: WorkItemRow): { messageId?: number } {
-  return isDeliveryNotice(item) ? {} : { messageId: item.id };
+function messageIdTypedAfter(item: WorkItemRow): { messageId: number } {
+  return { messageId: item.id };
 }
 
 function scheduleReceiptCheckIgnoringFailure(
@@ -196,10 +196,17 @@ export async function deliverMessageWorkItem(
   deps: MessageDeliveryHandlerDeps = REAL_MESSAGE_DELIVERY_HANDLER_DEPS,
 ): Promise<WorkItemRow> {
   const payload = workItemPayload(item);
+  let recipient: Awaited<ReturnType<typeof deps.resolveAgent>>;
+  try {
+    recipient = await deps.resolveAgent(payload.recipientName);
+  } catch (error) {
+    return store.finishWorkItemIdempotently(item.id, MessageQueueWorkItemState.Failed, {
+      failureReason: `${UNADDRESSABLE_RECIPIENT_FAILURE_PREFIX}: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
   let attempt = 1;
   for (;;) {
     try {
-      const recipient = await deps.resolveAgent(payload.recipientName);
       const typedText = await deps.submitToAgent(
         recipient,
         payload.senderName,

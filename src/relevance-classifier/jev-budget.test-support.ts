@@ -22,7 +22,7 @@ async function holdTheJevBudgetLockUntilKilled(dataHome: string): Promise<void> 
 export async function startProcessHoldingTheJevBudgetLock(dataHome: string): Promise<ProcessHoldingTheJevBudgetLock> {
   const child = spawn(
     process.execPath,
-    ['--import', './test/register-typescript.mjs', import.meta.filename, dataHome],
+    [import.meta.filename, dataHome],
     { cwd: REPOSITORY_ROOT, stdio: ['ignore', 'pipe', 'inherit'] },
   );
   await new Promise<void>((resolve, reject) => {

@@ -28,8 +28,8 @@ test("a lint error in a file nobody changed still fails the run, after the tests
   assert.ok(run.stdout.indexOf("the tests ran") < run.stdout.indexOf("full lint found an error"));
 
   const testIsolated = JSON.parse(readFileSync(path.join(scriptsDirectory, "..", "package.json"), "utf8")).scripts["test:isolated"];
-  assert.match(testIsolated, /node scripts\/run-suite-guarded-tests\.mjs .*--guard npm run lint --test /);
-  assert.equal(testIsolated.split("npm run lint ").length, 2);
+  assert.match(testIsolated, /bun scripts\/run-suite-guarded-tests\.mjs .*--guard bun run lint --test /);
+  assert.equal(testIsolated.split("bun run lint ").length, 2);
 });
 
 test("a failing pre-guard stops the run before the tests", () => {

@@ -14,7 +14,7 @@ import {
   type LastMessageTagState,
 } from './idle-family.ts';
 import {
-  readAgentAges,
+  readAgentsWithinSpawnGrace,
   readCwdMissingNames,
   readDurablyAccountedForNames,
   readIdleByDesignChildren,
@@ -22,13 +22,13 @@ import {
   readSupervisors,
 } from './idle-family-evidence-assembly.ts';
 import { findReapabilityProtocolViolations } from './reapability-protocol.ts';
+import { handleClaimWaits, isAcceptedLiveAgent, readSupervisorWaits } from './claim-wait.ts';
 import {
   runningWorkDescription,
   runningWorkOfRosterAgents,
   withWhatEachAgentWaitsOn,
   type ReadRunningWork,
 } from './background-wait.ts';
-import { readClaimedButRefusedAgentNames } from '../autoreap/refusal-evidence.ts';
 import { ConfirmedObservationTracker } from './confirmed-observation.ts';
 import { confirmNoLiveChildrenAlphaNames } from './fully-idle-family-confirmation.ts';
 import {
@@ -43,7 +43,9 @@ import {
   readBlockedAgentDependents,
   resolveClearedDependencyWakes,
 } from './dependency-cleared-wake.ts';
-import { findUntaskedAgents } from './find-untasked-agents.ts';
+import { findUntaskedAgents, type UntaskedAgent } from './find-untasked-agents.ts';
+import { inMemoryPageLedger, rosterOfPresentFacts, submitUnlessAlreadyPaged } from './present-facts.ts';
+import type { NoIdlingPageLedger } from './no-idling-dependencies.types.ts';
 import {
   notifyRegentOfStaleTabs,
   notifyRegentOfStrandedSpawns,
@@ -51,11 +53,13 @@ import {
 } from './notify-stale-tabs.ts';
 import { notifyRegentOfUnnamedAgents } from './notify-unnamed-agents.ts';
 import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
+import { inOneProcessTablePass } from '../process-inspection/harness-background-work.ts';
 import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
 import { noteExcludedFamilies } from './excluded-family-observations.ts';
 import { notifyRegentOfDeferredRows } from './deferred-row-belt.ts';
 import { noteAgentsCorrectedToWorking } from './corrected-to-working-log.ts';
 import { notifyRegentWhenSweepIsBlind } from './blind-sweep-notice.ts';
+import { sweepStuckDrafts } from './stuck-draft-sweep.ts';
 import {
   writeOut,
   writeErr,
@@ -77,22 +81,17 @@ function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-function noIdlingWindowKey(
-  target: HerdrAgent,
-  familyNames: readonly string[],
-  nowMs: number,
-): string {
+function noIdlingPageKey(target: HerdrAgent, familyNames: readonly string[]): string {
   const family = [...familyNames].sort().join(',');
-  return `no-idling:${target.name ?? target.paneId}:${family}:${Math.floor(nowMs / 60_000)}`;
+  return `no-idling:${target.name ?? target.paneId}:${family}`;
 }
 
-function noIdlingUntaskedWindowKey(
-  target: HerdrAgent,
-  untaskedNames: readonly string[],
-  nowMs: number,
-): string {
-  const names = [...untaskedNames].sort().join(',');
-  return `no-idling-untasked:${target.name ?? target.paneId}:${names}:${Math.floor(nowMs / 60_000)}`;
+function noIdlingUntaskedPageKey(target: HerdrAgent, untasked: readonly UntaskedAgent[]): string {
+  const names = untasked
+    .map((agent) => (agent.finished === true ? `${agent.name}(finished)` : agent.name))
+    .sort()
+    .join(',');
+  return `no-idling-untasked:${target.name ?? target.paneId}:${names}`;
 }
 
 /**
@@ -107,6 +106,7 @@ async function notifyRegentOfUntaskedAgents(
   roster: readonly AgentStatusesRosterEntry[],
   dataDir: string,
   readRunningWork: ReadRunningWork,
+  ledger: NoIdlingPageLedger,
 ): Promise<void> {
   const untasked = await findUntaskedAgents({
     roster,
@@ -128,19 +128,15 @@ async function notifyRegentOfUntaskedAgents(
       );
       return;
     }
-    await deps.submitToAgent(
+    const paged = await submitUnlessAlreadyPaged(
+      deps,
+      ledger,
       regent,
-      NO_IDLING_SENDER,
       buildUntaskedAgentsMessage({ untasked }),
-      {
-        key: noIdlingUntaskedWindowKey(
-          regent,
-          untasked.map((agent) => agent.name),
-          deps.now?.() ?? Date.now(),
-        ),
-        composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
-      },
+      noIdlingUntaskedPageKey(regent, untasked),
+      { composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS },
     );
+    if (!paged) return;
     writeOut(
       deps,
       `no-idling: notified Regent about untasked agent(s) ${untasked
@@ -210,6 +206,13 @@ export async function runNoIdling(
   rawDeps: NoIdlingDependencies,
   options: RunNoIdlingOptions = {},
 ): Promise<number> {
+  return inOneProcessTablePass(() => runNoIdlingInOnePass(rawDeps, options));
+}
+
+async function runNoIdlingInOnePass(
+  rawDeps: NoIdlingDependencies,
+  options: RunNoIdlingOptions,
+): Promise<number> {
   // Every decision below (which families are idle, which are excluded, which
   // agents are untasked) is computed identically in both modes; only the
   // ability to actually send lands here, once, at the boundary. See
@@ -236,7 +239,12 @@ export async function runNoIdling(
 
   let roster: AgentStatusesRosterEntry[];
   try {
-    roster = await deps.getRoster(dataDir);
+    roster = await rosterOfPresentFacts(
+      await deps.getRoster(dataDir),
+      deps,
+      dataDir,
+      deps.now?.() ?? Date.now(),
+    );
   } catch (error) {
     writeErr(deps, `no-idling: roster read failed: ${errText(error)}\n`);
     return 1;
@@ -254,15 +262,16 @@ export async function runNoIdling(
     rawDeps.blindSweepMemory ?? { blindSweepsInARow: 0, noticeSent: false },
   );
   const readRunningWork = runningWorkOfRosterAgents(roster, deps.readHarnessBackgroundWork);
-  await notifyRegentOfUntaskedAgents(deps, roster, dataDir, readRunningWork);
-  await notifyRegentOfStaleTabs(deps, dataDir);
+  const ledger = notify ? (rawDeps.pageLedger ?? inMemoryPageLedger()) : inMemoryPageLedger();
+  await notifyRegentOfUntaskedAgents(deps, roster, dataDir, readRunningWork, ledger);
+  await notifyRegentOfStaleTabs(deps, dataDir, ledger);
   await notifyRegentOfUnnamedAgents(deps, roster, dataDir);
-  await notifyRegentOfStrandedSpawns(deps, dataDir);
-  await recoverStrandedSpawns(deps, dataDir);
+  await notifyRegentOfStrandedSpawns(deps, dataDir, ledger);
+  await sweepStuckDrafts(deps, roster, await recoverStrandedSpawns(deps, dataDir), notify);
   await notifyRegentOfDeferredRows(deps, notify);
 
   const supervisors = await readSupervisors(roster, dataDir, deps.readAgentSupervisor);
-  const agentAgeMs = await readAgentAges(
+  const withinSpawnGrace = await readAgentsWithinSpawnGrace(
     roster,
     dataDir,
     deps.readSpawnSpec,
@@ -288,7 +297,7 @@ export async function runNoIdling(
   const statusFamilies = findFullyIdleFamilies({
     roster,
     supervisors,
-    agentAgeMs,
+    withinSpawnGrace,
     idleByDesignChildren,
     cwdMissingNames,
     confirmedNoLiveChildrenAlphaNames,
@@ -296,6 +305,7 @@ export async function runNoIdling(
     registeredAgentNames,
   });
 
+  const supervisorWaits = await readSupervisorWaits(roster, dataDir);
   const lastMessageTags = new Map<string, LastMessageTagState>();
   for (const family of statusFamilies) {
     for (const [member, state] of await readFamilyLastMessageTags(
@@ -309,8 +319,8 @@ export async function runNoIdling(
   }
   for (const entry of roster) {
     if (
-      !isReapabilityProtocolCandidate(entry) ||
-      lastMessageTags.has(entry.name)
+      lastMessageTags.has(entry.name) ||
+      !(isReapabilityProtocolCandidate(entry) || (await isAcceptedLiveAgent(entry, dataDir)))
     ) {
       continue;
     }
@@ -344,7 +354,7 @@ export async function runNoIdling(
     roster,
     supervisors,
     lastMessageTags,
-    agentAgeMs,
+    withinSpawnGrace,
     idleByDesignChildren,
     cwdMissingNames,
     confirmedNoLiveChildrenAlphaNames,
@@ -368,23 +378,26 @@ export async function runNoIdling(
       completedAlphas.push(entry);
     }
   }
-  // `findReapabilityProtocolViolations` (and the `canEvaluateReapabilityClaim`
-  // it delegates to, outside this slice's scope) still expects a plain
-  // supervisor-name map -- resolve the tristate read down to a name here at
-  // the call boundary rather than widening that unrelated module's contract.
   const resolvedSupervisorNames = new Map(
     [...supervisors.entries()]
       .map(([name, read]) => [name, resolvedSupervisorName(read)] as const)
       .filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+  const nowMs = deps.now?.() ?? Date.now();
+  await handleClaimWaits(
+    { deps, lastMessageTags, supervisorNames: resolvedSupervisorNames, dataDir, nowMs,
+      recordNotices: notify, clearedDependencyWakes },
+    supervisorWaits,
   );
   const reapabilityProtocolViolations = await withWhatEachAgentWaitsOn(
     findReapabilityProtocolViolations(
       roster,
       lastMessageTags,
       idleByDesignChildren,
-      agentAgeMs,
-      readClaimedButRefusedAgentNames(),
+      withinSpawnGrace,
       resolvedSupervisorNames,
+      supervisorWaits,
+      nowMs,
     ),
     readRunningWork,
     (name) => readMemberPane(name, deps),
@@ -398,22 +411,17 @@ export async function runNoIdling(
           `no-idling: Regent is ${regent.agentStatus}; deferred completed-Alpha notice\n`,
         );
       } else {
-        await deps.submitToAgent(
+        await submitUnlessAlreadyPaged(
+          deps,
+          ledger,
           regent,
-          NO_IDLING_SENDER,
           `Completed Alpha(s) may require lifecycle cleanup: ${completedAlphas
             .map((entry) => entry.name)
             .join(
               ', ',
             )}. Use send-agent to message each Alpha directly. If an Alpha is not reapable, tell it to continue its task. A 99e gate finishing is not the same claim as delivery: it can finish by FAILING and sending the campaign back for corrective work. Before reaping any of them, confirm delivery-evidence.json plus a landed commit on the recorded target branch; reap only the ones with both. Do not start a validation round.`,
-          {
-            key: noIdlingWindowKey(
-              regent,
-              completedAlphas.map((entry) => entry.name),
-              deps.now?.() ?? Date.now(),
-            ),
-            composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
-          },
+          noIdlingPageKey(regent, completedAlphas.map((entry) => entry.name)),
+          { composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS },
         );
         writeOut(
           deps,
@@ -452,9 +460,10 @@ export async function runNoIdling(
     // than defaulting to Alpha, so a roleless entry never inherits
     // Alpha-shaped remediation it was never entitled to.
   const roleByAgentName = new Map(roster.map((entry) => [entry.name, entry.role]));
-    await deps.submitToAgent(
+    const paged = await submitUnlessAlreadyPaged(
+      deps,
+      ledger,
       regent,
-      NO_IDLING_SENDER,
       buildNoIdlingMessage({
         families: families.map((family) => ({
           alpha: family.alpha,
@@ -464,15 +473,13 @@ export async function runNoIdling(
         })),
         reapabilityProtocolViolations,
       }),
-      {
-        key: noIdlingWindowKey(
-          regent,
-          families.flatMap((family) => [family.alpha, ...family.idleChildren]),
-          deps.now?.() ?? Date.now(),
-        ),
-        composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
-      },
+      noIdlingPageKey(regent, [
+        ...families.flatMap((family) => [family.alpha, ...family.idleChildren]),
+        ...reapabilityProtocolViolations.map(({ agent }) => agent),
+      ]),
+      { composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS },
     );
+    if (!paged) return 0;
     const notifiedIdleFamilies = familiesWithNoMemberWaitingOnBackgroundWork(
       families,
       reapabilityProtocolViolations,

@@ -15,7 +15,7 @@ import {
 import { pathExists } from "../src/git-lifecycle/git-command.service.ts";
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const PRELOAD = path.join(REPOSITORY_ROOT, "test", "register-typescript.mjs");
+const RUN_TESTS = path.join(REPOSITORY_ROOT, "test", "run-tests.ts");
 const HEAVY_GATE = path.join(REPOSITORY_ROOT, "test", "heavy-tests-gate.ts");
 const HEAVY_SKIP_NOTICE =
   "# heavy real-infrastructure test gated out of the default suite — " +
@@ -26,7 +26,6 @@ function environmentWithoutGroups(): NodeJS.ProcessEnv {
   delete environment.THRONE_SLOW_TESTS;
   delete environment.THRONE_CONTAINER_TESTS;
   delete environment.THRONE_HEAVY_TESTS;
-  delete environment.NODE_TEST_CONTEXT;
   return environment;
 }
 
@@ -45,8 +44,8 @@ async function createRepositoryWithGroups(): Promise<string> {
 
 const runNode = promisify(execFile);
 
-function runDefaultTests(root: string, files: string[]) {
-  return runNode(process.execPath, ["--import", PRELOAD, "--test", ...files], {
+function runDefaultTests(root: string) {
+  return runNode(process.execPath, [RUN_TESTS], {
     cwd: root,
     env: environmentWithoutGroups(),
   });
@@ -62,21 +61,20 @@ async function packageScripts(): Promise<Record<string, string>> {
 
 test("the default test run skips the slow and container groups and says so once per skipped file", async () => {
   const root = await createRepositoryWithGroups();
-  const run = await runDefaultTests(root, ["test/slow.test.ts", "test/container.test.ts"]);
+  const run = await runDefaultTests(root);
   assert.equal(countLines(run.stdout, "# slow test file skipped: test/slow.test.ts"), 1);
   assert.equal(countLines(run.stdout, "# container test file skipped: test/container.test.ts"), 1);
 });
 
 test("an agent can run the slow group alone with npm run test:slow", async () => {
   const root = await createRepositoryWithGroups();
-  assert.match((await packageScripts())["test:slow"], /^THRONE_SLOW_TESTS=1 .*scripts\/run-suite-container\.mjs -- npm run test:groups:isolated$/);
-  assert.match((await packageScripts())["test:groups:isolated"], /test\/run-test-groups\.ts$/);
+  assert.match((await packageScripts())["test:slow"], /^THRONE_SLOW_TESTS=1 .*scripts\/run-suite-container\.mjs -- -- bun test\/run-tests\.ts$/);
   assert.deepEqual(listEnabledGroupTestFiles({ THRONE_SLOW_TESTS: "1" }, root), ["test/slow.test.ts"]);
 });
 
 test("an agent can run the container group alone with npm run test:containers", async () => {
   const root = await createRepositoryWithGroups();
-  assert.match((await packageScripts())["test:containers"], /^THRONE_CONTAINER_TESTS=1 .*scripts\/run-suite-container\.mjs -- npm run test:groups:isolated$/);
+  assert.match((await packageScripts())["test:containers"], /^THRONE_CONTAINER_TESTS=1 .*scripts\/run-suite-container\.mjs -- -- bun test\/run-tests\.ts$/);
   assert.deepEqual(listEnabledGroupTestFiles({ THRONE_CONTAINER_TESTS: "1" }, root), ["test/container.test.ts"]);
 });
 
@@ -92,7 +90,7 @@ test("the slow group does not run container tests unless asked", async () => {
 
 test("a skipped test file costs almost nothing because its imports never load", async () => {
   const root = await createRepositoryWithGroups();
-  const run = await runDefaultTests(root, ["test/slow.test.ts"]);
+  const run = await runDefaultTests(root);
   assert.doesNotMatch(run.stdout + run.stderr, /Error: loaded/);
   assert.equal(await pathExists(path.join(root, "loaded")), false);
 });
@@ -135,10 +133,6 @@ test("the heavy group behaves exactly as before", async () => {
   assert.equal(run.stdout, `${HEAVY_SKIP_NOTICE}\n`);
   assert.equal(
     (await packageScripts())["test:heavy"],
-    "THRONE_HEAVY_TESTS=1 node --import ./test/register-typescript.mjs scripts/run-suite-container.mjs -- npm run test:heavy:isolated",
-  );
-  assert.equal(
-    (await packageScripts())["test:heavy:isolated"],
-    "node --import ./test/register-typescript.mjs --test --test-timeout=600000 'test/**/*.canary.test.ts' 'src/throne-backend/rollback-guard-real-systemd.spec.ts'",
+    "THRONE_HEAVY_TESTS=1 bun scripts/run-suite-container.mjs -- -- bun test/run-tests.ts",
   );
 });

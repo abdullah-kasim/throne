@@ -1,4 +1,4 @@
-import { registerHooks } from 'node:module';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   pinTheBudgetFileSystemAs,
@@ -6,7 +6,8 @@ import {
 } from './jev-budget-pinned-file-system.test-support.ts';
 
 const PINNED_FILE_SYSTEM_URL = new URL('./jev-budget-pinned-file-system.test-support.ts', import.meta.url).href;
-const FILES_WHOSE_FILE_SYSTEM_IS_PINNED = ['/atomic-mkdir-lock.ts', '/jev-budget.ts'];
+const FILES_WHOSE_FILE_SYSTEM_IS_PINNED = /\/(atomic-mkdir-lock|jev-budget)\.ts$/;
+const FILE_SYSTEM_IMPORT = /(['"])node:fs\/promises\1/g;
 export const LATE_CONTENDER_SAW_THE_STALE_LOCK_FILE_NAME = 'late contender saw the stale lock';
 
 export interface PinnedSpendingOrder {
@@ -17,13 +18,25 @@ export interface PinnedSpendingOrder {
   readonly contender: PinnedContender;
 }
 
+interface SourceLoaderPlugin {
+  setup(build: {
+    onLoad(
+      options: { readonly filter: RegExp },
+      load: (file: { readonly path: string }) => Promise<{ readonly contents: string; readonly loader: 'ts' }>,
+    ): void;
+  }): void;
+}
+
+const bunRuntime = (globalThis as unknown as { readonly Bun: { plugin(plugin: SourceLoaderPlugin): void } }).Bun;
+
 function redirectTheBudgetFileSystemToThePinnedOne(): void {
-  registerHooks({
-    resolve: (specifier, context, nextResolve) =>
-      specifier === 'node:fs/promises' &&
-      FILES_WHOSE_FILE_SYSTEM_IS_PINNED.some((fileName) => context.parentURL?.endsWith(fileName))
-        ? { url: PINNED_FILE_SYSTEM_URL, shortCircuit: true }
-        : nextResolve(specifier, context),
+  bunRuntime.plugin({
+    setup(build) {
+      build.onLoad({ filter: FILES_WHOSE_FILE_SYSTEM_IS_PINNED }, async (args) => ({
+        contents: (await readFile(args.path, 'utf8')).replace(FILE_SYSTEM_IMPORT, JSON.stringify(PINNED_FILE_SYSTEM_URL)),
+        loader: 'ts',
+      }));
+    },
   });
 }
 

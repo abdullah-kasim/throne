@@ -30,8 +30,8 @@ commands, and keep step 2 as written.
 ## 1. Dump every unresolved thread, including the rolled-in ones
 
 ```bash
-node .claude/skills/pr-address-feedback/threads.mjs <pull request url>
-node .claude/skills/pr-address-feedback/threads.mjs <pull request url> --all --json
+bun .claude/skills/pr-address-feedback/threads.mjs <pull request url>
+bun .claude/skills/pr-address-feedback/threads.mjs <pull request url> --all --json
 ```
 
 It routes to `gh` or `ghe` by host, prints every unresolved review thread

@@ -9,5 +9,6 @@
     "sourceMap": false,
     "declaration": false
   },
-  "include": ["src/**/*.ts", "config.user.example.ts"]
+  "include": ["src/**/*.ts", "config.user.example.ts"],
+  "exclude": ["src/**/*.spec.ts"]
 }

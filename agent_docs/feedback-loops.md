@@ -5,22 +5,18 @@ Run every check from the throne root (the live checkout, e.g.
 Ordered by correctness signal: cheapest, most deterministic first; live smoke
 runs last.
 
-## 1. Typecheck — `npx tsc --noEmit`
+## 1. Typecheck — `bun run typecheck`
 
 ```bash
-npx tsc --noEmit
+bun run typecheck
 ```
 
-The fastest correctness gate. `tsconfig.json` is typecheck-only (Node runs the
-`.ts` directly; there is no build). A green run catches type errors before
-runtime. Note it does **not** catch Node strip-only-mode violations (`enum`,
-`namespace`, parameter-properties, decorators) — those pass `tsc` but crash on
-import, so also load the module (step 3) after touching class/enum shapes.
+The fastest correctness gate. A green run catches type errors before runtime.
 
-## 2. Unit tests — `node --test`
+## 2. Unit tests — `bun run test`
 
 ```bash
-node --test
+bun run test
 ```
 
 The hermetic suite in `test/` exercises the reliability rule via injected

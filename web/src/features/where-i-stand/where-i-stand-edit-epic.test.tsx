@@ -1,11 +1,10 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { expect, test } from "vitest";
-import { SAVE_ALREADY_ON_ITS_WAY_WORDS } from "@/features/where-i-stand/save-page-unit";
-import { BAKERY, BAKERY_EPIC, COOKBOOK, editButton, EPICS_HASH, FakeBackend, openPage, SAMPLE_MARKDOWN, watchAnnouncements, type OpenedPage } from "@/features/where-i-stand/where-i-stand.test-support";
+import { SAVE_ALREADY_ON_ITS_WAY_WORDS } from "@/features/where-i-stand/page-queries";
+import { BAKERY, BAKERY_EPIC, COOKBOOK, editButton, EPIC_CHANGED_WORDS, EPICS_HASH, FakeBackend, openPage, SAMPLE_MARKDOWN, watchAnnouncements, type OpenedPage } from "@/features/where-i-stand/where-i-stand.test-support";
 
 const SPACED_EPIC = "### Train a new baker\n\nAsk the guild.\n\n- Check the wages";
 const MARKDOWN_WITH_A_SPACED_EPIC = `${SAMPLE_MARKDOWN}\n${SPACED_EPIC}\n`;
-const ENTRY_CHANGED_WORDS = "Not saved: this entry changed since the page loaded, and nothing was overwritten.";
 const NOTHING_TO_SAVE_WORDS = "Nothing to save: this epic is as it was loaded.";
 const HEADING_IN_NOTES_WORDS = "Not saved: a notes line starting with ## or ### would start a new section or entry. Use #### or bold text.";
 
@@ -59,7 +58,7 @@ test("an edited epic keeps its blank lines, its list lines and its heading", asy
   await page.user.click(saveButton("Train a new baker"));
   await page.settle();
 
-  expect(page.backend.saveBodies).toEqual([{ loaded: SPACED_EPIC, edited: `${SPACED_EPIC} today` }]);
+  expect(page.backend.saveBodies.map(({ row }) => row)).toEqual([{ freeLines: `${SPACED_EPIC} today`.split("\n").slice(1) }]);
 });
 
 test("editing shows the unsaved state and undoing the edit clears it", async () => {
@@ -75,7 +74,7 @@ test("editing shows the unsaved state and undoing the edit clears it", async () 
   expect(screen.queryByRole("button", { name: `Save ${BAKERY} epic` })).toBeNull();
 });
 
-test("saving an epic posts its loaded text and its new text", async () => {
+test("saving an epic sends its row, its new notes and when it was last changed", async () => {
   const page = await openPage(new FakeBackend(), EPICS_HASH);
   await openEditor(page, BAKERY);
 
@@ -83,7 +82,7 @@ test("saving an epic posts its loaded text and its new text", async () => {
   await page.user.click(saveButton(BAKERY));
   await page.settle();
 
-  expect(page.backend.saveBodies).toEqual([{ loaded: BAKERY_EPIC, edited: `### ${BAKERY}\nFind a site by the harbour.` }]);
+  expect(page.backend.saveBodies).toEqual([{ address: expect.stringMatching(/\/where-i-stand\/store\/rows\/r\d+$/), method: "PUT", writer: "Lord", row: { freeLines: ["Find a site by the harbour."] }, loadedChangedAt: expect.any(String) }]);
   expect(statusOf(BAKERY)).toBe("Saved.");
   expect(editor(BAKERY).value).toBe("Find a site by the harbour.");
 });
@@ -112,7 +111,7 @@ test("a refused save says the epic changed and shows the current epic without lo
   await page.settle();
 
   expect(editor(BAKERY).value).toMatch(/evening foot traffic/);
-  expect(statusOf(BAKERY)).toBe(ENTRY_CHANGED_WORDS);
+  expect(statusOf(BAKERY)).toBe(EPIC_CHANGED_WORDS);
   const unsaved = page.panel().querySelector(".unsaved");
   expect(unsaved?.textContent).toMatch(/Your text that was not saved:/);
   expect(unsaved?.textContent).toMatch(/the Lord says ship it/);
@@ -132,7 +131,7 @@ test("a failed save says so and keeps the text in the editor", async () => {
   page.backend.answerToNextSaves = () => new Response("Bad Gateway", { status: 502 });
   await page.user.click(saveButton(BAKERY));
   await page.settle();
-  expect(statusOf(BAKERY)).toBe("Not saved: where-i-stand/save answered 502.");
+  expect(statusOf(BAKERY)).toMatch(/^Not saved: where-i-stand\/store\/rows\/r\d+ answered 502\.$/);
 });
 
 test("a save the backend refuses as outside the Epics section shows its reason", async () => {
@@ -140,7 +139,7 @@ test("a save the backend refuses as outside the Epics section shows its reason",
   await openEditor(page, BAKERY);
   await replaceNotes(page, BAKERY, "shipped");
   const refusal = "Not saved: the page can change only under Epics.";
-  page.backend.answerToNextSaves = () => Response.json({ outcome: "outside-epics", message: refusal }, { status: 403 });
+  page.backend.answerToNextSaves = () => Response.json({ outcome: "refused", message: refusal });
 
   await page.user.click(saveButton(BAKERY));
   await page.settle();
@@ -161,37 +160,6 @@ test("a save says so when the backend cannot be reached", async () => {
   expect(statusOf(BAKERY)).toBe("Not saved: the backend could not be reached.");
 });
 
-test("a notes line that would start a new entry is refused, sends nothing and keeps the text", async () => {
-  for (const line of ["### sneaky", "## Queued and deferred", `### ${COOKBOOK}`, "  ### indented"]) {
-    const page = await openPage(new FakeBackend(), EPICS_HASH);
-    await openEditor(page, BAKERY);
-    const notes = `first\n${line}\nafter`;
-    await page.user.clear(editor(BAKERY));
-    await page.user.paste(notes);
-
-    await page.user.click(saveButton(BAKERY));
-    await page.settle();
-
-    expect(page.backend.saveBodies).toEqual([]);
-    expect(statusOf(BAKERY)).toBe(HEADING_IN_NOTES_WORDS);
-    expect(announcement()).toBe(HEADING_IN_NOTES_WORDS);
-    expect(editor(BAKERY).value).toBe(notes);
-    expect(document.activeElement).toBe(editor(BAKERY));
-  }
-});
-
-test("notes whose first line is indented past a heading can still be saved", async () => {
-  const page = await openPage(new FakeBackend(), EPICS_HASH);
-  await openEditor(page, BAKERY);
-  await page.user.clear(editor(BAKERY));
-  await page.user.paste("    ### a line of code");
-
-  await page.user.click(saveButton(BAKERY));
-  await page.settle();
-
-  expect(page.backend.markdown).toContain(`### ${BAKERY}\n    ### a line of code`);
-});
-
 test("Cmd or Ctrl S saves the focused epic", async () => {
   const page = await openPage(new FakeBackend(), EPICS_HASH);
   await openEditor(page, BAKERY);
@@ -203,7 +171,7 @@ test("Cmd or Ctrl S saves the focused epic", async () => {
     await replaceNotes(page, BAKERY, notes);
     await page.user.keyboard(keys);
     await page.settle();
-    expect(page.backend.saveBodies.at(-1)?.edited).toBe(`### ${BAKERY}\n${notes}`);
+    expect(page.backend.saveBodies.at(-1)?.row).toEqual({ freeLines: [notes] });
   }
   expect(page.backend.saveBodies).toHaveLength(2);
 });

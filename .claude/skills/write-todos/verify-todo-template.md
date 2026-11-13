@@ -27,7 +27,7 @@ deps: [99a]
 
 Fresh independent Shadow. Run the bundle's verification commands against the
 assembled candidate — the test suite, the linter, type/static analysis, and any
-repository contract check the project already owns. Record every command, its
+repository contract check the project already owns. Follow the spec file's "How to reach it and prove it works" section where one exists (`throne spec-location <repository>` says where the spec is). Record every command, its
 exit code, and its relevant output; generate that evidence rather than
 transcribing it.
 
@@ -61,7 +61,7 @@ command from this repository's own scripts and runner at run time.
    beside the base suite when the project compares against one. Fix and
    commit what it finds, re-run Tier A, then run Tier C once more. Finish on
    a clean Tier C run. Run the base suite with
-   `node scripts/shared-base-suite.mjs <base-directory>`. It may reuse a
+   `bun scripts/shared-base-suite.mjs <base-directory>`. It may reuse a
    finished base result another campaign saved for the same base; when it
    prints `shared base result used`, write its key and path into this file.
    The candidate suite is never cached: always run it fresh.

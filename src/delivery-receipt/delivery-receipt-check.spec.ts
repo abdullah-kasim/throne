@@ -32,7 +32,9 @@ import {
   withReceiptCheckScene,
   writeRecipientTranscript,
   writeRecipientTranscriptBeforeDelivery,
+  replayDelivery,
   type ReceiptCheckScene,
+  type RecordedTimings,
 } from './delivery-receipt-check-test-fixtures.ts';
 
 type RecordedCase = readonly [fixtureName: string, recordedMessageId: number];
@@ -306,3 +308,134 @@ test('checking the same message twice sends one notice', async () => {
     assert.equal(noticesIn(scene).length, 1);
   });
 });
+
+const ANOTHER_SESSION_ID = 'another-session-in-the-same-project';
+
+async function replayRecordedCase(
+  scene: ReceiptCheckScene,
+  timings: RecordedTimings,
+  recordedCase: RecordedCase,
+  recipientTranscriptCase: RecordedCase,
+  recipientLastWrittenAt: string,
+  otherSessionLastWrittenAt: string,
+): Promise<{ message: WorkItemRow; check: WorkItemRow }> {
+  const [fixtureName, recordedMessageId] = recordedCase;
+  const [transcriptFixtureName, transcriptRecordedMessageId] = recipientTranscriptCase;
+  return replayDelivery(
+    scene,
+    timings,
+    async (messageId) =>
+      (await recordedDelivery(fixtureName, recordedMessageId, messageId)).typedText,
+    async (messageId) => [
+      {
+        transcript: (
+          await recordedDelivery(
+            transcriptFixtureName,
+            transcriptRecordedMessageId,
+            recipientTranscriptCase === recordedCase ? messageId : transcriptRecordedMessageId,
+          )
+        ).transcript,
+        lastWrittenAt: recipientLastWrittenAt,
+        sessionId: RECIPIENT_SESSION_ID,
+      },
+      {
+        transcript: await transcriptOfOtherMessages(),
+        lastWrittenAt: otherSessionLastWrittenAt,
+        sessionId: ANOTHER_SESSION_ID,
+      },
+    ],
+  );
+}
+
+const PINNED_TIMINGS: RecordedTimings = {
+  queuedAt: '2026-11-11T01:44:34.276Z',
+  deliveredAt: '2026-11-11T01:45:09.665Z',
+  checkedAt: '2026-11-11T02:21:59.243Z',
+};
+
+test('a message cut short in a transcript written after the delivered stamp still earns its recipient the may-not-have-reached-you notice', async () => {
+  await withReceiptCheckScene(async (scene) => {
+    const { message, check } = await replayRecordedCase(
+      scene,
+      PINNED_TIMINGS,
+      ARRIVED_CUT_SHORT,
+      ARRIVED_CUT_SHORT,
+      '2026-11-11T01:46:00.000Z',
+      '2026-11-11T02:00:00.000Z',
+    );
+    assert.equal(outcomeOf(scene, check), 'truncated');
+    assert.deepEqual(noticePrompts(scene), [
+      buildDeliveryNotice('truncated', message.id, SENDER_NAME),
+    ]);
+  });
+});
+
+test('a message missing from every transcript fifteen minutes on still earns an idle recipient the may-not-have-reached-you notice', async () => {
+  await withReceiptCheckScene(async (scene) => {
+    const { message, check } = await replayRecordedCase(
+      scene,
+      PINNED_TIMINGS,
+      ARRIVED_WHOLE,
+      TRANSCRIPT_OF_OTHER_MESSAGES,
+      '2026-11-11T01:46:00.000Z',
+      '2026-11-11T02:00:00.000Z',
+    );
+    assert.equal(outcomeOf(scene, check), 'absent-notified');
+    assert.deepEqual(noticePrompts(scene), [
+      buildDeliveryNotice('absent', message.id, SENDER_NAME),
+    ]);
+  });
+});
+
+interface RegentReplay {
+  readonly messageId: number;
+  readonly timings: RecordedTimings;
+  readonly recipientLastWrittenAt: string;
+}
+
+const REGENT_REPLAYS: readonly RegentReplay[] = [
+  {
+    messageId: 201,
+    timings: {
+      queuedAt: '2026-11-11T01:44:34.276Z',
+      deliveredAt: '2026-11-11T01:45:09.665Z',
+      checkedAt: '2026-11-11T02:21:59.243Z',
+    },
+    recipientLastWrittenAt: '2026-11-11T01:44:56.455Z',
+  },
+  {
+    messageId: 202,
+    timings: {
+      queuedAt: '2026-11-11T05:03:03.217Z',
+      deliveredAt: '2026-11-11T05:04:09.403Z',
+      checkedAt: new Date(Date.parse('2026-11-11T05:04:09.403Z') + ABSENT_NOTICE_WAIT_MS).toISOString(),
+    },
+    recipientLastWrittenAt: '2026-11-11T05:03:53.706Z',
+  },
+  {
+    messageId: 203,
+    timings: {
+      queuedAt: '2026-11-11T06:09:33.488Z',
+      deliveredAt: '2026-11-11T06:10:13.835Z',
+      checkedAt: '2026-11-11T06:25:52.814Z',
+    },
+    recipientLastWrittenAt: '2026-11-11T06:10:05.604Z',
+  },
+];
+
+for (const { messageId, timings, recipientLastWrittenAt } of REGENT_REPLAYS) {
+  test(`a message the Regent recorded before the queue marked it delivered does not trigger a may-not-have-reached-you notice (message ${messageId})`, async () => {
+    await withReceiptCheckScene(async (scene) => {
+      const { check } = await replayRecordedCase(
+        scene,
+        timings,
+        ARRIVED_WHOLE,
+        ARRIVED_WHOLE,
+        recipientLastWrittenAt,
+        timings.checkedAt,
+      );
+      assert.equal(outcomeOf(scene, check), 'intact');
+      assert.deepEqual(noticesIn(scene), []);
+    });
+  });
+}

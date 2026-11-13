@@ -281,13 +281,14 @@ function boardNameTheRealRulesRewrite(): string {
   return `${boardPrefix}7`;
 }
 
-function integrityLines(lockfile: string): string[] {
-  return lockfile.split("\n").filter((line) => line.includes('"integrity":'));
+function integrityValues(lockfile: string): string[] {
+  return lockfile.match(/sha512-[A-Za-z0-9+/=]+/g) ?? [];
 }
 
 test("the scrub leaves every integrity value in a published lockfile unchanged", { skip: !existsSync(realScrubFile) }, () => {
-  const lockfile = readFileSync(path.join(throneCheckout, "package-lock.json"), "utf8");
-  assert.deepEqual(integrityLines(scrubbedWithTheRealRules(lockfile)), integrityLines(lockfile));
+  const lockfile = readFileSync(path.join(throneCheckout, "bun.lock"), "utf8");
+  assert.notDeepEqual(integrityValues(lockfile), []);
+  assert.deepEqual(integrityValues(scrubbedWithTheRealRules(lockfile)), integrityValues(lockfile));
 });
 
 test("the scrub still rewrites a private board name on a line that is no integrity value", { skip: !existsSync(realScrubFile) }, () => {

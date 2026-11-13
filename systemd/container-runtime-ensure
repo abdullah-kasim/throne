@@ -4,7 +4,7 @@ set -eu
 known_runtimes="docker podman"
 forced_runtime="${THRONE_CONTAINER_RUNTIME:-}"
 wait_seconds="${THRONE_CONTAINER_RUNTIME_WAIT_SECONDS:-180}"
-start_lock_file="${XDG_STATE_HOME:-$HOME/.local/state}/throne/container-runtime-start.lock"
+throne_root=$(cd -P "$(dirname "$0")/.." && pwd -P)
 docker_desktop_app="${THRONE_DOCKER_DESKTOP_APP:-/Applications/Docker.app}"
 platform=$(uname -s)
 
@@ -80,20 +80,22 @@ run_from_home_in_own_process_group() {
     (cd "$HOME" && exec perl -e 'setpgrp(0, 0); exec @ARGV' "$@") </dev/null >/dev/null 2>&1 || true
 }
 
-run_without_start_lock() {
-    ("$@") 9>&-
+start_unless_reachable() {
+    if ! runtime_is_reachable "$1"; then
+        run_from_home_in_own_process_group $2
+    fi
+    wait_until_reachable "$1"
 }
 
 start_once_until_reachable() {
-    mkdir -p "$(dirname "$start_lock_file")"
-    (
-        flock 9 || exit 1
-        if ! runtime_is_reachable "$1"; then
-            run_without_start_lock run_from_home_in_own_process_group $2
-        fi
-        wait_until_reachable "$1"
-    ) 9>"$start_lock_file"
+    "$throne_root/bin/throne-runtime" "$throne_root/scripts/hold-lock.mjs" container-runtime-start -- \
+        "$0" --start-unless-reachable "$1" "$2"
 }
+
+if [ "${1:-}" = --start-unless-reachable ]; then
+    start_unless_reachable "$2" "$3"
+    exit
+fi
 
 runtime=$(choose_runtime)
 if [ -z "$runtime" ]; then

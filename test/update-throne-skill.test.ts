@@ -35,8 +35,8 @@ test('the update-throne skill runs the one script and does no step by hand', asy
       'user-invocable: true',
       '`scripts/update-throne.mjs`, run from the main throne checkout, does the whole update.',
       "The agent's job is to run it, ask the questions it prints, and read the log.",
-      'node scripts/update-throne.mjs --check',
-      'node scripts/update-throne.mjs [--bring-in-upstream] [--restart-ordered-by-lord "<the invoker\'s words, verbatim>"]',
+      'bin/throne-runtime scripts/update-throne.mjs --check',
+      'bin/throne-runtime scripts/update-throne.mjs [--bring-in-upstream] [--restart-ordered-by-lord "<the invoker\'s words, verbatim>"]',
     ]),
     [],
   );

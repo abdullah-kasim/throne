@@ -3,6 +3,7 @@ import { errorText } from '../shared-policy/error-text.ts';
 import { checkDeliveryVerdict } from '../verify-delivery/verify-delivery-runtime.ts';
 import {
   deleteBranchCleanup,
+  describeRetention,
   preflightBranchCleanup,
   restoreBranchCleanup,
   type BranchCleanupPlan,
@@ -278,7 +279,7 @@ async function deleteOrdinaryBranch(
   }
   try {
     if (await (deps.deleteBranchCleanup ?? deleteBranchCleanup)(plan)) {
-      actions.push(`deleted delivered branch ${plan.branch}`);
+      actions.push(`deleted delivered branch ${plan.branch}${describeRetention(plan)}`);
     }
   } catch (deleteError) {
     let recovery = 'branch tip and live ledger retained';

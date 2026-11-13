@@ -118,8 +118,7 @@ function rowFromEntry(entry: PageEntry): WorkRow {
   };
 }
 
-export function workRows(records: PullRequestRecords | undefined, entries: readonly PageEntry[]): WorkRow[] {
-  const currentEntries = entries.filter((entry) => !entry.superseded);
+export function workRows(records: PullRequestRecords | undefined, currentEntries: readonly PageEntry[]): WorkRow[] {
   const recordsWithEntries = (records?.rows ?? []).map((record) => ({ record, entry: currentEntries.find((entry) => entryNamesRecord(entry, record)) }));
   const ownEntries = currentEntries.filter((entry) => !recordsWithEntries.some((pair) => pair.entry === entry));
   return [

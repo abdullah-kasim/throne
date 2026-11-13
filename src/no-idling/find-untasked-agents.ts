@@ -1,7 +1,6 @@
 import { agentStatusAcceptsInput } from '../herdr/herdr-inventory.service.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
-import { AGENT_MIN_AGE_MS, spawnedAtAgeMs } from './idle-family.ts';
-import { isSpawnStillStarting } from '../agentdata/spawn-starting.ts';
+import { isWithinSpawnGrace, spawnedAtAgeMs } from '../agentdata/spawn-starting.ts';
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
 import { latestMessageDeclaresBlockedOrReapable } from './idle-pane-tag-classification.ts';
 import { runningWorkDescription, waitingSentenceInPane, type ReadRunningWork } from './background-wait.ts';
@@ -23,6 +22,7 @@ export interface UntaskedAgent {
   readonly role: string;
   readonly ageMs: number;
   readonly backgroundWork?: string;
+  readonly finished?: boolean;
 }
 
 export interface FindUntaskedAgentsEvidence {
@@ -89,10 +89,7 @@ export async function findUntaskedAgents(
       continue;
     }
     const ageMs = spawnedAtAgeMs(spec.spawned_at, nowMs);
-    if (ageMs === undefined || ageMs < AGENT_MIN_AGE_MS) {
-      continue;
-    }
-    if (isSpawnStillStarting(spec, nowMs)) {
+    if (ageMs === undefined || isWithinSpawnGrace(spec, nowMs)) {
       continue;
     }
     if (await evidence.hasFutureScheduledDelivery?.(entry.name, nowMs)) {
@@ -110,6 +107,7 @@ export async function findUntaskedAgents(
       name: entry.name,
       role: entry.role,
       ageMs,
+      ...(entry.reportLanded ? { finished: true } : {}),
       ...(backgroundWork === undefined ? {} : { backgroundWork }),
     });
   }

@@ -1,6 +1,8 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
+import { ACCEPTANCE_DATA } from '../agentdata/acceptance-data.service.ts';
+import { readAgentPresentState } from '../agentdata/agent-present-state.ts';
 import type { AgentStatusesRosterEntry } from '../agent-statuses/agent-statuses.types.ts';
 
 const DEFAULT_DATA_DIR = THRONE_DATA_DIR;
@@ -26,6 +28,8 @@ export interface StallEvidence {
   readonly roster: readonly AgentStatusesRosterEntry[];
   readonly supervisors: ReadonlyMap<string, string>;
   readonly staleAlphas: ReadonlySet<string>;
+  readonly reapedNames?: ReadonlySet<string>;
+  readonly acceptedNames?: ReadonlySet<string>;
 }
 
 export interface FamilyRecoverySummary {
@@ -41,13 +45,18 @@ function isStagerRosterEntry(entry: AgentStatusesRosterEntry): boolean {
 export function classifyStalls(evidence: StallEvidence): StallSignature[] {
   const alphas = new Set(
     evidence.roster
-      .filter((entry) => entry.role === 'Alpha' && entry.lifecycle === 'live')
+      .filter(
+        (entry) =>
+          entry.role === 'Alpha' &&
+          entry.lifecycle === 'live' &&
+          !evidence.reapedNames?.has(entry.name),
+      )
       .map((entry) => entry.name),
   );
   const signatures: StallSignature[] = [];
 
   for (const entry of evidence.roster) {
-    if (isStagerRosterEntry(entry)) continue;
+    if (isStagerRosterEntry(entry) || evidence.reapedNames?.has(entry.name)) continue;
 
     if (entry.role === 'Alpha' && entry.lifecycle === 'live') {
       if (entry.liveStatus === 'blocked' && !entry.reportLanded) {
@@ -65,7 +74,9 @@ export function classifyStalls(evidence: StallEvidence): StallSignature[] {
     const alpha = evidence.supervisors.get(entry.name);
     if (alpha === undefined || !alphas.has(alpha)) continue;
     if (entry.reportLanded) {
-      signatures.push({ alpha, child: entry.name, reason: 'completed-child' });
+      if (!evidence.acceptedNames?.has(entry.name)) {
+        signatures.push({ alpha, child: entry.name, reason: 'completed-child' });
+      }
     } else if (entry.lifecycle === 'dead') {
       signatures.push({ alpha, child: entry.name, reason: 'dead-child' });
     } else if (
@@ -153,6 +164,7 @@ export async function readStallEvidence(
   roster: readonly AgentStatusesRosterEntry[],
   nowMs: number,
   dataDir: string = DEFAULT_DATA_DIR,
+  claudeProjectsDirectory?: string,
 ): Promise<StallEvidence> {
   const shadows = roster.filter((entry) => entry.role === 'Shadow');
   const supervisors = new Map(
@@ -162,11 +174,46 @@ export async function readStallEvidence(
       ),
     ),
   );
+  const presentStates = new Map(
+    await Promise.all(
+      roster
+        .filter((entry) => entry.role === 'Alpha' || entry.role === 'Shadow')
+        .map(async (entry) =>
+          [
+            entry.name,
+            await readAgentPresentState(entry.name, nowMs, { dataDir, claudeProjectsDirectory }),
+          ] as const,
+        ),
+    ),
+  );
+  const reapedNames = new Set(
+    [...presentStates].filter(([, state]) => state.reaped).map(([name]) => name),
+  );
+  const acceptedNames = new Set<string>();
+  await Promise.all(
+    shadows.map(async (entry) => {
+      if ((await ACCEPTANCE_DATA.read(entry.name, dataDir)) !== null) acceptedNames.add(entry.name);
+    }),
+  );
+  const wroteRecently = (name: string): boolean => {
+    const written = presentStates.get(name)?.lastTranscriptWriteMs;
+    return written !== undefined && nowMs - written < STALE_PROGRESS_MS;
+  };
+  const hasWorkingChild = (alpha: string): boolean =>
+    shadows.some(
+      (entry) =>
+        supervisors.get(entry.name) === alpha &&
+        !reapedNames.has(entry.name) &&
+        wroteRecently(entry.name),
+    );
   const workingAlphas = roster.filter(
     (entry) =>
       entry.role === 'Alpha' &&
       entry.lifecycle === 'live' &&
-      entry.liveStatus === 'working',
+      entry.liveStatus === 'working' &&
+      !reapedNames.has(entry.name) &&
+      !wroteRecently(entry.name) &&
+      !hasWorkingChild(entry.name),
   );
   const staleAlphas = new Set<string>();
   await Promise.all(
@@ -177,7 +224,7 @@ export async function readStallEvidence(
       }
     }),
   );
-  return { roster, supervisors, staleAlphas };
+  return { roster, supervisors, staleAlphas, reapedNames, acceptedNames };
 }
 
 export function stallInstruction(signature: StallSignature): string {

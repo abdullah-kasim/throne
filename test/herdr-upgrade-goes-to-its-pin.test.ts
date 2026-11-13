@@ -144,7 +144,7 @@ async function withCourt(host: FakeHost, proof: (court: Court) => Promise<void>)
       home,
       env,
       run: (...args) => runScript(repository, args, env),
-      runOnAMac: (...args) => runScript(repository, args, { ...env, NODE_OPTIONS: `--import ${path.join(scratch, PRETEND_TO_BE_A_MAC_FILE)}` }),
+      runOnAMac: (...args) => runScript(repository, args, { ...env, BUN_OPTIONS: `--preload ${path.join(scratch, PRETEND_TO_BE_A_MAC_FILE)}` }),
       calls: async () => (await readFile(path.join(scratch, 'calls'), 'utf8')).split('\n').filter(Boolean),
       renderedTag: async () => (await readFile(path.join(scratch, 'rendered-tag'), 'utf8')).trim(),
     });

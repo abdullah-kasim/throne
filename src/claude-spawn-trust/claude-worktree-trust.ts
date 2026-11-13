@@ -41,6 +41,7 @@ import {
   realpathSync,
   renameSync,
   rmdirSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -50,8 +51,9 @@ import { resolveThroneHome } from "../shared-policy/throne-home.ts";
 /** Bounded so a crashed writer's stale lock cannot wedge every future spawn:
  *  the lock is held for one small read-modify-write, so exceeding this means
  *  something is wrong rather than merely slow. */
-const LOCK_ATTEMPTS = 100;
+const LOCK_ATTEMPTS = 600;
 const LOCK_RETRY_MS = 20;
+const CLAUDE_CODE_STALE_LOCK_MS = 10_000;
 
 export interface ClaudeWorktreeTrustDeps {
   homedir: () => string;
@@ -60,6 +62,7 @@ export interface ClaudeWorktreeTrustDeps {
   renameSync: typeof renameSync;
   mkdirSync: typeof mkdirSync;
   rmdirSync: typeof rmdirSync;
+  statSync: typeof statSync;
   realpathSync: typeof realpathSync;
   sleepMs: (ms: number) => void;
 }
@@ -77,6 +80,7 @@ export const REAL_CLAUDE_WORKTREE_TRUST_DEPS: ClaudeWorktreeTrustDeps = {
   renameSync,
   mkdirSync,
   rmdirSync,
+  statSync,
   realpathSync,
   sleepMs,
 };
@@ -115,17 +119,34 @@ function resolvedOrRaw(deps: ClaudeWorktreeTrustDeps, target: string): string {
  * guarded is the account's real config — a lost update here does not cost a
  * trust flag, it silently drops an unrelated key the human depends on.
  */
+function lockIsAbandoned(deps: ClaudeWorktreeTrustDeps, lockPath: string): boolean {
+  const lock = deps.statSync(lockPath, { throwIfNoEntry: false });
+  return lock !== undefined && Date.now() - lock.mtimeMs > CLAUDE_CODE_STALE_LOCK_MS;
+}
+
+function removeAbandonedLock(deps: ClaudeWorktreeTrustDeps, lockPath: string): void {
+  try {
+    deps.rmdirSync(lockPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
 function withConfigLock<T>(
   deps: ClaudeWorktreeTrustDeps,
   configPath: string,
   body: () => T,
 ): T {
-  const lockPath = `${configPath}.throne-lock`;
+  const lockPath = `${configPath}.lock`;
   for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
     try {
       deps.mkdirSync(lockPath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (lockIsAbandoned(deps, lockPath)) {
+        removeAbandonedLock(deps, lockPath);
+        continue;
+      }
       deps.sleepMs(LOCK_RETRY_MS);
       continue;
     }
@@ -142,7 +163,7 @@ function withConfigLock<T>(
   throw new Error(
     `claude worktree trust: could not acquire "${lockPath}" after ` +
       `${LOCK_ATTEMPTS} attempts. A previous writer may have died holding it; ` +
-      `remove that directory once no throne spawn is in flight.`,
+      `remove that directory once no throne spawn or Claude Code session is saving its config.`,
   );
 }
 
@@ -190,14 +211,21 @@ function throneOwnedProjectPaths(
   // appears broken. Same defect the standing realpath-equivalence order
   // exists to prevent. Caught only by running this against a copy of a real
   // config; fixtures with internally consistent paths cannot express it.
+  const owned = Object.keys(projects).filter((projectPath) =>
+    isCourtCampaignWorktree(projectPath, deps),
+  );
+  return owned.includes(worktreeRealPath) ? owned : [...owned, worktreeRealPath];
+}
+
+export function isCourtCampaignWorktree(
+  folder: string,
+  deps: ClaudeWorktreeTrustDeps = REAL_CLAUDE_WORKTREE_TRUST_DEPS,
+): boolean {
   const worktreesRoot = `${path.join(
     resolvedOrRaw(deps, resolveThroneHome(process.env, deps.homedir())),
     "worktrees",
   )}${path.sep}`;
-  const owned = Object.keys(projects).filter((projectPath) =>
-    projectPath.startsWith(worktreesRoot),
-  );
-  return owned.includes(worktreeRealPath) ? owned : [...owned, worktreeRealPath];
+  return resolvedOrRaw(deps, folder).startsWith(worktreesRoot);
 }
 
 function needsAutoModeNudgeDismissed(

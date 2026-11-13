@@ -188,7 +188,6 @@ const USAGE_LOG_LOCK_NAME = 'usage log';
 interface UsageLogAppenderOptions {
   file?: string;
   now?: () => Date;
-  flockExecutable?: string;
 }
 
 async function readAbsentAsEmpty(file: string): Promise<string> {
@@ -235,7 +234,6 @@ export function realAppendUsageLog(
           });
           await rename(temporaryFile, file);
         },
-        options.flockExecutable,
       );
     } finally {
       await unlinkWithoutChangingOutcome(temporaryFile);

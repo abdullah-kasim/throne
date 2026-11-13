@@ -48,7 +48,7 @@ THRONE_DATA="${THRONE_DATA_HOME:-$HOME/.throne}/data"
 # matching TreeBase records an absolute target repository. Invalid evidence is empty.
 registered_campaign_repo_from() { agent_dir="$THRONE_DATA/$ALPHA"; \
   [ -f "$agent_dir/identity.md" ] || return 0; \
-  node -e 'try{const b=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));const p=require("node:path");if(b.name===process.argv[2]&&typeof b.repo==="string"&&p.isAbsolute(b.repo))process.stdout.write(b.repo)}catch{}' "$agent_dir/tree-base.json" "$ALPHA" 2>/dev/null; }
+  bun -e 'try{const b=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));const p=require("node:path");if(b.name===process.argv[2]&&typeof b.repo==="string"&&p.isAbsolute(b.repo))process.stdout.write(b.repo)}catch{}' "$agent_dir/tree-base.json" "$ALPHA" 2>/dev/null; }
 registered_alpha_from() { [ -f "$THRONE_DATA/$ALPHA/identity.md" ]; }
 # Fast path: orchestrating FROM the throne root (or a subdir of it).
 THRONE="$(throne_from "$PWD")"
@@ -65,7 +65,7 @@ CAMPAIGN_REPO=""
 # sharing the session has neither identity nor TreeBase, so it stays outside
 # throne context. An absent or ambiguous Regent yields empty.
 if [ -z "$THRONE" ]; then
-  REGENT_CWD="$(herdr agent list 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const want=process.argv[1].toLowerCase();const m=(JSON.parse(s).result?.agents??[]).filter(a=>typeof a?.name==="string"&&a.name.toLowerCase()===want);if(m.length===1&&typeof m[0].cwd==="string")process.stdout.write(m[0].cwd)}catch{}})' Regent 2>/dev/null)"
+  REGENT_CWD="$(herdr agent list 2>/dev/null | bun -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const want=process.argv[1].toLowerCase();const m=(JSON.parse(s).result?.agents??[]).filter(a=>typeof a?.name==="string"&&a.name.toLowerCase()===want);if(m.length===1&&typeof m[0].cwd==="string")process.stdout.write(m[0].cwd)}catch{}})' Regent 2>/dev/null)"
   if [ -n "$REGENT_CWD" ]; then
     CAND="$(throne_from "$REGENT_CWD")"
     [ -n "$CAND" ] && CAMPAIGN_REPO="$(registered_campaign_repo_from "$CAND")"
@@ -128,15 +128,15 @@ So when your slice adds or touches a test:
   already did this, so let's add some more to the slow test list._ On container
   tests: _we should isolate those away and disable them by default. Only an agent
   can judge whether to run them._ A file listed in `test/slow-tests.json` (with
-  its measured seconds and why it is slow) is skipped by the default `npm test`
-  and runs with `npm run test:slow` or `THRONE_SLOW_TESTS=1`. A file that starts
+  its measured seconds and why it is slow) is skipped by the default `bun run test`
+  and runs with `bun run test:slow` or `THRONE_SLOW_TESTS=1`. A file that starts
   a podman or docker container is listed in `test/container-tests.json` and runs
-  with `npm run test:containers` or `THRONE_CONTAINER_TESTS=1`; an agent runs that
+  with `bun run test:containers` or `THRONE_CONTAINER_TESTS=1`; an agent runs that
   group only on its judgment that the change reaches what those tests cover, and
   records that decision in its execution log or report. For these two groups the
   rule above and the shrinking manifest below are superseded by that ruling; the
   heavy group keeps both. The law still binds every default run.
-- **ENFORCEMENT IS MANDATORY — `npm test` FAILS on a violation.** Not warns, not
+- **ENFORCEMENT IS MANDATORY — `bun run test` FAILS on a violation.** Not warns, not
   reports. The Lord's follow-up: _"npm test should fail if something ran for more
   than 10 seconds."_ He was asked to reconsider on flakiness grounds and
   reaffirmed. An earlier ruling calling this a bug-not-failure threshold is
@@ -546,7 +546,7 @@ full-pair allowlists:
 
 - this ORCHESTRATOR uses `active_plan.rolePools.Alpha`;
 - ordinary slice workers (`01`–`98`) use `active_plan.rolePools.Shadow`;
-- all three terminal workers (`99a` conformance, `99b` verify-and-fix and `99c` delivery) use
+- all four terminal workers (`99a` conformance, `99b` verify-and-fix, `99bs` spec and `99c` delivery) use
   `active_plan.rolePools.ShadowSlice99`.
 
 A missing or malformed live root, plan, selected role pool, or pair pauses the
@@ -702,12 +702,13 @@ Every Shadow's `ASSIGNMENT.md` must explicitly direct it to read:
   - `NNz_critique`: `commit-messages.md`, `slice-work.md`, `rubric-critique-gates.md`.
   - `99a`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99a-conformance.md`.
   - `99b`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99b-verify.md`.
-  - `99c`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99c-deliver.md`.
+  - `99bs`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99bs-spec.md`.
+  - `99c`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99c-deliver.md`, `gate-99bs-spec.md`.
   - `99d`: `commit-messages.md`, `gate-99d-record.md`.
 
   `shadow-spawning.md`, `scheduling.md`, `single-slice-mode.md` and `final-report.md` are the Alpha's alone; no assignment names them.
 
-Every Shadow's `ASSIGNMENT.md`, gates included, also carries the background-wait rule: when it ends a turn to wait on background work it started (a test or suite run, a monitor, a queued container slot, a background agent), it ends that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`, for example `{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)`. Its next ordinary message clears the marker. Otherwise no-idling pages the Regent every minute about an agent that is not idle.
+Every Shadow's `ASSIGNMENT.md`, gates included, also carries the background-wait rule: when it ends a turn to wait on background work it started (a test or suite run, a monitor, a queued container slot, a background agent), it ends that message with `{"blocked":true} BLOCKED_BY_own-background-run (<what>)`, for example `{"blocked":true} BLOCKED_BY_own-background-run (candidate and base suites)`. Its next ordinary message clears the marker. Otherwise no-idling pages the Regent every minute about an agent that is not idle. Start a run you will wait on with your harness's own background mode, never a shell `&`, because only that wakes you when it ends. Stop any server you started before you end a turn with the marker.
 
 Without these, workers drift to whatever defaults they were trained on. The principles file in particular enforces non-obvious habits like "no comments restating what code does" and "rule of three before extracting a helper".
 
@@ -895,9 +896,10 @@ The patterns live in the supporting files below, one file per reader.
 - `scheduling.md` — read before deciding which slices run concurrently, and when a Shadow dies or a todo is not actionable.
 - `single-slice-mode.md` — read when the Lord authorizes single-slice mode for this run.
 - `slice-work.md` — read before starting any slice, gates included.
-- `gate-chain.md` — read before writing the first `99` assignment, and when running any `99a`, `99b` or `99c` gate.
+- `gate-chain.md` — read before writing the first `99` assignment, and when running any `99a`, `99b`, `99bs` or `99c` gate.
 - `gate-99a-conformance.md` — read when writing the `99a` assignment, when running `99a`, and when the bundle has a `98_ticket_` todo.
 - `gate-99b-verify.md` — read when writing the `99b` assignment, when running `99b`, and when shaping a corrective refactor slice.
+- `gate-99bs-spec.md` — read when writing the `99bs` assignment, when running `99bs`, and when `99c` runs it again.
 - `gate-99c-deliver.md` — read when writing the `99c` assignment and when running `99c`.
 - `gate-99d-record.md` — read when writing the `99d` assignment and when running `99d`.
 - `rubric-critique-gates.md` — read when the bundle has an `NNz_critique` todo or a rubric threshold.

@@ -35,11 +35,11 @@ say it, run the ordinary contract.
 
 - Run /write-todos as for any campaign, but write the single-slice bundle:
   `00_overview.md`, exactly one implementation slice `01_<task>.md`, and all
-  of `99a_conform_`, `99b_verify_`, `99c_deliver_` and `99d_record_`. A
+  of `99a_conform_`, `99b_verify_`, `99bs_spec_`, `99c_deliver_` and `99d_record_`. A
   ticket-driven row still gets its `98_ticket_` todo, which is not an
   implementation slice.
 - One executor Shadow runs `01` under Rule 2. You never execute `01`
-  yourself. The `98_ticket_` check, `99a`, `99b` and `99c` then run exactly
+  yourself. The `98_ticket_` check, `99a`, `99b`, `99bs` and `99c` then run exactly
   as for any bundle, each as a fresh Shadow distinct from the executor, and
   you do the `99d` record step yourself: the ticket check, the rising test
   tiers, yolo delivery, pull-request delivery, deferred release and the

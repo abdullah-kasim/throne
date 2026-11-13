@@ -1,5 +1,6 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
+import { REMOVED_WORDS } from "@/features/where-i-stand/use-epic-editors";
 import { BAKERY, COOKBOOK, editButton, EPICS_HASH, FakeBackend, openPage, SAMPLE_MARKDOWN, watchAnnouncements, type OpenedPage } from "@/features/where-i-stand/where-i-stand.test-support";
 
 const APP_PATH = "/throne/";
@@ -326,7 +327,7 @@ test("a removal answered while the page is hidden is spoken when the page comes 
   await answerWhileHidden(page, releaseTheSave);
   await comeBackToEpics(page);
 
-  expect(announcementRegion().textContent).toBe(SAVED_WORDS);
+  expect(announcementRegion().textContent).toBe(REMOVED_WORDS);
 });
 
 test("a hidden page reads nothing and catches up when it comes back", async () => {

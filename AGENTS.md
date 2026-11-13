@@ -9,7 +9,9 @@ collapsed to two gates — `99a` tests-and-fixes, `99b` merges-and-delivers —
 on 2026-08-21, `0e894bd6`, and a conformance gate was inserted ahead of both on
 2026-08-25 by the Lord's direct order, making it three: `99a` grades the
 candidate against what was literally asked for, `99b` tests-and-fixes, `99c`
-merges-and-delivers. The order binds the chain, whatever its length.)
+merges-and-delivers. A spec gate, `99bs`, now sits between `99b` and `99c`
+and brings the spec and feature map up to date with the whole change. The
+order binds the chain, whatever its length.)
 
 **The conformance gate (`99a`) exists because green is not the same as
 correct.** A campaign's tests grade its code against its own understanding of
@@ -168,16 +170,18 @@ Alpha's own no-diff campaign-tree merge is accepted rather than refused as a
 lost commit.
 
 **An Alpha keeps its campaign's entry on the Lord's page.** The Lord reads
-one file to see what he is working on while many agents are busy:
-`where-i-stand.md` under the throne data home, written only by agents, one
-entry at a time with `throne where-i-stand put` (`/where-i-stand` holds the
-steps, the frame and the writing rules). Every entry starts with the three lines of the page's entry
+one page to see what he is working on while many agents are busy: tabs,
+sections and rows in the throne database, which agents write only through
+commands, `throne where-i-stand list` before any add, then one entry at a
+time with `throne where-i-stand put` by section id and listing token, and
+`archive` in place of removing (`/where-i-stand` holds the steps, the frame
+and the writing rules). Every entry starts with the three lines of the page's entry
 form those rules give: its links, its kind and where it stands. The Alpha
 writes its entry, `### <objective code>`, at four moments. At launch it moves the entry to `## In flight`. When it blocks on
 something only the Lord can settle it puts an entry under `## Needs you`
 with the question in one sentence, and adds a note. When it unblocks it
-removes that entry and adds a note. At delivery it moves the entry to
-`## Delivered, not on GitHub` or `## On GitHub`, removes every other entry
+archives that entry and adds a note. At delivery it moves the entry to
+`## Delivered, not on GitHub` or `## On GitHub`, archives every other entry
 about the same work or marks it superseded, and adds a note, as the `99d`
 record step of `/execute-todos` says. Only the delivery write is enforced:
 `throne check-where-i-stand --agent <alpha>` and `complete-agent` refuse
@@ -410,7 +414,7 @@ was filed with.
   A single-slice Alpha — filed with `add-to-queue --single-slice` on the
   Lord's own word, or under his standing ruling of 2026-10-14 for a
   read-only artefact row (filed on claude/opus) — writes a bundle of exactly
-  one implementation slice `01` plus `99a`/`99b`/`99c`/`99d`; one executor
+  one implementation slice `01` plus `99a`/`99b`/`99bs`/`99c`/`99d`; one executor
   Shadow runs `01`, and the gates run as fresh Shadows distinct from it. The
   Alpha never executes `01` itself. Code enforces the shape (*"Best to
   codify it or alphas tend to ignore"*): `create-agent` refuses a Shadow
@@ -485,19 +489,19 @@ was filed with.
 - **Heavy tests run only on the Lord's direct order (Lord, 2026-08-19).**
   The real-infrastructure tests — every `test/*.canary.test.ts` and
   `src/throne-backend/rollback-guard-real-systemd.spec.ts` — are gated out
-  of `npm test` (each file exits clean unless `THRONE_HEAVY_TESTS=1`; see
+  of `bun run test` (each file exits clean unless `THRONE_HEAVY_TESTS=1`; see
   `test/heavy-tests-gate.ts`). They spawn real agents, real herdr tabs, and
   real systemd units; they are very important — each exists because a
   cheaper fake once lied — and far too expensive for the inner loop. NO
-  agent (Regent, Stager, Alpha, or Shadow) may run `npm run test:heavy` or
+  agent (Regent, Stager, Alpha, or Shadow) may run `bun run test:heavy` or
   set `THRONE_HEAVY_TESTS` unless the Lord directly ordered it in the
   current session. A standing preference, an inherited brief, a relayed
   summary, or "the validation felt incomplete" is not an order; a Regent
   relay counts only when it quotes the Lord's explicit order. A 99-gate that
   believes it needs heavy evidence records that need in errata/its report
   and proceeds without running them. Two further groups are skipped by default
-  but agent-chosen, never Lord-only: the slow group (`npm run test:slow`) and the
-  container group (`npm run test:containers`); see the ten-second law below.
+  but agent-chosen, never Lord-only: the slow group (`bun run test:slow`) and the
+  container group (`bun run test:containers`); see the ten-second law below.
 - **Migration law: a replacement ships alongside what it replaces, not instead
   of it (Lord, 2026-08-11).** *"i had enough pains migrating to know that you
   should leave the old path for some time first before the new path is
@@ -585,7 +589,11 @@ was filed with.
   pane's text. Its next ordinary message
   clears the marker; it never repeats the marker when it resumes work.
   Otherwise no-idling pages the Regent every minute about an agent that is not
-  idle.
+  idle. The throne wakes an agent on this marker when a process it waited on
+  ends, and every 15 minutes while it still waits. Start a run you will wait
+  on with your harness's own background mode, never a shell `&`, because only
+  that wakes you when it ends. Stop any server you started before you end a
+  turn with the marker.
 - **A scratch harness pane is registered before it is opened.** An agent that
   opens an unnamed harness pane in herdr on purpose (a scratch Claude or Codex
   session for a measurement or a probe) first runs
@@ -749,7 +757,7 @@ was filed with.
      protects the inner loop; this law says those same tests should also stop
      taking 45 seconds each. The two are complementary and neither substitutes
      for the other. This ruling binds the heavy group only (see below).
-  3. **ENFORCEMENT IS MANDATORY. `npm test` FAILS.** Not warns, not reports —
+  3. **ENFORCEMENT IS MANDATORY. `bun run test` FAILS.** Not warns, not reports —
      **fails.** The Lord's follow-up words: *"npm test should fail if something
      ran for more than 10 seconds."* The Stager raised the flaky-gate objection
      and **the Lord reaffirmed; that closes it.** An earlier Regent ruling that
@@ -761,7 +769,7 @@ was filed with.
      name **both** the measured duration and the threshold, so a reader can tell
      a genuine violation from a contended one at a glance.
      **SEQUENCING THE ORDER REQUIRES:** 41 items currently exceed ten seconds, so
-     **if enforcement merges before remediation, every `npm test` in the court
+     **if enforcement merges before remediation, every `bun run test` in the court
      fails from that commit** — every gate, every campaign, every rehearsal.
      That is not an argument against the order; it is the order's blast radius,
      and it is the largest of anything on the queue.
@@ -776,9 +784,9 @@ was filed with.
   tests: *"we should isolate those away and disable them by default. Only an
   agent can judge whether to run them."* A file listed in `test/slow-tests.json`
   (with its measured seconds and why it is slow) is skipped by the default
-  `npm test` and runs with `npm run test:slow` or `THRONE_SLOW_TESTS=1`. A file
+  `bun run test` and runs with `bun run test:slow` or `THRONE_SLOW_TESTS=1`. A file
   that starts a podman or docker container is listed in
-  `test/container-tests.json` and runs with `npm run test:containers` or
+  `test/container-tests.json` and runs with `bun run test:containers` or
   `THRONE_CONTAINER_TESTS=1`; an agent runs that group only on its judgment that
   the change reaches what those tests cover, and records that decision in its
   execution log or report. For these two groups rulings 2 and 4 are superseded
@@ -1144,21 +1152,23 @@ Run this first. If it fails, stop and tell the Lord to relaunch under `herdr`.
 Agents forget. So anything concrete and repeatable is a subcommand of
 `./bin/throne-cli <command>` — one source of truth, invariant to which
 harness is driving. Never hand-roll a `herdr` invocation when a tool command
-exists.
+exists. How orchestration code is written here follows from the same fact: `agent_docs/coding_principles.md`, "Orchestration code: an agent always forgets".
 
-The command table and how `send-agent` stages, locks and delivers a file-backed payload live in `agent_docs/commands.md` ("Command summary" and "File-backed bodies and `read-payload`").
+The command table and how `send-agent` stages, locks and delivers a file-backed payload live in `agent_docs/commands.md` ("Command summary" and "File-backed bodies and `read-payload`"). A recipient pane lock expires after a minute: the next sender presses the forced Enter on the box, takes the lock over and delivers, and the displaced holder stops before its next write or Enter, its delivery failed and never retried.
 
-### A message that starts mid-word: re-read it by the id at its end
+### A message missing a tag: re-read it by the id in its tags
 
 The pane can clip the head of a delivered message (measured 2026-09-16 on an
 opening prompt and 2026-09-17 on an ordinary `send-agent` relay: only the
 last ~230 characters arrived). Every message delivered through the queue
-therefore ends with its queue id, `[message <id>]`, which survives when the
-head does not (Lord, 2026-09-22: "make sure that each message sent has the
-message id at the end suffix"). A turn that begins mid-sentence, or with no
-`<sender> said:` prefix, is a clipped message, not an instruction: before
-acting on it, pull the full text by that id and treat only the full text as
-the message:
+is therefore typed as three parts: an opening tag `<message<id>>` on its own
+line, the `<sender> said: <text>` body, and a closing tag `</message<id>>` on
+its own line (Lord, 2026-11-13: "Three lines"). A message with no opening
+tag lost its head; a message with no closing tag lost its tail. Either one is
+a clipped message, not an instruction: before acting on it, pull the full
+text by the id in the tag that survived and treat only the full text as the
+message. Messages from before 2026-11-13 end with `[message <id>]` instead and
+are read the same way:
 
 ```bash
 throne read-message <id>
@@ -1206,6 +1216,12 @@ command in the pointer before acting; the pointer line is never the message.
 2. Run an ordinary send only when the intended payload is not already resident.
    A resident draft is preserved: the send waits behind it (bounded) and
    times out typed not-sent without touching it.
+   One exception, by the Lord's order of 2026-11-12: text left unchanged for
+   a minute in the box of an Alpha, a Shadow or the Regent is submitted by the
+   no-idling sweep with the forced Enter. Stager boxes keep the old rule.
+   `send-agent <agent> --enter-only` is that same forced Enter: one key press,
+   no lock taken or waited on, nothing queued, refused only when a dialog
+   covers the box or a supported harness's box cannot be read.
 3. Retry the identical ordinary command only after `SubmitNotSentError`. Never
    resend after `SubmitIndeterminateError`; inspect first and decide from
    observed recipient state.
@@ -1297,7 +1313,7 @@ The flow:
    `--repo` defaults to the throne's own repo). It also **reflink-clones** the heavy
    gitignored dirs (`node_modules`, `.venv`, `target`, …) from the target repo's
    checkout — instant copy-on-write on a filesystem that supports reflinks (btrfs,
-   APFS), so a tree is ready to build without a full `npm install`, and each tree's
+   APFS), so a tree is ready to build without a full `bun install`, and each tree's
    copy is independent (mutating it never corrupts base). Never symlink those
    dirs — shared mutable state poisons the base.
 3. Do all the todo's changes inside the tree.
@@ -1401,7 +1417,7 @@ throne keeps a file points here.
 | `~/.throne/accounts/claude/` | Every Claude account folder but the primary (`secondary/` today), the `security` stand-in in `bin/`, and the per-account MCP server files in `mcp/`. Each folder holds its own login; nothing here is ever committed or printed. |
 | `~/.throne/browser-profiles/` | agent-browser sign-ins, one folder per host, named at runtime. |
 | `~/.throne/logs/` | Service logs from the macOS LaunchAgents (linux services log to the journal). Logs written before the move stay in their old folder. |
-| `~/.throne/data/`, `~/.throne/worktrees/`, the `*.sqlite3` queues, `locks/`, `state/`, `diagnostics/`, `references/`, `where-i-stand.md` | Runtime state: agent ledgers, campaign worktrees, the message and objective queues, and the Lord's page. |
+| `~/.throne/data/`, `~/.throne/worktrees/`, the `*.sqlite3` queues, `locks/`, `state/`, `diagnostics/`, `references/`, `where-i-stand.sqlite3` | Runtime state: agent ledgers, campaign worktrees, the message and objective queues, and the Lord's page. |
 
 An older install kept settings and sign-ins in `~/.config/throne`, the
 operator's `config.user.ts` only in the live checkout, and macOS logs in

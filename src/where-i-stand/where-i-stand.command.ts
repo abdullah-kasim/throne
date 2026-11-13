@@ -5,7 +5,7 @@ import { runWhereIStand } from "./where-i-stand-runtime.ts";
 @Command({
   name: "where-i-stand",
   description:
-    "Show the Lord's where-i-stand page with its path and checksum, hold its advisory edit lock in the background while you edit the page with your own edit tool, or add one event to its Just happened list. Every edit is journaled when the lock is released.",
+    "List the Lord's where-i-stand tabs and sections with their ids and listing token, show the page as Markdown, put or archive a work entry, note an event, archive or restore a row or section, create a tab or section, and purge rows archived over six months. Reaches throne-backend; --local opens the database in this process.",
   allowUnknownOptions: true,
   allowExcessArgs: true,
 })

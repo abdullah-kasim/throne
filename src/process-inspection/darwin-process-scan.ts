@@ -1,7 +1,6 @@
 // macOS answer to `listProcessesUnderPath`: which live processes have their
 // cwd inside a given directory. Linux answers from `/proc/<pid>/cwd`; macOS
-// has no /proc, so the reap-agent teardown (and through it the autoreap
-// cron) silently found NOTHING to terminate under a reaped agent's worktree
+// has no /proc, so the reap-agent teardown silently found NOTHING to terminate under a reaped agent's worktree
 // on this host — the exact orphan class `process-teardown.ts` exists to
 // prevent, reintroduced by platform. The Lord's order of 2026-09-02: every
 // autoscaler-family signal supports both Linux and mac.
@@ -79,17 +78,23 @@ export interface ProcessRow {
   readonly parentPid: number;
   readonly processGroupId: number;
   readonly command: string;
+  readonly startedAt?: number;
 }
+
+const PROCESS_TABLE_LINE =
+  /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(?:([A-Z][a-z]{2} [A-Z][a-z]{2}\s+\d{1,2} \d{2}:\d{2}:\d{2} \d{4})\s+)?(.*)$/;
 
 export function parseProcessTable(output: string): ProcessRow[] {
   return output.split('\n').flatMap((line) => {
-    const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+    const match = PROCESS_TABLE_LINE.exec(line);
     if (!match) return [];
+    const startedAt = match[4] === undefined ? Number.NaN : Date.parse(match[4]);
     return [{
       pid: Number(match[1]),
       parentPid: Number(match[2]),
       processGroupId: Number(match[3]),
-      command: match[4]!.trim(),
+      command: match[5]!.trim(),
+      ...(Number.isNaN(startedAt) ? {} : { startedAt }),
     }];
   });
 }
@@ -97,7 +102,7 @@ export function parseProcessTable(output: string): ProcessRow[] {
 export async function readProcessTable(
   run: RunHostCommand = REAL_RUN_HOST_COMMAND,
 ): Promise<ProcessRow[]> {
-  return parseProcessTable(await run('ps', ['-A', '-o', 'pid=,ppid=,pgid=,command=']));
+  return parseProcessTable(await run('ps', ['-A', '-o', 'pid=,ppid=,pgid=,lstart=,command=']));
 }
 
 export async function listProcessesUnderPathDarwin(

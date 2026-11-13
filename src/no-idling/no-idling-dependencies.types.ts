@@ -19,6 +19,19 @@ import type {
 import type { StrandedSpawnRecoveryResult } from './stranded-spawn-recovery.ts';
 import type { DeferredRowPingQueue } from '../regent-queue/regent-queue.store.ts';
 import type { HarnessBackgroundWork } from '../process-inspection/harness-background-work.ts';
+import type { AgentPresentState } from '../agentdata/agent-present-state.ts';
+import type { ActiveComposerSnapshot } from '../codex-screen/composer/composer.types.ts';
+import type { DraftSighting } from './stuck-draft.ts';
+import type { BlockedPageLedgerEntry } from '../blocked-paging/blocked-agent-escalation-ledger.ts';
+
+export interface NoIdlingPageLedger {
+  read: () => Promise<BlockedPageLedgerEntry[]>;
+  append: (entry: BlockedPageLedgerEntry) => Promise<void>;
+}
+
+export interface StuckDraftMemory {
+  sightings: Map<string, DraftSighting>;
+}
 
 export interface BlindSweepMemory {
   blindSweepsInARow: number;
@@ -90,6 +103,11 @@ export interface NoIdlingDependencies {
   // an Alpha idle-awaiting a live Shadow ends its own turn `reapable` too.
   hasProvenDelivery: (name: string, dataDir: string) => Promise<boolean>;
   openRegentQueue: () => DeferredRowPingQueue;
+  readComposer: (agent: HerdrAgent) => Promise<ActiveComposerSnapshot>;
+  submitStuckDraft: (agent: HerdrAgent) => Promise<void>;
+  stuckDraftMemory?: StuckDraftMemory;
+  readPresentState?: (name: string, nowMs: number, dataDir: string) => Promise<AgentPresentState>;
+  pageLedger?: NoIdlingPageLedger;
   now?: () => number;
   /**
    * Carries each Alpha's "no raw live children" confirmation streak across

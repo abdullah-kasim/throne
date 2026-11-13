@@ -20,7 +20,7 @@ test("a yolo repository's campaign is delivered by pushing its default branch, n
       'git -C "$repo" merge "$target_branch"',
       'git -C "$repo" push origin "$default"',
       "resolve every conflict there",
-      "`npm run build`, `npm test` and `npm run lint`; never the heavy tier",
+      "`bun run build`, `bun run test` and `bun run lint`; never the heavy tier",
       "never forced",
       "Never `--force`.",
       "rebuild the live `dist/`",

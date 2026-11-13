@@ -21,7 +21,7 @@ test('the where-i-stand skill serves the page from the backend, on the tailnet o
       'on the tailnet only, never through funnel',
       '`https://<host>/throne/where-i-stand/`',
       'The old address `https://<host>/where-i-stand/` still works',
-      'so the page always shows the live files. Nothing is copied.',
+      'so it always shows the live rows. Nothing is copied.',
     ]),
     [],
   );
@@ -34,7 +34,7 @@ test('the where-i-stand skill checks the page by reading the api and the tailnet
   const servingStep = await readSkillSection(SERVING_STEP_HEADING);
   assert.deepEqual(
     missingPhrases(servingStep, [
-      `curl -s "$tailnet_address/throne/api/where-i-stand/page" | python3 -c 'import json,sys; json.load(sys.stdin)["markdown"]'`,
+      `curl -s "$tailnet_address/throne/api/where-i-stand/store/page" | python3 -c 'import json,sys; json.load(sys.stdin)["tabs"]'`,
       "tailscale serve status | grep -F ' /throne '",
       'a bare `200` is fooled by any app published at `/`',
     ]),
@@ -55,13 +55,11 @@ test('the where-i-stand skill sends a page that is down to the backend, and repo
   );
 });
 
-test('the where-i-stand skill says the api saves from the page, journaled as the Lord, and an agent never does', async () => {
+test('the where-i-stand skill says the Lord writes through the page and an agent never does', async () => {
   assert.deepEqual(
     missingPhrases(await readSkillSection(SERVING_STEP_HEADING), [
-      '`POST /api/where-i-stand/save` runs the same code as `throne where-i-stand save`',
-      'journals the edit with the writer `Lord`',
-      'It refuses any save that would change the page outside `## Epics`.',
-      'Only the API saves from the page; an agent never runs `throne where-i-stand save`.',
+      'journaled with the writer `Lord`',
+      "An agent never writes through the page's API.",
     ]),
     [],
   );
@@ -79,7 +77,7 @@ test("the where-i-stand skill says the Lord's page edits are for epics only", as
     missingPhrases(await readSkillSection('## Who writes, and when'), [
       '| Lord | adds, edits or removes an epic on the page |',
       'a save whose epic changed since he loaded the page is refused',
-      'a save that would change the page outside `## Epics` is refused',
+      'a removal archives the epic, so he can restore it',
     ]),
     [],
   );

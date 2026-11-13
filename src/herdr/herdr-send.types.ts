@@ -154,6 +154,8 @@ export interface SubmitToAgentDeps {
     initial: HerdrAgent,
   ) => Promise<HerdrAgent>;
   withRecipientPaneLock: RecipientPaneLockService['withRecipientPaneLock'];
+  isRecipientPaneLockHeld?: (paneId: string) => Promise<boolean>;
+  forceEnter?: (agent: HerdrAgent) => Promise<void>;
   stagePayload: typeof stagePayload;
   fileBackedPayloadsEnabled?: boolean;
   keyedSubmissionWindowStore?: KeyedSubmissionWindowStore;

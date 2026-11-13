@@ -13,6 +13,9 @@ import { SweepTmpScratchCommand } from "../sweep-tmp-scratch/sweep-tmp-scratch.c
 import { MemoryDirCommand } from "../memory-dir/memory-dir.command.ts";
 import { SemaphoreCommand } from "../semaphore/semaphore.command.ts";
 import { SkillExtensionCommand } from "../skill-extension/skill-extension.command.ts";
+import { SpecLocationCommand } from "../spec-location/spec-location.command.ts";
+import { FeatureMapCommand } from "../feature-map/feature-map.command.ts";
+import { SpecLockCommand } from "../spec-lock/spec-lock.command.ts";
 import { ScratchPaneCommand } from "../scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "../migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "../memory-recall/recall.command.ts";
@@ -144,7 +147,7 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: false,
     description:
-      "Work with pull requests on this host's forge: which forge, ensure-repository, push-branch, pr create/view/edit/list/diff/comment, attach, detach and render-markdown, on Forgejo when it is installed and answering, otherwise through gh; stage an existing GitHub pull request in Forgejo; pr merge only on GitHub, never in Forgejo, except that a repository whose git config sets throne.forge.landsOnMain lands its Forgejo pull requests on main through land, promote and pr merge.",
+      "Work with pull requests on this host's forge: which forge, ensure-repository, push-branch, pr create/view/edit/list/diff/comment, attach, detach and render-markdown, on Forgejo when it is installed and answering, otherwise through gh; stage an existing GitHub pull request in Forgejo; pr merge only on GitHub, never in Forgejo, except that a repository whose git config sets throne.forge.pullRequestsStayOnForgejo lands its Forgejo pull requests on main through land and pr merge, and promote changes nothing there.",
   },
   {
     name: "migrate-home",
@@ -180,6 +183,30 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Print the operator's extension to a named skill from the throne home's skill-extensions folder, or nothing when there is none; --list names every extension present.",
+  },
+  {
+    name: "spec-location",
+    provider: SpecLocationCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Print where a repository's spec folder and feature map are and the state of each, from its settings under the throne data home; --record notes an artefact once it is created.",
+  },
+  {
+    name: "feature-map",
+    provider: FeatureMapCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Build FEATURE_MAP.md from a spec folder's headers and run the set checks; --check exits non-zero when the map on disk is out of date.",
+  },
+  {
+    name: "spec-lock",
+    provider: SpecLockCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Hold the edit lock on a repository's spec folder under the throne data home until stopped or the ttl ends; a second writer is refused with the holder's name.",
   },
   {
     name: "scratch-pane",

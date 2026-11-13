@@ -13,7 +13,7 @@ import { runUpdateThrone } from './update-throne.mjs';
 turnOffCommitSigningThatTheEnvironmentTurnedOn();
 
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '..');
-const LOCKFILE = 'package-lock.json';
+const LOCKFILE = 'bun.lock';
 const STARTING_VERSIONS = { claude: '2.0.0', codex: '0.50.0', herdr: '0.9.5' };
 
 export const USER_ID = 501;
@@ -121,7 +121,7 @@ function makeSeed(directory: string): string {
     '.gitignore': '/dist\n/dist.build.*/\n/vendor/\n/node_modules/\n',
     'package.json': '{ "name": "court" }\n',
     [LOCKFILE]: '{ "lockfileVersion": 3 }\n',
-    'mise.toml': '[tools]\nnode = "24.0.0"\n',
+    'mise.toml': '[tools]\nbun = "1.4.4"\n',
     'vendor-pins.json': vendorPins(STARTING_VERSIONS.claude, STARTING_VERSIONS.codex),
     'src/herdr/herdr-client.ts': herdrClientSource(STARTING_VERSIONS.herdr),
   });
@@ -164,7 +164,7 @@ export function currentDistGeneration(court: Court): string {
 
 function stampInstalledDependencies(court: Court): void {
   const hash = createHash('sha256').update(readFileSync(path.join(court.checkout, LOCKFILE))).digest('hex');
-  writeFiles(court.checkout, { 'vendor/.stamps/npm-deps': `${hash}\n`, 'node_modules/.keep': '' });
+  writeFiles(court.checkout, { 'vendor/.stamps/dependencies': `${hash}\n`, 'node_modules/.keep': '' });
 }
 
 function makeCheckout(directory: string, origin: string): string {
@@ -233,7 +233,7 @@ export function makeCourt(
     distGeneration: 0,
     detachedHerdrRelaunch: HERDR_RELAUNCH_SUCCEEDED,
   };
-  writeFiles(court.home, { '.local/share/mise/installs/node/24.0.0/bin/node': '' });
+  writeFiles(court.home, { '.local/share/mise/installs/bun/1.4.4/bin/bun': '' });
   stampInstalledDependencies(court);
   publishFreshDist(court);
   backendRuns(court, currentDistGeneration(court));
@@ -340,7 +340,7 @@ function stubbedCommands(court: Court): Record<string, Handler> {
     claude: () => ok(`${court.running.claude} (Claude Code)\n`),
     codex: () => ok(`codex-cli ${court.running.codex}\n`),
     herdr: () => ok(JSON.stringify({ running: true, version: court.running.herdr })),
-    npm: (args) => {
+    bun: (args) => {
       if (args[0] === 'run') publishFreshDist(court);
       return ok();
     },
@@ -354,12 +354,16 @@ function stubbedCommands(court: Court): Record<string, Handler> {
   };
 }
 
+function runsAScript(command: string, args: readonly string[]): boolean {
+  return command === 'bun' && String(args[0]).endsWith('.mjs');
+}
+
 function commandName(command: string, args: readonly string[]): string {
-  return path.basename(command === 'node' ? String(args[0]) : command);
+  return path.basename(runsAScript(command, args) ? String(args[0]) : command);
 }
 
 function describeCall(name: string, command: string, args: readonly string[]): string {
-  const shownArgs = command === 'node' ? args.slice(1) : args;
+  const shownArgs = runsAScript(command, args) ? args.slice(1) : args;
   return [name, ...shownArgs].join(' ');
 }
 

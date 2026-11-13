@@ -309,6 +309,10 @@ export async function runMcq(args: readonly string[], deps: McqDependencies = RE
     deps.err(`${refusal}\n`);
     return McqExitCode.CallerRefused;
   }
+  return answerPromptAs(caller, parsed, deps);
+}
+
+export async function answerPromptAs(caller: string, parsed: McqArguments, deps: McqDependencies): Promise<number> {
   const target = await deps.resolveAgent(parsed.agentName);
   const first = await readFrame(target.paneId, deps);
   if (first.prompt === undefined) {

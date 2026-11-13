@@ -36,6 +36,8 @@ const ATTRIBUTED_PROMPT_LINE = new RegExp(
 // seen publishing {"blocked":true}, so every sweep re-notified it forever.
 // Observed live 2026-08-08 once the active preset routed every role to
 // claude/sonnet. Any new harness's glyph must be added here.
+const CLOSING_MESSAGE_TAG_LINE = /^[ \t]*<\/message\d+>[ \t]*$/;
+
 const ASSISTANT_TURN_GLYPHS = '•●⏺';
 const ASSISTANT_TURN_LINE = new RegExp(`^[ \\t]*[${ASSISTANT_TURN_GLYPHS}][ \\t]+`);
 const ASSISTANT_TURN_PREFIX = new RegExp(`^[ \\t]*[${ASSISTANT_TURN_GLYPHS}][ \\t]+`);
@@ -86,7 +88,7 @@ export function assistantMessageBlocks(output: string): string[] {
   if (assistantIndexes.length === 0) {
     let lastBoundaryIndex = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (ATTRIBUTED_PROMPT_LINE.test(lines[i]!)) {
+      if (ATTRIBUTED_PROMPT_LINE.test(lines[i]!) || CLOSING_MESSAGE_TAG_LINE.test(lines[i]!)) {
         lastBoundaryIndex = i;
       }
     }

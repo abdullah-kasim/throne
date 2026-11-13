@@ -13,7 +13,6 @@ export const SHORT_RETRY_MILLISECONDS = 20;
 const POLL_MILLISECONDS = 20;
 const LONGEST_WAIT_MILLISECONDS = 5000;
 const runFixturePath = fileURLToPath(new URL("./semaphore-run-fixture.ts", import.meta.url));
-const typescriptRegisterPath = fileURLToPath(new URL("../../test/register-typescript.mjs", import.meta.url));
 
 export interface SemaphoreRoom {
   readonly throneHome: string;
@@ -87,7 +86,7 @@ export function stopHolderWhenTestEnds(t: TestContext, held: readonly HeldSlot[]
 export function runInAnotherProcess(t: TestContext, room: SemaphoreRoom, runArguments: readonly string[]): ChildProcess {
   const runner = spawn(
     process.execPath,
-    ["--import", typescriptRegisterPath, runFixturePath, room.throneHome, ...runArguments],
+    [runFixturePath, room.throneHome, ...runArguments],
     { stdio: ["pipe", "pipe", "inherit"] },
   );
   t.after(() => void runner.kill("SIGKILL"));

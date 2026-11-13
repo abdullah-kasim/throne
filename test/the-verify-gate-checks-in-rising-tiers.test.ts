@@ -174,7 +174,7 @@ test("the single assembled suite run is the Tier C run and keeps its carry rules
 test("a single-slice campaign runs the same rising tiers in its own verify gate", async () => {
   assert.ok(
     (await singleSliceSection()).includes(
-      "`99b` and `99c` then run exactly as for any bundle, each as a fresh Shadow distinct from the executor, and you do the `99d` record step yourself: the ticket check, the rising test tiers,",
+      "`99b`, `99bs` and `99c` then run exactly as for any bundle, each as a fresh Shadow distinct from the executor, and you do the `99d` record step yourself: the ticket check, the rising test tiers,",
     ),
   );
 });

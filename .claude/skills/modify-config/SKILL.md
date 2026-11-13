@@ -36,7 +36,7 @@ description: This throne-only skill changes the throne's machine-local config.us
     applies a new **effort** to running agents now. It resumes each agent's
     own session, so a new **model** still waits for the next fresh launch.
   - The backend workers are long-lived: after editing a field they read at
-    startup, rebuild and restart the backend (`npm run build`, then the
+    startup, rebuild and restart the backend (`bun run build`, then the
     service restart your install uses).
 
 ## What it CAN do

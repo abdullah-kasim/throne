@@ -3,13 +3,13 @@ import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { addEpicRefusal, EPICS_HEADING_LINE, epicsSectionWithNewEpic } from "@/features/where-i-stand/epic-markdown";
-import { refreshThePage, shownMarkdown } from "@/features/where-i-stand/page-queries";
-import { readPage } from "@/features/where-i-stand/read-page";
-import { SAVE_ALREADY_ON_ITS_WAY_WORDS, savePageUnit } from "@/features/where-i-stand/save-page-unit";
+import { addEpicRefusal, notesLinesOf } from "@/features/where-i-stand/epic-markdown";
+import { refreshThePage, SAVE_ALREADY_ON_ITS_WAY_WORDS, shownPage, THE_LORD, writeToTheStore } from "@/features/where-i-stand/page-queries";
+import { readPage, type PageSection } from "@/features/where-i-stand/read-page";
 
 const REFUSED = "refused";
-const SAVED = "saved";
+const SAVED = "done";
+const SAVED_WORDS = "Saved.";
 const TEXT_LEFT_UNSAVED_WORDS = "Saved what was sent. The text now in this form is not saved.";
 const TEXT_NOT_SENT_WORDS = "The text now in this form was not sent.";
 const NO_STATUS = { message: "", isProblem: false };
@@ -35,13 +35,13 @@ function textBesidesWhatWasSent(form: EpicText, sent: EpicText): EpicText {
 function statusAfterAnswer({ outcome, message }: AddAnswer, sent: EpicText, form: EpicText) {
   const { title, notes } = textBesidesWhatWasSent(form, sent);
   const formHoldsOtherText = title !== "" || notes !== "";
-  if (outcome === SAVED) return { message: formHoldsOtherText ? TEXT_LEFT_UNSAVED_WORDS : message, isProblem: false };
+  if (outcome === SAVED) return { message: formHoldsOtherText ? TEXT_LEFT_UNSAVED_WORDS : SAVED_WORDS, isProblem: false };
   if (outcome !== REFUSED) return { message: formHoldsOtherText ? `${message} ${TEXT_NOT_SENT_WORDS}` : message, isProblem: true };
   const formHoldsWhatWasSent = form.title.trim() === sent.title && form.notes.trim() === sent.notes;
   return formHoldsWhatWasSent ? { message, isProblem: true } : NO_STATUS;
 }
 
-export function AddEpicForm({ announce }: { announce: (message: string) => void }) {
+export function AddEpicForm({ section, announce }: { section: PageSection; announce: (message: string) => void }) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -63,10 +63,11 @@ export function AddEpicForm({ announce }: { announce: (message: string) => void 
 
   async function sendNewEpic(sent: EpicText): Promise<AddAnswer> {
     await refreshThePage(queryClient);
-    const entriesOnThePage = readPage(shownMarkdown(queryClient)).flatMap(({ entries }) => entries);
-    const refusal = addEpicRefusal(sent.title, sent.notes, entriesOnThePage);
+    const stored = shownPage(queryClient);
+    const refusal = addEpicRefusal(sent.title, stored === undefined ? [] : readPage(stored).entries);
     if (refusal !== null) return { outcome: REFUSED, message: refusal };
-    return savePageUnit({ loaded: EPICS_HEADING_LINE, edited: epicsSectionWithNewEpic(sent.title, sent.notes) });
+    const notes = sent.notes === "" ? [] : notesLinesOf(sent.notes);
+    return writeToTheStore("POST", "rows", { sectionId: section.id, listingToken: stored?.listing.listingToken ?? "", writer: THE_LORD, row: { kind: "epic", text: sent.title, freeLines: notes } });
   }
 
   async function addEpic(event: FormEvent<HTMLFormElement>) {

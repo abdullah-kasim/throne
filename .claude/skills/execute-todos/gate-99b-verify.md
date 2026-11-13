@@ -7,11 +7,16 @@ part of its static-analysis run; planners and generated terminal todos point
 here instead of restating a drifting copy.
 
 **Stage 1 runs first: invoke deterministic clone detection.** Resolve the local
-command before running the gate with `command -v jscpd`. If it does not exist,
-install the pinned global tool with `npm install -g jscpd@5.0.14`, then resolve
-it again. Invoke the resolved command
-as `jscpd --reporters json`; never use `npx`, including its offline mode, and do
-not add jscpd to `package.json`. (Proven live, 2026-08-11: `campaign-evidence`'s
+command before running the gate with `throne check-jscpd`. If it fails, run the
+remedy it prints, then run the check again. Invoke `jscpd`, which resolves to
+throne's `bin/jscpd` over the vendored copy, as `jscpd --reporters json`; never
+use `npx`, including its offline mode, and do not add jscpd to throne's own
+`package.json`: jscpd lives in `vendor/package.json`, which only the installer
+writes. Believe a clone count only when every file passed is in the report's
+analyzed-file total or explained: a file over `--max-size` (1mb by default) is
+skipped without an error, so raise `--max-size` for it, and a file shorter than
+`--min-tokens` is not counted as analyzed. (Proven live,
+2026-08-11: `campaign-evidence`'s
 duplicates section parses the report via `JSON.parse`, so `--reporters ai` cannot
 work as documented — if the `ai` reporter's richer shape was the original intent,
 `campaign-evidence` still needs to learn it; this line records only what is
@@ -35,8 +40,9 @@ test data, machine-maintained metadata, or orchestration state rather than
 maintained implementation. Record the actual command, version, paths,
 exclusions, thresholds, exit code, and report in `99b`; any adjustment must state
 which false positive or missed candidate justified it. Do not add jscpd to
-`package.json` or introduce a network requirement into `npm test`; global
-installation is setup performed before the gate, not part of the test command.
+throne's own `package.json` or introduce a network requirement into `bun run test`;
+the vendored install is setup performed by the installer before the gate, not
+part of the test command.
 
 **Only after Stage 1 has produced its report may Stage 2 begin.** Stage 2 reviews
 only the functions touched by the campaign diff and the exact site pairs Stage
@@ -126,6 +132,7 @@ assembled candidate — the test suite, the linter, type/static analysis, and an
 repository contract check the project already owns — records each command with
 its exit code and relevant output, and **fixes every failure it finds**, on the
 campaign branch, re-running until the whole set is clean.
+Follow the spec file's "How to reach it and prove it works" section where one exists (`throne spec-location <repository>` says where the spec is).
 
 It runs the small checks before the big one, in rising tiers A, B, C, D.
 Each tier is run, and what it finds fixed and committed, until it is green;
@@ -154,9 +161,9 @@ found at run time.
   say so and skip to Tier C. Never fake the mapping.
 - **Tier C — the full suite without slow tests.** The repository's default
   test command, which leaves out its slow tier when it has one; with no slow
-  or fast split, Tier C is the plain full suite. Here that is `npm test`.
+  or fast split, Tier C is the plain full suite. Here that is `bun run test`.
   When the project compares against a base suite, it compares at Tier C.
-  The base suite runs through `node scripts/shared-base-suite.mjs
+  The base suite runs through `bun scripts/shared-base-suite.mjs
   <base-directory>` and may be a cached result, named in the `99b` file by
   key and path; the candidate suite is never cached.
   This is the single assembled full-suite run of "Three verification
@@ -172,7 +179,7 @@ found at run time.
   `container tests: not run; the change is skill text only`. A repository
   that does not separate its container tests is said to be so, and they are
   treated as part of its slow or default tier. Here the slow tier is
-  `THRONE_SLOW_TESTS=1` (`npm run test:slow`). The heavy tier
+  `THRONE_SLOW_TESTS=1` (`bun run test:slow`). The heavy tier
   (`THRONE_HEAVY_TESTS`) is never part of this decision: it runs only on the
   Lord's direct order, and no agent ever chooses it.
 

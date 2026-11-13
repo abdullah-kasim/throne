@@ -25,7 +25,7 @@ export function jevPathsOfThisRun(): JevPathsOfThisRun {
 export async function jevPathsOfARunWithEnvironment(environment: NodeJS.ProcessEnv): Promise<JevPathsOfThisRun> {
   const { stdout } = await promisify(execFile)(
     process.execPath,
-    ['--import', './test/register-typescript.mjs', import.meta.filename],
+    [import.meta.filename],
     { cwd: REPOSITORY_ROOT, env: environment },
   );
   return JSON.parse(stdout) as JevPathsOfThisRun;

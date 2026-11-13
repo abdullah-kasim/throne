@@ -9,11 +9,11 @@ import { findQueueItemByObjectiveCode } from "../regent-queue/regent-queue-lifec
 import { openRegentQueueStore } from "../regent-queue/regent-queue.store.ts";
 import { nameCarriesObjectiveCode } from "../shared-policy/objective-contract.ts";
 import { THRONE_HOME } from "../shared-policy/throne-home.ts";
+import type { StoredPage, StoredRow } from "../web-api-contract/where-i-stand.ts";
+import { connectToWhereIStand } from "../where-i-stand-store/where-i-stand-client.ts";
 import { fileIsMissing } from "./file-presence.ts";
-import { entryHeadingOf, listEntries, PageSection, sectionHeadingOf, type PageEntry } from "./page-frame.ts";
-import { readJournal, type JournalRecord } from "./page-journal.ts";
-import { showPage } from "./page-store.ts";
-import { entriesAboutTheSameWork, readLinksLine, saysItIsSuperseded, stillSays } from "./same-work-entries.ts";
+import { DELIVERED_SECTIONS, IN_FLIGHT, PUT_BY_NAME } from "./where-i-stand-messages.ts";
+import { rowsAboutTheSameWork, stillSays } from "./same-work-entries.ts";
 
 export interface PageRecordPlaces {
   readonly dataHome: string;
@@ -29,13 +29,7 @@ export type PageRecordVerdict =
   | { readonly recorded: true; readonly summary: string }
   | { readonly recorded: false; readonly reason: string };
 
-const PAGE_EDIT_FLOW = "\"throne where-i-stand put --code <code> --section '<section>' --text-file <file>\"";
-const SECTIONS_FOR_DELIVERED_WORK = [PageSection.DeliveredNotOnGitHub, PageSection.OnGitHub]
-  .map((section) => `"${sectionHeadingOf(section)}"`)
-  .join(" or ");
-const LINKS_LINE_FORMS =
-  '`- Links: Forgejo <url or "no Forgejo copy"> · GitHub <url or "not on GitHub yet"> · Ticket <url, id, or "no ticket">`, ' +
-  'or `- Links: no pull request · <commit or link> · Ticket <url, id, or "no ticket">` for work with no pull request';
+const SECTIONS_FOR_DELIVERED_WORK = DELIVERED_SECTIONS.map((section) => `"${section}"`).join(" or ");
 
 async function objectiveCodeOf(agentName: string, dataDir: string): Promise<string | undefined> {
   const objectiveCode = (await readSpawnSpec(agentName, dataDir))?.objective_code;
@@ -64,34 +58,26 @@ function writerBelongsToCampaign(writer: string, alphaName: string, objectiveCod
   return sameAgentName(writer, alphaName) || nameCarriesObjectiveCode("shadow", writer, objectiveCode);
 }
 
-function namesEntry(record: JournalRecord, identity: string): boolean {
-  return record.added.includes(identity) || record.changed.includes(identity);
-}
-
-function startsWithLinksLine(entry: PageEntry): boolean {
-  return readLinksLine(entry) !== undefined;
-}
-
-function lastWriteOf(identity: string, journal: readonly JournalRecord[]): number {
-  return Math.max(
-    Number.NEGATIVE_INFINITY,
-    ...journal.filter((record) => namesEntry(record, identity)).map((record) => Date.parse(record.at)),
-  );
-}
-
-function staleEntriesAbout(
-  campaignEntries: readonly PageEntry[],
-  page: readonly PageEntry[],
-  journal: readonly JournalRecord[],
-): PageEntry[] {
-  const campaignWrittenAt = Math.max(...campaignEntries.map((entry) => lastWriteOf(entry.identity, journal)));
-  const stale = new Map<string, PageEntry>();
-  for (const other of campaignEntries.flatMap((entry) => entriesAboutTheSameWork(entry, page))) {
-    if (lastWriteOf(other.identity, journal) < campaignWrittenAt && !saysItIsSuperseded(other)) {
-      stale.set(other.identity, other);
-    }
+async function readPage(dataHome: string): Promise<StoredPage> {
+  const connection = connectToWhereIStand({ local: true, throneHome: dataHome });
+  try {
+    return await connection.operations.page();
+  } finally {
+    await connection.close();
   }
-  return [...stale.values()];
+}
+
+function topSectionNameOf(page: StoredPage, sectionId: string): string | undefined {
+  let section = page.listing.sections.find((each) => each.id === sectionId);
+  while (section?.parentId != null) {
+    const parentId: string = section.parentId;
+    section = page.listing.sections.find((each) => each.id === parentId);
+  }
+  return section?.name;
+}
+
+function staleRowsBeside(campaignRow: StoredRow, workRows: readonly StoredRow[]): StoredRow[] {
+  return rowsAboutTheSameWork(campaignRow, workRows).filter((other) => Date.parse(other.changedAt) < Date.parse(campaignRow.changedAt));
 }
 
 function refusal(alphaName: string, whatToDo: string): PageRecordVerdict {
@@ -112,52 +98,32 @@ export async function judgeCampaignPageRecord(
   if (queueRowWasAbandoned(objectiveCode, places.dataDir)) {
     return { recorded: true, summary: `queue row "${objectiveCode}" was abandoned; it owes the page no entry` };
   }
-  const entryHeading = `"${entryHeadingOf(objectiveCode)}"`;
+  const entry = `"${objectiveCode}"`;
   const deliveryTime = await deliveryTimeOf(alphaName, places.dataDir);
   if (deliveryTime === undefined) {
+    return refusal(alphaName, `write its REPORT.md first, then record the campaign's outcome on the Lord's page as the work entry ${entry} with ${PUT_BY_NAME}.`);
+  }
+  const page = await readPage(places.dataHome);
+  const workRows = page.rows.filter((row) => row.kind === "work");
+  const campaignRow = workRows.find((row) => row.code === objectiveCode);
+  const wroteAfterDelivery =
+    campaignRow !== undefined && Date.parse(campaignRow.changedAt) > deliveryTime && writerBelongsToCampaign(campaignRow.changedBy, alphaName, objectiveCode);
+  if (campaignRow === undefined || !wroteAfterDelivery) {
     return refusal(
       alphaName,
-      "write its REPORT.md first, " +
-        `then record the campaign's outcome on the Lord's page as the entry ${entryHeading} with ${PAGE_EDIT_FLOW}.`,
+      `record the campaign's outcome on the Lord's page by putting the work entry ${entry} under ${SECTIONS_FOR_DELIVERED_WORK} with ${PUT_BY_NAME}, ` +
+        "because no write by this campaign since its REPORT.md holds that entry.",
     );
   }
-  const journal = await readJournal(places.dataHome);
-  const wroteAfterDelivery = journal.some(
-    (record) =>
-      Date.parse(record.at) > deliveryTime &&
-      writerBelongsToCampaign(record.writer, alphaName, objectiveCode) &&
-      namesEntry(record, objectiveCode),
-  );
-  if (!wroteAfterDelivery) {
-    return refusal(
-      alphaName,
-      `record the campaign's outcome on the Lord's page by adding the entry ${entryHeading} under ` +
-        `${SECTIONS_FOR_DELIVERED_WORK} with ${PAGE_EDIT_FLOW}, because no edit by this campaign since its REPORT.md names that entry.`,
-    );
+  if (topSectionNameOf(page, campaignRow.sectionId) === IN_FLIGHT) {
+    return refusal(alphaName, `move the work entry ${entry} on the Lord's page out of "${IN_FLIGHT}" to ${SECTIONS_FOR_DELIVERED_WORK} with ${PUT_BY_NAME}.`);
   }
-  const page = listEntries((await showPage(places.dataHome)).content);
-  const campaignEntries = page.filter((entry) => entry.identity === objectiveCode);
-  if (campaignEntries.some((entry) => entry.section === PageSection.InFlight)) {
+  const staleRows = staleRowsBeside(campaignRow, workRows);
+  if (staleRows.length > 0) {
     return refusal(
       alphaName,
-      `move the entry ${entryHeading} on the Lord's page out of "${sectionHeadingOf(PageSection.InFlight)}" to ` +
-        `${SECTIONS_FOR_DELIVERED_WORK} with ${PAGE_EDIT_FLOW}.`,
-    );
-  }
-  if (!campaignEntries.every(startsWithLinksLine)) {
-    return refusal(
-      alphaName,
-      `start the entry ${entryHeading} on the Lord's page with its links line, ${LINKS_LINE_FORMS}, ` +
-        `directly under its heading, with ${PAGE_EDIT_FLOW}.`,
-    );
-  }
-  const staleEntries = staleEntriesAbout(campaignEntries, page, journal);
-  if (staleEntries.length > 0) {
-    return refusal(
-      alphaName,
-      `correct the older entries about the same work as ${entryHeading} on the Lord's page: ` +
-        `${staleEntries.map(stillSays).join("; ")}. Remove each one, or correct that line and add the line ` +
-        `"Superseded by \`${entryHeadingOf(objectiveCode)}\` on <date>", with ${PAGE_EDIT_FLOW}.`,
+      `archive the older entries about the same work as ${entry} on the Lord's page: ${staleRows.map(stillSays).join("; ")}. ` +
+        `Archive each one with "throne where-i-stand archive <row id>".`,
     );
   }
   return { recorded: true, summary: `"${objectiveCode}" was recorded on the page after ${alphaName} delivered` };

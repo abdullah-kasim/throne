@@ -13,9 +13,9 @@ import { buildSubmitToAgentDeps } from "../src/herdr/herdr-send-enter-until-empt
 import { THRONE_HERDR_SESSION_NAME } from "../src/herdr/herdr-client.ts";
 import type { HerdrAgent } from "../src/herdr/herdr-identity-contracts.ts";
 import type { HerdrProcessBoundary } from "../src/herdr/herdr-client.ts";
-import { RECIPIENT_PANE_LOCK_DIRECTORY_ENV } from "../src/shared-policy/recipient-pane-lock.service.ts";
+import { THRONE_HOME_ENV } from "../src/shared-policy/throne-home.ts";
 
-process.env[RECIPIENT_PANE_LOCK_DIRECTORY_ENV] = await mkdtemp(path.join(tmpdir(), "cross-session-pane-lock-"));
+process.env[THRONE_HOME_ENV] = await mkdtemp(path.join(tmpdir(), "cross-session-pane-lock-"));
 
 function fakeHerdrAgent(overrides: Partial<HerdrAgent> & { name: string }): HerdrAgent {
   return {

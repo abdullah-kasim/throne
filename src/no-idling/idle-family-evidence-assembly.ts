@@ -7,7 +7,8 @@ import {
   IdentityLineReadStatus,
   type IdentityLineRead,
 } from '../agentdata/identity-data.service.ts';
-import { isAlphaRole, spawnedAtAgeMs } from './idle-family.ts';
+import { isAlphaRole } from './idle-family.ts';
+import { isWithinSpawnGrace } from '../agentdata/spawn-starting.ts';
 import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
 
 /**
@@ -31,30 +32,20 @@ export async function readSupervisors(
   return supervisors;
 }
 
-/**
- * Every live agent's age (ms since `spawn.json`'s `spawned_at`), evaluated
- * once per roster entry per sweep — the ONE place this domain decision is
- * made, reused by every family/member that references the same agent instead
- * of re-derived per lookup. Role-neutral (BGS-2): a just-spawned child is
- * exactly as indistinguishable-from-stalled as a just-spawned Alpha, and
- * children outnumber Alphas.
- */
-export async function readAgentAges(
+export async function readAgentsWithinSpawnGrace(
   roster: readonly AgentStatusesRosterEntry[],
   dataDir: string,
   readSpawnSpecFn: NoIdlingDependencies['readSpawnSpec'],
   now: () => number,
-): Promise<ReadonlyMap<string, number>> {
-  const ages = new Map<string, number>();
+): Promise<ReadonlySet<string>> {
+  const names = new Set<string>();
   const nowMs = now();
   for (const entry of roster) {
-    const spec = await readSpawnSpecFn(entry.name, dataDir);
-    const ageMs = spawnedAtAgeMs(spec?.spawned_at, nowMs);
-    if (ageMs !== undefined) {
-      ages.set(entry.name, ageMs);
+    if (isWithinSpawnGrace(await readSpawnSpecFn(entry.name, dataDir), nowMs)) {
+      names.add(entry.name);
     }
   }
-  return ages;
+  return names;
 }
 
 /**

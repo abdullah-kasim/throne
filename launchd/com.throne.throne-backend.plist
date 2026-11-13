@@ -7,8 +7,7 @@ status writer and every other hosted worker); the mac counterpart of
 throne/systemd/throne-backend.service.
 
 Not loadable as it stands: `{{THRONE_ROOT}}` (absolute path of the throne
-directory) and `{{NODE_BIN}}` (absolute path of the mise install of the exact
-node version pinned in the throne root's mise.toml) are substituted at install
+directory) is substituted at install
 time, and only the rendered copy in the user's LaunchAgents dir is a working
 agent. Install with:
   cd <throne root> && ./install.sh        (or ./bin/throne-cli install-services)
@@ -33,8 +32,8 @@ KEYS SHIPPED BELOW
                     harness launchers by name — all of which live on the PATH
                     the .profile chain builds, not on launchd's bare system
                     PATH. `nest start` would spawn the app as the bare word
-                    `node` from that PATH, so --exec hands it the same pinned
-                    {{NODE_BIN}} the watcher runs on. --path is RELATIVE on purpose
+                    `node` from that PATH, so --exec hands it the same
+                    bin/throne-runtime the watcher runs on. --path is RELATIVE on purpose
                     (nest-cli rejects an absolute tsconfig path; see the
                     linux unit), which WorkingDirectory below makes safe.
                     Output goes to ~/.throne/logs/ ($THRONE_DATA_HOME/logs/ when set) for want of a
@@ -83,7 +82,7 @@ mac is restarted by an operator, not by launchd.
 	<array>
 		<string>/bin/bash</string>
 		<string>-lc</string>
-		<string>mkdir -p "{{THRONE_LOGS}}" &amp;&amp; exec {{NODE_BIN}} {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --exec {{NODE_BIN}} --path tsconfig.build.json &gt;&gt; "{{THRONE_LOGS}}/throne-backend.log" 2&gt;&amp;1</string>
+		<string>mkdir -p "{{THRONE_LOGS}}" &amp;&amp; exec {{THRONE_ROOT}}/bin/throne-runtime {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --exec {{THRONE_ROOT}}/bin/throne-runtime --path tsconfig.build.json &gt;&gt; "{{THRONE_LOGS}}/throne-backend.log" 2&gt;&amp;1</string>
 	</array>
 	<key>WorkingDirectory</key>
 	<string>{{THRONE_ROOT}}</string>

@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { SAVE_ALREADY_ON_ITS_WAY_WORDS } from "@/features/where-i-stand/save-page-unit";
+import { SAVE_ALREADY_ON_ITS_WAY_WORDS } from "@/features/where-i-stand/page-queries";
+import { REMOVED_WORDS } from "@/features/where-i-stand/use-epic-editors";
 import { BAKERY, BAKERY_EPIC, COOKBOOK, editButton, EPICS_HASH, FakeBackend, openPage, SAMPLE_MARKDOWN, type OpenedPage } from "@/features/where-i-stand/where-i-stand.test-support";
 
 const HARBOUR = "Bake for the harbour";
@@ -53,7 +54,7 @@ test("removing an epic that gained lines since it was read refuses and leaves th
   await confirmRemoval(page, BAKERY);
 
   expect(page.backend.markdown).toContain(gained);
-  expect(screen.getByRole("heading", { level: 3, name: BAKERY }).closest(".epic")?.textContent).toContain("Not saved: this entry changed since the page loaded");
+  expect(screen.getByRole("heading", { level: 3, name: BAKERY }).closest(".epic")?.textContent).toContain("Not removed: this epic changed since the page loaded");
   expect(page.panel().textContent).toContain("The lease is signed.");
 
   await confirmRemoval(page, BAKERY);
@@ -101,15 +102,15 @@ test("cancelling the confirmation leaves the epic untouched", async () => {
   expect(screen.getByRole("button", { name: `Save ${BAKERY} epic` })).toBeTruthy();
 });
 
-test("accepting the confirmation removes the epic through the save", async () => {
+test("accepting the confirmation archives the epic", async () => {
   const page = await openPage(new FakeBackend(), EPICS_HASH);
 
   await confirmRemoval(page, BAKERY);
 
-  expect(page.backend.saveBodies).toEqual([{ loaded: BAKERY_EPIC, edited: "" }]);
+  expect(page.backend.saveBodies).toEqual([{ address: expect.stringMatching(/\/where-i-stand\/store\/rows\/r\d+\/archive$/), method: "POST", writer: "Lord", loadedChangedAt: expect.any(String) }]);
   expect(page.backend.markdown).not.toContain(BAKERY);
   expect(page.headings(3)).toEqual([COOKBOOK]);
-  expect(document.querySelector(".visually-hidden")?.textContent).toBe("Saved.");
+  expect(document.querySelector(".visually-hidden")?.textContent).toBe(REMOVED_WORDS);
 });
 
 test("removing an epic with unsaved text leaves no notice behind", async () => {
@@ -155,14 +156,14 @@ test("a removal is announced after focus has moved, so the move cannot cut it of
   answerTheRemoval();
   await page.settle();
 
-  expect(region.textContent).toBe("Saved.");
+  expect(region.textContent).toBe(REMOVED_WORDS);
   expect(focusWhenAnnounced).toEqual([editButton(COOKBOOK)]);
 });
 
 test("a refused removal says why, keeps the epic and keeps focus on its remove button", async () => {
   const page = await openPage(new FakeBackend(), EPICS_HASH);
   const refusal = "Not saved: the page's edit lock is held by alpha-oven; save again once it is released.";
-  page.backend.answerToNextSaves = () => Response.json({ outcome: "lock-held", message: refusal }, { status: 409 });
+  page.backend.answerToNextSaves = () => Response.json({ outcome: "refused", message: refusal });
 
   await confirmRemoval(page, BAKERY);
 
@@ -284,7 +285,7 @@ test("an editor closed and opened again during a removal still takes no text", a
 test("a removal that fails gives the notes box back", async () => {
   const page = await openPage(new FakeBackend(), EPICS_HASH);
   await page.user.click(editButton(BAKERY));
-  page.backend.answerToNextSaves = () => Response.json({ outcome: "lock-held", message: "Not saved: the page's edit lock is held." }, { status: 409 });
+  page.backend.answerToNextSaves = () => Response.json({ outcome: "refused", message: "Not saved: the page's edit lock is held." });
 
   await confirmRemoval(page, BAKERY);
   await page.user.type(notesBox(BAKERY), " kept");
@@ -308,7 +309,7 @@ test("a removal confirmed again while it is on its way says it was not sent", as
 
 test("an epic vanishing after a failed removal hands focus to the selected tab, not the epic beside it", async () => {
   const page = await openPage(new FakeBackend(), EPICS_HASH);
-  page.backend.answerToNextSaves = () => Response.json({ outcome: "lock-held", message: "Not saved: the page's edit lock is held." }, { status: 409 });
+  page.backend.answerToNextSaves = () => Response.json({ outcome: "refused", message: "Not saved: the page's edit lock is held." });
   await confirmRemoval(page, BAKERY);
   await waitFor(() => expect(document.activeElement).toBe(removeButton(BAKERY)));
 

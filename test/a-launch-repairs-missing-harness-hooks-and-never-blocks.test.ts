@@ -39,6 +39,7 @@ async function machine(repairExitCode: number): Promise<Machine> {
   await writeFile(path.join(throneRoot, "claude-hooks", "jev-fence.py"), "");
   await writeFile(path.join(throneRoot, "claude-hooks", "agent-exit-marker.py"), "");
   await writeFile(path.join(throneRoot, "claude-hooks", "hidden-skill-pointer.py"), "");
+  await writeFile(path.join(throneRoot, "claude-hooks", "web-fetch-failure-pointer.py"), "");
   await writeFile(path.join(throneRoot, ".claude", "skill-dependencies.tsv"), "share-stuff\tglobal\nloop\tharness\n");
   const repairCommand = path.join(throneRoot, "bin", "throne-cli");
   await writeFile(repairCommand, `#!/bin/bash\necho "$*" >> "${repairLog}"\nexit ${repairExitCode}\n`);
@@ -47,7 +48,7 @@ async function machine(repairExitCode: number): Promise<Machine> {
 }
 
 async function registerEveryHook(target: Machine): Promise<void> {
-  const hooks = ["scratch-path-guard.py", "skill-write-guard.py", "memory-read-log.py", "jev-fence.py", "agent-exit-marker.py", "hidden-skill-pointer.py"].map(
+  const hooks = ["scratch-path-guard.py", "skill-write-guard.py", "memory-read-log.py", "jev-fence.py", "agent-exit-marker.py", "hidden-skill-pointer.py", "web-fetch-failure-pointer.py"].map(
     (name) => `python3 \\"${path.join(target.throneRoot, "claude-hooks", name)}\\"`,
   );
   await writeFile(path.join(target.home, ".claude", "settings.json"), `{"hooks": "${hooks.join(" ")}"}\n`);

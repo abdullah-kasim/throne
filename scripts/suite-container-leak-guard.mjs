@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // run's own container genuinely tore down.
 //
 // Same family as scripts/dist-staleness-guard.mjs and

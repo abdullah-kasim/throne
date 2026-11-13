@@ -15,7 +15,7 @@ import {
 import { pullRequestApiPath, type ForgejoPullRequestRecord } from "./forgejo-pull-requests.ts";
 import { textSafeForGithub } from "./github-bound-text.ts";
 import type { ForgeContext } from "./pull-request-operations.ts";
-import { refuseGithubWriteWhereRepositoryLandsOnMain } from "./repository-lands-on-main.ts";
+import { refuseGithubWriteWherePullRequestsStayOnForgejo } from "./pull-requests-stay-on-forgejo.ts";
 import { forgejoPullRequestFor, stagedPullRequestFor, type ForgejoPullRequest } from "./staged-pair.ts";
 import { holdsReviewRecord, REVIEW_RECORD_FORM, reviewRecord, withRecordAppended } from "./staging-records.ts";
 
@@ -103,7 +103,7 @@ function latestReviewFindings(items: readonly ForgejoFeedbackItem[]): ForgejoFee
 }
 
 export async function reviewFindingsForGithub(context: ForgeContext, targetText: string, outFile: string): Promise<ExportedReviewFindings> {
-  await refuseGithubWriteWhereRepositoryLandsOnMain(context.repo, "Exporting review findings for a GitHub review", context.dependencies);
+  await refuseGithubWriteWherePullRequestsStayOnForgejo(context.repo, "Exporting review findings for a GitHub review", context.dependencies);
   const staged = await stagedPullRequestFor(context, targetText);
   const findings = latestReviewFindings(await readForgejoFeedback(staged.address, staged.api));
   if (findings.length === 0) throw new ForgeRefusal(`${staged.url} has no findings left in the latest review posted by \`throne forge pr review\`, so there is nothing to export. Nothing was written.`);

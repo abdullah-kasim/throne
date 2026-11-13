@@ -172,6 +172,7 @@ export function machineProcessRunner(
     machine.processes.push({ file, args, options });
     if (file === "mise") return runMise(machine, args, options);
     if (file === "npm") return runNpm(machine, options);
+    if (file.endsWith("/bin/throne-runtime")) return { exitCode: 0, stdout: "", stderr: "" };
     return failed(`${file}: command not found`);
   };
 }

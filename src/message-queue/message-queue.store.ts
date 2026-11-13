@@ -197,6 +197,16 @@ export class MessageQueueStore {
       );
   }
 
+  readLatestWorkItemOutcomeByDedupeKey(
+    kind: string,
+    dedupeKey: string,
+  ): { readonly state: string; readonly failureReason: string | null } | undefined {
+    const row = this.db
+      .prepare(`SELECT state, failure_reason FROM work_items WHERE kind = ? AND dedupe_key = ? ORDER BY id DESC LIMIT 1`)
+      .get(kind, dedupeKey) as { state: string; failure_reason: string | null } | undefined;
+    return row === undefined ? undefined : { state: row.state, failureReason: row.failure_reason };
+  }
+
   readWorkItem(id: number): WorkItemRow | undefined {
     const row = this.db
       .prepare(

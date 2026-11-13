@@ -1,13 +1,9 @@
 #!/bin/sh
 set -eu
 
-node_binary="${FORGEJO_NODE_BIN:-}"
-if [ -z "$node_binary" ]; then
-    echo "forgejo-serve: FORGEJO_NODE_BIN is not set; the service unit must pass the node version pinned in mise.toml, rerun ./install-forgejo.sh" >&2
-    exit 1
-fi
+runtime_launcher="$(cd "$(dirname "$0")/.." && pwd -P)/bin/throne-runtime"
 
-for required_command in chmod date dirname grep head id mkdir "$node_binary" sleep uname; do
+for required_command in chmod date dirname grep head id mkdir "$runtime_launcher" sleep uname; do
     if ! command -v "$required_command" >/dev/null 2>&1; then
         echo "forgejo-serve: required command is unavailable: $required_command" >&2
         exit 1
@@ -55,7 +51,7 @@ container_user_mapping() {
 }
 
 pins_file="$(cd "$(dirname "$0")/.." && pwd -P)/vendor-pins.json"
-forgejo_image=$("$node_binary" -e 'process.stdout.write(require(process.argv[1]).tools?.forgejo?.image ?? "")' "$pins_file")
+forgejo_image=$("$runtime_launcher" -e 'process.stdout.write(require(process.argv[1]).tools?.forgejo?.image ?? "")' "$pins_file")
 if [ -z "$forgejo_image" ]; then
     echo "forgejo-serve: no tools.forgejo.image pin in $pins_file" >&2
     exit 1

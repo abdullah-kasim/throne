@@ -29,7 +29,6 @@ import { ompModelSkipReason } from "./omp-model-availability.ts";
 
 const execFileAsync = promisify(execFile);
 const AGENT_START_TIMEOUT_MILLISECONDS = 5_000;
-const TYPESCRIPT_REGISTER_PATH = path.resolve("test/register-typescript.mjs");
 const TAB_LEAK_GUARD_PATH = path.resolve("scripts/herdr-tab-leak-guard.mjs");
 
 async function createRealOmpAgent(
@@ -466,8 +465,6 @@ test("the in-container tab leak guard refuses a deliberately leaked Herdr worksp
     THRONE_HERDR_SESSION_NAME_OVERRIDE: session.sessionName,
   };
   const guardArguments = [
-    "--import",
-    TYPESCRIPT_REGISTER_PATH,
     TAB_LEAK_GUARD_PATH,
   ];
   try {

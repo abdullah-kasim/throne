@@ -1,6 +1,7 @@
 import { isSupportedComposerEmpty } from "../codex-screen/composer/composer.service.ts";
 import { HARNESS_NAMES } from "../harness-routing/harness.ts";
 import { OMP_DELIVERY_TIMEOUT_MS } from "./herdr-send.types.ts";
+import { PaneLockTakenOverError } from "../shared-policy/recipient-pane-lock.service.ts";
 import {
   dismissOpenCodeMessageActionsModal,
   waitForSettledOpenCodeComposer,
@@ -134,8 +135,8 @@ async function submitEnterOnlyWhileLocked(
 function asAssumedFilled(
   name: string,
   error: unknown,
-): SubmitAssumedFilledError {
-  return error instanceof SubmitAssumedFilledError
+): Error {
+  return error instanceof SubmitAssumedFilledError || error instanceof PaneLockTakenOverError
     ? error
     : new SubmitAssumedFilledError(
         name,
@@ -213,6 +214,7 @@ export async function submitToAgentWhileLocked(
     try {
       await deps.sendText(agent.paneId, literalPayload);
     } catch (error) {
+      if (error instanceof PaneLockTakenOverError) throw error;
       throw new SubmitNotSentError(name, error);
     }
     if (options.textOnly) return literalPayload;
@@ -346,7 +348,7 @@ export async function submitToAgentWhileLocked(
     );
     return literalPayload;
   } catch (error) {
-    if (!textWritten && !(error instanceof SubmitAssumedFilledError)) {
+    if (!textWritten && !(error instanceof SubmitAssumedFilledError) && !(error instanceof PaneLockTakenOverError)) {
       throw new SubmitNotSentError(name, error);
     }
     throw asAssumedFilled(name, error);

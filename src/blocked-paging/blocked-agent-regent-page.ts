@@ -26,6 +26,7 @@ export async function pageRegentWithinEscalationBound(
   pageKey: string,
   buildMessage: () => Promise<string>,
   deps: BlockedAgentPagingDependencies,
+  fingerprint?: string,
 ): Promise<void> {
   const priorState = blockedPageEscalationState(agentName, await deps.readEscalationLedger());
   if (priorState.pageCount >= BLOCKED_PAGE_ESCALATION_BOUND) {
@@ -34,10 +35,11 @@ export async function pageRegentWithinEscalationBound(
     }
     return;
   }
-  await submitPageToRegent(await buildMessage(), pageKey, deps);
   const observedAt = new Date(deps.now?.() ?? Date.now()).toISOString();
-  const entriesAfterEnqueue = await deps.readEscalationLedger();
-  if (!hasBlockedPageCredit(agentName, pageKey, entriesAfterEnqueue)) {
+  await submitPageToRegent(await buildMessage(), fingerprint === undefined ? pageKey : `${pageKey}:${observedAt}`, deps);
+  if (fingerprint !== undefined) {
+    await deps.appendEscalationLedger({ agentName, observedAt, kind: 'page-enqueued', pageKey, fingerprint });
+  } else if (!hasBlockedPageCredit(agentName, pageKey, await deps.readEscalationLedger())) {
     await deps.appendEscalationLedger({ agentName, observedAt, kind: 'page-enqueued', pageKey });
   }
   const state = blockedPageEscalationState(agentName, await deps.readEscalationLedger());

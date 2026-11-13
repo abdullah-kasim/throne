@@ -76,6 +76,7 @@ export interface KeepGoingDependencies {
     dataDir?: string,
   ) => Promise<StallEvidence>;
   resolveHeartbeatRoot?: () => Promise<string>;
+  pageSupervisorWaits?: (roster: readonly AgentStatusesRosterEntry[]) => Promise<number>;
   readInFlightRowsWithoutLiveAlpha?: () => Promise<readonly InFlightRowWithoutLiveAlpha[]>;
   /**
    * Decides whether the live Regent is wedged and should be fenced. Reads

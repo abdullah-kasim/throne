@@ -13,7 +13,7 @@ import {
 } from "./pull-request-forge.ts";
 import { printedJson, type ForgeContext } from "./pull-request-operations.ts";
 import { PULL_REQUEST_STATE } from "./pull-request-shapes.ts";
-import { repositoryLandsOnMain } from "./repository-lands-on-main.ts";
+import { pullRequestsStayOnForgejo } from "./pull-requests-stay-on-forgejo.ts";
 import { forgejoPullRequestFor, githubTwinOf, type StagedPullRequest } from "./staged-pair.ts";
 
 export const NOTHING_MERGES_IN_FORGEJO =
@@ -51,7 +51,7 @@ function notOnGithubYet(forgejoUrl: string): string {
 export async function squashMergePullRequestOnGithub(context: ForgeContext, targetText: string): Promise<ProcessResult> {
   const holder = await decideForgeHoldingPullRequest(parsePullRequestTarget(targetText), context.dependencies);
   if (holder.forge === FORGE.forgejo) {
-    if (await repositoryLandsOnMain(context.repo, context.dependencies)) return printedJson(await landPullRequestOnMain(context, targetText));
+    if (await pullRequestsStayOnForgejo(context.repo, context.dependencies)) return printedJson(await landPullRequestOnMain(context, targetText));
     throw new ForgeRefusal(NOTHING_MERGES_IN_FORGEJO);
   }
   return runGithub(

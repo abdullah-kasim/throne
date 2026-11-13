@@ -80,7 +80,7 @@ test("a single-slice campaign on a ticket keeps its ticket-alignment check ahead
   assert.deepEqual(
     missingPhrases(singleSliceMode, [
       "A ticket-driven row still gets its `98_ticket_` todo, which is not an implementation slice.",
-      "The `98_ticket_` check, `99a`, `99b` and `99c` then run exactly as for any bundle",
+      "The `98_ticket_` check, `99a`, `99b`, `99bs` and `99c` then run exactly as for any bundle",
     ]),
     [],
   );

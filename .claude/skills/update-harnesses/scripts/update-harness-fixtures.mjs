@@ -54,10 +54,6 @@ export function makeThroneRoot(root, { pinnedVersion = '2.1.226' } = {}) {
   execFileSync('ln', ['-s', path.join(THRONE_ROOT, 'node_modules'), path.join(throneRoot, 'node_modules')]);
   writeExecutable(path.join(throneRoot, 'bin', 'claudey'), '#!/usr/bin/env bash\nexec "${CLAUDE_BIN}" --version\n');
   writeFileSync(
-    path.join(throneRoot, 'test', 'register-typescript.mjs'),
-    readFileSync(path.join(THRONE_ROOT, 'test', 'register-typescript.mjs')),
-  );
-  writeFileSync(
     path.join(throneRoot, 'test', 'ompy-launcher.test.ts'),
     "import test from 'node:test';\n\ntest('fixture stand-in for the real launcher-resolution proof', () => {});\n",
   );
@@ -75,7 +71,7 @@ export function makeThroneRoot(root, { pinnedVersion = '2.1.226' } = {}) {
 export function writeVendoredClaude(throneRoot, version) {
   writeExecutable(
     path.join(throneRoot, 'vendor', 'node_modules', '.bin', 'claude'),
-    `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(version)} + '\\n');\n`,
+    `#!/usr/bin/env bun\nprocess.stdout.write(${JSON.stringify(version)} + '\\n');\n`,
   );
 }
 
@@ -83,7 +79,7 @@ export function writePathBinary(dir, executable, version) {
   mkdirSync(dir, { recursive: true });
   writeExecutable(
     path.join(dir, executable),
-    `#!/usr/bin/env node\nprocess.stdout.write(${JSON.stringify(version)} + '\\n');\n`,
+    `#!/usr/bin/env bun\nprocess.stdout.write(${JSON.stringify(version)} + '\\n');\n`,
   );
 }
 
@@ -94,7 +90,7 @@ export function npmCallLog(root) {
 export function fakeNpmDir(root, { latestVersion = '2.1.267', failingProbe = false, vendoredVersionOverride = null, dyingVendorInstall = false, packedIntegrity = 'sha512-AAAAAAAAAAAAAAAA', reportedModelId = 'claude-opus-5-5' } = {}) {
   const dir = path.join(root, 'fake-npm-bin');
   mkdirSync(dir, { recursive: true });
-  writeExecutable(path.join(dir, 'npm'), `#!/usr/bin/env node
+  writeExecutable(path.join(dir, 'npm'), `#!/usr/bin/env bun
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -141,7 +137,7 @@ if (argv[0] === 'view') {
     version: versionAskedFor(spec),
     bin: { [executable]: 'cli.js' },
   }));
-  writeFileSync(path.join(fixture, 'package', 'cli.js'), \`#!/usr/bin/env node
+  writeFileSync(path.join(fixture, 'package', 'cli.js'), \`#!/usr/bin/env bun
 if (\${JSON.stringify(failingProbe)} && process.argv.slice(2).join(' ') === 'auth --help') process.exit(23);
 if (process.argv.includes('-p')) { process.stdout.write(\${JSON.stringify(sessionOutput)}); process.exit(0); }
 process.stdout.write(\${JSON.stringify(versionAskedFor(spec))} + '\\\\n');
@@ -160,7 +156,7 @@ process.stdout.write(\${JSON.stringify(versionAskedFor(spec))} + '\\\\n');
   const binDir = path.join(prefixDir, 'node_modules', '.bin');
   mkdirSync(binDir, { recursive: true });
   if (dyingVendorInstall) {
-    writeFileSync(path.join(binDir, executable), '#!/usr/bin/env node\\nprocess.exit(9);\\n');
+    writeFileSync(path.join(binDir, executable), '#!/usr/bin/env bun\\nprocess.exit(9);\\n');
     chmodSync(path.join(binDir, executable), 0o755);
     process.exit(1);
   }
@@ -170,7 +166,7 @@ process.stdout.write(\${JSON.stringify(versionAskedFor(spec))} + '\\\\n');
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\\n');
   const reportedVersion = vendoredVersionOverride ?? version;
   const versionOutput = executable === 'codex' ? \`codex-cli \${reportedVersion}\` : \`\${reportedVersion} (Claude Code)\`;
-  writeFileSync(path.join(binDir, executable), \`#!/usr/bin/env node
+  writeFileSync(path.join(binDir, executable), \`#!/usr/bin/env bun
 process.stdout.write(\${JSON.stringify(versionOutput)} + '\\\\n');
 \`);
   chmodSync(path.join(binDir, executable), 0o755);
@@ -194,7 +190,7 @@ process.stdout.write(\${JSON.stringify(versionOutput)} + '\\\\n');
 export function fakeThroneDir(root) {
   const dir = path.join(root, 'fake-throne-bin');
   mkdirSync(dir, { recursive: true });
-  writeExecutable(path.join(dir, 'throne'), '#!/usr/bin/env node\nprocess.stdout.write("[]\\n");\n');
+  writeExecutable(path.join(dir, 'throne'), '#!/usr/bin/env bun\nprocess.stdout.write("[]\\n");\n');
   return dir;
 }
 

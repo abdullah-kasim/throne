@@ -250,7 +250,7 @@ test('a service owed a restart that is not running is reported and not started',
 test('a restart owed before a failed run is finished by the next run', async (t) => {
   const court = courtFor(t);
   land(court, 'origin', { 'systemd/ntfy-serve': '#!/bin/sh\n' });
-  failOnce(court, 'npm run build');
+  failOnce(court, 'bun run build');
   assert.equal((await runUpdate(court)).code, 1);
   assert.deepEqual(servedToolsRestarted(court), []);
   assert.equal((await runUpdate(court)).code, 0);
@@ -413,12 +413,12 @@ test('a run killed after its build published still restarts the bot bridges', as
   const court = courtFor(t);
   court.runningBotBridges = ['throne-bot-bridge@one.service'];
   land(court, 'origin', { 'src/new.ts': 'export const added = 1;\n' });
-  court.onCall.set('npm run build', () => {
+  court.onCall.set('bun run build', () => {
     publishFreshDist(court);
     dieHere();
   });
   await runUpdate(court);
-  court.onCall.delete('npm run build');
+  court.onCall.delete('bun run build');
   const { code, output } = await runUpdate(court);
   assert.equal(code, 0, output);
   assert.match(output, /^update-throne: report: restarted throne-bot-bridge@one\.service$/m);

@@ -43,9 +43,9 @@ stamp_write() { printf '%s\n' "$2" > "$STAMP_DIR/$1"; }
 
 step "Preflight"
 
-. "$THRONE_ROOT/bin/pinned-node-lib.sh"
-use_pinned_node "$THRONE_ROOT" || die "the node pinned in mise.toml is not installed; run ./install.sh first."
-ok "node $("$pinned_node" --version) (pinned in mise.toml)"
+throne_runtime="$THRONE_ROOT/bin/throne-runtime"
+bun_version=$("$throne_runtime" --version) || die "the bun pinned in mise.toml is not installed; run ./install.sh first."
+ok "bun $bun_version (pinned in mise.toml)"
 
 container_runtime() {
     local candidate
@@ -68,7 +68,7 @@ command -v tailscale >/dev/null 2>&1 ||
      Install it (https://tailscale.com/download) and re-run."
 ok "tailscale: $(command -v tailscale)"
 
-herdr_bin=$(node -e '
+herdr_bin=$("$THRONE_ROOT/bin/throne-runtime" -e '
   import("./dist/src/install-services/herdr-release.service.js")
     .then((m) => process.stdout.write(m.ownedHerdrExecutablePath()));
 ')
@@ -81,7 +81,7 @@ ok "herdr: $herdr_bin"
 
 step "conduwuit image"
 
-conduwuit_image=$(node -e '
+conduwuit_image=$("$THRONE_ROOT/bin/throne-runtime" -e '
   process.stdout.write(require(process.argv[1]).tools.conduwuit.image);
 ' "$THRONE_ROOT/vendor-pins.json")
 
@@ -94,7 +94,7 @@ fi
 
 step "install-services (throne-bot-herdr.service, throne-bot-bridge@.service, conduwuit units)"
 
-"$pinned_node" ./dist/src/tools.js install-services
+"$throne_runtime" ./dist/src/tools.js install-services
 
 step "throne-bot herdr session"
 

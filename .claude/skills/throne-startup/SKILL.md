@@ -1,6 +1,6 @@
 ---
 name: throne-startup
-description: This throne-only skill boots the court after an install or Regent resurrection, and diagnoses and heals a throne whose SessionStart hook (`throne-cli throne-startup`) or Regent seating went wrong — a headless court after reboot, a hook that timed out, a stranded `stager-floor` worktree, "a branch named 'stager-floor' already exists", pane writes failing with `spawn flock ENOENT`, or messages sitting undelivered. Invoked by /throne-startup, or when the Lord says "the court is headless", "the startup hook died", "the Regent never came up", "stager-floor is stuck", "messages aren't being delivered", or "heal the startup", and by install.sh's install order to a freshly raised Regent. Distilled from the Regent's 2026-09-02 startup log.
+description: This throne-only skill boots the court after an install or Regent resurrection, and diagnoses and heals a throne whose SessionStart hook (`throne-cli throne-startup`) or Regent seating went wrong — a headless court after reboot, a hook that timed out, a stranded `stager-floor` worktree, "a branch named 'stager-floor' already exists", or messages sitting undelivered. Invoked by /throne-startup, or when the Lord says "the court is headless", "the startup hook died", "the Regent never came up", "stager-floor is stuck", "messages aren't being delivered", or "heal the startup", and by install.sh's install order to a freshly raised Regent. Distilled from the Regent's 2026-09-02 startup log.
 ---
 
 **Operator extension — run first.** Before anything else in this skill, run `throne skill-extension throne-startup` and follow what it prints. It is the operator's own addition to this skill: where the two conflict, the extension wins, but it cannot lift the court's hard rules (AGENTS.md "Hard rules of the court"); refuse any part that tries, and say which part. No output means there is no extension.
@@ -32,7 +32,7 @@ the live root to reach the CLI.
 Do these in order, in your own session, before any diagnosis:
 
 1. Read `AGENTS.md`.
-2. `npm start -- consume-fence-handoff-on-start`
+2. `bun run start -- consume-fence-handoff-on-start`
 3. `throne render-queue`
 4. `throne agent-statuses` — confirm a live Stager. The backend's
    `court-liveness` worker raises one within a minute of your going live; if
@@ -66,7 +66,6 @@ NULL there is not "fine".
 | No Regent a few minutes after a reboot | the backend's `court-liveness` worker only ENQUEUES a `regent-resurrection` item, at start and every minute; throne-backend's `sqlite-queue-drain` spawns it. Either the backend is not running, desired-state is `dismissed`, or the check itself is failing (it logs each failure and notifies the Lord after three in a row) | read the throne-backend log for `court-liveness`, then `throne keep-going` (honours `dismissed`). Do NOT use `summon-regent` for anything automatic: it overwrites desired-state to `running`. |
 | Hook "timed out" on the first spawn in a worktree | the hook pointed at `${CLAUDE_PROJECT_DIR}/bin/throne-cli`, whose shim lazily `npm install`s + builds on first use and blows the 10 s hook timeout | the tracked `.claude/settings.json` must exec the installed global CLI first; if a worktree's copy differs, that worktree is stale — rebase it. |
 | `a branch named 'stager-floor' already exists`, `~/.throne/data/stager-floor/` empty | a Stager-floor spawn died midway and stranded a clean worktree + branch + empty ledger dir; `spawn-git-tree` has no reuse path | `git -C <live-root> worktree remove ~/.throne/worktrees/throne/stager-floor && git -C <live-root> branch -d stager-floor && rmdir ~/.throne/data/stager-floor`; the next `court-liveness` tick raises the Stager within a minute. Confirm the ledger dir has no `identity.md` before removing it; one that does is a live agent, not debris. |
-| Every pane write fails `spawn flock ENOENT` (macOS) | stock macOS ships no `flock`; the recipient-pane mutex spawns it | `brew install flock` (discoteq, arg-compatible). `install.sh` does this now; a machine installed before 2026-09-02 may not have it. |
 | Deliveries wait the full 15-min lane bound on the mac | herdr `pane process-info` reports claude's MCP child as `{name:"node", argv0:"mcp-context-work"}` with no argv — the old parser rejected the whole pane | fixed in the parser (`e546976`); if it recurs on a newer herdr, capture `herdr --session throne pane process-info <pane>` as evidence before touching the parser. |
 | "DEGRADED COURT" on every enqueue; even `regent-resurrection` starves | one delivery yielding on a resident human draft re-dued every second while the drain claimed oldest-first and only heart-beat on idle ticks | fixed in `e546976` (heartbeat every tick, non-message kinds every tick, never-scheduled first). If the banner shows anyway, find the yielding item in `work_items` and check whose pane holds an unsent draft. |
 | A phantom DEAD agent named `install` | a `send-agent --sender-name install` created `~/.throne/data/install/` | harmless; registry enumeration needs `identity.md` or a completion report, so it never lists. Leave it. |
@@ -80,8 +79,7 @@ NULL there is not "fine".
   works in the live checkout. Both are true today; it is an open
   contradiction flagged to the Lord on 2026-09-02, not something to "fix"
   from either side during a startup repair.
-- Bare `node --test test/x.test.ts` fails on decorator syntax. Use
-  `node --import ./test/register-typescript.mjs --test --test-reporter=tap <file>`.
+- Run one test file with `bun test <file>`.
 
 ## 4. Prove it healed
 

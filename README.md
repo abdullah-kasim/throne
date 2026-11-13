@@ -41,11 +41,11 @@ Code and no Codex on it is the expected starting point.
    The installer is run **by an agent, not by hand**: it refuses to start
    without `I_AM_AN_AGENT=1`, which the agent supplies when it runs it. This
    is deliberate — an agent reads whatever breaks on your particular machine
-   (a too-old bash, a missing `flock` or `mise`), fixes it, and
+   (a too-old bash or a missing `mise`), fixes it, and
    re-runs until the install is clean, where a human pasting commands stops
    at the first error. Its last message tells you to quit it and run `throne`.
 
-The script installs the node dependencies, compiles the CLI, downloads all
+The script installs the pinned Bun and the dependencies, compiles the CLI, downloads all
 three harnesses at pinned versions, pulls the ntfy image, installs and
 starts every service, and then seats the court: it runs `keep-going`, so a
 Regent is live before the installer returns (a `dismissed` desired-state is
@@ -70,7 +70,7 @@ Everything downloaded is gitignored and reproducible from the manifests:
 | --- | --- | --- |
 | Claude Code, Codex | `./vendor/` | `vendor-pins.json` |
 | herdr | `~/.local/share/throne/herdr/<tag>/` | `src/install-services/herdr-release.service.ts`, with a per-artifact sha256 |
-| node deps, compiled CLI | `./node_modules/`, `./dist/` | `package-lock.json` |
+| dependencies, compiled CLI | `./node_modules/`, `./dist/` | `bun.lock` |
 
 herdr sits outside the repo deliberately: campaign worktrees are separate
 checkouts that must all resolve the same herdr binary.
@@ -90,14 +90,14 @@ Only two things must already exist: **bash ≥ 4.3** (macOS ships 3.2 — `brew
 install bash`) and **mise**. The installer checks both and refuses early
 with instructions rather than failing halfway.
 
-The throne runs exactly Node 24.19.0, pinned in the repo-root `mise.toml`, the
+The throne runs exactly Bun 1.4.4, pinned in the repo-root `mise.toml`, the
 single place to bump it. Like every other pin in `vendor-pins.json`, nothing
-resolves the latest Node at install time: `install.sh` runs `mise install node`
-for that version, and the launchers and services run that install, never the
-`node` on PATH. To bump it, edit `mise.toml`, the `FROM` tag in
-`docker/suite-app.Dockerfile` and `engines.node` in `package.json` together
-(a test fails while any of the three disagree), then run `mise install` in the
-throne root and `throne install-services`.
+resolves the latest Bun at install time: `install.sh` runs `mise install bun`
+for that version, and every start of the throne goes through
+`bin/throne-runtime`, which runs that install, never the `bun` on PATH. The
+same pin works on macOS, where mise installs Bun's darwin build. To bump it,
+edit `mise.toml`, then run `mise install` in the throne root and
+`throne install-services`.
 
 ## Configuration
 
@@ -115,11 +115,10 @@ line saying what each does. The flag-by-flag reference lives in
 `agent_docs/commands.md`. See
 **[docs/THRONE_COMMANDS.md](docs/THRONE_COMMANDS.md)**.
 
-## Throne skills
+## Skills
 
-Every skill shipped in `.claude/skills` is listed in one document, grouped by
-who runs it, and you invoke each one as `/<name>`. See
-**[docs/THRONE_SKILLS.md](docs/THRONE_SKILLS.md)**.
+- **[docs/THRONE_SKILLS.md](docs/THRONE_SKILLS.md)** — every skill shipped in `.claude/skills`, grouped by who runs it; you invoke each as `/<name>`.
+- **[docs/FREQUENTLY_USED_SKILLS.md](docs/FREQUENTLY_USED_SKILLS.md)** — the short list of skills used most, the ones to learn first.
 
 ## Usage
 

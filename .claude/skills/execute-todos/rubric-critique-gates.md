@@ -23,7 +23,21 @@ every other `frontend: true` bundle follows it as written.
    concurrent critic uses its own worktree, its own dev-server and e2e port
    (never one another live critic holds), and its own agent-browser session
    (`agent-browser session id --scope worktree --prefix <critic name>`),
-   closed when it is done.
+   closed when it is done; inside one critic, each case the evidence tool
+   runs owns its own pane, port, temporary folder, data home and container
+   name, chosen at run time. The builder and every critic run the evidence
+   tool in its concurrent form, with independent cases together rather than
+   one after another, at the cap its slice states (6 when it states none),
+   fewer when each case starts a browser, a container or a harness and the
+   host shows strain; they run cases serially only when two share one real
+   machine, one lock, one account or one counter, and say so in one sentence
+   in the verdict. When they run several independent commands by hand, they
+   start them together (the harness's background mode, or one command that
+   starts them all and waits for all), never one wait after another. The
+   tool's log records the wall-clock seconds of each case and of the whole
+   run. This rule does not reach the repository's own suites or the single
+   assembled full-suite run; those keep their existing rules, including
+   running that suite in the foreground.
 2. **Grade.** The critic runs the gate's `evidence_cmd` itself for every
    pinned preset, in its own worktree — a builder's own captures are never
    evidence. It scores each axis, produces one overall score, a ranked issue

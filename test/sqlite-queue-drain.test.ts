@@ -18,8 +18,6 @@ const fixturePath = path.join(
 function claimInSeparateProcess(databasePath: string): Promise<string> {
   const completion = Promise.withResolvers<string>();
   const child = spawn(process.execPath, [
-    "--import",
-    "./test/register-typescript.mjs",
     fixturePath,
     databasePath,
     "claim",

@@ -32,7 +32,7 @@ objective before its dependencies land, or losing an in-flight thread.
   digest: run `render-queue` yourself, first thing.
 - **Dispatch first, read messages second.** Before processing any pane
   message, a fresh Regent checks for a fence handoff record by running
-  `npm start -- consume-fence-handoff-on-start`. If one is present, it
+  `bun run start -- consume-fence-handoff-on-start`. If one is present, it
   names the open-item count, minutes idle, and any suite-arbitration holds
   still outstanding from the predecessor — read and act on it (e.g. never
   release a hold you don't know is still owed) before touching queued
@@ -72,10 +72,11 @@ objective before its dependencies land, or losing an in-flight thread.
 - **The Regent writes the Lord's page when it abandons, defers or releases a
   row.** Each of those changes where a piece of work stands, and no Alpha is
   alive to say so. Correct or move the row's entry on the where-i-stand page
-  with `throne where-i-stand put`, keeping the page's entry form, and add a
+  with `throne where-i-stand put` after `throne where-i-stand list`, keeping
+  the page's entry form, and add a
   note with
   `throne where-i-stand note`: an abandoned row's entry says it was abandoned
-  and leaves the page a day later; a deferred row's entry sits under
+  and is archived a day later; a deferred row's entry sits under
   `## Queued and deferred` and names what it waits on; a released row's
   entry stops saying it is held.
 - **A throttle advisory lasts only as long as the nudge that carried it.** The

@@ -29,6 +29,8 @@ skill's capture techniques, shipped the same way.
 
 ## 1. Render the real thing
 
+Follow the spec file's "How to reach it and prove it works" section where one exists (`throne spec-location <repository>` says where the spec is).
+
 Never critique from the test fixture alone. Rebuild whatever serves the
 page and confirm the served bytes contain the change (`curl | grep` a
 distinctive selector) before looking. Under podman-compose a rebuilt
@@ -316,7 +318,7 @@ noise; run the same input with head pointed at the base to tell which.
 `pixel-parity.mjs`, beside this file, does the run:
 
 ```bash
-node .claude/skills/frontend-critic/pixel-parity.mjs parity-states.mjs parity-out
+bun .claude/skills/frontend-critic/pixel-parity.mjs parity-states.mjs parity-out
 ```
 
 It writes `parity-out/results.json` (the control rows, one row per

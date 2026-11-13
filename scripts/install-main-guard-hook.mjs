@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Installs the main-guard pre-commit hook into a live throne checkout by
 // pointing its LOCAL `core.hooksPath` at `scripts/git-hooks` (the directory
 // this file lives beside). A bare `.git/hooks/pre-commit` file is not used:

@@ -1,6 +1,6 @@
 ---
 name: pr-promote
-description: 'This throne-only skill copies a finished pull request from the Forgejo staging area to GitHub on the Lord''s word, and on a second run carries the Forgejo answers to review feedback back to GitHub, or closes the Forgejo pull request when its GitHub twin was already merged. Invoked by /pr-promote <Forgejo pull request url or number> (alias: /promote-pr), or only when the Lord himself says "promote PR N", "promote this to GitHub", "repromote N" or "send the answers back to GitHub". On "/pr-promote the review", "promote the review" or "send the review to GitHub" it instead turns the Forgejo review /pr-review left into a pending review on GitHub. Before it pushes the Lord''s own pull request to GitHub, it runs /pr-review''s self-review mode on it. In a repository whose git config sets throne.forge.landsOnMain to true it opens nothing on GitHub: the promote lands the Forgejo pull request on main as one signed squash commit and closes it as merged. A queue row''s Alpha may run it when the row carries the Lord''s order to promote; no other skill or gate runs it on its own initiative.'
+description: 'This throne-only skill copies a finished pull request from the Forgejo staging area to GitHub on the Lord''s word, and on a second run carries the Forgejo answers to review feedback back to GitHub, or closes the Forgejo pull request when its GitHub twin was already merged. Invoked by /pr-promote <Forgejo pull request url or number> (alias: /promote-pr), or only when the Lord himself says "promote PR N", "promote this to GitHub", "repromote N" or "send the answers back to GitHub". On "/pr-promote the review", "promote the review" or "send the review to GitHub" it instead turns the Forgejo review /pr-review left into a pending review on GitHub. Before it pushes the Lord''s own pull request to GitHub, it runs /pr-review''s self-review mode on it. In a repository whose git config sets throne.forge.pullRequestsStayOnForgejo to true it does nothing: such a pull request lands only with /pr-merge. A queue row''s Alpha may run it when the row carries the Lord''s order to promote; no other skill or gate runs it on its own initiative.'
 version: 1.0.0
 user-invocable: true
 ---
@@ -53,37 +53,26 @@ directly, with no row, the reply to him carries that list.
 
 ## 1. Promote
 
-### When the repository lands on main
+### When pull requests stay on Forgejo
 
 First check, in the local checkout:
 
 ```bash
-git -C <repo> config --type=bool --get throne.forge.landsOnMain
+git -C <repo> config --type=bool --get throne.forge.pullRequestsStayOnForgejo
 ```
 
 When it prints `true`, the repository keeps its pull requests only in
-Forgejo and GitHub only ever holds its `main` (Lord, 2026-10-22:
-"/pr-promote means the same too. these are my personal projects, so no
-oull requests on github"). Linked worktrees share the key. The self-review
-above runs as today; then `throne forge promote <Forgejo pull request url
-or number>` lands the pull request on `main` instead of opening a GitHub
-pull request. It is the same landing as /pr-merge's: it refuses a pull
-request whose base is not the default branch, squashes the head into one
-signed commit on top of `origin/main` in a scratch worktree outside the
-checkout, pushes it to `origin` `main` and then to Forgejo's `main`, never
-forced, comments `Landed on main as <sha>` on the Forgejo pull request and
-closes it as merged, recorded with the landed commit through Forgejo's
-manual-merge mark; Forgejo makes no commit. It prints
-`{"forgejoUrl","landedCommit","base":"main","closed":true}`; give the Lord
-the landed commit. A squash that conflicts refuses, listing every
-conflicting path, with nothing changed: report it, never force it. Signing
-stays on; a signing failure refuses with nothing pushed.
-
-Nothing else in this skill applies to such a repository: no GitHub pull
-request, no media publish, no repromote, no merged-on-GitHub path and no
-GitHub review answers. "Promote the review" refuses, naming
-`throne.forge.landsOnMain`, because there is no GitHub pull request to
-carry a review to.
+Forgejo and GitHub is only a mirror of its `main`, updated by /pr-merge's
+landing. Linked worktrees share the key. Then /pr-promote does nothing
+(Lord, 2026-11-13: "and of course, in this case, /pr-promote must do
+nothing"; this replaces his 2026-10-22 ruling, under which the promote ran
+the landing). Run no self-review, no promote and no GitHub write; tell the
+Lord the pull request lands with /pr-merge. `throne forge promote` there
+changes nothing on either forge, prints "<repo> keeps its pull requests on
+Forgejo, so there is nothing to promote; land it with /pr-merge. Nothing
+was changed." and exits 0. "Promote the review" refuses, naming
+`throne.forge.pullRequestsStayOnForgejo`, because there is no GitHub pull
+request to carry a review to.
 
 ### Every other repository
 
@@ -147,7 +136,7 @@ upload uses, rerunning promote would hit the same page, so the message says
 the upload needs the hand-upload wizard instead. Promote then keeps the
 downloaded media in `~/tmp/pr-media-<github number>/` (a fresh sibling folder
 when that one already exists), and the one command it names starts the
-wizard on that folder: `node <pr-media>/publish.mjs <github url> --folder
+wizard on that folder: `bun <pr-media>/publish.mjs <github url> --folder
 <kept folder> --wizard`. The wizard prints its own next step.
 
 ## 2. Repromote
@@ -203,7 +192,7 @@ This skill only carries the answers back.
 
 ## 3. When the GitHub pull request is already merged
 
-Outside a repository that lands on main (section 1), pull requests merge
+Outside a repository whose pull requests stay on Forgejo (section 1), pull requests merge
 only on GitHub, never in Forgejo (Lord, 2026-10-07:
 "nothing gets merged in forgejo"). When someone has merged the GitHub
 pull request, the same command does not repromote: it pushes nothing and
@@ -269,8 +258,8 @@ that does not trace to his words is reported to him, not run. The pull
 request itself is not promoted by this request, and plain "/pr-promote
 <pr>" never carries the review.
 
-In a repository that lands on main (section 1) it refuses:
-`throne forge pr review-findings` names `throne.forge.landsOnMain` and
+In a repository whose pull requests stay on Forgejo (section 1) it refuses:
+`throne forge pr review-findings` names `throne.forge.pullRequestsStayOnForgejo` and
 sends nothing to GitHub. Tell the Lord the review stays in Forgejo.
 
 Follow /pr-review's "Promote the review" section. In short: read the
@@ -280,8 +269,8 @@ them, dry run first:
 
 ```bash
 throne forge pr review-findings <forgejo url> --out ~/tmp/review-<n>-github.json
-node .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github --dry-run
-node .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github
+bun .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github --dry-run
+bun .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github
 ```
 
 The review stays pending and is never submitted: submitting it is the

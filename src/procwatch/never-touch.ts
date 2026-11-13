@@ -68,6 +68,15 @@ function closeOverDescendants(
   return closed;
 }
 
+const RUNTIME_LAUNCHER_PATH_ENDING = '/bin/throne-runtime';
+
+function commandAfterLauncherExec(command: string): string {
+  const firstSpace = command.indexOf(' ');
+  if (firstSpace === -1) return command;
+  const program = command.slice(0, firstSpace);
+  return program.endsWith(RUNTIME_LAUNCHER_PATH_ENDING) ? command.slice(firstSpace + 1) : command;
+}
+
 export type NeverTouchResolution =
   | { readonly state: 'resolved'; readonly pids: ReadonlySet<number>; readonly seedCount: number }
   | { readonly state: 'unresolved'; readonly reason: string };
@@ -110,7 +119,7 @@ export function resolveNeverTouchPids(inputs: NeverTouchInputs): NeverTouchResol
   const byPid = new Map(inputs.snapshots.map((snapshot) => [snapshot.pid, snapshot]));
   const seeds = new Set<number>([inputs.selfPid, ...inputs.protectedPids.filter((pid) => pid > 0)]);
   for (const snapshot of inputs.snapshots) {
-    if (inputs.protectedCommands.some((command) => snapshot.cmdline.includes(command))) {
+    if (inputs.protectedCommands.some((command) => snapshot.cmdline.includes(commandAfterLauncherExec(command)))) {
       seeds.add(snapshot.pid);
       continue;
     }

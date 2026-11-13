@@ -112,7 +112,7 @@ tailnet_ipv4() {
 }
 
 magicdns_name() {
-    "$TAILSCALE" status --self --json 2>/dev/null | node -e '
+    "$TAILSCALE" status --self --json 2>/dev/null | "$THRONE_ROOT/bin/throne-runtime" -e '
       let input = "";
       process.stdin.on("data", (chunk) => (input += chunk)).on("end", () => {
         const name = JSON.parse(input).Self?.DNSName ?? "";
@@ -122,7 +122,7 @@ magicdns_name() {
 }
 
 https_front_proxies_to() {
-    "$TAILSCALE" serve status --json 2>/dev/null | node -e '
+    "$TAILSCALE" serve status --json 2>/dev/null | "$THRONE_ROOT/bin/throne-runtime" -e '
       let input = "";
       process.stdin.on("data", (chunk) => (input += chunk)).on("end", () => {
         const [, site, target] = process.argv;
@@ -133,7 +133,7 @@ https_front_proxies_to() {
 }
 
 random_secret() {
-    node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))'
+    "$THRONE_ROOT/bin/throne-runtime" -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("base64url"))'
 }
 
 write_app_ini() {
@@ -223,7 +223,7 @@ tea_platform() {
 }
 
 tea_pin() {
-    node -e '
+    "$THRONE_ROOT/bin/throne-runtime" -e '
       const [, pinsFile, platform] = process.argv;
       const tea = require(pinsFile).tools?.tea;
       const sha256 = tea?.artifacts?.[platform]?.sha256;
@@ -254,9 +254,9 @@ forgejo_user_exists() {
 
 step "Preflight"
 
-. "$THRONE_ROOT/bin/pinned-node-lib.sh"
-use_pinned_node "$THRONE_ROOT" || die "the node pinned in mise.toml is not installed; run ./install.sh first."
-ok "node $("$pinned_node" --version) (pinned in mise.toml)"
+throne_runtime="$THRONE_ROOT/bin/throne-runtime"
+bun_version=$("$throne_runtime" --version) || die "the bun pinned in mise.toml is not installed; run ./install.sh first."
+ok "bun $bun_version (pinned in mise.toml)"
 
 if command -v sha256sum >/dev/null 2>&1; then
     sha256_of() { sha256sum "$1" | awk '{ print $1 }'; }
@@ -292,7 +292,7 @@ ok "MagicDNS name: $DNS_NAME"
 
 step "Forgejo image"
 
-forgejo_image=$(node -e '
+forgejo_image=$("$THRONE_ROOT/bin/throne-runtime" -e '
   const image = require(process.argv[1]).tools?.forgejo?.image;
   if (!image) process.exit(1);
   process.stdout.write(image);
@@ -348,7 +348,7 @@ fi
 
 step "install-services ($FORGEJO_SERVICE)"
 
-"$pinned_node" ./dist/src/tools.js install-services
+"$throne_runtime" ./dist/src/tools.js install-services
 
 step "Forgejo service"
 

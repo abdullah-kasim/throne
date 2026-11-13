@@ -1,64 +1,73 @@
-import type { PullRequestRecords } from "@contract/where-i-stand.ts";
-import { isNeedsYouEntry, NEEDS_YOU_HEADING, type PageEntry } from "@/features/where-i-stand/read-page";
+import type { PullRequestRecords, StoredTab } from "@contract/where-i-stand.ts";
+import { isNeedsYouEntry, type PageEntry, type PageSection } from "@/features/where-i-stand/read-page";
 import { entryNamesRecord } from "@/features/where-i-stand/work-rows";
-
-const ON_GITHUB_HEADING = "On GitHub";
 
 export const TabName = {
   Now: "now",
   Epics: "epics",
-  Queue: "queue",
-  Delivered: "delivered",
   PullRequests: "pull-requests",
   Archive: "archive",
 } as const;
 
-export type TabName = (typeof TabName)[keyof typeof TabName];
+export type TabName = string;
 
 export interface PageTab {
+  readonly id: string;
   readonly name: TabName;
   readonly words: string;
-  readonly sectionHeadings: readonly string[];
 }
 
-export const pageTabs: readonly PageTab[] = [
-  { name: TabName.Now, words: "Now", sectionHeadings: [NEEDS_YOU_HEADING, "Just happened", "In flight"] },
-  { name: TabName.Epics, words: "Epics", sectionHeadings: ["Epics"] },
-  { name: TabName.Queue, words: "Queue", sectionHeadings: ["Queued and deferred"] },
-  { name: TabName.Delivered, words: "Delivered", sectionHeadings: ["Delivered, not on GitHub"] },
-  { name: TabName.PullRequests, words: "Pull requests", sectionHeadings: [ON_GITHUB_HEADING] },
-  { name: TabName.Archive, words: "Archive", sectionHeadings: [] },
-];
+export function tabNameOf(words: string): TabName {
+  return words
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+const ARCHIVE_TAB: PageTab = { id: TabName.Archive, name: TabName.Archive, words: "Archive" };
+
+export function pageTabsOf(tabs: readonly StoredTab[]): PageTab[] {
+  if (tabs.length === 0) return [];
+  return [...tabs.map(({ id, name }) => ({ id, name: tabNameOf(name), words: name })), ARCHIVE_TAB];
+}
 
 export type TabCounts = Readonly<Record<TabName, number | undefined>>;
 
-export function tabNameOfSection(sectionHeading: string): TabName {
-  return pageTabs.find(({ sectionHeadings }) => sectionHeadings.includes(sectionHeading))?.name ?? TabName.Now;
+export function tabNameOfSection(section: Pick<PageSection, "tabId">, tabs: readonly PageTab[]): TabName {
+  return tabs.find(({ id }) => id === section.tabId)?.name ?? TabName.Now;
 }
 
-export function entryIsEpic({ sectionHeading }: PageEntry): boolean {
-  return tabNameOfSection(sectionHeading) === TabName.Epics;
+export function entryIsEpic({ row }: PageEntry): boolean {
+  return row.kind === "epic";
 }
 
-export function selectedTabNameOf(hash: string): TabName {
-  return pageTabs.find(({ name }) => name === hash.slice(1))?.name ?? TabName.Now;
+export function selectedTabNameOf(hash: string, tabs: readonly PageTab[]): TabName {
+  const named = hash.slice(1);
+  if (tabs.length === 0) return named || TabName.Now;
+  return tabs.find(({ name }) => name === named)?.name ?? tabs[0].name;
 }
 
-function pullRequestCount(entries: readonly PageEntry[], { rows }: PullRequestRecords): number {
-  const entriesNamingNoRecord = entries.filter((entry) => entry.sectionHeading === ON_GITHUB_HEADING && !rows.some((record) => entryNamesRecord(entry, record)));
+function pullRequestCount(entriesOfTab: readonly PageEntry[], { rows }: PullRequestRecords): number {
+  const entriesNamingNoRecord = entriesOfTab.filter((entry) => !rows.some((record) => entryNamesRecord(entry, record)));
   return rows.length + entriesNamingNoRecord.length;
 }
 
-export function tabCounts(entries: readonly PageEntry[], records: PullRequestRecords | undefined): TabCounts {
-  const entriesInTab = (tabName: TabName) => entries.filter(({ sectionHeading }) => tabNameOfSection(sectionHeading) === tabName).length;
-  return {
-    [TabName.Now]: entriesInTab(TabName.Now),
-    [TabName.Epics]: entriesInTab(TabName.Epics),
-    [TabName.Queue]: entriesInTab(TabName.Queue),
-    [TabName.Delivered]: entriesInTab(TabName.Delivered),
-    [TabName.PullRequests]: records === undefined ? undefined : pullRequestCount(entries, records),
-    [TabName.Archive]: undefined,
-  };
+function entriesBySection(sections: readonly PageSection[]): { section: PageSection; entries: readonly PageEntry[] }[] {
+  const flatten = (section: PageSection): PageEntry[] => [...section.entries, ...section.subsections.flatMap(flatten)];
+  return sections.map((section) => ({ section, entries: flatten(section) }));
+}
+
+export function tabCounts(tabs: readonly PageTab[], sections: readonly PageSection[], records: PullRequestRecords | undefined): TabCounts {
+  const grouped = entriesBySection(sections);
+  return Object.fromEntries(
+    tabs.map((tab) => {
+      const entriesOfTab = grouped.filter(({ section }) => section.tabId === tab.id).flatMap(({ entries }) => entries);
+      if (tab === ARCHIVE_TAB) return [tab.name, undefined];
+      if (tab.name !== TabName.PullRequests) return [tab.name, entriesOfTab.length];
+      return [tab.name, records === undefined ? undefined : pullRequestCount(entriesOfTab, records)];
+    }),
+  );
 }
 
 export function needsYouCountOf(entries: readonly PageEntry[]): number {

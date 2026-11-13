@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Proves review-loop's Input contract states TWO distinct named refusals —
 // one for a missing OBJECTIVE/TARGET_REPO, one for a missing
 // REVIEWER_MODEL/REVIEWER_EFFORT — not one generic "missing input" message.

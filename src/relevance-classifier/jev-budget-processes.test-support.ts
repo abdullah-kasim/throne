@@ -65,7 +65,7 @@ export function startSpendingProcess(
 ): Promise<ChildProcess> {
   const child = spawn(
     process.execPath,
-    ['--import', './test/register-typescript.mjs', script, JSON.stringify(order)],
+    [script, JSON.stringify(order)],
     { cwd: REPOSITORY_ROOT, stdio: ['ignore', 'pipe', 'inherit'] },
   );
   return new Promise((resolve, reject) => {

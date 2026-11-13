@@ -1,11 +1,9 @@
-import { ENTRY_HEADING_LEVEL, entryEnd, headingLevelOf, headingTextOf, SECTION_HEADING_LEVEL } from "@contract/page-entry-lines.ts";
+import type { StoredPage, StoredRow, StoredSection, StoredTab } from "@contract/where-i-stand.ts";
 
 export const NEEDS_YOU_HEADING = "Needs you";
 export const NO_PULL_REQUEST_WORDS = "no pull request";
 
-const ENTRY_LINE_PATTERN = /^\s*[-*+]\s+(Links|Kind|Where it stands):\s*(.*)$/;
 const LINK_PART_PATTERN = /^(Forgejo|GitHub|Ticket)\s+(.*)$/;
-const SUPERSEDED_LINE_PATTERN = /^\s*(?:- )?Superseded by `### /;
 const LINK_SEPARATOR = " · ";
 const KIND_TITLE_SEPARATOR = " — ";
 
@@ -17,6 +15,7 @@ export interface EntryLinks {
 }
 
 export interface PageEntry {
+  readonly id: string;
   readonly sectionHeading: string;
   readonly identity: string;
   readonly markdown: string;
@@ -24,19 +23,26 @@ export interface PageEntry {
   readonly kind: string;
   readonly title: string;
   readonly whereItStands: string;
-  readonly superseded: boolean;
+  readonly row: StoredRow;
 }
 
 export interface PageSection {
+  readonly id: string;
+  readonly tabId: string;
   readonly heading: string;
-  readonly opening: string;
+  readonly depth: number;
   readonly entries: readonly PageEntry[];
+  readonly archivedRowCount: number;
+  readonly subsections: readonly PageSection[];
 }
 
-interface SectionBeingRead {
-  readonly heading: string;
-  readonly openingLines: string[];
-  readonly entries: PageEntry[];
+export interface ReadPage {
+  readonly tabs: readonly StoredTab[];
+  readonly sections: readonly PageSection[];
+  readonly archivedSections: readonly StoredSection[];
+  readonly entries: readonly PageEntry[];
+  readonly listingToken: string;
+  readonly lastChangedAt: string | undefined;
 }
 
 function readLinksLine(linksLine: string): EntryLinks {
@@ -52,50 +58,78 @@ function readLinksLine(linksLine: string): EntryLinks {
   return links;
 }
 
-function firstValuesOfEntryLines(lines: readonly string[]): Map<string, string> {
-  const values = new Map<string, string>();
-  for (const line of lines) {
-    const entryLine = ENTRY_LINE_PATTERN.exec(line);
-    if (entryLine !== null && !values.has(entryLine[1])) values.set(entryLine[1], entryLine[2].trim());
-  }
-  return values;
+function headingMarks(depth: number): string {
+  return "#".repeat(depth + 2);
 }
 
-function readEntry(sectionHeading: string, lines: readonly string[]): PageEntry {
-  const values = firstValuesOfEntryLines(lines);
-  const [kind, ...titleParts] = (values.get("Kind") ?? "").split(KIND_TITLE_SEPARATOR);
+export function epicMarkdownOf(title: string, notes: readonly string[]): string {
+  return [`### ${title}`, ...notes].join("\n");
+}
+
+function rowMarkdown(row: StoredRow, depth: number): string {
+  if (row.kind === "event") return `- ${row.text}`;
+  if (row.kind === "epic") return epicMarkdownOf(row.text, row.freeLines);
+  const fieldLines = [
+    ["Links", row.links],
+    ["Kind", row.workKind],
+    ["Where it stands", row.whereItStands],
+  ].flatMap(([label, value]) => (value === null ? [] : [`- ${label}: ${value}`]));
+  return [`${headingMarks(depth)} ${row.code ?? ""}`, ...fieldLines, ...row.freeLines].join("\n");
+}
+
+export function entryOfRow(row: StoredRow, sectionHeading: string, depth = 1): PageEntry {
+  const [kind, ...titleParts] = (row.workKind ?? "").split(KIND_TITLE_SEPARATOR);
   return {
+    id: row.id,
     sectionHeading,
-    identity: headingTextOf(lines[0]),
-    markdown: lines.join("\n"),
-    links: readLinksLine(values.get("Links") ?? ""),
+    identity: row.kind === "work" ? (row.code ?? "") : row.text,
+    markdown: rowMarkdown(row, depth),
+    links: readLinksLine(row.links ?? ""),
     kind: kind.trim(),
     title: titleParts.join(KIND_TITLE_SEPARATOR).trim(),
-    whereItStands: values.get("Where it stands") ?? "",
-    superseded: lines.some((line) => SUPERSEDED_LINE_PATTERN.test(line)),
+    whereItStands: row.whereItStands ?? "",
+    row,
   };
 }
 
-function hasSomethingToShow({ openingLines, entries }: SectionBeingRead): boolean {
-  return entries.length > 0 || openingLines.some((line) => line.trim() !== "");
+function byPosition<Item extends { position: number }>(items: readonly Item[]): Item[] {
+  return [...items].sort((first, second) => first.position - second.position);
 }
 
-export function readPage(markdown: string): PageSection[] {
-  const lines = markdown.split(/\r?\n/);
-  const sections: SectionBeingRead[] = [{ heading: "", openingLines: [], entries: [] }];
-  for (let position = 0; position < lines.length; position += 1) {
-    const line = lines[position];
-    const section = sections[sections.length - 1];
-    const level = headingLevelOf(line);
-    if (level === SECTION_HEADING_LEVEL) {
-      sections.push({ heading: headingTextOf(line), openingLines: [line], entries: [] });
-    } else if (level === ENTRY_HEADING_LEVEL) {
-      const end = entryEnd(lines, position);
-      section.entries.push(readEntry(section.heading, lines.slice(position, end)));
-      position = end - 1;
-    } else section.openingLines.push(line);
+function inPageOrder(tabs: readonly StoredTab[], sections: readonly PageSection[]): PageSection[] {
+  const tabPosition = (section: PageSection) => tabs.findIndex((tab) => tab.id === section.tabId);
+  return [...sections].sort((first, second) => tabPosition(first) - tabPosition(second));
+}
+
+function newestOf(times: readonly string[]): string | undefined {
+  return times.reduce<string | undefined>((newest, time) => (newest === undefined || time > newest ? time : newest), undefined);
+}
+
+export function readPage({ listing, rows, archivedRowCounts }: StoredPage): ReadPage {
+  const liveSections = byPosition(listing.sections.filter((section) => section.archivedAt === null));
+  function sectionOf(section: StoredSection, depth: number): PageSection {
+    return {
+      id: section.id,
+      tabId: section.tabId,
+      heading: section.name,
+      depth,
+      entries: rows.filter((row) => row.sectionId === section.id).map((row) => entryOfRow(row, section.name, depth)),
+      archivedRowCount: archivedRowCounts[section.id] ?? 0,
+      subsections: liveSections.filter((child) => child.parentId === section.id).map((child) => sectionOf(child, depth + 1)),
+    };
   }
-  return sections.filter(hasSomethingToShow).map(({ heading, openingLines, entries }) => ({ heading, opening: openingLines.join("\n"), entries }));
+  const sections = liveSections.filter((section) => section.parentId === null).map((section) => sectionOf(section, 1));
+  const tabs = byPosition(listing.tabs.filter((tab) => tab.archivedAt === null));
+  const entriesOf = (section: PageSection): PageEntry[] => [...section.entries, ...section.subsections.flatMap(entriesOf)];
+  const entriesUnderTopHeading = (section: PageSection): PageEntry[] => entriesOf(section).map((entry) => ({ ...entry, sectionHeading: section.heading }));
+  return {
+    tabs,
+    sections,
+    archivedSections: listing.sections.filter((section) => section.archivedAt !== null),
+    entries: inPageOrder(tabs, sections).flatMap(entriesUnderTopHeading),
+    listingToken: listing.listingToken,
+    lastChangedAt: newestOf([...rows.map((row) => row.changedAt), ...listing.sections.map((section) => section.changedAt), ...listing.tabs.map((tab) => tab.changedAt)]),
+  };
 }
 
 export function isNeedsYouEntry(entry: PageEntry | undefined): boolean {

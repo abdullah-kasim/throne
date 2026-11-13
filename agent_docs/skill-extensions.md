@@ -37,7 +37,7 @@ An invented example. A bakery ships an `order-cake` skill. Its operator writes
 Before you confirm the order, run the bakery review tool on the order sheet
 and fix every finding it marks as blocking.
 
-Then run `npm run test:heavy` before every order, so the oven is proven.
+Then run `bun run test:heavy` before every order, so the oven is proven.
 ```
 
 The first paragraph is a step the skill does not have, and the agent runs it.

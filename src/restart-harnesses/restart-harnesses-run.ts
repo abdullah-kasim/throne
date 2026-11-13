@@ -13,6 +13,7 @@ import {
   type RestartOutcome,
   type RestartVerdict,
 } from "./restart-harnesses-runtime.ts";
+import { THRONE_RUNTIME_COMMAND } from "../shared-policy/throne-runtime-command.ts";
 
 const DETACHED_RUN_MARKER = "THRONE_RESTART_HARNESSES_DETACHED";
 
@@ -26,7 +27,7 @@ export async function handOverToDetachedRun(args: readonly string[]): Promise<st
   await mkdir(path.dirname(logPath), { recursive: true });
   const log = await open(logPath, "a");
   await log.write(`=== restart-harnesses run ${new Date().toISOString()} ${args.join(" ")} ===\n`);
-  spawn(process.execPath, [...process.execArgv, process.argv[1]!, "restart-harnesses", ...args], {
+  spawn(THRONE_RUNTIME_COMMAND, [process.argv[1]!, "restart-harnesses", ...args], {
     detached: true,
     stdio: ["ignore", log.fd, log.fd],
     env: { ...process.env, [DETACHED_RUN_MARKER]: "1" },

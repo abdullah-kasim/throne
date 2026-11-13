@@ -11,7 +11,8 @@ import { reviewFindingsForGithub, reviewOnForgejo } from "./forgejo-review.ts";
 import { landPullRequestOnMain } from "./landing-on-main.ts";
 import { closeMergedTwin, squashMergePullRequestOnGithub } from "./merging-on-github.ts";
 import { openPullRequest } from "./open-pull-request.ts";
-import { promotePullRequest } from "./promotion.ts";
+import { nothingToPromoteLine, promotePullRequest } from "./promotion.ts";
+import { pullRequestsStayOnForgejo } from "./pull-requests-stay-on-forgejo.ts";
 import { stageGithubPullRequest } from "./staging.ts";
 import {
   attachToPullRequest,
@@ -73,6 +74,11 @@ function openOrCleanUp(context: ForgeContext, invocation: ForgeInvocation): Prom
   });
 }
 
+async function promoteUnlessPullRequestsStayOnForgejo(context: ForgeContext, target: string): Promise<ProcessResult> {
+  if (await pullRequestsStayOnForgejo(context.repo, context.dependencies)) return { exitCode: 0, stdout: `${nothingToPromoteLine(context.repo)}\n`, stderr: "" };
+  return printedJsonOf(promotePullRequest(context, target));
+}
+
 async function printedJsonOf(result: Promise<unknown>): Promise<ProcessResult> {
   return printedJson(await result);
 }
@@ -128,7 +134,7 @@ function performForgeOperation(context: ForgeContext, invocation: ForgeInvocatio
         }),
       );
     case "promote":
-      return printedJsonOf(promotePullRequest(context, target));
+      return promoteUnlessPullRequestsStayOnForgejo(context, target);
     case "land":
       return printedJsonOf(landPullRequestOnMain(context, target));
     case "stage":
@@ -186,7 +192,7 @@ export async function runForge(
 @Command({
   name: "forge",
   description:
-    "Work with pull requests on this host's forge: Forgejo when it is installed and answering, otherwise GitHub through gh; promote a Forgejo pull request to GitHub, stage an existing GitHub pull request in Forgejo, and stage its review feedback in Forgejo; merge on GitHub and close the Forgejo twin once it is merged there; in a repository whose git config sets throne.forge.landsOnMain, land a Forgejo pull request on main as one signed squash commit instead, and never write to GitHub for it.",
+    "Work with pull requests on this host's forge: Forgejo when it is installed and answering, otherwise GitHub through gh; promote a Forgejo pull request to GitHub, stage an existing GitHub pull request in Forgejo, and stage its review feedback in Forgejo; merge on GitHub and close the Forgejo twin once it is merged there; in a repository whose git config sets throne.forge.pullRequestsStayOnForgejo, land a Forgejo pull request on main as one signed squash commit and push it to the GitHub mirror, opening no GitHub pull request.",
   allowUnknownOptions: true,
   allowExcessArgs: true,
 })

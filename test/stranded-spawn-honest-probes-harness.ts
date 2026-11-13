@@ -70,7 +70,7 @@ export function runCommand(
  * harness launched with one set by something else.
  */
 async function writeFakeClaudeBinary(binDir: string): Promise<void> {
-  const script = String.raw`#!/usr/bin/env node
+  const script = String.raw`#!/usr/bin/env bun
 import { readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
@@ -113,7 +113,7 @@ writeFileSync(process.env.PROBE_DECISION_FILE, JSON.stringify({ trusted }));
  * into the pane.
  */
 async function writeFakeHerdrBinary(binDir: string): Promise<void> {
-  const script = String.raw`#!/usr/bin/env node
+  const script = String.raw`#!/usr/bin/env bun
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 

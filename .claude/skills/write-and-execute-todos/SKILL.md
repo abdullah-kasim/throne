@@ -77,15 +77,15 @@ So when your slice adds or touches a test:
   already did this, so let's add some more to the slow test list.* On container
   tests: *we should isolate those away and disable them by default. Only an agent
   can judge whether to run them.* A file listed in `test/slow-tests.json` (with
-  its measured seconds and why it is slow) is skipped by the default `npm test`
-  and runs with `npm run test:slow` or `THRONE_SLOW_TESTS=1`. A file that starts
+  its measured seconds and why it is slow) is skipped by the default `bun run test`
+  and runs with `bun run test:slow` or `THRONE_SLOW_TESTS=1`. A file that starts
   a podman or docker container is listed in `test/container-tests.json` and runs
-  with `npm run test:containers` or `THRONE_CONTAINER_TESTS=1`; an agent runs that
+  with `bun run test:containers` or `THRONE_CONTAINER_TESTS=1`; an agent runs that
   group only on its judgment that the change reaches what those tests cover, and
   records that decision in its execution log or report. For these two groups the
   rule above and the shrinking manifest below are superseded by that ruling; the
   heavy group keeps both. The law still binds every default run.
-- **ENFORCEMENT IS MANDATORY — `npm test` FAILS on a violation.** Not warns, not
+- **ENFORCEMENT IS MANDATORY — `bun run test` FAILS on a violation.** Not warns, not
   reports. The Lord's follow-up: *"npm test should fail if something ran for more
   than 10 seconds."* He was asked to reconsider on flakiness grounds and
   reaffirmed. An earlier ruling calling this a bug-not-failure threshold is
@@ -437,13 +437,12 @@ drift.
 
 ## The Lord's page — when an Alpha writes it
 
-The Lord reads one page, `where-i-stand.md` under the throne data home, to
-see what he is working on. Only agents write it: `throne where-i-stand put`
-for one entry, `lock --checksum <checksum> --ttl 5m` run in the background
-while you edit several entries one at a time with your harness's edit tool,
-and `note "<one line>"` for events. `/where-i-stand` holds both flows in its
-step 4, the frame and the writing
-rules, including the entry form every entry starts with. Your campaign's
+The Lord reads one page, kept in the throne database, to see what he is
+working on. Agents write it only through commands: `throne where-i-stand list`
+before any add, `put` by section id with the listing token, `archive` and
+`restore` in place of removing, and `note "<one line>"` for events; `show`
+is read-only. `/where-i-stand` holds the commands in its step 4, the frame
+and the writing rules, including the entry form every entry starts with. Your campaign's
 entry is `### <objective code>`, written in that form. You write it at four
 moments:
 
@@ -453,7 +452,7 @@ moments:
   under `## Needs you` with the question in one sentence, and add a note.
   This is a statement on the page, never a question put to him; your
   supervisor still hears the blocker the usual way.
-- **When you unblock**: remove that `## Needs you` entry and add a note.
+- **When you unblock**: archive that `## Needs you` entry and add a note.
 - **At delivery**: the `99d` record step, owned by `execute-todos/gate-99d-record.md`
   "`99d` — record the outcome on the Lord's page".
 
@@ -511,10 +510,10 @@ true while the work runs.
    chain that preceded the 2026-08-25 renumber, or the five-gate `99a` absorb,
    `99b` file-size, `99c` static analysis, `99d` validate, `99e` deliver —
    keeps the meaning its files were authored with; run those files as written
-   with fresh terminal Shadows. New bundles generate only the three-gate chain
+   with fresh terminal Shadows. New bundles generate only the `99a` → `99b` → `99bs` → `99c` chain
    above, per `write-todos/delivery-todo-template.md`' "Legacy compatibility" and `execute-todos/gate-chain.md`'
-   "`99a` grades conformance, `99b` verifies and fixes, then `99c` merges the
-   latest target and delivers", which own this contract. Terminal gates are
+   "`99a` grades conformance, `99b` verifies and fixes, `99bs` updates the spec,
+   then `99c` merges the latest target and delivers", which own this contract. Terminal gates are
    classified by their ROLE WORD, not their letter, precisely because the
    letters mean different things across these generations.)
    `execute-todos/gate-99c-deliver.md`' "The delivery rehearsal" section owns that procedure, the
@@ -531,7 +530,7 @@ true while the work runs.
    absorb loop is bounded by the target going quiet; the separate PX2 tripwire in
    `execute-todos` rule 6 caps a merge that will not land
    at two rounds and hands a needed third round to the Alpha's own plain git plus a
-   process-defect finding. The Alpha executes none of the three gate todos;
+   process-defect finding. The Alpha executes none of the four gate todos;
    the `99d` record step after them is its own (`execute-todos/gate-99d-record.md`,
    "`99d` — record the outcome on the Lord's page").
    `execute-todos` owns the final route, including quota/usage changes to model
@@ -710,7 +709,7 @@ A later user-explicit root invocation keeps its normal explicit personality auth
   missing credential — those pause. An unanswered *question* never does; it goes to
   the errata file and the run continues.
 - **This chain pins no effort anywhere.** Every fresh spawn it makes — planning,
-  ordinary slices `01`–`98`, and all three terminal `99a` / `99b` / `99c` Shadows alike — omits `--effort`
+  ordinary slices `01`–`98`, and all four terminal `99a` / `99b` / `99bs` / `99c` Shadows alike — omits `--effort`
   and takes the model's lowest available score from the steering engine. The
   planning and validation gates are untouched; leverage is bought
   with WHICH model runs a phase and how independent it is, not with an effort

@@ -111,7 +111,7 @@ test('a dirty tree stops the update and nothing changes', async (t) => {
   assert.equal(code, 1);
   assert.match(output, /^update-throne: REFUSING — the working tree has uncommitted changes; commit or stash them and run again$/m);
   assert.deepEqual(snapshotCheckout(court), before);
-  assert.deepEqual(callsTo(court, 'npm'), []);
+  assert.deepEqual(callsTo(court, 'bun'), []);
 });
 
 test('a diverged branch stops the update and nothing changes', async (t) => {
@@ -173,7 +173,7 @@ test('a fork with no answer changes nothing', async (t) => {
   const { code } = await runUpdate(court);
   assert.equal(code, 0);
   assert.deepEqual(snapshotCheckout(court), before);
-  assert.deepEqual(callsTo(court, 'npm'), []);
+  assert.deepEqual(callsTo(court, 'bun'), []);
   assert.deepEqual(callsTo(court, 'update-harness.mjs'), []);
   assert.deepEqual(callsTo(court, 'herdr-upgrade.mjs'), []);
 });
@@ -198,31 +198,31 @@ test('dependencies install only when the lockfile changed', async (t) => {
   const court = courtFor(t);
   land(court, 'origin', { 'src/new.ts': 'export const added = 1;\n' });
   await runUpdate(court);
-  assert.deepEqual(callsTo(court, 'npm ci'), []);
-  assert.deepEqual(callsTo(court, 'npm run build'), ['npm run build']);
-  land(court, 'origin', { 'package-lock.json': '{ "lockfileVersion": 3, "moved": true }\n' });
+  assert.deepEqual(callsTo(court, 'bun install'), []);
+  assert.deepEqual(callsTo(court, 'bun run build'), ['bun run build']);
+  land(court, 'origin', { 'bun.lock': '{ "lockfileVersion": 3, "moved": true }\n' });
   await runUpdate(court);
-  assert.deepEqual(callsTo(court, 'npm ci'), ['npm ci --no-audit --no-fund']);
+  assert.deepEqual(callsTo(court, 'bun install'), ['bun install --frozen-lockfile']);
   await runUpdate(court);
-  assert.equal(callsTo(court, 'npm ci').length, 1);
+  assert.equal(callsTo(court, 'bun install').length, 1);
 });
 
-test('the pinned node installs before the dependencies when its pin moved', async (t) => {
+test('the pinned bun installs before the dependencies when its pin moved', async (t) => {
   const court = courtFor(t);
-  land(court, 'origin', { 'mise.toml': '[tools]\nnode = "24.1.0"\n', 'package-lock.json': '{ "lockfileVersion": 4 }\n' });
+  land(court, 'origin', { 'mise.toml': '[tools]\nbun = "1.4.5"\n', 'bun.lock': '{ "lockfileVersion": 4 }\n' });
   await runUpdate(court);
-  assert.deepEqual(callsTo(court, 'mise'), ['mise install node']);
-  assert.ok(court.calls.indexOf('mise install node') < court.calls.indexOf('npm ci --no-audit --no-fund'));
+  assert.deepEqual(callsTo(court, 'mise'), ['mise install bun']);
+  assert.ok(court.calls.indexOf('mise install bun') < court.calls.indexOf('bun install --frozen-lockfile'));
 });
 
-test('a moved node pin runs the install, the build and both updaters on the new node', async (t) => {
+test('a moved bun pin runs the install, the build and both updaters on the new bun', async (t) => {
   const court = courtFor(t);
-  land(court, 'origin', { 'mise.toml': '[tools]\nnode = "24.1.0"\n', 'package-lock.json': '{ "lockfileVersion": 4 }\n', 'src/changed.ts': 'export {};\n' });
+  land(court, 'origin', { 'mise.toml': '[tools]\nbun = "1.4.5"\n', 'bun.lock': '{ "lockfileVersion": 4 }\n', 'src/changed.ts': 'export {};\n' });
   await runUpdate(court);
-  const newNode = path.join(court.home, '.local', 'share', 'mise', 'installs', 'node', '24.1.0', 'bin');
-  for (const step of ['npm ci', 'npm run build', 'update-harness.mjs pinned --harness claude', 'herdr-upgrade.mjs --pinned']) {
+  const newBun = path.join(court.home, '.local', 'share', 'mise', 'installs', 'bun', '1.4.5', 'bin');
+  for (const step of ['bun install', 'bun run build', 'update-harness.mjs pinned --harness claude', 'herdr-upgrade.mjs --pinned']) {
     const firstOnPath = court.pathOfCall.get(callsTo(court, step)[0]!)?.split(path.delimiter)[0];
-    assert.equal(firstOnPath, newNode, step);
+    assert.equal(firstOnPath, newBun, step);
   }
 });
 
@@ -232,7 +232,7 @@ test('no version change means no restart', async (t) => {
   const { code, output } = await runUpdate(court);
   assert.equal(code, 0);
   assert.deepEqual(restartCalls(court), []);
-  assert.deepEqual(callsTo(court, 'npm'), []);
+  assert.deepEqual(callsTo(court, 'bun'), []);
   assert.deepEqual(callsTo(court, 'herdr-upgrade.mjs'), ['herdr-upgrade.mjs --pinned']);
   assert.equal(printedLine(output, 'report: restarted'), undefined);
   assert.deepEqual(snapshotCheckout(court), before);
@@ -292,7 +292,7 @@ test('herdr moving without the word stops before the pull', async (t) => {
   assert.match(output, /^update-throne: REFUSING — the update moves herdr from 0\.9\.5 to 0\.9\.6, /m);
   assert.deepEqual(snapshotCheckout(court), before);
   assert.deepEqual(callsTo(court, 'herdr-upgrade.mjs'), []);
-  assert.deepEqual(callsTo(court, 'npm'), []);
+  assert.deepEqual(callsTo(court, 'bun'), []);
 });
 
 test('herdr moving with the word hands herdr and the services that follow it to the herdr upgrade', async (t) => {
@@ -343,26 +343,26 @@ test("the report is written before the step that can end the run's own pane", as
 test('a second run after a failed build finishes the update', async (t) => {
   const court = courtFor(t);
   const latest = land(court, 'origin', { ...pinsMoving({ claude: '2.1.0' }), 'src/new.ts': 'export const added = 1;\n' });
-  failOnce(court, 'npm run build');
+  failOnce(court, 'bun run build');
   const first = await runUpdate(court);
   assert.equal(first.code, 1);
-  assert.match(first.output, /^update-throne: FAILED: npm run build exited 1/m);
+  assert.match(first.output, /^update-throne: FAILED: bun run build exited 1/m);
   assert.deepEqual(callsTo(court, 'update-harness.mjs'), []);
   const second = await runUpdate(court);
   assert.equal(second.code, 0);
   assert.equal(git(court.checkout, 'rev-parse', 'HEAD'), latest);
-  assert.equal(callsTo(court, 'npm run build').length, 2);
+  assert.equal(callsTo(court, 'bun run build').length, 2);
   assert.equal(court.running.claude, '2.1.0');
   assert.match(second.output, /^update-throne: report: claude 2\.0\.0 -> 2\.1\.0$/m);
 });
 
 test('two runs at once: one refuses and dependencies install once', async (t) => {
   const court = courtFor(t);
-  land(court, 'origin', { 'package-lock.json': '{ "lockfileVersion": 3, "changed": true }\n' });
+  land(court, 'origin', { 'bun.lock': '{ "lockfileVersion": 3, "changed": true }\n' });
   const [first, second] = await Promise.all([runUpdate(court), runUpdate(court)]);
   assert.deepEqual([first.code, second.code].sort(), [0, 1], first.output + second.output);
   assert.match(first.output + second.output, /^update-throne: REFUSING — another update-throne run is already running \(process \d+\)$/m);
-  assert.equal(callsTo(court, 'npm ci').length, 1);
+  assert.equal(callsTo(court, 'bun install').length, 1);
 });
 
 test('a run that ended leaves nothing that stops the next one', async (t) => {

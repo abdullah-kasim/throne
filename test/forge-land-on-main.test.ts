@@ -21,11 +21,13 @@ import {
 interface Landing {
   readonly forgejoUrl: string;
   readonly landedCommit: string;
+  readonly mirror: string;
   readonly base: string;
   readonly closed: boolean;
 }
 
-const LANDS_ON_MAIN_KEY = "throne.forge.landsOnMain";
+const PULL_REQUESTS_STAY_ON_FORGEJO_KEY = "throne.forge.pullRequestsStayOnForgejo";
+const RENAMED_KEY = "throne.forge.landsOnMain";
 const SIGNER_EMAIL = "lander@example.invalid";
 const HUMAN_SUMMARY = "Adds the feature so the bakery can list its loaves.";
 const PULL_REQUEST_BODY = [
@@ -99,9 +101,17 @@ beforeEach(() => {
   host = stagingHostForThisTest();
 });
 
-async function markToLandOnMain(value: "true" | "false" | null): Promise<void> {
-  if (value === null) await execFileAsync("git", ["config", "--unset-all", LANDS_ON_MAIN_KEY], { cwd: host.checkout.repo }).catch(() => undefined);
-  else await git(host.checkout.repo, ["config", LANDS_ON_MAIN_KEY, value]);
+async function setKey(key: string, value: "true" | "false" | null): Promise<void> {
+  if (value === null) await execFileAsync("git", ["config", "--unset-all", key], { cwd: host.checkout.repo }).catch(() => undefined);
+  else await git(host.checkout.repo, ["config", key, value]);
+}
+
+function markToLandOnMain(value: "true" | "false" | null): Promise<void> {
+  return setKey(PULL_REQUESTS_STAY_ON_FORGEJO_KEY, value);
+}
+
+function originUrl(): Promise<string> {
+  return git(host.checkout.repo, ["remote", "get-url", "origin"]);
 }
 
 function originMain(): Promise<string> {
@@ -140,7 +150,7 @@ test("landing a Forgejo pull request puts one signed squash commit on main named
 
   const landing = await forgeJson<Landing>(host, ["land", forgejoUrl]);
 
-  assert.deepEqual(landing, { forgejoUrl, landedCommit: await originMain(), base: "main", closed: true });
+  assert.deepEqual(landing, { forgejoUrl, landedCommit: await originMain(), mirror: await originUrl(), base: "main", closed: true });
   const commit = landing.landedCommit;
   assert.equal(await git(host.checkout.repo, ["rev-list", "--parents", "-n", "1", commit]), `${commit} ${mainBefore}`);
   assert.equal(await git(host.checkout.repo, ["log", "-1", "--format=%G?", commit]), "G");
@@ -225,7 +235,7 @@ test("landing refuses in a repository that is not marked to land on main", async
   for (const value of [null, "false"] as const) {
     await markToLandOnMain(value);
     const stderr = await refused(["land", forgejoUrl]);
-    assert.match(stderr, /^forge land: .* does not set throne\.forge\.landsOnMain to true/);
+    assert.match(stderr, /^forge land: .* does not set throne\.forge\.pullRequestsStayOnForgejo to true/);
     assert.ok(stderr.trim().endsWith("Nothing was changed."), stderr);
     assert.deepEqual([await originMain(), host.forgejo.pullRequests[0]!.state, landedMessages()], [mainBefore, "open", []]);
   }
@@ -235,20 +245,76 @@ test("landing refuses in a repository that is not marked to land on main", async
   assert.equal(await originMain(), landing.landedCommit);
 });
 
-test("promoting a pull request in a repository that lands on main lands it instead of opening a GitHub pull request", async () => {
-  await markToLandOnMain(null);
-  const promotion = await forgeJson<{ githubUrl: string }>(host, ["promote", forgejoUrl]);
-  assert.match(promotion.githubUrl, /^https:\/\/github\.com\//);
-  const githubCallsBeforeTheKey = (await host.github.mutatingCalls()).length;
+test("promoting a pull request in a repository whose pull requests stay on Forgejo changes nothing on either forge", async () => {
+  await markToLandOnMain("true");
+  const [mainBefore, forgejoBefore] = [await originMain(), await forgejoMain()];
+  const commentsBefore = host.forgejo.comments.length;
+
+  const result = await runForgeCapturing(["promote", forgejoUrl], stagingDependencies, host.checkout.repo);
+
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.equal(
+    result.stdout.trim(),
+    `${host.checkout.repo} keeps its pull requests on Forgejo, so there is nothing to promote; land it with /pr-merge. Nothing was changed.`,
+  );
+  assert.deepEqual([await originMain(), await forgejoMain()], [mainBefore, forgejoBefore]);
+  assert.deepEqual([host.forgejo.comments.length, host.forgejo.pullRequests[0]!.state], [commentsBefore, "open"]);
+  assert.deepEqual((await host.github.read()).calls, []);
+});
+
+test("a repository that still sets only throne.forge.landsOnMain is refused with both rename commands", async () => {
+  await setKey(RENAMED_KEY, "true");
   const mainBefore = await originMain();
 
-  await markToLandOnMain("true");
-  const landing = await forgeJson<Landing>(host, ["promote", forgejoUrl]);
+  for (const args of [["land", forgejoUrl], ["promote", forgejoUrl], ["pr", "merge", forgejoUrl, "--squash"]]) {
+    const stderr = await refused(args);
+    assert.ok(stderr.includes(`git -C ${host.checkout.repo} config ${PULL_REQUESTS_STAY_ON_FORGEJO_KEY} true`), stderr);
+    assert.ok(stderr.includes(`git -C ${host.checkout.repo} config --unset ${RENAMED_KEY}`), stderr);
+    assert.ok(stderr.trim().endsWith("Nothing was changed."), stderr);
+  }
+  assert.deepEqual([await originMain(), host.forgejo.pullRequests[0]!.state, landedMessages()], [mainBefore, "open", []]);
+});
 
-  assert.deepEqual(landing, { forgejoUrl, landedCommit: await originMain(), base: "main", closed: true });
-  assert.notEqual(landing.landedCommit, mainBefore);
-  assert.equal((await host.github.mutatingCalls()).length, githubCallsBeforeTheKey);
-  assert.deepEqual(landedMessages(), [`Landed on main as ${landing.landedCommit}`]);
+test("a repository that sets throne.forge.pullRequestsStayOnForgejo true keeps its pull requests on Forgejo even beside the renamed key", async () => {
+  await setKey(RENAMED_KEY, "true");
+  await markToLandOnMain("true");
+
+  const landing = await forgeJson<Landing>(host, ["land", forgejoUrl]);
+
+  assert.equal(await originMain(), landing.landedCommit);
+});
+
+test("a repository that sets neither key is treated as ordinary", async () => {
+  await markToLandOnMain(null);
+  await setKey(RENAMED_KEY, null);
+
+  assert.match(await refused(["pr", "merge", forgejoUrl, "--squash"]), /Nothing is merged in Forgejo/);
+  const promotion = await forgeJson<{ githubUrl: string }>(host, ["promote", forgejoUrl]);
+  assert.match(promotion.githubUrl, /^https:\/\/github\.com\//);
+});
+
+test("landing refuses to close the Forgejo pull request when GitHub's main does not hold the landed commit", async () => {
+  await markToLandOnMain("true");
+  const forgejoBefore = await forgejoMain();
+  const misreporting: typeof stagingDependencies = {
+    ...stagingDependencies,
+    runProcess: async (file, args, options) =>
+      file === "git" && args[0] === "ls-remote" ? { exitCode: 0, stdout: "", stderr: "" } : stagingDependencies.runProcess(file, args, options),
+  };
+
+  const result = await runForgeCapturing(["land", forgejoUrl], misreporting, host.checkout.repo);
+
+  assert.equal(result.exitCode, 1, result.stdout);
+  assert.match(result.stderr, /GitHub's refs\/heads\/main does not hold the commit/);
+  assert.deepEqual([await forgejoMain(), host.forgejo.pullRequests[0]!.state, landedMessages()], [forgejoBefore, "open", []]);
+});
+
+test("the landing reports the GitHub mirror it updated", async () => {
+  await markToLandOnMain("true");
+
+  const landing = await forgeJson<Landing>(host, ["land", forgejoUrl]);
+
+  assert.equal(landing.mirror, await originUrl());
 });
 
 test("merging a Forgejo pull request in a repository that lands on main lands it instead of refusing", async () => {
@@ -258,7 +324,7 @@ test("merging a Forgejo pull request in a repository that lands on main lands it
   await markToLandOnMain("true");
   const landing = await forgeJson<Landing>(host, ["pr", "merge", forgejoUrl, "--squash"]);
 
-  assert.deepEqual(landing, { forgejoUrl, landedCommit: await originMain(), base: "main", closed: true });
+  assert.deepEqual(landing, { forgejoUrl, landedCommit: await originMain(), mirror: await originUrl(), base: "main", closed: true });
   assert.deepEqual(landedPullRequestState(), ["closed", true, landing.landedCommit, []]);
   assert.deepEqual((await host.github.read()).calls, []);
 });
@@ -279,14 +345,14 @@ test("a repository that lands on main never gets a GitHub pull request, comment 
   for (const args of githubWrites) {
     const before = (await host.github.mutatingCalls()).length;
     const result = await runForgeCapturing(args, stagingDependencies, host.checkout.repo);
-    assert.doesNotMatch(result.stderr, /landsOnMain/, args.join(" "));
+    assert.doesNotMatch(result.stderr, /pullRequestsStayOnForgejo/, args.join(" "));
     if (args[1] !== "review-findings") assert.equal((await host.github.mutatingCalls()).length, before + 1, args.join(" "));
   }
   await markToLandOnMain("true");
   const githubCallsBefore = (await host.github.read()).calls.length;
   for (const args of githubWrites) {
     const stderr = await refused(args);
-    assert.match(stderr, /sets throne\.forge\.landsOnMain to true, so its pull requests live only in Forgejo and land on main through `throne forge land`/, args.join(" "));
+    assert.match(stderr, /sets throne\.forge\.pullRequestsStayOnForgejo to true, so its pull requests stay on Forgejo and land on main through `throne forge land` \(\/pr-merge\)\./, args.join(" "));
     assert.ok(stderr.trim().endsWith("nothing was sent to GitHub."), stderr);
   }
 

@@ -9,6 +9,7 @@ import { UsageRateCommand } from "../usage-rate/usage-rate.command.ts";
 import { DeriveShadowNameFromAlphaCommand } from "../derive-shadow-name-from-alpha/derive-shadow-name-from-alpha.command.ts";
 import { NotifyLordCommand } from "../notify-lord/notify-lord.command.ts";
 import { CheckConfigCommand } from "../check-config/check-config.command.ts";
+import { CheckJscpdCommand } from "../check-jscpd/check-jscpd.command.ts";
 import { ListHarnessesAndModelsCommand } from "../list-harnesses-and-models/list-harnesses-and-models.command.ts";
 import { SwitchAgentModelCommand } from "../switch-agent-model/switch-agent-model.command-registration.ts";
 import { SwitchPersonaCommand } from "../switch-persona/switch-persona.command.ts";
@@ -82,6 +83,13 @@ export const AGENT_ORCHESTRATION_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: true,
     description: "Load and validate config.user.ts and print each role's model and effort.",
+  },
+  {
+    name: "check-jscpd",
+    provider: CheckJscpdCommand,
+    visibility: "public",
+    migrated: true,
+    description: "Compare the jscpd on PATH with the version pinned in vendor-pins.json.",
   },
   {
     name: "list-harnesses-and-models",

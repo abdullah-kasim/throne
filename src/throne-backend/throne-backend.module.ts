@@ -10,7 +10,6 @@ import { KeepGoingHostedWorker } from "./keep-going.hosted-worker.ts";
 import { AlphaAutoscaleHostedWorker } from "../alpha-autoscale/alpha-autoscale.hosted-worker.ts";
 import { TransportRouteDispatcherHostedWorker } from "./transport-route-dispatcher.ts";
 import { BlockedAgentPagingHostedWorker } from "../blocked-paging/blocked-agent-paging.hosted-worker.ts";
-import { AutoreapHostedWorker } from "../autoreap/autoreap.hosted-worker.ts";
 import { ProcwatchHostedWorker } from "../procwatch/procwatch.hosted-worker.ts";
 import { ForgejoBranchSyncHostedWorker } from "./forgejo-branch-sync.hosted-worker.ts";
 import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
@@ -21,13 +20,13 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
 /**
  * The long-lived `throne-backend` server: a real bootstrapped Nest
  * application (not `nest-commander`'s one-shot `CommandFactory`), hosting
- * exactly eleven in-process workers — no-idling, the SQLite queue drain, the
- * service-generation-marker refresher, the dispatcher, the blocked-agent
+ * exactly thirteen in-process workers, among them no-idling, the SQLite
+ * queue drain, the service-generation-marker refresher, the dispatcher, the blocked-agent
  * paging subscriber, the alpha-autoscale cron
  * (`AlphaAutoscaleHostedWorker`, the kill-switch-gated actor that spawns
  * pre-briefed Alphas off the CPU/memory pressure signal -- separate from and
- * with no spawn authority granted to keep-going's own tick), the claimed-agent
- * autoreap cron, the hourly procwatch — `ProcwatchHostedWorker`, which
+ * with no spawn authority granted to keep-going's own tick), the hourly
+ * procwatch — `ProcwatchHostedWorker`, which
  * FINDS long-running high-CPU and owner-less processes and ASKS the Regent to
  * launch an Opus-level investigator for each; it never kills, never spawns,
  * and never decides killability), the ten-minute Forgejo branch mirror
@@ -66,7 +65,6 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
     TransportRouteDispatcherHostedWorker,
     BlockedAgentPagingHostedWorker,
     AlphaAutoscaleHostedWorker,
-    AutoreapHostedWorker,
     ProcwatchHostedWorker,
     ForgejoBranchSyncHostedWorker,
     CourtLivenessHostedWorker,
@@ -83,7 +81,6 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
         TransportRouteDispatcherHostedWorker,
         BlockedAgentPagingHostedWorker,
         AlphaAutoscaleHostedWorker,
-        AutoreapHostedWorker,
         ProcwatchHostedWorker,
         ForgejoBranchSyncHostedWorker,
         CourtLivenessHostedWorker,
@@ -99,7 +96,6 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
         transportRouteDispatcher: TransportRouteDispatcherHostedWorker,
         blockedAgentPaging: BlockedAgentPagingHostedWorker,
         alphaAutoscale: AlphaAutoscaleHostedWorker,
-        autoreap: AutoreapHostedWorker,
         procwatch: ProcwatchHostedWorker,
         forgejoBranchSync: ForgejoBranchSyncHostedWorker,
         courtLiveness: CourtLivenessHostedWorker,
@@ -114,7 +110,6 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
         transportRouteDispatcher,
         blockedAgentPaging,
         alphaAutoscale,
-        autoreap,
         procwatch,
         forgejoBranchSync,
         courtLiveness,

@@ -1,24 +1,27 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { describeRecordsTime, describeTime } from "@/features/where-i-stand/describe-times";
 import { ArchiveTab } from "@/features/where-i-stand/archive-tab";
+import { describeRecordsTime, describeTime } from "@/features/where-i-stand/describe-times";
 import { EpicsTab, isSaveShortcut } from "@/features/where-i-stand/epics-tab";
+import { useFocusKeptWhenItsControlLeaves } from "@/features/where-i-stand/focus-kept";
 import { UnsavedText } from "@/features/where-i-stand/markdown-text";
 import { useRecords, useStoredPage } from "@/features/where-i-stand/page-queries";
-import { controlOrSelectedTab, entryIsEpic, needsYouCountOf, pageTabs, selectedTabNameOf, tabCounts, tabNameOfSection, TabName } from "@/features/where-i-stand/page-tabs";
+import { controlOrSelectedTab, entryIsEpic, needsYouCountOf, pageTabsOf, selectedTabNameOf, tabCounts, tabNameOfSection, TabName } from "@/features/where-i-stand/page-tabs";
 import { readPage } from "@/features/where-i-stand/read-page";
 import { ReadOnlySections } from "@/features/where-i-stand/read-only-sections";
+import { useNow } from "@/features/where-i-stand/row-age";
 import { TabBar } from "@/features/where-i-stand/tab-bar";
 import { useEpicEditors, type VanishedEpic } from "@/features/where-i-stand/use-epic-editors";
 import { WorkSection } from "@/features/where-i-stand/work-section";
 import "@/features/where-i-stand/where-i-stand.css";
+import "@/features/where-i-stand/where-i-stand-rows.css";
 
 const PAGE_TITLE = "Where I stand";
 const VANISHED_EPIC_WORDS = "This epic changed on the page before you saved it, so your text was not saved.";
 const LAST_FETCHED_WORDS = "Showing what was last fetched.";
-const FILE_FETCHED_AGAIN_WORDS = "The file was fetched again.";
+const PAGE_FETCHED_AGAIN_WORDS = "The page was fetched again.";
 const RECORDS_FETCHED_AGAIN_WORDS = "The pull request records were fetched again.";
 
 interface ReadOutcome {
@@ -26,9 +29,10 @@ interface ReadOutcome {
   readonly isSuccess: boolean;
 }
 
-function fileTimeWords(lastModified: string | undefined, fetchFailed: boolean): string {
-  if (lastModified !== undefined) return `File last modified ${describeTime(new Date(lastModified))}`;
-  return fetchFailed ? "" : "Fetching the file.";
+function pageTimeWords(isRead: boolean, lastChangedAt: string | undefined, fetchFailed: boolean): string {
+  if (lastChangedAt !== undefined) return `Page last changed ${describeTime(new Date(lastChangedAt))}`;
+  if (isRead) return "Nothing is on the page yet.";
+  return fetchFailed ? "" : "Fetching the page.";
 }
 
 function whatIsShownWords(somethingIsShown: boolean): string {
@@ -37,7 +41,7 @@ function whatIsShownWords(somethingIsShown: boolean): string {
 
 function fetchProblemWords(fetchFailed: boolean, failedAt: number, somethingIsShown: boolean): string {
   if (!fetchFailed) return "";
-  return `Could not fetch the file at ${describeTime(new Date(failedAt))}. ${whatIsShownWords(somethingIsShown)}`;
+  return `Could not fetch the page at ${describeTime(new Date(failedAt))}. ${whatIsShownWords(somethingIsShown)}`;
 }
 
 function useReadOutcomeAnnouncedOnce(read: ReadOutcome, failureWords: string, recoveryWords: string): string {
@@ -70,14 +74,6 @@ function usePageTitle() {
       document.title = titleBefore;
     };
   }, []);
-}
-
-function useFocusKeptWhenItsControlLeaves(controlTakingFocus: () => HTMLElement | null) {
-  const focusedBeforeThisRender = document.activeElement;
-  useLayoutEffect(() => {
-    const focusFellToTheBody = document.activeElement === document.body && focusedBeforeThisRender?.isConnected === false;
-    if (focusFellToTheBody) controlTakingFocus()?.focus();
-  });
 }
 
 function useLinkFollowedFocusedOnRestoredPage() {
@@ -132,18 +128,24 @@ function VanishedEpicNotice({ vanished, onDismiss }: { vanished: VanishedEpic; o
     <section>
       <p className="problem">{VANISHED_EPIC_WORDS}</p>
       <UnsavedText text={vanished.text} />
-      <Button type="button" variant="outline" size="sm" aria-label={`Dismiss the notice about ${vanished.identity} epic`} onClick={onDismiss}>
+      <Button type="button" variant="outline" size="sm" aria-label={`Dismiss the notice about ${vanished.name} epic`} onClick={onDismiss}>
         Dismiss
       </Button>
     </section>
   );
 }
 
+const NO_PAGE = { tabs: [], sections: [], archivedSections: [], entries: [], listingToken: "", lastChangedAt: undefined };
+
 export function WhereIStandPage() {
   const storedPage = useStoredPage();
   const recordsQuery = useRecords();
   const navigate = useNavigate();
-  const selectedTabName = selectedTabNameOf(useLocation().hash);
+  const stored = storedPage.data;
+  const now = useNow(stored?.now);
+  const page = useMemo(() => (stored === undefined ? NO_PAGE : readPage(stored)), [stored]);
+  const tabs = useMemo(() => pageTabsOf(page.tabs), [page.tabs]);
+  const selectedTabName = selectedTabNameOf(useLocation().hash, tabs);
   const visitedTabs = useTabsVisited(selectedTabName);
   const { region: announcementRegion, writeStatus: announce } = useStatusRegion();
   const { region: vanishedEpicRegion, writeStatus: writeVanishedEpicStatus } = useStatusRegion();
@@ -151,11 +153,8 @@ export function WhereIStandPage() {
   usePageTitle();
   useLinkFollowedFocusedOnRestoredPage();
 
-  const markdown = storedPage.data?.markdown;
   const records = recordsQuery.data?.records;
-  const sections = useMemo(() => readPage(markdown ?? ""), [markdown]);
-  const everyEntry = useMemo(() => sections.flatMap(({ entries }) => entries), [sections]);
-  const epicsSection = sections.find(({ heading }) => tabNameOfSection(heading) === TabName.Epics);
+  const epicsSection = page.sections.find((section) => tabNameOfSection(section, tabs) === TabName.Epics);
   const editors = useEpicEditors(epicsSection?.entries, announce);
   useFocusKeptWhenItsControlLeaves(editors.controlTakingFocus);
   useVanishedEpicsAnnounced(editors.vanishedEpics.length, writeVanishedEpicStatus);
@@ -163,21 +162,26 @@ export function WhereIStandPage() {
   const recordsFailed = recordsQuery.isError;
   const recordsReadAt = Math.max(recordsQuery.dataUpdatedAt, recordsQuery.errorUpdatedAt);
   const recordsTime = describeRecordsTime(records, recordsFailed ? recordsQuery.errorUpdatedAt : null, recordsReadAt);
-  const countsAreKnown = markdown !== undefined;
-  const pageReadWords = useReadOutcomeAnnouncedOnce(storedPage, `Could not fetch the file. ${whatIsShownWords(markdown !== undefined)}`, FILE_FETCHED_AGAIN_WORDS);
+  const countsAreKnown = stored !== undefined;
+  const pageReadWords = useReadOutcomeAnnouncedOnce(storedPage, `Could not fetch the page. ${whatIsShownWords(stored !== undefined)}`, PAGE_FETCHED_AGAIN_WORDS);
   const recordsReadWords = useReadOutcomeAnnouncedOnce(recordsQuery, `Could not fetch the pull request records. ${records === undefined ? "" : LAST_FETCHED_WORDS}`.trim(), RECORDS_FETCHED_AGAIN_WORDS);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (tabs.length > 0 && hash !== "" && hash !== `#${selectedTabName}`) void navigate({ hash: selectedTabName }, { replace: true });
+  }, [tabs.length, selectedTabName, navigate]);
 
   function openTab(tabName: string) {
     if (window.location.hash !== `#${tabName}`) void navigate({ hash: tabName });
   }
 
   function panelContent(tabName: TabName) {
-    if (tabName === TabName.Archive) return <ArchiveTab />;
-    if (tabName === TabName.Epics) return <EpicsTab section={epicsSection} editors={editors} announce={announce} />;
+    if (tabName === TabName.Archive) return <ArchiveTab sections={page.sections} archivedSections={page.archivedSections} now={now} announce={announce} />;
+    if (tabName === TabName.Epics) return <EpicsTab section={epicsSection} editors={editors} announce={announce} now={now} />;
     return (
       <>
-        {tabName === TabName.PullRequests && <WorkSection records={records} recordsAreOnTheirWay={recordsQuery.isPending} entries={everyEntry.filter((entry) => !entryIsEpic(entry))} recordsTime={recordsTime} now={recordsReadAt} />}
-        <ReadOnlySections tabName={tabName} sections={sections} />
+        {tabName === TabName.PullRequests && <WorkSection records={records} recordsAreOnTheirWay={recordsQuery.isPending} entries={page.entries.filter((entry) => !entryIsEpic(entry) && entry.row.kind === "work")} recordsTime={recordsTime} now={recordsReadAt} />}
+        <ReadOnlySections tab={tabs.find(({ name }) => name === tabName)} sections={page.sections} archivedSections={page.archivedSections} now={now} announce={announce} />
       </>
     );
   }
@@ -186,8 +190,8 @@ export function WhereIStandPage() {
     <div className="where-i-stand">
       <header>
         <h1>{PAGE_TITLE}</h1>
-        <p>{fileTimeWords(storedPage.data?.lastModified, storedPage.isError)}</p>
-        <p className="fetch-problem">{fetchProblemWords(storedPage.isError, storedPage.errorUpdatedAt, markdown !== undefined)}</p>
+        <p>{pageTimeWords(stored !== undefined, page.lastChangedAt, storedPage.isError)}</p>
+        <p className="fetch-problem">{fetchProblemWords(storedPage.isError, storedPage.errorUpdatedAt, stored !== undefined)}</p>
         <p ref={announcementRegion} className="visually-hidden" role="status" />
         <p className="visually-hidden" role="status">
           {pageReadWords}
@@ -198,11 +202,11 @@ export function WhereIStandPage() {
         <p ref={vanishedEpicRegion} className="visually-hidden" role="status" />
       </header>
       <Tabs className="gap-4" value={selectedTabName} onValueChange={openTab}>
-        <TabBar selectedTabName={selectedTabName} counts={countsAreKnown ? tabCounts(everyEntry, records) : null} needsYouCount={needsYouCountOf(everyEntry)} />
+        <TabBar tabs={tabs} selectedTabName={selectedTabName} counts={countsAreKnown ? tabCounts(tabs, page.sections, records) : null} needsYouCount={needsYouCountOf(page.entries)} />
         {editors.vanishedEpics.map((vanished) => (
-          <VanishedEpicNotice key={vanished.identity} vanished={vanished} onDismiss={() => editors.closeEditor(vanished.identity)} />
+          <VanishedEpicNotice key={vanished.id} vanished={vanished} onDismiss={() => editors.closeEditor(vanished.id)} />
         ))}
-        {pageTabs.map(({ name }) => (
+        {tabs.map(({ name }) => (
           <TabsContent key={name} value={name} forceMount hidden={name !== selectedTabName} tabIndex={name === TabName.Epics ? undefined : 0}>
             {visitedTabs.has(name) && panelContent(name)}
           </TabsContent>

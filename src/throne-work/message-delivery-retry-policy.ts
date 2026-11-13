@@ -2,6 +2,7 @@ import {
   SubmitAssumedFilledError,
   SubmitNotSentError,
 } from "../herdr/herdr-send.types.ts";
+import { PaneLockTakenOverError } from "../shared-policy/recipient-pane-lock.service.ts";
 
 /**
  * How many times a pre-write `SubmitNotSentError` refusal may be retried
@@ -14,6 +15,10 @@ export const MAX_NOT_SENT_RETRY_ATTEMPTS = 3;
 
 /** Delay between a retry-safe attempt and the next one. */
 export const NOT_SENT_RETRY_BACKOFF_MS = 200;
+
+export const NOT_SENT_FAILURE_PREFIX = "not-sent retry budget exhausted";
+
+export const UNADDRESSABLE_RECIPIENT_FAILURE_PREFIX = "recipient could not be addressed, nothing was typed";
 
 export type SubmitAttemptOutcome =
   | { readonly kind: "retry"; readonly reason: string }
@@ -34,6 +39,9 @@ export function classifySubmitAttemptError(
   attemptNumber: number,
   maxAttempts: number = MAX_NOT_SENT_RETRY_ATTEMPTS,
 ): SubmitAttemptOutcome {
+  if (error instanceof PaneLockTakenOverError) {
+    return { kind: "terminal-fail", reason: `never retried: ${error.message}` };
+  }
   if (error instanceof SubmitAssumedFilledError) {
     return {
       kind: "terminal-fail",
@@ -46,7 +54,7 @@ export function classifySubmitAttemptError(
     }
     return {
       kind: "terminal-fail",
-      reason: `not-sent retry budget exhausted after ${maxAttempts} attempts: ${error.message}`,
+      reason: `${NOT_SENT_FAILURE_PREFIX} after ${maxAttempts} attempts: ${error.message}`,
     };
   }
   return {

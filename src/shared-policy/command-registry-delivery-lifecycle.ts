@@ -1,5 +1,6 @@
 import { ReapAgentCommand } from "../reap-agent/reap-agent.command.ts";
 import { SpawnGitTreeCommand } from "../spawn-git-tree/spawn-git-tree.command.ts";
+import { AcceptSliceCommand } from "../accept-slice/accept-slice.command.ts";
 import { MergeGitTreeCommand } from "../merge-git-tree/merge-git-tree.command.ts";
 import { MakeSquashCommitCommand } from "../make-squash-commit/make-squash-commit.command.ts";
 import { LintSliceAssignmentCommand } from "../slice-assignment/lint-slice-assignment.command.ts";
@@ -25,6 +26,14 @@ export const DELIVERY_LIFECYCLE_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: true,
     description: "Create a git worktree for a coding slice.",
+  },
+  {
+    name: "accept-slice",
+    provider: AcceptSliceCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Accept a no-merge (verdict-only) Shadow's slice without touching git: record the acceptance and send the Shadow its go-ahead to publish its reapability claim. The Shadow's supervisor only.",
   },
   {
     name: "merge-git-tree",

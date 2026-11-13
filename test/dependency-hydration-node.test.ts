@@ -323,3 +323,19 @@ test("the hydration result records the chosen Node and why", async () => {
     reason: `mise resolves lts/krypton from ${path.join(trees.destination, ".nvmrc")} to 24.19.0`,
   });
 });
+
+test("a project with a bun.lock installs with bun install through the runtime launcher, never npm", async () => {
+  const trees = await divergentTrees({ "bun.lock": "{}\n" });
+  const machine = machineFor(trees);
+
+  await hydrateWithMachine(trees, machine);
+
+  assert.deepEqual(npmProcesses(machine), []);
+  const installs = machine.processes.filter((process) =>
+    process.file.endsWith("/bin/throne-runtime"),
+  );
+  assert.deepEqual(
+    installs.map((process) => [process.args, process.options.cwd]),
+    [[["install"], trees.destination]],
+  );
+});

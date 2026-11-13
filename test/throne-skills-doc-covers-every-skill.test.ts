@@ -23,3 +23,12 @@ test('README links to docs/THRONE_SKILLS.md', async () => {
   const readme = await readFile(path.join(REPO_ROOT, 'README.md'), 'utf8');
   assert.match(readme, /\(docs\/THRONE_SKILLS\.md\)/);
 });
+
+test('every skill in docs/FREQUENTLY_USED_SKILLS.md is a shipped skill', async () => {
+  const doc = await readFile(path.join(REPO_ROOT, 'docs', 'FREQUENTLY_USED_SKILLS.md'), 'utf8');
+  const shipped = shippedSkills(SKILLS_DIRECTORY);
+  const listed = [...doc.matchAll(/^- \[`\/([\w-]+)`\]/gm)].map((match) => match[1]);
+  const unknown = listed.filter((name) => !shipped.has(name));
+  assert.ok(listed.length > 0, 'docs/FREQUENTLY_USED_SKILLS.md lists no skills');
+  assert.deepEqual(unknown, [], `skills in docs/FREQUENTLY_USED_SKILLS.md not in .claude/skills: ${unknown.join(', ')}`);
+});

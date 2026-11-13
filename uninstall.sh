@@ -341,6 +341,32 @@ else
     ok "no Claude guard hook registration"
 fi
 
+fetch_pointer_hook="$THRONE_ROOT/claude-hooks/web-fetch-failure-pointer.py"
+if [ -f "$claude_settings" ] && grep -qF "$fetch_pointer_hook" "$claude_settings"; then
+    python3 - "$claude_settings" "$fetch_pointer_hook" <<'PYTHON'
+import json
+import sys
+
+settings_path, fetch_pointer_hook = sys.argv[1], sys.argv[2]
+with open(settings_path) as settings_file:
+    settings = json.load(settings_file)
+for event in ("PostToolUse", "PostToolUseFailure"):
+    kept = []
+    for entry in settings.get("hooks", {}).get(event, []):
+        hooks = [hook for hook in entry.get("hooks", []) if fetch_pointer_hook not in hook.get("command", "")]
+        if hooks:
+            kept.append(dict(entry, hooks=hooks))
+    if event in settings.get("hooks", {}):
+        settings["hooks"][event] = kept
+with open(settings_path, "w") as settings_file:
+    json.dump(settings, settings_file, indent=2)
+    settings_file.write("\n")
+PYTHON
+    did "removed the Claude web fetch failure pointer registration from $claude_settings"
+else
+    ok "no Claude web fetch failure pointer registration"
+fi
+
 # --- downloaded dependencies ----------------------------------------------
 
 step "Downloaded dependencies"

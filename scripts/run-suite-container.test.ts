@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, readlinkSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { suiteContainerPlatform } from "./container-runtime.mjs";
 import {
@@ -6,6 +9,7 @@ import {
   createSuiteContainerMountArguments,
   createSuiteContainerRunArguments,
   resolveSuiteContainerEnvironment,
+  resolveSuiteRunPaths,
 } from "./run-suite-container.mjs";
 import { SUITE_CONTAINER_NAME_PATTERN } from "./suite-container-cleanup.mjs";
 import { verifySuiteRunTornDown } from "./suite-container-leak-guard.mjs";
@@ -86,7 +90,7 @@ test("the container command seeds the tmpfs config home from the read-only host 
   assert.deepEqual(argv.slice(6), ["node", "./scripts/herdr-suite-session.mjs", "run", "abc", "--", "npm", "test"]);
 });
 
-test("the suite run container is named after the run and mapped to the host uid per runtime", () => {
+test("the suite run container is named after the run, mapped to the host uid per runtime, and reaps orphaned processes", () => {
   const podman = createSuiteContainerRunArguments("podman", "abc123", { uid: 1000, gid: 1000 });
   const docker = createSuiteContainerRunArguments("docker", "abc123", { uid: 1000, gid: 1000 });
   assert.deepEqual(podman.slice(0, 6), ["run", "--rm", "--name", "throne-suite-app-abc123", "--platform", suiteContainerPlatform()]);
@@ -96,6 +100,7 @@ test("the suite run container is named after the run and mapped to the host uid 
   assert.deepEqual(docker.slice(docker.indexOf("--user"), docker.indexOf("--user") + 2), ["--user", "1000:1000"]);
   assert.ok(!docker.includes("--userns=keep-id"));
   for (const argv of [podman, docker]) {
+    assert.ok(argv.includes("--init"));
     assert.deepEqual(argv.slice(-2), ["--security-opt", "label=disable"]);
   }
 });
@@ -143,5 +148,15 @@ test("the suite container's TMPDIR and SHELL are the container's own, never the 
     else process.env.TMPDIR = previous;
     if (previousShell === undefined) delete process.env.SHELL;
     else process.env.SHELL = previousShell;
+  }
+});
+
+test("the suite home links the image's mise installs, so the runtime launcher finds the image's Bun", () => {
+  const hostHome = mkdtempSync(path.join(os.tmpdir(), "suite-run-paths-"));
+  try {
+    const { home } = resolveSuiteRunPaths("abc", hostHome);
+    assert.equal(readlinkSync(path.join(home, ".local", "share", "mise", "installs")), "/opt/mise/installs");
+  } finally {
+    rmSync(hostHome, { recursive: true, force: true });
   }
 });

@@ -5,7 +5,7 @@ Everything written into this repo must be machine-agnostic and project-agnostic
 (a client, a device, a codename, a filesystem path), generalise it BEFORE
 writing it down: keep the SHAPE of the example, change the domain. The shape is
 what teaches; the domain is what leaks. Use `/home/example`-style paths, and
-pick a domain any reader recognises. `npm test` runs `lint:private-refs`, but
+pick a domain any reader recognises. `bun run test` runs `lint:private-refs`, but
 that is a backstop for identifiers we already know about — it cannot catch a
 private name nobody has banned yet. You are the check for anything new.
 

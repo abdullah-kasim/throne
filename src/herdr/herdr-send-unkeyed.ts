@@ -22,6 +22,8 @@ import {
   waitForRecognizedComposer,
 } from "./herdr-screen.service.ts";
 import { pressEnterUntilEmptyTextbox } from "./herdr-send-enter-until-empty.ts";
+import { forceEnter } from "./forced-enter.ts";
+import { PaneLockTakenOverError } from "../shared-policy/recipient-pane-lock.service.ts";
 import {
   RESIDENT_DRAFT_FORCE_SUBMIT_WAIT_MS,
   SubmitAssumedFilledError,
@@ -49,12 +51,22 @@ import {
  * caller, so the property (never Enter on modal) holds even if a future
  * caller is added that skips that first guard.
  */
+function holdPaneLockTakingOverWithForcedEnter<T>(
+  agent: HerdrAgent,
+  deps: SubmitToAgentDeps,
+  action: () => Promise<T>,
+): Promise<T> {
+  return deps.withRecipientPaneLock(agent.paneId, action, {
+    takeOver: () => (deps.forceEnter ?? forceEnter)(agent),
+  });
+}
+
 async function forceSubmitResidentDraftUnderLock(
   agent: HerdrAgent,
   harness: SupportedComposerHarness,
   deps: SubmitToAgentDeps,
 ): Promise<void> {
-  await deps.withRecipientPaneLock(agent.paneId, async () => {
+  await holdPaneLockTakingOverWithForcedEnter(agent, deps, async () => {
     const reobserved = await observeSupportedScreen(agent, harness, deps);
     if (reobserved.activeComposer.state !== "draft") return;
     const { clearance, bounds } = enterUntilEmptyTransactionFor(harness);
@@ -189,7 +201,7 @@ export async function submitToAgentUnkeyed(
   const name = recipientName(agent);
   if (options.forceImmediate === true) {
     const immediatePayload = submittedPayload(senderName, prompt, options);
-    await deps.withRecipientPaneLock(agent.paneId, async () => {
+    await holdPaneLockTakingOverWithForcedEnter(agent, deps, async () => {
       await deps.sendText(agent.paneId, immediatePayload);
       await deps.pressEnter(agent.paneId);
     });
@@ -203,7 +215,10 @@ export async function submitToAgentUnkeyed(
     // deadline. Timing out here is typed not-sent — nothing was written and
     // nothing was overwritten. Enter-only delivery needs the draft, and the
     // Codex startup path settles under the lock, so both skip this wait.
-    if (composerWaitApplies(harness, options)) {
+    if (
+      composerWaitApplies(harness, options) &&
+      !(await deps.isRecipientPaneLockHeld?.(agent.paneId))
+    ) {
       const requestedWaitMilliseconds =
         options.composerWaitMilliseconds ?? RESIDENT_DRAFT_FORCE_SUBMIT_WAIT_MS;
       const clearanceDeadline = await resolveComposerWaitDeadline(
@@ -226,7 +241,7 @@ export async function submitToAgentUnkeyed(
           (options.forceSubmitResidentDraftOnTimeout ?? true),
       );
     }
-    await deps.withRecipientPaneLock(agent.paneId, async () => {
+    await holdPaneLockTakingOverWithForcedEnter(agent, deps, async () => {
       // The owner rereads the tuple's latest payload immediately after
       // acquiring the recipient lock, and again immediately before the
       // actual submit call: either reread may surface a newer payload than
@@ -270,7 +285,8 @@ export async function submitToAgentUnkeyed(
   } catch (error) {
     if (
       error instanceof SubmitNotSentError ||
-      error instanceof SubmitAssumedFilledError
+      error instanceof SubmitAssumedFilledError ||
+      error instanceof PaneLockTakenOverError
     ) {
       throw error;
     }

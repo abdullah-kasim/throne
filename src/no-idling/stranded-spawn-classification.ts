@@ -1,8 +1,7 @@
 import { inspectSupportedAgentScreen } from '../codex-screen/composer/composer.service.ts';
 import type { SupportedComposerHarness } from '../codex-screen/composer/composer.types.ts';
-import { AGENT_MIN_AGE_MS, spawnedAtAgeMs } from './idle-family.ts';
 import type { SpawnSpec } from '../agentdata/spawn-data-contracts.ts';
-import { isSpawnStillStarting } from '../agentdata/spawn-starting.ts';
+import { isWithinSpawnGrace } from '../agentdata/spawn-starting.ts';
 
 /**
  * A throne-ledger-matched tab herdr reports as hosting no live agent can
@@ -24,14 +23,11 @@ export type StrandedSpawnClassification =
  * recorded a delivery, an ISO string once one has (durable proof of
  * delivery regardless of the composer's current, momentary state), and
  * `undefined` for a record that predates the field -- "unknown," never
- * "never delivered." `ageMs` is the same `spawnedAtAgeMs` age-since-spawn
- * figure `find-untasked-agents` gates on, `undefined` when it cannot be
- * computed.
+ * "never delivered." `withinSpawnGrace` is the one spawn grace rule.
  */
 export interface StrandedSpawnDurableEvidence {
   readonly taskedAt: string | null | undefined;
-  readonly ageMs: number | undefined;
-  readonly spawnStillStarting: boolean;
+  readonly withinSpawnGrace: boolean;
 }
 
 export function strandedSpawnEvidenceFromSpawnRecord(
@@ -40,8 +36,7 @@ export function strandedSpawnEvidenceFromSpawnRecord(
 ): StrandedSpawnDurableEvidence {
   return {
     taskedAt: spawnSpec?.tasked_at,
-    ageMs: spawnedAtAgeMs(spawnSpec?.spawned_at, nowMs),
-    spawnStillStarting: isSpawnStillStarting(spawnSpec, nowMs),
+    withinSpawnGrace: isWithinSpawnGrace(spawnSpec, nowMs),
   };
 }
 
@@ -59,7 +54,7 @@ export function strandedSpawnEvidenceFromSpawnRecord(
  * mid-turn, and the file persists on disk regardless of delivery. Reaching
  * `STRANDED_SPAWN` additionally requires `durableEvidence.taskedAt === null`
  * (the ledger has never recorded a delivery to this agent) and the agent
- * having cleared the same `AGENT_MIN_AGE_MS` boot-quiescence floor
+ * having left the same spawn grace
  * `find-untasked-agents` uses, so a spawn barely a minute old -- too young
  * for its own `create-agent` tasking call to have landed yet -- is never
  * misclassified either.
@@ -81,9 +76,7 @@ export function classifyStrandedSpawnPane(
     activeComposer.state === 'empty' &&
     openingPromptExists &&
     durableEvidence.taskedAt === null &&
-    durableEvidence.ageMs !== undefined &&
-    durableEvidence.ageMs >= AGENT_MIN_AGE_MS &&
-    !durableEvidence.spawnStillStarting
+    !durableEvidence.withinSpawnGrace
   ) {
     return 'STRANDED_SPAWN';
   }

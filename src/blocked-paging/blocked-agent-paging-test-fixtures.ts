@@ -7,6 +7,11 @@ import {
   type HarnessBackgroundWorkHost,
 } from '../process-inspection/harness-background-work.ts';
 import { PROCESS_HOST_WITHOUT_HERDR } from '../process-inspection/harness-background-work-test-fixtures.ts';
+import type { SupervisorWait } from '../supervisor-wait/read-supervisor-wait.ts';
+import type { AgentPresentState } from '../agentdata/agent-present-state.ts';
+import type { AgentStatus } from '../herdr/herdr-inventory.service.ts';
+import type { RememberedOwnRunWait } from './own-run-wake.ts';
+import { MessageQueueWorkItemState } from '../message-queue/message-queue-work-item-state.ts';
 
 export interface StoredBlockedMarker {
   blockedAt: string;
@@ -21,9 +26,17 @@ export function fakeBlockedAgentPagingDependencies(fake: {
   readonly readAgent: (name: string) => Promise<string>;
   readonly blockedMarkers?: Map<string, StoredBlockedMarker>;
   readonly processHostOfPane?: (paneId: string) => HarnessBackgroundWorkHost;
+  readonly readSupervisorWait?: (agentName: string, paneText: string) => Promise<SupervisorWait>;
+  readonly visiblePaneText?: (paneId: string) => string;
+  readonly presentStateOf?: (agentName: string) => AgentPresentState;
+  readonly herdrStatusOf?: (agentName: string) => AgentStatus;
 }) {
+  const rememberedOwnRunWaits = new Map<string, RememberedOwnRunWait>();
+  const deliveryOutcomes = new Map<string, { state: string; failureReason: string | null }>();
   const pages: string[] = [];
+  const recipients: string[] = [];
   const lordNotices: string[] = [];
+  const folderTrustAcceptances: { agentName: string; optionNumber: number }[] = [];
   const escalationLedger: BlockedPageLedgerEntry[] = [];
   const blockedMarkers = fake.blockedMarkers ?? new Map<string, StoredBlockedMarker>();
   const dependencies: BlockedAgentPagingDependencies = {
@@ -34,7 +47,10 @@ export function fakeBlockedAgentPagingDependencies(fake: {
     readAgent: fake.readAgent,
     readHarnessBackgroundWork: (paneId) =>
       readHarnessBackgroundWork(paneId, fake.processHostOfPane?.(paneId) ?? PROCESS_HOST_WITHOUT_HERDR),
-    readVisiblePaneText: async () => '',
+    readVisiblePaneText: async (paneId) => fake.visiblePaneText?.(paneId) ?? '',
+    acceptFolderTrust: async (agentName, optionNumber) => {
+      folderTrustAcceptances.push({ agentName, optionNumber });
+    },
     blockedMarkerLedger: {
       readBlockedMarker: async (name) => blockedMarkers.get(name) ?? null,
       writeBlockedMarker: async (name, blockedBy) => {
@@ -44,9 +60,13 @@ export function fakeBlockedAgentPagingDependencies(fake: {
         blockedMarkers.delete(name);
       },
     },
-    resolveAgent: async (name) => ({ name, paneId: 'w1:p1' }) as HerdrAgent,
-    submitToAgent: async (_target, _sender, prompt) => {
+    resolveAgent: async (name) => ({ name, paneId: 'w1:p1', agentStatus: fake.herdrStatusOf?.(name) }) as HerdrAgent,
+    readSupervisorWait:
+      fake.readSupervisorWait ?? (async () => ({ waiting: false, reason: 'no supervisor wait in this fake' })),
+    submitToAgent: async (target, _sender, prompt, options) => {
+      if (options?.key !== undefined) deliveryOutcomes.set(options.key, { state: MessageQueueWorkItemState.Delivered, failureReason: null });
       pages.push(prompt);
+      recipients.push(target.name ?? '');
     },
     sleep: async () => undefined,
     readEscalationLedger: async () => escalationLedger,
@@ -57,8 +77,14 @@ export function fakeBlockedAgentPagingDependencies(fake: {
       lordNotices.push(message);
       return true;
     },
+    readPresentState: async (agentName) => fake.presentStateOf?.(agentName) ?? { reaped: false, withinSpawnGrace: false },
+    readMessageDeliveryOutcome: async (key) => deliveryOutcomes.get(key),
+    readRememberedOwnRunWait: async (agentName) => rememberedOwnRunWaits.get(agentName) ?? null,
+    writeRememberedOwnRunWait: async (agentName, remembered) => {
+      rememberedOwnRunWaits.set(agentName, remembered);
+    },
     now: () => fake.now,
     stderr: () => undefined,
   };
-  return { dependencies, pages, lordNotices, escalationLedger, blockedMarkers };
+  return { dependencies, deliveryOutcomes, pages, recipients, lordNotices, escalationLedger, blockedMarkers, folderTrustAcceptances };
 }

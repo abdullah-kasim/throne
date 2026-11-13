@@ -29,6 +29,8 @@ import {
 import { resolveAgentAcrossSessions } from "../herdr/herdr-runtime.service.ts";
 import { resolveCurrentAgentName } from "../herdr/herdr-session.service.ts";
 import { submitToAgent } from "../herdr/herdr-send.service.ts";
+import { forceEnter } from "../herdr/forced-enter.ts";
+import type { HerdrAgent } from "../herdr/herdr-inventory.service.ts";
 import {
   SubmitAssumedFilledError,
   SubmitNotSentError,
@@ -53,6 +55,7 @@ const DEFAULT_PRODUCTION_DEPENDENCIES: SendAgentCommandDependencies = {
   resolveAgent: resolveAgentAcrossSessions,
   resolveCurrentAgentName,
   submitToAgent,
+  forceEnter,
   openMessageQueueStore: () => openMessageQueueStore(),
   now: () => Date.now(),
   clearBlockedMarker,
@@ -116,6 +119,11 @@ export class SendAgentCommand extends CommandRunner {
       this.dependencies ??
       productionDependencies ??
       DEFAULT_PRODUCTION_DEPENDENCIES;
+
+    if (parsed.enterOnly === true) {
+      await runEnterOnly(parsed.recipientName, dependencies);
+      return;
+    }
 
     if (
       await runtimeModelTaskAcceptance.refuseTaskOnRuntimeModelMismatch(
@@ -404,4 +412,19 @@ async function runDirectSendAgent(
     `send-agent: delivered directly to "${recipient.name ?? parsed.recipientName}"\n`,
   );
   process.exitCode = 0;
+}
+
+async function runEnterOnly(
+  recipientName: string,
+  dependencies: SendAgentCommandDependencies,
+): Promise<void> {
+  try {
+    const recipient = (await dependencies.resolveAgent(recipientName)) as HerdrAgent;
+    await (dependencies.forceEnter ?? forceEnter)(recipient);
+    process.stdout.write(`send-agent: pressed Enter in "${recipient.name ?? recipientName}"'s input box\n`);
+    process.exitCode = 0;
+  } catch (error) {
+    process.stderr.write(`send-agent: --enter-only refused: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  }
 }

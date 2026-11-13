@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { after, test } from 'node:test';
-import { provisionPinnedNode } from './pinned-node.support.ts';
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(new URL('..', import.meta.url).pathname);
@@ -81,7 +80,7 @@ async function buildFixture(): Promise<Fixture> {
   ].join('\n'));
   await writeFakeExecutable(path.join(fakeBin, 'herdr'), 'exit 0');
   await writeFakeExecutable(path.join(fakeBin, 'tailscale'), 'exit 0');
-  await provisionPinnedNode(throneRoot, throneRoot);
+  await writeFakeExecutable(path.join(throneRoot, 'bin', 'throne-runtime'), `exec "${process.execPath}" "$@"`);
   await writeFakeExecutable(
     path.join(fakeBin, 'systemctl'),
     `printf '%s\\n' "$@" >> "${systemctlLog}"\nif [ "$1" = --user ] && [ "$2" = is-active ]; then exit 1; fi\nexit 0`,

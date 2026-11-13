@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+launcher_source="${BASH_SOURCE[0]}"
+launcher_hops=0
+while [ -L "$launcher_source" ] && [ "$launcher_hops" -lt 32 ]; do
+    launcher_link=$(readlink "$launcher_source")
+    case "$launcher_link" in
+        /*) launcher_source="$launcher_link" ;;
+        *)  launcher_source="$(dirname "$launcher_source")/$launcher_link" ;;
+    esac
+    launcher_hops=$((launcher_hops + 1))
+done
+LAUNCHER_BIN_DIR=$(cd -- "$(dirname -- "$launcher_source")" && pwd -P)
+THRONE_ROOT=$(cd -- "$LAUNCHER_BIN_DIR/.." && pwd -P)
+
+VENDORED_JSCPD="$THRONE_ROOT/vendor/node_modules/.bin/jscpd"
+
+if [ ! -x "$VENDORED_JSCPD" ]; then
+    echo "bin/jscpd: no vendored jscpd at $VENDORED_JSCPD; run: cd \"$THRONE_ROOT\" && ./install.sh --harnesses-only" >&2
+    exit 127
+fi
+
+exec "$VENDORED_JSCPD" "$@"

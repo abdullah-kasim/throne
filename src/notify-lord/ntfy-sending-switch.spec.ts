@@ -143,7 +143,7 @@ test("a completion notice that cannot be posted names the server it tried", asyn
       { ...configWithSending(true), serverUrl },
     ),
     (error: Error) => {
-      assert.equal(error.message, `ntfy POST to ${serverUrl} failed: fetch failed`);
+      assert.ok(error.message.startsWith(`ntfy POST to ${serverUrl} failed: `), error.message);
       return true;
     },
   );

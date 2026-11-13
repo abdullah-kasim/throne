@@ -19,11 +19,10 @@ if [ ! -f "$entrypoint" ]; then
     exit 1
 fi
 
-. "$launcher_bin_dir/pinned-node-lib.sh"
-use_pinned_node "$throne_root" || exit 1
+runtime="$launcher_bin_dir/throne-runtime"
 
 if [ "$#" -eq 0 ]; then
-    exec "$pinned_node" "$entrypoint" attach-throne-herdr
+    exec "$runtime" "$entrypoint" attach-throne-herdr
 fi
 
-exec "$pinned_node" "$entrypoint" "$@"
+exec "$runtime" "$entrypoint" "$@"

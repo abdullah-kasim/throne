@@ -20,8 +20,9 @@ Performed by the Alpha itself, after `99c` reports
 `**Delivery outcome:** PASS`, after every release request is answered, and
 after `REPORT.md` is written. No Shadow is spawned for this todo.
 
-1. Move the entry `### <objective code>` out of `## In flight` with
-   `throne where-i-stand put --code <objective code> --section "<section>" --text-file <file>`:
+1. Run `throne where-i-stand list`, then move the entry
+   `### <objective code>` out of `## In flight` with
+   `throne where-i-stand put --code <objective code> --section-id <id from list> --listing-token <token from list> --text-file <file>`:
    to `## On GitHub` when the work has a pull request on GitHub, otherwise
    to `## Delivered, not on GitHub`. Start it with the
    page's entry form from the where-i-stand skill's "Writing rules for the
@@ -33,18 +34,14 @@ after `REPORT.md` is written. No Shadow is spawned for this todo.
    work), or, with no pull request, the same ticket and the same commit or
    branch. When the entry carries only one of the two links, look up the
    other with `throne forge status <pull request url> --json` (its
-   `mergeTarget`) and write both. Remove each such entry when this entry now
+   `mergeTarget`) and write both. Archive each such entry
+   (`throne where-i-stand put --code <its code> --remove`) when this entry now
    says everything it said, which is the default when its work was absorbed
    or superseded; otherwise correct its `Where it stands:` and state lines
    and add one line ``Superseded by `### <objective code>` on <date>``.
-   Steps 2 and 3 alone need the lock by hand: `throne where-i-stand show`,
-   read the page, run `throne where-i-stand lock --checksum <checksum> --ttl 5m`
-   in the background (the where-i-stand skill's step 4), and edit one entry
-   at a time with the harness's edit tool, never the whole file.
-3. Remove any `## Needs you` line this delivery settled.
-4. When you took the lock, stop it and read its output. When it names a broken
-   heading, take the lock again and fix it. Then
-   `throne where-i-stand note "delivered <objective code>: <one line>"`.
+   Read the page with `throne where-i-stand show`; it is read-only.
+3. Archive any `## Needs you` entry this delivery settled.
+4. `throne where-i-stand note "delivered <objective code>: <one line>"`.
 5. `throne check-where-i-stand --agent <alpha-name>` must pass. Do not edit
    `REPORT.md` after this step: that would put the entry behind the report.
 
@@ -60,7 +57,7 @@ after `REPORT.md` is written. No Shadow is spawned for this todo.
 - The page holds `### <objective code>` outside `## In flight`, starting
   with its links, kind and where-it-stands lines, and with the line on what
   is not verified.
-- No other entry about the same work is left uncorrected: each is removed
+- No other entry about the same work is left uncorrected: each is archived
   or carries its ``Superseded by `### <objective code>` on <date>`` line.
 - `throne check-where-i-stand --agent <alpha-name>` passes; its output is in
   this file's execution log and in the DONE message.

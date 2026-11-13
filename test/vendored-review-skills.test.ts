@@ -335,7 +335,7 @@ test('pr-description demands a manual Testing walkthrough and a Not tested alert
 
 test('install.sh installs the agent-browser CLI and its browser without a version pin', () => {
   const installer = readFileSync(path.join(REPO_ROOT, 'install.sh'), 'utf8');
-  assert.match(installer, /npm install -g agent-browser/);
+  assert.match(installer, /"\$runtime" add --global agent-browser/);
   assert.doesNotMatch(installer, /agent-browser@\d/);
   assert.match(installer, /agent-browser install/);
   assert.match(installer, /agent-browser doctor/);

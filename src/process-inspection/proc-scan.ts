@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { readdir, readFile, readlink } from 'node:fs/promises';
 import path from 'node:path';
 import { isPathWithin } from './path-containment.ts';
@@ -17,6 +18,7 @@ export const DEFAULT_CLOCK_TICKS_PER_SECOND = 100;
 export interface ProcessSnapshot {
   pid: number;
   ppid: number;
+  processGroupId?: number;
   /** Single-letter scheduler state from `/proc/<pid>/stat` field 3 (`R`,
    *  `S`, `D`, `Z`, ...). `R` plus a near-full-core CPU delta is the stuck
    *  fingerprint the Lord's ruling names. */
@@ -91,7 +93,7 @@ async function listCandidatePids(procRoot: string): Promise<number[]> {
  */
 export function parseProcStat(
   line: string,
-): Pick<ProcessSnapshot, 'pid' | 'ppid' | 'state' | 'cpuTicks' | 'startTicks' | 'comm'> | undefined {
+): (Pick<ProcessSnapshot, 'pid' | 'ppid' | 'state' | 'cpuTicks' | 'startTicks' | 'comm'> & { processGroupId: number }) | undefined {
   const openParen = line.indexOf('(');
   const closeParen = line.lastIndexOf(')');
   if (openParen === -1 || closeParen === -1 || closeParen < openParen) return undefined;
@@ -101,6 +103,7 @@ export function parseProcStat(
   // `rest[0]` is stat field 3, so field N lives at `rest[N - 3]`.
   const state = rest[0];
   const ppid = Number(rest[1]);
+  const processGroupId = Number(rest[2]);
   const utime = Number(rest[11]);
   const stime = Number(rest[12]);
   const startTicks = Number(rest[19]);
@@ -108,13 +111,22 @@ export function parseProcStat(
     !Number.isFinite(pid) ||
     state === undefined ||
     !Number.isFinite(ppid) ||
+    !Number.isFinite(processGroupId) ||
     !Number.isFinite(utime) ||
     !Number.isFinite(stime) ||
     !Number.isFinite(startTicks)
   ) {
     return undefined;
   }
-  return { pid, ppid, state, cpuTicks: utime + stime, startTicks, comm };
+  return { pid, ppid, processGroupId, state, cpuTicks: utime + stime, startTicks, comm };
+}
+
+export function readProcessStartTicks(processId: number, procRoot: string = DEFAULT_PROC_ROOT): number | undefined {
+  try {
+    return parseProcStat(readFileSync(path.join(procRoot, String(processId), 'stat'), 'utf8'))?.startTicks;
+  } catch {
+    return undefined;
+  }
 }
 
 function numericFieldAfter(text: string, label: string): number | undefined {
@@ -177,6 +189,43 @@ async function readOptionalLink(linkPath: string): Promise<string | undefined> {
   }
 }
 
+export type ProcessIdentity = Pick<
+  ProcessSnapshot,
+  'pid' | 'ppid' | 'state' | 'cpuTicks' | 'startTicks' | 'comm' | 'cmdline' | 'cwd' | 'cwdDeleted'
+> & { processGroupId: number };
+
+export const PROCESS_READ_BATCH_SIZE = 32;
+
+const CONTROL_CHARACTERS = /[\x01-\x1f\x7f]/g;
+
+export function commandLineAsPsPrintsIt(rawCommandLine: string): string {
+  return rawCommandLine.split('\0').filter((part) => part.length > 0).join(' ').replace(CONTROL_CHARACTERS, ' ');
+}
+
+export async function readProcessIdentity(
+  pid: number,
+  procRoot: string = DEFAULT_PROC_ROOT,
+): Promise<ProcessIdentity | undefined> {
+  const pidRoot = path.join(procRoot, String(pid));
+  const statText = await readOptional(path.join(pidRoot, 'stat'));
+  if (statText === undefined) return undefined;
+  const parsed = parseProcStat(statText.trim());
+  if (parsed === undefined) return undefined;
+  const [cwd, cmdlineRaw] = await Promise.all([
+    readOptionalLink(path.join(pidRoot, 'cwd')),
+    readOptional(path.join(pidRoot, 'cmdline')),
+  ]);
+  const cmdline = commandLineAsPsPrintsIt(cmdlineRaw ?? '');
+  const resolvedCwd = cwd === undefined ? undefined : stripDeletedMarker(cwd);
+  return {
+    ...parsed,
+    cmdline: cmdline.length > 0 ? cmdline : parsed.comm,
+    ...(resolvedCwd === undefined
+      ? {}
+      : { cwd: resolvedCwd.path, cwdDeleted: resolvedCwd.deleted }),
+  };
+}
+
 /**
  * One process's full snapshot, or `undefined` when the process exited between
  * the directory listing and this read -- a routine race during any `/proc`
@@ -189,28 +238,18 @@ export async function readProcessSnapshot(
   procRoot: string = DEFAULT_PROC_ROOT,
 ): Promise<ProcessSnapshot | undefined> {
   const pidRoot = path.join(procRoot, String(pid));
-  const statText = await readOptional(path.join(pidRoot, 'stat'));
-  if (statText === undefined) return undefined;
-  const parsed = parseProcStat(statText.trim());
-  if (parsed === undefined) return undefined;
-  const [cwd, cgroup, cmdlineRaw, stdout, ioText, statusText] = await Promise.all([
-    readOptionalLink(path.join(pidRoot, 'cwd')),
+  const identity = await readProcessIdentity(pid, procRoot);
+  if (identity === undefined) return undefined;
+  const [cgroup, stdout, ioText, statusText] = await Promise.all([
     readOptional(path.join(pidRoot, 'cgroup')),
-    readOptional(path.join(pidRoot, 'cmdline')),
     readOptionalLink(path.join(pidRoot, 'fd', '1')),
     readOptional(path.join(pidRoot, 'io')),
     readOptional(path.join(pidRoot, 'status')),
   ]);
   const ioSyscalls = ioText === undefined ? undefined : parseProcIo(ioText);
   const vmRssKb = statusText === undefined ? undefined : parseVmRssKb(statusText);
-  const cmdline = (cmdlineRaw ?? '').split('\0').filter((part) => part.length > 0).join(' ');
-  const resolvedCwd = cwd === undefined ? undefined : stripDeletedMarker(cwd);
   return {
-    ...parsed,
-    cmdline: cmdline.length > 0 ? cmdline : parsed.comm,
-    ...(resolvedCwd === undefined
-      ? {}
-      : { cwd: resolvedCwd.path, cwdDeleted: resolvedCwd.deleted }),
+    ...identity,
     ...(cgroup === undefined ? {} : { cgroup: cgroup.trim() }),
     ...(stdout === undefined
       ? {}
@@ -221,14 +260,20 @@ export async function readProcessSnapshot(
 }
 
 /** Every live process readable from `procRoot`, exit races skipped. */
-export async function listProcessSnapshots(
+export async function listProcessSnapshots<Snapshot = ProcessSnapshot>(
   procRoot: string = DEFAULT_PROC_ROOT,
-): Promise<ProcessSnapshot[]> {
+  readOne: (pid: number, procRoot: string) => Promise<Snapshot | undefined> =
+    readProcessSnapshot as (pid: number, procRoot: string) => Promise<Snapshot | undefined>,
+): Promise<Snapshot[]> {
   const pids = await listCandidatePids(procRoot);
-  const snapshots = await Promise.all(
-    pids.map((pid) => readProcessSnapshot(pid, procRoot)),
-  );
-  return snapshots.filter((snapshot): snapshot is ProcessSnapshot => snapshot !== undefined);
+  const snapshots: Snapshot[] = [];
+  for (let start = 0; start < pids.length; start += PROCESS_READ_BATCH_SIZE) {
+    const batch = await Promise.all(
+      pids.slice(start, start + PROCESS_READ_BATCH_SIZE).map((pid) => readOne(pid, procRoot)),
+    );
+    snapshots.push(...batch.filter((snapshot): snapshot is Awaited<Snapshot> & Snapshot => snapshot !== undefined));
+  }
+  return snapshots;
 }
 
 export interface ProcessUnderPath {

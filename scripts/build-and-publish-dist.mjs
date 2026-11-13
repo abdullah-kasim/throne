@@ -21,6 +21,7 @@ import {
   BUILD_SOURCE_FINGERPRINT_MARKER_FILENAME,
   computeBuildInputManifest,
 } from "./source-content-fingerprint.mjs";
+import { failIfSchemaChangedWithoutMigration } from "./schema-migration-guard.mjs";
 
 // `dist/` must never be observable mid-rewrite by a concurrent `throne`
 // invocation: every compile step below writes into a freshly named staging
@@ -418,6 +419,7 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
+  failIfSchemaChangedWithoutMigration(repoRoot);
   await buildAndPublishDist();
 }
 

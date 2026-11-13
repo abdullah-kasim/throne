@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import os from "node:os";
-import type { TakenSlot } from "./semaphore-store.ts";
 
 const COMMAND_NOT_STARTED_EXIT_CODE = 127;
 const SIGNAL_EXIT_CODE_BASE = 128;
@@ -20,10 +19,11 @@ function exitCodeOfEndedCommand(code: number | null, signal: NodeJS.Signals | nu
   return signal === null ? (code ?? 0) : SIGNAL_EXIT_CODE_BASE + os.constants.signals[signal];
 }
 
-export function runCommandHoldingSlot(taken: TakenSlot, toRun: CommandToRun, watchers: CommandWatchers): Promise<number> {
+export function runCommandHoldingSlot(toRun: CommandToRun, watchers: CommandWatchers): Promise<number> {
   return new Promise((resolve) => {
     const child = spawn(toRun.command, [...toRun.commandArguments], {
-      stdio: ["inherit", "inherit", "inherit", taken.lock.descriptor],
+      stdio: "inherit",
+      detached: true,
     });
     const forwardToCommand = (signal: NodeJS.Signals): void => void child.kill(signal);
     const stopForwarding = (): void => {

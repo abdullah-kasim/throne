@@ -54,6 +54,9 @@ throne/
 Worktrees are NOT part of this tree — they live outside the repo entirely, under
 a throne-owned `~/.throne/worktrees/` home (see "Git worktrees" below).
 
+throne-backend's SQLite database, its Drizzle schema, its committed migrations
+under `drizzle/` and how they are applied are in `agent_docs/database.md`.
+
 ## Managed harness ownership
 
 Claude Code and Codex CLI updates use the one throne-local skill at
@@ -114,7 +117,9 @@ recent-unwrapped] [--lines N] [--format text|ansi]` returns a JSON envelope
 forceFileBackedDelivery, promptWaitTimeoutMilliseconds,
 onDeliveredWhileLocked})` is the thin throne wrapper around that primitive,
   and both `send-agent` and `keep-going` route through it. It formats exactly
-  `<sender-name> said: <prompt> [message <id>]` and delivers that logical body to the resolved
+  `<message<id>>`, a newline, `<sender-name> said: <prompt>`, a newline and
+  `</message<id>>` (a missing opening tag means the head was cut, a missing
+  closing tag the tail), and delivers that logical body to the resolved
   recipient through the platform call.
 
   `filebackeddelivery.ts` splits transport at 768 UTF-8 bytes. The classification
@@ -136,21 +141,21 @@ onDeliveredWhileLocked})` is the thin throne wrapper around that primitive,
   without echoing 51KB through another composer.
 
   The exported `submitToAgent` boundary owns cross-process exclusion before it
-  invokes the platform prompt. `recipient-pane-lock.service.ts` hashes the initially resolved
-  pane id with SHA-256, opens the resulting stable `.lock` file under the
-  user-private `~/.throne/locks/recipient-panes/` directory, and passes that
-  descriptor to a short util-linux `flock --exclusive 3` helper. The Node
-  process retains the same open file description after the helper exits, so the
-  kernel lock remains held until its `finally` closes the descriptor. Tests may
-  isolate this directory with `THRONE_RECIPIENT_LOCK_DIR` or inject the lock
-  dependencies. The directory is mode `0700` and each file is mode `0600`.
+  invokes the platform prompt. `recipient-pane-lock.service.ts` takes a lock row
+  named `recipient-pane:` plus the initially resolved pane id in the `locks`
+  table of `<throne home>/locks.sqlite3` (`src/shared-policy/lock-rows/`). A take
+  is one transaction: it deletes the row when its holder process is gone or has
+  a different start time, or when the row is older than
+  `PANE_LOCK_MAXIMUM_HOLD_MS`, then inserts with ON CONFLICT DO NOTHING; one
+  changed row means the lock is held. A waiting sender retries about every
+  25 ms. Release deletes the row only while it is still the caller's. No child
+  process is launched. Tests may isolate the throne home or inject the lock
+  dependencies.
 
-  The file path is stable and file existence conveys no ownership. Release,
-  suspected staleness, and recovery never unlink, rename, replace, or reclaim
-  it. Process exit, signal death, crash, and reboot close descriptors and release
-  kernel ownership without a PID/mtime lease; retaining the inode prevents two
-  contenders from locking different files for one pane. Same-pane processes
-  wait, while distinct pane hashes remain independent.
+  Process exit, signal death, crash and reboot leave a row whose holder is no
+  longer alive, and the next taker deletes it. Same-pane processes wait, while
+  distinct pane ids remain independent. The older `.lock` files under
+  `~/.throne/locks/recipient-panes/` are no longer read.
 
   After acquisition, `submitToAgent` re-resolves the original unique recipient
   name and requires the same name, pane id, terminal id, and harness before any
@@ -699,6 +704,8 @@ throne-keep-going.timer` — or just run `ensure-heartbeat`, which does the same
 thing idempotently. The timer layer only resolves the target agent and sends
 the heartbeat; it does not inspect queue state or choose the next objective.
 
+A new timer, sweep or monitor follows `coding_principles.md`, "Orchestration code: an agent always forgets".
+
 ## Self-configuration on launch
 
 A fresh throne harness arms itself with no manual steps. Both harnesses run a
@@ -795,7 +802,7 @@ with sender `keep-going` and no current-agent inference. The timer layer
 remains a messenger and does not own queue dispatch, and genuine ambiguity or
 resolution failure is the only nonzero path. Because both direct and systemd
 invocations call the same `submitToAgent` boundary, heartbeat delivery shares
-the per-pane kernel lock with every other producer.
+the per-pane lock row with every other producer.
 
 Just above the queue digest, the same confirmed-throne-root branch **banners the
 Regent's desired-state** (`RUNNING`|`DISMISSED`) read via the shared
@@ -856,7 +863,7 @@ queue, ledger, roster, kill switch, spawn-limiter and launch-ledger inputs never
 touched the host. The two that did were Linux-only until that day: the
 capacity-pressure verdict read `/proc/pressure/*` (PSI) and so was `unknown` on
 every tick on a Mac — the gate failed closed and spawned nothing — and
-`listProcessesUnderPath`, which reap-agent (and through it autoreap) uses to
+`listProcessesUnderPath`, which reap-agent uses to
 terminate a reaped agent's leftovers, enumerated `/proc/<pid>/cwd` and found
 nothing. `src/keep-going/keep-going-pressure-report.ts` now dispatches on
 platform to `src/pressure-signal/darwin-pressure-reader.ts` (cpu utilisation

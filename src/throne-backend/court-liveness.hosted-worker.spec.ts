@@ -302,3 +302,14 @@ test("the backend registers the court liveness worker to run at start and every 
     job.stop();
   }
 });
+
+test("the backend hosts no worker that reaps agents on its own", () => {
+  const workerNames = hostedWorkerClassesOfTheBackend().map(
+    (worker) => (worker as { name: string }).name,
+  );
+  assert.equal(workerNames.length, 13);
+  assert.deepEqual(
+    workerNames.filter((name) => /reap/i.test(name)),
+    [],
+  );
+});

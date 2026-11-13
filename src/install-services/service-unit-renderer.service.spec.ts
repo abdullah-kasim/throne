@@ -7,7 +7,7 @@ import path from 'node:path';
 import { darwinAgentsForHost } from './darwin.ts';
 import { LAUNCHD_SOURCE_DIR, renderUnitSource } from './service-unit-renderer.service.ts';
 
-const TOKENS = { throneRoot: '/opt/throne', herdrBin: '/opt/herdr', nodeBin: '/opt/node/bin/node' };
+const TOKENS = { throneRoot: '/opt/throne', herdrBin: '/opt/herdr' };
 
 async function renderedUnitsThatWriteLogs(environment: NodeJS.ProcessEnv): Promise<Map<string, string>> {
   const rendered = new Map<string, string>();

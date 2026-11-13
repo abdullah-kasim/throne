@@ -8,43 +8,50 @@ AGENTS.md is not self-contained: it repeatedly defers detail to `agent_docs/*.md
 
 ## Commands
 
-Production executes compiled JavaScript from `dist/`; Node's native TypeScript
-type stripping is a development convenience only and does not provide the
-Nest decorator transform or runtime metadata. Build with `npm run build`, then
-run `npm start` (or `node ./dist/src/tools.js <command>`).
+Production executes compiled JavaScript from `dist/` on the Bun pinned in
+`mise.toml`, started through `bin/throne-runtime`, the one place that names the
+runtime. Running the TypeScript sources directly does not provide the Nest
+decorator transform or runtime metadata. Build with `bun run build`, then run
+`bun run start` (or `./bin/throne-cli <command>`).
 
 ```bash
 # Run the compiled CLI (omit the command to print the complete command surface)
-npm start -- <command>
+bun run start -- <command>
 
 # Static type checking
-npm run typecheck
+bun run typecheck
 
-# Lint (eslint + the public-release private-reference backstop); both gate `npm test`
-npm run lint
-npm run lint:private-refs
+# Lint (eslint + the public-release private-reference backstop); both gate `bun run test`
+bun run lint
+bun run lint:private-refs
 
 # Full test suite
-npm test
+bun run test
 
 # Heavy real-infrastructure tests (canaries + real-systemd rollback proof).
 # LORD'S DIRECT ORDER ONLY — no agent runs this or sets THRONE_HEAVY_TESTS
 # on its own initiative. See AGENTS.md "Hard rules of the court".
-npm run test:heavy
+bun run test:heavy
 
-# Web app: hot reload against a running listener, and its Vitest tests (`npm test` runs them too)
-npm run dev:web
-npm run test:web
+# Web app: hot reload against a running listener, and its Vitest tests (`bun run test` runs them too)
+bun run dev:web
+bun run test:web
 
-# Run one named test (bypasses the suite guards below — use `npm test` before calling work done)
-node --import ./test/register-typescript.mjs --test --test-name-pattern='a features file that names an unknown flag is still refused' src/shared-policy/feature-flags.service.spec.ts
+# Playwright end-to-end tests of the where-i-stand page against the fixture backend.
+# A separate pre-merge gate: `bun run test` does not run them (the suite image has no browser). Needs `bun run build`.
+bun run test:e2e
+
+# Where-i-stand evidence: product and reference captures, contact sheet and evidence.json per preset
+bun scripts/where-i-stand-evidence/run.mjs --preset <name|all> --out <folder> --port <port> --data-home <folder>
+
+# Run one named test (bypasses the suite guards below — use `bun run test` before calling work done)
+bun test --test-name-pattern='a features file that names an unknown flag is still refused' ./src/shared-policy/feature-flags.service.spec.ts
 ```
 
-`npm test` is not a bare `node --test`: it runs through `scripts/run-suite-container.mjs` inside a container under whichever OCI runtime the host has (docker, then podman; `THRONE_CONTAINER_RUNTIME` forces one), which enforces a `dist-staleness-guard` (a stale `dist/` fails the suite — rebuild) and a `herdr-tab-leak-guard` before and after the run (a leaked herdr tab fails it). The single-test form above skips all of that.
+`bun run test` is not a bare `bun test`: it runs through `scripts/run-suite-container.mjs` inside a container under whichever OCI runtime the host has (docker, then podman; `THRONE_CONTAINER_RUNTIME` forces one), which enforces a `dist-staleness-guard` (a stale `dist/` fails the suite — rebuild) and a `herdr-tab-leak-guard` before and after the run (a leaked herdr tab fails it). The single-test form above skips all of that.
 
-The Nest sources use legacy decorators with emitted design-time metadata. Do
-not use native `./bin/throne-cli` as production evidence: it ignores this
-tsconfig and cannot provide the decorator runtime contract.
+The Nest sources use legacy decorators with emitted design-time metadata, so
+`tsc` still emits `dist/`; only the compiled build is production evidence.
 
 ## Architecture
 

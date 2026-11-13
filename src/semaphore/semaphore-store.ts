@@ -1,14 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { tryExclusiveFileLock, type HeldFileLock } from "../shared-policy/exclusive-file-lock.ts";
+import {
+  heldLocks,
+  processStartTime,
+  recordLockCommand,
+  tryTakeLock,
+  type HeldLock,
+  type NamedLockRow,
+} from "../shared-policy/lock-rows/lock-rows.ts";
 import { fileIsMissing, readTextFileIfPresent } from "../where-i-stand/file-presence.ts";
 import { isSemaphoreName } from "./semaphore-arguments.ts";
 
 const SEMAPHORES_FOLDER_NAME = "semaphores";
 const SLOT_COUNT_FILE_NAME = "slots";
-const SLOT_LOCK_NAME = "semaphore slot";
-const SLOT_FILE_FORM = /^slot-([1-9][0-9]*)\.lock$/;
 
 export interface SlotHolder {
   readonly pid: number;
@@ -23,7 +28,7 @@ export interface HeldSlot {
 
 export interface TakenSlot {
   readonly slot: number;
-  readonly lock: HeldFileLock;
+  readonly lock: HeldLock;
 }
 
 function semaphoresDirectoryIn(throneHome: string): string {
@@ -36,10 +41,6 @@ function semaphoreDirectoryIn(throneHome: string, name: string): string {
 
 function slotCountPathIn(throneHome: string, name: string): string {
   return path.join(semaphoreDirectoryIn(throneHome, name), SLOT_COUNT_FILE_NAME);
-}
-
-function slotLockPathIn(throneHome: string, name: string, slot: number): string {
-  return path.join(semaphoreDirectoryIn(throneHome, name), `slot-${slot}.lock`);
 }
 
 async function fileNamesIn(directory: string): Promise<string[]> {
@@ -73,60 +74,36 @@ export async function listSemaphoreNames(throneHome: string): Promise<string[]> 
   return names;
 }
 
-async function forgetSlotHolder(lockPath: string): Promise<void> {
-  await writeFile(lockPath, "", "utf8");
+function slotLockName(name: string, slot: number): string {
+  return `${slotLockPrefix(name)}${slot}`;
 }
 
-export async function takeFirstFreeSlot(
-  throneHome: string,
-  name: string,
-  slots: number,
-  flockExecutable?: string,
-): Promise<TakenSlot | undefined> {
+function slotLockPrefix(name: string): string {
+  return `semaphore/${name}/`;
+}
+
+export function takeFirstFreeSlot(throneHome: string, name: string, slots: number): TakenSlot | undefined {
   for (let slot = 1; slot <= slots; slot += 1) {
-    const lockPath = slotLockPathIn(throneHome, name, slot);
-    const lock = await tryExclusiveFileLock(lockPath, SLOT_LOCK_NAME, flockExecutable);
-    if (lock !== undefined) {
-      await forgetSlotHolder(lockPath);
-      return { slot, lock };
-    }
+    const lock = tryTakeLock(throneHome, slotLockName(name, slot));
+    if (lock !== null) return { slot, lock };
   }
   return undefined;
 }
 
-export async function recordSlotHolder(throneHome: string, name: string, slot: number, holder: SlotHolder): Promise<void> {
-  await writeFile(slotLockPathIn(throneHome, name, slot), `${JSON.stringify(holder)}\n`, "utf8");
+export function recordSlotHolder(taken: TakenSlot, pid: number, commandLine: string): void {
+  recordLockCommand(taken.lock, { processId: pid, startedAt: processStartTime(pid), commandLine });
 }
 
-function slotHolderOf(recorded: string | undefined): SlotHolder | undefined {
-  try {
-    const holder = JSON.parse(recorded ?? "") as Partial<SlotHolder>;
-    const isComplete =
-      typeof holder.pid === "number" && typeof holder.commandLine === "string" && typeof holder.startedAt === "string";
-    return isComplete ? (holder as SlotHolder) : undefined;
-  } catch {
-    return undefined;
-  }
+function heldSlotOf(row: NamedLockRow, prefix: string): HeldSlot {
+  const holder = row.command === undefined
+    ? undefined
+    : { pid: row.command.processId, commandLine: row.command.commandLine, startedAt: new Date(row.takenAt).toISOString() };
+  return { slot: Number(row.name.slice(prefix.length)), holder };
 }
 
-async function slotIsHeld(lockPath: string, flockExecutable?: string): Promise<boolean> {
-  const probe = await tryExclusiveFileLock(lockPath, SLOT_LOCK_NAME, flockExecutable);
-  await probe?.release();
-  return probe === undefined;
-}
-
-export async function heldSlotsOf(throneHome: string, name: string, flockExecutable?: string): Promise<HeldSlot[]> {
-  const slots = (await fileNamesIn(semaphoreDirectoryIn(throneHome, name)))
-    .map((fileName) => SLOT_FILE_FORM.exec(fileName)?.[1])
-    .filter((slot) => slot !== undefined)
-    .map(Number)
-    .sort((left, right) => left - right);
-  const held: HeldSlot[] = [];
-  for (const slot of slots) {
-    const lockPath = slotLockPathIn(throneHome, name, slot);
-    if (await slotIsHeld(lockPath, flockExecutable)) {
-      held.push({ slot, holder: slotHolderOf(await readTextFileIfPresent(lockPath)) });
-    }
-  }
-  return held;
+export function heldSlotsOf(throneHome: string, name: string): HeldSlot[] {
+  const prefix = slotLockPrefix(name);
+  return heldLocks(throneHome, prefix)
+    .map((row) => heldSlotOf(row, prefix))
+    .sort((left, right) => left.slot - right.slot);
 }

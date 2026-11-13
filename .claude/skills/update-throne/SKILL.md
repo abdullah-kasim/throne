@@ -27,7 +27,7 @@ Run the four steps in order and stop at the first one that fails.
 ### 1. Check
 
 ```bash
-node scripts/update-throne.mjs --check
+bin/throne-runtime scripts/update-throne.mjs --check
 ```
 
 Fetches and changes nothing else, and needs no answer. Read in the log:
@@ -53,7 +53,7 @@ answer, the answer is no. There are at most two questions:
 ### 3. Run
 
 ```bash
-node scripts/update-throne.mjs [--bring-in-upstream] [--restart-ordered-by-lord "<the invoker's words, verbatim>"]
+bin/throne-runtime scripts/update-throne.mjs [--bring-in-upstream] [--restart-ordered-by-lord "<the invoker's words, verbatim>"]
 ```
 
 Exit 0 means done or nothing to do, a fork left alone included. Exit 1 means

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+runtime_root=$(cd -P "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P) || exit 1
+bun_version=$(awk -F'"' '/^\[/ { in_tools = ($0 ~ /^\[tools\]/); next } in_tools && /^[[:space:]]*bun[[:space:]]*=/ { print $2; exit }' "$runtime_root/mise.toml" 2>/dev/null)
+if [ -z "$bun_version" ]; then
+    echo "throne: $runtime_root/mise.toml does not pin bun under [tools]; restore its bun = \"<version>\" line" >&2
+    exit 1
+fi
+bun_bin="$HOME/.local/share/mise/installs/bun/$bun_version/bin/bun"
+if [ ! -x "$bun_bin" ]; then
+    echo "throne: bun $bun_version, pinned in $runtime_root/mise.toml, is not installed at $bun_bin; run \`mise install\` in $runtime_root" >&2
+    exit 1
+fi
+exec "$bun_bin" "$@"

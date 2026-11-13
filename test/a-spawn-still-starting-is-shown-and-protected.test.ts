@@ -268,7 +268,7 @@ async function writeOneStartingAndOneFinishedSpawnWithoutPrompt(
     spawn_finished_at: null,
   });
   await writeSpawnRecordAged(ledgerDirectory, finishedName, AN_AGE_INSIDE_THE_STRANDED_WINDOW_MS, {
-    spawn_finished_at: new Date().toISOString(),
+    spawn_finished_at: new Date(Date.now() - AN_AGE_INSIDE_THE_STRANDED_WINDOW_MS).toISOString(),
   });
   return { startingName, finishedName };
 }

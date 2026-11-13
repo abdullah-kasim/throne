@@ -44,6 +44,7 @@ import {
   type SweepLockLease,
 } from "./alpha-autoscale-sweep-lock.ts";
 import { ALPHA_AUTOSCALE_DEFAULT_DEPENDENCIES } from "./alpha-autoscale-default-dependencies.ts";
+import { THRONE_RUNTIME_COMMAND } from "../shared-policy/throne-runtime-command.ts";
 
 export const ALPHA_AUTOSCALE_HOSTED_WORKER_NAME = "alpha-autoscale";
 
@@ -346,7 +347,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
       return false;
     }
 
-    const treeOutcome = await this.dependencies.invokeCli(process.execPath, treeArguments);
+    const treeOutcome = await this.dependencies.invokeCli(THRONE_RUNTIME_COMMAND, treeArguments);
     if (treeOutcome.outcome !== "success") {
       const result =
         treeOutcome.outcome === "retryable-failure-exhausted"
@@ -381,7 +382,7 @@ export class AlphaAutoscaleHostedWorker implements CronHostedWorker {
         candidate.name,
       )) ?? [];
     const outcome = await this.dependencies.invokeCli(
-      process.execPath,
+      THRONE_RUNTIME_COMMAND,
       createAlphaArguments(cliEntrypoint, candidate, authorizedBypassFlags, candidateCwd),
     );
 

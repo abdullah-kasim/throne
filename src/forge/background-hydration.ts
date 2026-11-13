@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { buildHydrationPlan } from "../git-lifecycle/dependency-hydration.ts";
 import { manifestFingerprint, readHydrationMarker } from "../git-lifecycle/dependency-hydration-fingerprint.ts";
 import { pathExists } from "../git-lifecycle/dependency-hydration-install.ts";
+import { THRONE_RUNTIME_COMMAND } from "../shared-policy/throne-runtime-command.ts";
 
 export type BackgroundHydration =
   | { readonly outcome: "already current" }
@@ -38,7 +39,7 @@ export async function startBackgroundHydration(sourceCheckout: string, worktree:
   await mkdir(path.dirname(logPath), { recursive: true });
   const log = await open(logPath, "w");
   try {
-    spawn(process.execPath, [...process.execArgv, HYDRATION_RUNNER_PATH, sourceCheckout, worktree], {
+    spawn(THRONE_RUNTIME_COMMAND, [HYDRATION_RUNNER_PATH, sourceCheckout, worktree], {
       detached: true,
       stdio: ["ignore", log.fd, log.fd],
     }).unref();

@@ -1,5 +1,12 @@
 # Slice work every Shadow follows
 
+### An ordinary slice writes no spec
+
+An ordinary slice changes no spec file and no feature map; the `99bs` spec
+gate writes the whole campaign's spec change. End your execution log with two
+or three lines on what changed for a user or for another module. That gate
+reads them.
+
 ### Mechanical checks shift left into the slice that creates the defect
 
 **Every implementation slice runs the mechanical checks over its own diff before
@@ -78,6 +85,24 @@ execution log records each check's command and exit code.
 1. **Per edit** — the slice's own focused tests plus its mutation checks, run
    inside the slice on every edit. They are what makes a slice's DONE report
    mean something. A slice never runs slow or container tests.
+   **Independent cases run together, not one after another.** When you write
+   a check for yourself (an evidence tool, a probe script, a batch of one-off
+   runs) and it has more than one independent case, start those cases at the
+   same time and collect every result. Run cases serially only when two of
+   them share one real machine, one lock, one account or one counter, and
+   write that reason in one sentence where you decide it. Give each case its
+   own pane, port, temporary folder, data home and container name, chosen by
+   the tool at run time, never fixed. Run at most 6 cases at once by default;
+   use fewer when each case starts a browser, a container or a harness and
+   the host shows strain. When you run several independent commands by hand,
+   start them together (your harness's background mode, or one command that
+   starts them all and waits for all), never one wait after another. The
+   tool's log records the wall-clock seconds of each case and of the whole
+   run. For example, a recipe app's evidence tool that captures twelve
+   screens starts six capture browsers at once, each on its own port and
+   temporary folder. This rule does not reach the repository's own suites or
+   the single assembled full-suite run in layer 2; that run keeps its rules,
+   including running it in the foreground.
 2. **Once before the terminal chain** — exactly one baseline-comparative
    full-suite run over the assembled candidate, at the assembled-candidate
    preflight, before the terminal chain begins. `99b` re-runs the suite as its
@@ -85,7 +110,7 @@ execution log records each check's command and exit code.
    forward against the frozen candidate. This run is the Tier C run of
    `99b`'s rising tiers: the default suite without slow tests.
    A base suite run for comparison (the `99b` base run, or a preflight of an
-   unchanged base) goes through `node scripts/shared-base-suite.mjs
+   unchanged base) goes through `bun scripts/shared-base-suite.mjs
    <base-directory>`, which reuses a finished result another campaign saved
    for the same base tree, suite command, test groups and suite scripts, and
    prints `shared base result used: key=... ran_at=... path=...` when it does.
@@ -130,7 +155,7 @@ gate manifest with the base commit filled in, run the throne's evidence command
 and record its output and its exit code instead:
 
 ```bash
-node "$THRONE/dist/src/tools.js" campaign-evidence --base <recorded base commit> \
+"$THRONE/bin/throne-cli" campaign-evidence --base <recorded base commit> \
   --target <recorded target branch> --repo <path> [--head <ref>] [--json] \
   [--section inventory|line-sizes|citations|duplicates|manifest]...
 ```

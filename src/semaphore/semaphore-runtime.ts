@@ -1,4 +1,5 @@
 import { setTimeout as waitFor } from "node:timers/promises";
+import { handOverLock, releaseLock } from "../shared-policy/lock-rows/lock-rows.ts";
 import { resolveThroneHome } from "../shared-policy/throne-home.ts";
 import {
   parseSemaphoreArguments,
@@ -24,7 +25,6 @@ export interface SemaphoreDependencies {
   readonly retryMilliseconds: number;
   readonly out: (message: string) => void;
   readonly err: (message: string) => void;
-  readonly flockExecutable?: string;
 }
 
 type CreateArguments = Extract<SemaphoreArguments, { action: typeof SemaphoreAction.Create }>;
@@ -63,7 +63,7 @@ async function waitForFreeSlot(name: string, dependencies: SemaphoreDependencies
   for (;;) {
     const slots = await readSlotCount(dependencies.throneHome, name);
     if (slots === undefined) return undefined;
-    const taken = await takeFirstFreeSlot(dependencies.throneHome, name, slots, dependencies.flockExecutable);
+    const taken = takeFirstFreeSlot(dependencies.throneHome, name, slots);
     if (taken !== undefined) return taken;
     if (!toldThatItWaits) {
       dependencies.err(`${MESSAGE_PREFIX} waiting for a free slot of "${name}" (${slots} slots, all held)\n`);
@@ -81,12 +81,13 @@ async function runInFreeSlot(parsed: RunArguments, dependencies: SemaphoreDepend
     );
     return SemaphoreExitCode.InvalidInvocation;
   }
+  let commandProcessId: number | undefined;
   try {
-    return await runCommandHoldingSlot(taken, parsed, {
+    return await runCommandHoldingSlot(parsed, {
       started: async (pid) => {
-        const holder = { pid, commandLine: commandLineOf(parsed), startedAt: new Date().toISOString() };
+        commandProcessId = pid;
         try {
-          await recordSlotHolder(dependencies.throneHome, parsed.name, taken.slot, holder);
+          recordSlotHolder(taken, pid, commandLineOf(parsed));
         } catch (error) {
           dependencies.err(`${MESSAGE_PREFIX} the slot is held but its holder could not be recorded: ${messageOf(error)}\n`);
         }
@@ -94,12 +95,13 @@ async function runInFreeSlot(parsed: RunArguments, dependencies: SemaphoreDepend
       couldNotStart: (error) => dependencies.err(`${MESSAGE_PREFIX} could not start "${parsed.command}": ${messageOf(error)}\n`),
     });
   } finally {
-    await taken.lock.release();
+    if (commandProcessId === undefined) releaseLock(taken.lock);
+    else handOverLock(taken.lock, commandProcessId);
   }
 }
 
 async function showStatus(parsed: StatusArguments, dependencies: SemaphoreDependencies): Promise<number> {
-  const statuses = await readSemaphoreStatuses(dependencies.throneHome, parsed.name, dependencies.flockExecutable);
+  const statuses = await readSemaphoreStatuses(dependencies.throneHome, parsed.name);
   dependencies.out(parsed.json ? renderSemaphoreStatusesAsJson(statuses) : renderSemaphoreStatuses(statuses));
   if (parsed.name !== undefined && statuses.length === 0) {
     dependencies.err(`${MESSAGE_PREFIX} there is no semaphore "${parsed.name}"\n`);

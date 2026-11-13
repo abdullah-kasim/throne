@@ -106,7 +106,7 @@ test("the ticket-alignment numbering is documented beside the terminal filename 
   assert.deepEqual(
     missingPhrases(delivery.slice(numberingNote), [
       "It is the last ordinary-band number, so it runs after every other ordinary slice and before `99a`",
-      "it is not one of the three terminal gates the throne classifies by verb",
+      "it is not one of the terminal gates the throne classifies by verb",
     ]),
     [],
   );

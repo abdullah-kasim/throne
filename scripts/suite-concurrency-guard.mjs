@@ -1,35 +1,12 @@
-#!/usr/bin/env node
-// Bounded tmpfs concurrency semaphore for
-// container-backed suite runs. Containers run `--userns=keep-id` — same uid,
-// same per-uid tmpfs quota as the host — so nothing else stands between a
-// pile of concurrent suites and EDQUOT now that the exclusive full-suite
-// lock that used to serialize them has been retired. This is the
-// caller-facing wrapper for container-backed suite runs (see
-// scripts/run-suite-container.mjs); it does not decide what "a suite" is.
-//
-// Reuses the SAME flock primitive the (now-retired) exclusive full-suite
-// lock used (kernel-backed atomic acquire/release, self-releasing on holder
-// death — see suite-concurrency-guard-inner.mjs, reused here verbatim as
-// the inner lock-holding process), generalized from one exclusive slot to N
-// independent slot files: tried non-blockingly in turn first, then blocked
-// on in rotation if every slot was held. No counting semaphore was invented
-// from scratch: N flock files IS the semaphore.
-import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, statfsSync } from "node:fs";
+#!/usr/bin/env bun
+import { mkdirSync, readFileSync, rmSync, statfsSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isHeldByAnother, tryTakeLock } from "../src/shared-policy/lock-rows/lock-rows.ts";
 import { resolveThroneHome } from "../src/shared-policy/throne-home.ts";
-import {
-  buildHolderReportLines,
-  isHolderVerified,
-} from "./suite-concurrency-guard-refusal.mjs";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-// Reused as-is: it only ever runs a command and writes/cleans a best-effort
-// diagnostic meta file at a path it's handed — nothing about it is specific
-// to the exclusive lock, so no new inner script is needed for N slots.
-const innerScript = path.join(here, "suite-concurrency-guard-inner.mjs");
+import { runWhileHolding } from "./hold-lock.mjs";
+import { buildHolderReportLines } from "./suite-concurrency-guard-refusal.mjs";
 
 // MANDATORY (Regent, non-negotiable — do not raise this number without also
 // reading and updating the reason not to): the tmpfs backing /tmp on this
@@ -49,24 +26,16 @@ export const SLOT_CAP = 3;
 // it with a real measurement, not just adjust the guess.
 export const EXPECTED_SUITE_SCRATCH_BYTES = 2 * 1024 * 1024 * 1024; // 2 GiB, unmeasured guess
 
-// Distinct from the (now-retired) exclusive full-suite lock's
-// CONFLICT_EXIT_CODE (91) so the two guards' conflict signals can never be
-// confused if ever composed.
-export const SLOT_CONFLICT_EXIT_CODE = 92;
-
-export function getConcurrencyLockDir() {
-  return (
-    process.env.THRONE_SUITE_CONCURRENCY_LOCK_DIR ??
-    path.join(resolveThroneHome(), "locks", "suite-concurrency")
-  );
+export function getHolderDirectory(throneHome) {
+  return path.join(throneHome, "locks", "suite-concurrency");
 }
 
-export function getSlotLockPath(lockDir, index) {
-  return path.join(lockDir, `slot-${index}.lock`);
+export function slotLockName(index) {
+  return `suite-concurrency-slot-${index}`;
 }
 
-export function getSlotHolderPath(lockDir, index) {
-  return path.join(lockDir, `slot-${index}.holder.json`);
+export function getSlotHolderPath(holderDirectory, index) {
+  return path.join(holderDirectory, `slot-${index}.holder.json`);
 }
 
 // The scratch dir whose free space is checked against the floor. Overridable
@@ -118,115 +87,83 @@ function printFloorRefusal(floor) {
   );
 }
 
-// Shared by the queueing notice below — describes who currently holds each
-// of the SLOT_CAP slots, verified against the kernel rather than trusted
-// blindly (see isHolderVerified).
-function describeHeldSlots(lockDir) {
+function describeHeldSlots(throneHome) {
   const holderBlocks = [];
   for (let i = 0; i < SLOT_CAP; i++) {
-    const lockPath = getSlotLockPath(lockDir, i);
-    const metaPath = getSlotHolderPath(lockDir, i);
     let meta = null;
     try {
-      meta = JSON.parse(readFileSync(metaPath, "utf8"));
+      meta = JSON.parse(readFileSync(getSlotHolderPath(getHolderDirectory(throneHome), i), "utf8"));
     } catch {
       meta = null;
     }
-    const verified = meta ? isHolderVerified(meta, lockPath, spawnSync) : false;
+    const verified = meta !== null && isHeldByAnother(throneHome, slotLockName(i));
     holderBlocks.push(`  Slot ${i}:`, ...buildHolderReportLines(meta, verified, Date.now()).map((l) => `  ${l}`));
   }
   return holderBlocks;
 }
 
-function printQueueingNotice(lockDir) {
+function printQueueingNotice(throneHome) {
   process.stderr.write(
     [
       "",
       `QUEUEING: all ${SLOT_CAP} tmpfs concurrency slots are already held —`,
       "waiting for one to free rather than refusing outright (contention,",
       "not exhaustion — the free-space floor above is the exhaustion case).",
-      ...describeHeldSlots(lockDir),
+      ...describeHeldSlots(throneHome),
       "",
       `Only ${SLOT_CAP} container-backed suites may hold a tmpfs concurrency`,
       "slot at once — the per-uid tmpfs quota is shared, not per-suite, and",
       "exceeding it produces EDQUOT rather than a clean test failure. This",
       "process will block here and proceed automatically once a slot frees.",
       "",
-      "Each slot is a kernel-held flock scoped to its holder process's",
-      "lifetime — it self-releases the moment that process is truly gone.",
+      "Each slot is a lock row naming the running suite's process, so it",
+      "frees the moment that process is gone.",
       "",
     ].join("\n"),
   );
 }
 
-// Every slot attempt — nonblocking or the blocking rotation below — runs
-// the same flock-wrapped inner script against the same slot files, so the
-// spawn call itself lives in one place.
-function attemptSlot(lockDir, index, commandArgs, flockArgs) {
-  const lockPath = getSlotLockPath(lockDir, index);
-  const metaPath = getSlotHolderPath(lockDir, index);
-  return spawnSync(
-    "flock",
-    [...flockArgs, lockPath, "node", innerScript, metaPath, ...commandArgs],
-    { stdio: "inherit", env: process.env },
-  );
+const SLOT_RETRY_INTERVAL_MS = 250;
+
+function tryTakeAnySlot(throneHome) {
+  for (let i = 0; i < SLOT_CAP; i++) {
+    const held = tryTakeLock(throneHome, slotLockName(i));
+    if (held !== null) return { held, index: i };
+  }
+  return null;
 }
 
-function reportFlockMissing(error) {
-  console.error(
-    `suite-concurrency-guard: could not invoke flock (${error.message}). ` +
-      "Is util-linux's flock installed?",
-  );
+export async function waitForAnySlot(throneHome) {
+  let slot = tryTakeAnySlot(throneHome);
+  if (slot !== null) return slot;
+  printQueueingNotice(throneHome);
+  while (slot === null) {
+    await new Promise((resolve) => setTimeout(resolve, SLOT_RETRY_INTERVAL_MS));
+    slot = tryTakeAnySlot(throneHome);
+  }
+  return slot;
 }
 
-// Bounds each blocking attempt on one slot before rotating to try the
-// sibling slot instead — otherwise a caller could park on one slot file
-// indefinitely while the OTHER slot frees up and sits idle. `flock`'s own
-// `--conflict-exit-code` applies to a timeout exactly like it applies to a
-// `--nonblock` conflict (util-linux flock(1): "exit code after conflict OR
-// TIMEOUT"), so a rotation is distinguishable from the wrapped command's
-// own exit status without inventing any JS-side sleep/retry logic — every
-// wait here is a real kernel flock wait, just bounded so it can move on to
-// the next slot. Rotating through all SLOT_CAP slots in a loop, forever,
-// cannot deadlock: each slot is an independent kernel-held flock that
-// self-releases the instant its holder process exits, so some slot always
-// becomes acquirable in finite time.
-const BLOCKING_SLOT_ROTATE_TIMEOUT_SECONDS = 5;
-
-/**
- * Blocks until one of the SLOT_CAP slots frees, then runs commandArgs
- * through it, and returns that run's exit code — the queue-and-wait
- * counterpart to the nonblocking attempts main() tries first.
- */
-export function acquireConcurrencySlotBlocking(lockDir, commandArgs) {
-  printQueueingNotice(lockDir);
-  for (;;) {
-    for (let i = 0; i < SLOT_CAP; i++) {
-      const result = attemptSlot(lockDir, i, commandArgs, [
-        "--exclusive",
-        "--timeout",
-        String(BLOCKING_SLOT_ROTATE_TIMEOUT_SECONDS),
-        "--conflict-exit-code",
-        String(SLOT_CONFLICT_EXIT_CODE),
-      ]);
-
-      if (result.error) {
-        reportFlockMissing(result.error);
-        return 1;
-      }
-
-      if (result.status === SLOT_CONFLICT_EXIT_CODE) {
-        continue; // still held, or this rotation's wait timed out — try the next slot
-      }
-
-      return result.status ?? 1;
-    }
+function writeHolderFile(holderPath) {
+  try {
+    writeFileSync(
+      holderPath,
+      `${JSON.stringify({
+        holder: process.env.THRONE_AGENT_NAME ?? path.basename(process.cwd()),
+        pid: process.pid,
+        cwd: process.cwd(),
+        hostname: os.hostname(),
+        startedAt: new Date().toISOString(),
+      })}\n`,
+    );
+  } catch {
+    return;
   }
 }
 
-function main() {
-  const commandArgs = process.argv.slice(2);
-  if (commandArgs.length === 0) {
+async function main() {
+  const [command, ...commandArgs] = process.argv.slice(2);
+  if (command === undefined) {
     console.error("usage: suite-concurrency-guard.mjs <command> [args...]");
     process.exit(2);
   }
@@ -241,37 +178,19 @@ function main() {
     process.exit(1);
   }
 
-  const lockDir = getConcurrencyLockDir();
-  mkdirSync(lockDir, { recursive: true });
-
-  for (let i = 0; i < SLOT_CAP; i++) {
-    const result = attemptSlot(lockDir, i, commandArgs, [
-      "--exclusive",
-      "--nonblock",
-      "--conflict-exit-code",
-      String(SLOT_CONFLICT_EXIT_CODE),
-    ]);
-
-    if (result.error) {
-      reportFlockMissing(result.error);
-      process.exit(1);
-    }
-
-    if (result.status === SLOT_CONFLICT_EXIT_CODE) {
-      continue; // this slot is held — try the next one
-    }
-
-    process.exit(result.status ?? 1);
-  }
-
-  // Every slot was held at that instant — this is contention (other
-  // campaigns' suite runs), not exhaustion, so queue and wait for one to
-  // free instead of refusing outright.
-  process.exit(acquireConcurrencySlotBlocking(lockDir, commandArgs));
+  const throneHome = resolveThroneHome();
+  const holderDirectory = getHolderDirectory(throneHome);
+  mkdirSync(holderDirectory, { recursive: true });
+  const { held, index } = await waitForAnySlot(throneHome);
+  const holderPath = getSlotHolderPath(holderDirectory, index);
+  writeHolderFile(holderPath);
+  const exitCode = await runWhileHolding(held, command, commandArgs);
+  rmSync(holderPath, { force: true });
+  process.exit(exitCode);
 }
 
 const isMain =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  main();
+  await main();
 }

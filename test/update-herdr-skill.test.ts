@@ -49,21 +49,21 @@ test('the update-herdr skill checks, rehearses and applies through the one upgra
   );
   assert.deepEqual(
     missingPhrases(await readUpdateHerdrSection('### 1. Check'), [
-      'node scripts/herdr-upgrade.mjs --check',
+      'bun scripts/herdr-upgrade.mjs --check',
       'Mutates nothing',
     ]),
     [],
   );
   assert.deepEqual(
     missingPhrases(await readUpdateHerdrSection('### 2. Rehearse'), [
-      'node scripts/herdr-upgrade.mjs <tag> --dry-run',
+      'bun scripts/herdr-upgrade.mjs <tag> --dry-run',
       'it moves nothing',
     ]),
     [],
   );
   assert.deepEqual(
     missingPhrases(await readUpdateHerdrSection('### 3. Apply'), [
-      'node scripts/herdr-upgrade.mjs <tag> --yes --restart-ordered-by-lord "<the Lord\'s words, verbatim>"',
+      'bun scripts/herdr-upgrade.mjs <tag> --yes --restart-ordered-by-lord "<the Lord\'s words, verbatim>"',
     ]),
     [],
   );
@@ -172,8 +172,8 @@ test('the update-herdr skill no longer stops at a pinned latest release when a r
 test('the update-herdr skill catches a machine up to the pin through the one upgrade script', async () => {
   assert.deepEqual(
     missingPhrases(await readUpdateHerdrSection('## Catch up to the pinned tag'), [
-      'node scripts/herdr-upgrade.mjs --pinned --dry-run',
-      'node scripts/herdr-upgrade.mjs --pinned --restart-ordered-by-lord "<the Lord\'s words, verbatim>"',
+      'bun scripts/herdr-upgrade.mjs --pinned --dry-run',
+      'bun scripts/herdr-upgrade.mjs --pinned --restart-ordered-by-lord "<the Lord\'s words, verbatim>"',
       'The target is the tag `src/herdr/herdr-client.ts` pins, so this takes no tag.',
       'There is no rehearsal, no pin move, no pin commit and no build',
       'Nothing restarts and no word is needed.',

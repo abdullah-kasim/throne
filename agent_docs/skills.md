@@ -64,8 +64,9 @@ every tick; no restart in either direction.
 
 `where-i-stand` is throne-locally discovered at
 `throne/.claude/skills/where-i-stand/`. It answers with the link to the
-Lord's page, the one agent-written file `where-i-stand.md` under the throne
-data home shown below a table of his pull requests, corrects it
+Lord's page, tabs, sections and rows in the throne database that agents
+write through `throne where-i-stand` commands, shown below a table of his
+pull requests, corrects it
 in the background from the forges, the queue and the live agents, and checks
 that the tailnet page is up. Any role may run it, and it carries the writing rules
 for every agent that edits the page. Its forge reader, `where_i_stand.py`,

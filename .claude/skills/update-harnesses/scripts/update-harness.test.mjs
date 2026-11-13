@@ -320,7 +320,7 @@ test('a claude check reports a model id the registry cannot resolve', () => {
   const throneRoot = makeThroneRoot(root, { pinnedVersion: '2.1.226' });
   writeExecutable(
     path.join(throneRoot, 'vendor', 'node_modules', '.bin', 'claude'),
-    `#!/usr/bin/env node\nif (process.argv.includes('-p')) process.stdout.write(${JSON.stringify(JSON.stringify({ modelUsage: { 'claude-zeta-9-9': {} } }))});\nelse process.stdout.write('2.1.226 (Claude Code)\\n');\n`,
+    `#!/usr/bin/env bun\nif (process.argv.includes('-p')) process.stdout.write(${JSON.stringify(JSON.stringify({ modelUsage: { 'claude-zeta-9-9': {} } }))});\nelse process.stdout.write('2.1.226 (Claude Code)\\n');\n`,
   );
   const npmDir = fakeNpmDir(root, { latestVersion: '2.1.226' });
   const originalPath = process.env.PATH;
@@ -339,7 +339,7 @@ test('without the model session check neither update nor check starts a model se
   const throneRoot = makeThroneRoot(root, { pinnedVersion: '2.1.226' });
   writeExecutable(
     path.join(throneRoot, 'vendor', 'node_modules', '.bin', 'claude'),
-    `#!/usr/bin/env node\nif (process.argv.includes('-p')) process.exit(70);\nprocess.stdout.write('2.1.226 (Claude Code)\\n');\n`,
+    `#!/usr/bin/env bun\nif (process.argv.includes('-p')) process.exit(70);\nprocess.stdout.write('2.1.226 (Claude Code)\\n');\n`,
   );
   const npmDir = fakeNpmDir(root, { latestVersion: '2.1.226' });
   const originalPath = process.env.PATH;

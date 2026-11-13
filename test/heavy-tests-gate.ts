@@ -11,7 +11,7 @@
 // or "the suite felt incomplete" is not an order. See AGENTS.md, "Hard
 // rules of the court".
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, globSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export type TestGroup = {
@@ -58,21 +58,10 @@ export function isTestGroupEnabled(
   return environment[group.environmentVariable] === "1";
 }
 
-export function gateTestFileByGroup(group: TestGroup, file: string): void {
-  if (isTestGroupEnabled(group)) return;
-  console.log(group.skipNotice(file));
-  process.exit(0);
-}
-
-/**
- * Call as the first statement of a heavy test file. When the gate env is
- * absent the process exits 0 before any test registers — under node's
- * per-file test processes the file reports clean with zero tests, and the
- * skip notice lands in the runner output. When set to exactly "1", the file
- * runs normally.
- */
 export function gateHeavyTestFile(): void {
-  gateTestFileByGroup(heavyTestGroup, "");
+  if (isTestGroupEnabled(heavyTestGroup)) return;
+  console.log(heavyTestGroup.skipNotice(""));
+  process.exit(0);
 }
 
 export function readTestGroupList(
@@ -85,21 +74,6 @@ export function readTestGroupList(
   return JSON.parse(readFileSync(listPath, "utf8"));
 }
 
-export function findTestGroupOfFile(
-  file: string,
-  repositoryRoot: string,
-): TestGroup | undefined {
-  return listedTestGroups.find((group) =>
-    readTestGroupList(group, repositoryRoot).some((entry) => entry.file === file),
-  );
-}
-
-export function gateListedTestFile(entryPath: string, repositoryRoot: string): void {
-  const file = path.relative(repositoryRoot, path.resolve(repositoryRoot, entryPath));
-  const group = findTestGroupOfFile(file, repositoryRoot);
-  if (group) gateTestFileByGroup(group, file);
-}
-
 export function listEnabledGroupTestFiles(
   environment: NodeJS.ProcessEnv,
   repositoryRoot: string,
@@ -107,4 +81,41 @@ export function listEnabledGroupTestFiles(
   return listedTestGroups
     .filter((group) => isTestGroupEnabled(group, environment))
     .flatMap((group) => readTestGroupList(group, repositoryRoot).map((entry) => entry.file));
+}
+
+export const DEFAULT_TEST_TIMEOUT_MS = 180000;
+export const HEAVY_TEST_TIMEOUT_MS = 600000;
+const SUITE_TEST_FILES = "{test,src,scripts}/**/*.{test,spec}.ts";
+const HEAVY_TEST_FILE = /(\.canary\.test\.ts|^src\/throne-backend\/rollback-guard-real-systemd\.spec\.ts)$/;
+
+export type SuiteTestSelection = {
+  files: string[];
+  skipNotices: string[];
+  timeoutMs: number;
+};
+
+function listSuiteTestFiles(repositoryRoot: string): string[] {
+  return globSync(SUITE_TEST_FILES, { cwd: repositoryRoot }).sort();
+}
+
+export function selectSuiteTestFiles(
+  environment: NodeJS.ProcessEnv,
+  repositoryRoot: string,
+): SuiteTestSelection {
+  if (isTestGroupEnabled(heavyTestGroup, environment)) {
+    const files = listSuiteTestFiles(repositoryRoot).filter((file) => HEAVY_TEST_FILE.test(file));
+    return { files, skipNotices: [], timeoutMs: HEAVY_TEST_TIMEOUT_MS };
+  }
+  if (listedTestGroups.some((group) => isTestGroupEnabled(group, environment))) {
+    const files = listEnabledGroupTestFiles(environment, repositoryRoot);
+    return { files, skipNotices: [], timeoutMs: DEFAULT_TEST_TIMEOUT_MS };
+  }
+  const skipped = listedTestGroups.flatMap((group) =>
+    readTestGroupList(group, repositoryRoot).map((entry) => ({ file: entry.file, notice: group.skipNotice(entry.file) })),
+  );
+  const skippedFiles = new Set(skipped.map((entry) => entry.file));
+  const files = listSuiteTestFiles(repositoryRoot).filter(
+    (file) => !HEAVY_TEST_FILE.test(file) && !skippedFiles.has(file),
+  );
+  return { files, skipNotices: skipped.map((entry) => entry.notice), timeoutMs: DEFAULT_TEST_TIMEOUT_MS };
 }

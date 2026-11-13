@@ -57,6 +57,7 @@ export const REAL_SUBMIT_TO_AGENT_DEPS: SubmitToAgentDeps = {
     resolveAgent(recipientName),
   withRecipientPaneLock:
     RECIPIENT_PANE_LOCK.withRecipientPaneLock.bind(RECIPIENT_PANE_LOCK),
+  isRecipientPaneLockHeld: (paneId) => RECIPIENT_PANE_LOCK.isHeldByAnotherSender(paneId),
   stagePayload,
   fileBackedPayloadsEnabled: shouldUseFileBackedAgentPayloads(),
   keyedSubmissionWindowStore: REAL_KEYED_SUBMISSION_WINDOW_STORE,
@@ -87,6 +88,7 @@ export function buildSubmitToAgentDeps(
       }),
     withRecipientPaneLock:
       RECIPIENT_PANE_LOCK.withRecipientPaneLock.bind(RECIPIENT_PANE_LOCK),
+    isRecipientPaneLockHeld: (paneId) => RECIPIENT_PANE_LOCK.isHeldByAnotherSender(paneId),
     stagePayload,
     fileBackedPayloadsEnabled: shouldUseFileBackedAgentPayloads(),
     keyedSubmissionWindowStore: REAL_KEYED_SUBMISSION_WINDOW_STORE,

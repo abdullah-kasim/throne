@@ -7,9 +7,7 @@
 # standing process.
 #
 # THRONE-OWNED TEMPLATE — not directly loadable by systemd. `{{THRONE_ROOT}}`
-# (absolute path of the throne directory) and `{{NODE_BIN}}` (absolute path
-# of the mise install of the exact node version pinned in the throne root's
-# mise.toml) are substituted at install time; only the rendered copy in the
+# (absolute path of the throne directory) is substituted at install time; only the rendered copy in the
 # systemd user unit dir is a working unit. Install with:
 #   cd <throne root> && ./bin/throne-cli install-services
 #
@@ -70,11 +68,6 @@ Type=notify
 # restart. The launchd twin carries the same key in EnvironmentVariables.
 Environment=THRONE_ALPHA_AUTOSCALE_ENABLED=1
 WorkingDirectory={{THRONE_ROOT}}
-# `{{NODE_BIN}}` is the mise install of the exact node version pinned in the
-# throne root's mise.toml. Bumping node means editing mise.toml, running
-# `mise install`, and re-running `throne install-services`. Calling node directly
-# (no login-shell wrapper) makes resolution independent of ambient PATH,
-# which is unset before any login shell runs at boot.
 # BCL campaign (2026-08-14): runs BEFORE every single start attempt --
 # including every iteration of a Restart=always crash loop, not just the
 # first. It decides, from a small durable marker (never from anything inside
@@ -126,7 +119,7 @@ WorkingDirectory={{THRONE_ROOT}}
 # already recorded in scripts/build-and-publish-dist.mjs, and hit again here
 # on 2026-08-26 during this very cutover. WorkingDirectory= above is the
 # throne root, so a bare filename is both correct and unambiguous.
-ExecStart={{NODE_BIN}} {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --exec {{NODE_BIN}} --path tsconfig.build.json
+ExecStart={{THRONE_ROOT}}/bin/throne-runtime {{THRONE_ROOT}}/node_modules/@nestjs/cli/bin/nest.js start --watch --exec {{THRONE_ROOT}}/bin/throne-runtime --path tsconfig.build.json
 # `Type=notify` start-up waits out `TimeoutStartSec=` before killing a unit
 # that never sends `READY=1` (unset here inherits the manager default,
 # ~90s). `READY=1` is now withheld until every long-lived worker with a

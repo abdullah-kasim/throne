@@ -14,6 +14,8 @@ export type PromptKind = (typeof PROMPT_KINDS)[number];
 
 const PASTED_CONTENT_TAG = /<\/?pasted_content\b[^>]*>/g;
 const DELIVERED_MESSAGE_NUMBER_AT_THE_END = /\[message \d+\]\s*$/;
+const OPENING_MESSAGE_TAG_AT_THE_START = /^\s*<message\d+>/;
+const CLOSING_MESSAGE_TAG_AT_THE_END = /<\/message\d+>\s*$/;
 const TASK_NOTIFICATION_OPENING = /^\s*<task-notification>/;
 const HARNESS_WRAPPER_OPENING = /^\s*<[a-z][\w-]*>/;
 
@@ -22,7 +24,11 @@ export function withPastedContentUnwrapped(prompt: string): string {
 }
 
 function isDeliveredAgentMessage(text: string): boolean {
-  return DELIVERED_MESSAGE_NUMBER_AT_THE_END.test(text);
+  return (
+    DELIVERED_MESSAGE_NUMBER_AT_THE_END.test(text) ||
+    OPENING_MESSAGE_TAG_AT_THE_START.test(text) ||
+    CLOSING_MESSAGE_TAG_AT_THE_END.test(text)
+  );
 }
 
 export function promptKindOf(prompt: string): PromptKind {

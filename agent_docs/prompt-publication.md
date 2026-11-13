@@ -4,7 +4,9 @@ Every throne-controlled line published into an agent prompt names its actor and
 scope, or it does not enter prompt context. Session-start hook narration must
 self-identify because it has no sender envelope. Opening prompts address the
 named agent and identify its identity, chain of command, and assignment scope.
-Queued notices and nudges use the shared `<sender> said: <message> [message <id>]` envelope;
+Queued notices and nudges use the shared envelope: `<message<id>>`, then
+`<sender> said: <message>`, then `</message<id>>`, each on its own line; a missing
+opening tag means the head was cut and a missing closing tag the tail;
 their message body states the work or observation that sender is addressing.
 
 Quoted authority remains authoritative. Agents must not guess that a

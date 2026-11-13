@@ -39,14 +39,15 @@ orchestrator applies it at every spawn and merge decision.
    run in their own pool of up to 7 concurrent Shadows that does not count
    against those 3. Merge serialization (item 3) is unchanged.
 8. **Honest serialization.** Shared-file conflicts, true dependencies,
-   integration slices, the assembled-candidate preflight, `99a`, `99b`, and
-   `99c` are strictly serialized. A seam slice (`NN_seam_<wave>`) intersects
+   integration slices, the assembled-candidate preflight, `99a`, `99b`, `99bs`
+   and `99c` are strictly serialized. A seam slice (`NN_seam_<wave>`) intersects
    every core path and therefore serializes against everything; a critique
    gate (`NNz_critique_<module>`) runs once its builder and the evidence tool
    have merged and never after `99a` has started; every gate whose builder
    has merged starts immediately, not in waves. `99a` runs only after every ordinary slice is
    merged and the tree is quiescent; `99b` runs only after explicit `99a`
-   `**Conformance outcome:** PASS`; `99c` runs only after explicit `99b` PASS.
+   `**Conformance outcome:** PASS`; `99bs` runs only after explicit `99b` PASS;
+   `99c` runs only after explicit `99bs` `**Spec outcome:** PASS`.
    A `99a` FAIL is corrective work for the owning Alpha — never something
    `99b` or `99c` proceeds past.
 9. **Pre-staging is preparation, never anticipation.** The serialization above
@@ -76,7 +77,7 @@ orchestrator applies it at every spawn and merge decision.
    — but do not start that Shadow before its dependency has merged: the start is
    permitted only once the dependency has merged. Both halves stay explicit,
    because a rule that says only "pre-stage" invites the early spawn it exists
-   to prevent. What this accelerates is the three-gate terminal chain `99a` → `99b` → `99c`
+   to prevent. What this accelerates is the terminal chain `99a` → `99b` → `99bs` → `99c`
    together with those dependent ordinary slices, and it
    relaxes none of the one-fresh-worker rule, the concurrency cap, or the
    quiescence rule: a pre-staged tree is preparation, not a running writer.

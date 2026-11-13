@@ -84,7 +84,6 @@ async function makeFakeHost(
     removeUnitFile: async (targetPath) => {
       installedFiles.delete(targetPath);
     },
-    resolveNodeBin: () => '/srv/mise/node/24.19.0/bin/node',
     ownedHerdrPath: () => '/srv/herdr/herdr',
     herdrCacheDirectory: () => '/srv/cache',
     installHerdr: async (options) => ({
@@ -168,15 +167,6 @@ test('a Mac where the Forgejo installer ran gets com.throne.forgejo rendered and
       ['bootstrap', `gui/${MAC_USER_ID}`, plistPath],
     ],
   );
-});
-
-test('the macOS Forgejo service runs the node version pinned in mise.toml', async () => {
-  const host = await makeFakeHost('darwin', true);
-  const result = await runInstallServices(host);
-  assert.equal(result.code, 0);
-  const renderedPlist = host.installedFiles.get(path.join(LAUNCH_AGENTS_DIR, FORGEJO_AGENT.basename));
-  const forgejoNodeBin = /<key>FORGEJO_NODE_BIN<\/key>\s*<string>([^<]*)<\/string>/.exec(renderedPlist ?? '')?.[1];
-  assert.equal(forgejoNodeBin, host.deps.resolveNodeBin(host.throneRoot));
 });
 
 test("install-services counts Forgejo as installed exactly when the installer's enabled marker sits in Forgejo's state directory", async (context) => {

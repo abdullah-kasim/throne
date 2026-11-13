@@ -1,0 +1,123 @@
+.where-i-stand .section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.where-i-stand .section-heading > :first-child {
+  margin-bottom: 0;
+}
+
+.where-i-stand section.subsection {
+  margin: 12px 0 0;
+  padding: 0 0 0 12px;
+  border: 0;
+  border-left: 3px solid var(--line);
+  border-radius: 0;
+}
+
+.where-i-stand .row-age button {
+  padding: 1px 0;
+  margin: -1px 0;
+  color: var(--muted);
+  text-align: left;
+  font-size: 14px;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.where-i-stand .row-age-exact {
+  margin-left: 8px;
+  color: var(--muted);
+}
+
+.where-i-stand .age-divider {
+  margin: 16px 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+
+.where-i-stand .archived {
+  margin-top: 12px;
+}
+
+.where-i-stand .archived-trigger {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.where-i-stand .archived-row > .archived-text,
+.where-i-stand div.archived-row > :first-child {
+  opacity: 0.8;
+}
+
+.where-i-stand section.subsection > .section-heading h3 {
+  font: 700 16px/1.3 system-ui, sans-serif;
+  margin: 0;
+}
+
+.where-i-stand section.subsection .entry h4 {
+  font: 600 16px/1.4 ui-monospace, monospace;
+  margin: 16px 0 4px;
+}
+
+.where-i-stand .events .unit-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 0 8px;
+  vertical-align: baseline;
+}
+
+.where-i-stand .events .archive-control button {
+  height: 24px;
+  padding: 0 8px;
+}
+
+@media (hover: hover) {
+  .where-i-stand .events .archive-control button {
+    opacity: 0;
+  }
+
+  .where-i-stand .events li:hover .archive-control button,
+  .where-i-stand .events li:focus-within .archive-control button {
+    opacity: 1;
+  }
+}
+
+.where-i-stand .archived-trigger::before {
+  content: "▶" / "";
+  display: inline-block;
+  width: 1.1em;
+  margin-right: 0.3em;
+  font-size: 0.75em;
+}
+
+.where-i-stand .archived-trigger[data-state="open"]::before {
+  content: "▼" / "";
+}
+
+.where-i-stand .archive-control {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.where-i-stand .events .archived-text {
+  margin-right: 8px;
+}
+
+.where-i-stand .events .archived-row .unit-controls {
+  margin-left: 0;
+}
+
+.where-i-stand .entry .archive-control {
+  flex: none;
+}

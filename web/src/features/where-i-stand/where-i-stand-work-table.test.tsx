@@ -134,31 +134,6 @@ test("the where-i-stand table merges an agent's entry into the row for the same 
   expect(titlesOf(page)).toEqual(WORK_TITLES);
 });
 
-test("the page draws no row for a superseded entry", async () => {
-  const supersededEntries = `## In flight
-
-### alpha-oldgiftcard
-- Links: Forgejo ${GIFT_CARD_FORGEJO_ADDRESS} · GitHub not on GitHub yet · Ticket no ticket
-- Kind: old page — Gift card page, first try
-- Where it stands: abandoned
-- Superseded by \`### alpha-giftcard\` on 2026-10-20
-
-### alpha-oldtour
-- Links: no pull request · ${BASKET_TOUR_ADDRESS} · Ticket ABC-12
-- Kind: explainer video — Basket tour, first cut
-- Where it stands: replaced
-Superseded by \`### stager-tour\` on 2026-10-20
-
-`;
-  const page = await openSamplePage(supersededEntries + SAMPLE_MARKDOWN);
-
-  expect(titlesOf(page)).toEqual(WORK_TITLES);
-  expect(linesOf(rowTitled(page, GIFT_CARD_TITLE)[1])).toEqual(["new page", GIFT_CARD_TITLE]);
-
-  await page.chooseTab("Now");
-  expect(page.headings(3)).toEqual(expect.arrayContaining(["alpha-oldgiftcard", "alpha-oldtour"]));
-});
-
 test("the where-i-stand page says when the records were read and names a host that could not be read", async () => {
   const page = await openSamplePage();
 
@@ -270,4 +245,53 @@ test("the review and teammates' tables come after the work table and do not join
 
   expect([...workSection(page).children].map((child) => child.tagName).slice(-4)).toEqual(["H3", "TABLE", "H3", "TABLE"]);
   expect(titlesOf(page).slice(0, 2)).toEqual(["Basket tour", BASKET_TITLE]);
+});
+
+const PAGE_ORDER_MARKDOWN = `## In flight
+
+### alpha-oven
+- Links: no pull request · branch alpha-oven · Ticket no ticket
+- Kind: bug fix — Keep the oven warm
+- Where it stands: building
+
+### alpha-tray
+- Links: no pull request · branch alpha-tray · Ticket no ticket
+- Kind: new page — Order baking trays
+- Where it stands: waiting on the supplier
+
+## On GitHub
+
+### alpha-receipts
+- Links: no pull request · \`b2c3d4e\` · Ticket no ticket
+- Kind: new page — Print receipts
+- Where it stands: merged
+
+### storefront#21
+- Links: no pull request · branch storefront#21 · Ticket no ticket
+- Kind: new page — Speed up checkout
+- Where it stands: review requested
+`;
+
+const OVEN_WORK_SECTION_ID = "s-oven-work";
+
+function backendWithTheStoresOrdering(): FakeBackend {
+  const backend = new FakeBackend(PAGE_ORDER_MARKDOWN, recordsWith({ rows: [] }));
+  const storedPage = backend.storedPage.bind(backend);
+  backend.storedPage = () => {
+    const page = storedPage();
+    const inFlight = page.listing.sections.find((section) => section.name === "In flight")!;
+    const lastPosition = Math.max(...page.listing.sections.map((section) => section.position));
+    const ovenWork = { ...inFlight, id: OVEN_WORK_SECTION_ID, parentId: inFlight.id, name: "Oven work", position: lastPosition + 2 };
+    const sections = [...page.listing.sections.map((section) => (section === inFlight ? { ...section, position: lastPosition + 1 } : section)), ovenWork];
+    const rows = page.rows.map((row) => (row.code === "alpha-tray" ? { ...row, sectionId: OVEN_WORK_SECTION_ID } : row));
+    return { ...page, listing: { ...page.listing, sections }, rows };
+  };
+  return backend;
+}
+
+test("the where-i-stand table keeps the page's order and names a subsection's rows by their top section", async () => {
+  const page = await openPage(backendWithTheStoresOrdering(), PULL_REQUESTS_HASH);
+
+  expect(titlesOf(page)).toEqual(["Keep the oven warm", "Order baking trays", "Print receipts", "Speed up checkout"]);
+  expect(linesOf(rowTitled(page, "Order baking trays")[2])).toEqual(["In flight", "waiting on the supplier"]);
 });

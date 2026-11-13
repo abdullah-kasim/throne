@@ -13,7 +13,7 @@ import {
 const guardedTestsRunner = path.join(path.dirname(fileURLToPath(import.meta.url)), "run-suite-guarded-tests.mjs");
 
 function runGuardedTestsWithEmptyCommands() {
-  const quietCommand = [process.execPath, "-e", ""];
+  const quietCommand = [process.execPath, "-e", "0"];
   return spawnSync(process.execPath, [guardedTestsRunner, "--guard", ...quietCommand, "--test", ...quietCommand], {
     encoding: "utf8",
   }).stdout;

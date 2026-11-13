@@ -26,7 +26,8 @@
 // file; `keep-going-nudge.ts` and `keep-going-regent-tending.ts` decide
 // *what*/*whether* to nudge and hand the target back here to send.
 
-import { resolveAgent } from '../herdr/herdr-runtime.service.ts';
+import { readAgent, resolveAgent } from '../herdr/herdr-runtime.service.ts';
+import { pageSupervisorWaitStalls } from '../supervisor-wait-monitor/page-supervisor-wait-stalls.ts';
 import { submitToAgentViaQueue } from '../throne-work/enqueue-heartbeat-message.ts';
 import { enqueueRegentResurrection } from '../throne-work/regent-resurrection.ts';
 import { getAgentStatusesRoster } from '../agent-statuses/agent-statuses-roster.ts';
@@ -108,6 +109,20 @@ const REAL_KEEP_GOING_DEPENDENCIES: KeepGoingDependencies = {
   getRoster: async () => getAgentStatusesRoster(),
   readStallEvidence,
   resolveHeartbeatRoot: async () => THRONE_ROOT,
+  pageSupervisorWaits: async (roster) =>
+    (
+      await pageSupervisorWaitStalls({
+        roster,
+        now: new Date(),
+        regentName: REGENT_NAME,
+        readPaneText: (name) => readAgent(name, { lines: 200 }),
+        page: async (page) => {
+          await submitToAgentViaQueue(await resolveAgent(page.recipient), 'keep-going', page.text, {
+            key: page.key,
+          });
+        },
+      })
+    ).length,
   readInFlightRowsWithoutLiveAlpha: () => readInFlightRowsWithoutLiveAlpha(),
   evaluateRegentFence: evaluateRegentFenceReal,
   runRegentFenceOrchestration,

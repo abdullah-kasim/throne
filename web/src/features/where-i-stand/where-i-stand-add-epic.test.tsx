@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { expect, test } from "vitest";
-import { SAVE_ALREADY_ON_ITS_WAY_WORDS } from "@/features/where-i-stand/save-page-unit";
+import { SAVE_ALREADY_ON_ITS_WAY_WORDS } from "@/features/where-i-stand/page-queries";
 import { EPICS_HASH, FakeBackend, openPage, SAMPLE_MARKDOWN, watchAnnouncements, type OpenedPage } from "@/features/where-i-stand/where-i-stand.test-support";
 
 const NEEDS_A_TITLE_WORDS = "Not saved: an epic needs a title.";
@@ -41,7 +41,7 @@ test("the Lord can add an epic with a title and notes from the Epics tab", async
   expect(page.headings(3)[0]).toBe("Bake for the harbour market");
   expect(titleField().value).toBe("");
   expect(notesField().value).toBe("");
-  expect(page.backend.saveBodies[0].loaded).toBe("## Epics");
+  expect(page.backend.saveBodies[0]).toMatchObject({ sectionId: page.backend.sectionId("Epics"), writer: "Lord", row: { kind: "epic", text: "Bake for the harbour market", freeLines: ["Ask about a stall.", "Price the rye."] } });
 });
 
 test("the Add epic form is hidden on every tab but Epics", async () => {
@@ -166,26 +166,6 @@ test("a title written to the page since it loaded is refused", async () => {
   expect(statusOf()).toBe("Not saved: that title is already on the page.");
 });
 
-test("a notes line that would start a section or an entry is refused and the notes are kept", async () => {
-  const page = await openPage(new FakeBackend(), EPICS_HASH);
-
-  for (const notes of ["Ask first.\n### About stalls", "Ask first.\n## About stalls"]) {
-    await submitEpic(page, "Bake for the harbour market", notes);
-
-    expect(page.backend.saveBodies).toEqual([]);
-    expect(statusOf()).toMatch(/^Not saved: .*Use #### or bold text\.$/);
-    expect(notesField().value).toBe(notes);
-  }
-});
-
-test("a fourth level heading in the notes stays in the epic", async () => {
-  const page = await openPage(new FakeBackend(), EPICS_HASH);
-
-  await submitEpic(page, "Bake for the harbour market", "Ask first.\n#### About stalls");
-
-  expect(page.backend.markdown).toMatch(/### Bake for the harbour market\n\nAsk first\.\n#### About stalls/);
-});
-
 test("what is typed in the Add epic form survives a page refresh and a change of tab", async () => {
   const page = await openPage(new FakeBackend(), EPICS_HASH);
   await fillIn(page, "Bake for the harbour", "Ask about");
@@ -201,7 +181,7 @@ test("what is typed in the Add epic form survives a page refresh and a change of
 
 test("a failed add keeps what was typed and shows why", async () => {
   const page = await openPage(new FakeBackend(), EPICS_HASH);
-  page.backend.answerToNextSaves = () => Response.json({ outcome: "lock-held", message: LOCK_HELD_WORDS }, { status: 409 });
+  page.backend.answerToNextSaves = () => Response.json({ outcome: "failed", message: LOCK_HELD_WORDS }, { status: 500 });
 
   await submitEpic(page, "Bake for the harbour market", "Ask about a stall.");
 
@@ -298,7 +278,7 @@ test("a late Add refusal takes away the words of an Add pressed while it travell
 
 async function startAddThatWillFail(page: OpenedPage, title: string) {
   let failTheSave = () => undefined as void;
-  page.backend.answerToNextSaves = () => new Promise((answer) => (failTheSave = () => answer(Response.json({ outcome: "lock-held", message: LOCK_HELD_WORDS }, { status: 409 }))));
+  page.backend.answerToNextSaves = () => new Promise((answer) => (failTheSave = () => answer(Response.json({ outcome: "failed", message: LOCK_HELD_WORDS }, { status: 500 }))));
   await page.user.type(titleField(), title);
   await page.user.click(addButton());
   await waitFor(() => expect(page.backend.saveBodies).toHaveLength(1));

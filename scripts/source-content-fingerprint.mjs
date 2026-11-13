@@ -10,7 +10,7 @@ import path from 'node:path';
 export const BUILD_INPUT_ENTRIES = [
   'src',
   'package.json',
-  'package-lock.json',
+  'bun.lock',
   'nest-cli.json',
   'tsconfig.json',
   'tsconfig.build.json',

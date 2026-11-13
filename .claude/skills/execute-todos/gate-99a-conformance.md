@@ -81,11 +81,16 @@ candidate: the named primitive was extended or called, or the bundle records
 concrete evidence (a missing guarantee, named) for not using it. A new
 function whose body duplicates an existing one in the target tree is a FAIL
 naming both, whatever the plan said. The check is mechanical where it can be:
-`git diff <base>..<candidate> --name-only`, then
-`npx jscpd@3.5.10 --silent --reporters json --output <dir> --format <languages> <tree>`
-on the base and on the candidate, and any clone pair present in the candidate
-report but absent from the base report is a new duplicate (jscpd 4 scans
-nothing silently; use 3.5.10). Code reuse decreases complexity; a duplicate
+`git diff <base>..<candidate> --name-only`, then `throne check-jscpd` (run
+the remedy it prints if it fails), then
+`jscpd --silent --reporters json --output <dir> --format <languages> <tree>`
+on the base and on the candidate, never through `npx`, and any clone pair
+present in the candidate report but absent from the base report is a new
+duplicate. jscpd exits 1 when it analyzes no files, but a file over
+`--max-size` (1mb by default) is skipped silently and a file shorter than
+`--min-tokens` is not counted as analyzed, so the pairs count only once every
+file passed is in the report's analyzed-file total or explained by one of
+those two causes. Code reuse decreases complexity; a duplicate
 that passed every test is still a defect.
 
 When the bundle has a `98_ticket_` todo, `99a` reads that todo's file and

@@ -16,6 +16,7 @@ import type { AgentStatus } from '../herdr/herdr-inventory.service.ts';
 import { agentStatusAcceptsInput } from '../herdr/herdr-inventory.service.ts';
 import {
   HARNESS_BACKGROUND_WORK_KINDS,
+  inOneProcessTablePass,
   readHarnessBackgroundWork,
   type HarnessBackgroundWork,
 } from '../process-inspection/harness-background-work.ts';
@@ -189,5 +190,5 @@ export async function getAgentStatusesRoster(
     new Set(completedNames),
     roles,
   );
-  return applyLiveBackgroundWorkCorrections(roster, dependencies.readHarnessBackgroundWork);
+  return inOneProcessTablePass(() => applyLiveBackgroundWorkCorrections(roster, dependencies.readHarnessBackgroundWork));
 }

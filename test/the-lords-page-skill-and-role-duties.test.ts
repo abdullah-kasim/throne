@@ -61,7 +61,7 @@ test('the skill says no agent touches an epic unless the Lord says so in words',
   assert.deepEqual(
     missingPhrases(await readSkillSection('where-i-stand', '## Writing rules for the page'), [
       'No agent adds, edits, closes or removes an epic unless the Lord says so in words.',
-      'A Stager he tells to add one edits `## Epics` under the lock, like any entry.',
+      'A Stager he tells to add one writes it into `## Epics` with `put`, like any entry.',
     ]),
     [],
   );
@@ -91,7 +91,8 @@ test("the where-i-stand skill answers in the terminal with the page's link only"
       'Add a second line only when the Lord must act before he opens it: the page could not be served, or a host could not be read.',
       'Do not print the page, do not summarize it, and do not wait for step 2.',
       'throne where-i-stand show > ~/tmp/where-i-stand-page.md',
-      '`path: <page path>` and `checksum: <sha256>` on standard error',
+      '`show` prints the page as Markdown generated from the database',
+      'It is read-only',
       'This copy is for you, not for the Lord',
     ]),
     [],
@@ -116,9 +117,9 @@ test("the where-i-stand skill answers in the terminal with the page's link only"
   );
   assert.deepEqual(
     missingPhrases(await readSkillSection('where-i-stand', STEP_HEADINGS[3]), [
-      'throne where-i-stand lock --checksum <checksum from show> --ttl 5m',
-      'remove an entry one day after its work merged or was abandoned',
-      'trim `## Just happened` to its newest 15 lines',
+      'throne where-i-stand list',
+      'archive an entry one day after its work merged or was abandoned',
+      '`## Just happened` keeps its newest 15 notes by itself.',
       'write every entry you add or correct in the entry form "Writing rules for the page" gives',
     ]),
     [],
@@ -132,55 +133,37 @@ test("the where-i-stand skill answers in the terminal with the page's link only"
   assert.ok(!skill.includes('--html'), 'no step names the removed --html page');
 });
 
-test('the where-i-stand skill has an agent edit one entry at a time under a lock it runs in the background', async () => {
+test('the where-i-stand skill has an agent list before it adds, and archive instead of removing', async () => {
   const correctionStep = await readSkillSection('where-i-stand', STEP_HEADINGS[3]);
   assert.deepEqual(
     missingPhrases(correctionStep, [
-      'Correct the page itself, at the path `show` printed.',
-      'Read the page at that path with your harness\'s own file tool.',
-      'Take the lock with your harness\'s own background run, never a shell `&`',
-      'when the page changed since your `show`: run `show`, read the page again, and take the lock with the new checksum',
-      'while another agent holds the lock, naming the holder',
-      'While the lock lasts it is safe to edit.',
-      'targeted replacement with your harness\'s edit tool, one entry at a time',
-      'Never rewrite the whole file',
-      'Stop the background lock with your harness\'s own way to stop a background command, then read its output.',
-      'it exits 3 instead of 0',
-      'the page is left as it is, so take the lock again and fix those headings',
-      'a note is refused while any lock is held',
+      'Every correction is a command; there is no file to edit.',
+      'throne where-i-stand put --code <objective code or repo#number> --section-id <id from list> --listing-token <token from list> --text-file <file>',
+      'when the structure changed since your `list` the add is refused with the current listing printed',
+      'throne where-i-stand archive <row or section id>',
+      'throne where-i-stand restore <row or section id>',
+      '`throne where-i-stand purge --dry-run`',
+      'nothing is ever deleted by hand',
     ]),
     [],
   );
   assert.ok(
-    correctionStep.indexOf('throne where-i-stand lock --checksum') < correctionStep.indexOf('Stop the background lock'),
-    'the lock is taken before it is stopped',
+    correctionStep.indexOf('throne where-i-stand list') < correctionStep.indexOf('throne where-i-stand put'),
+    'the listing comes before the add',
   );
 });
 
-test("the commands doc names the lock's exit codes and the files it keeps beside the page", async () => {
+test('the commands doc teaches list, the listing token, archive, restore and purge', async () => {
   const commandsDoc = unwrap(
     readMarkdownSection(await readFile(resolve(REPOSITORY_ROOT, 'agent_docs/commands.md'), 'utf8'), '## where-i-stand'),
   );
   assert.deepEqual(
     missingPhrases(commandsDoc, [
-      '3 a lock released with a broken frame',
-      '`where-i-stand.edit.lock`',
-      '`where-i-stand.journaled.md`',
-    ]),
-    [],
-  );
-});
-
-test('the where-i-stand skill says what each harness edit tool does about a stale read', async () => {
-  assert.deepEqual(
-    missingPhrases(await readSkillSection('where-i-stand', '## Edit tools and stale reads'), [
-      'No harness here refuses an edit to a file that changed since it was read.',
-      'Claude Code:',
-      'Codex: `apply_patch`',
-      'OpenCode:',
-      'The exact-text replacement limits an edit to the text it is given.',
-      'The checksum at `lock` proves the read is current',
-      'journaled with the writer `unknown`, and reported to the Regent',
+      './bin/throne-cli where-i-stand list',
+      '--section-id <id from list> --listing-token <token from list>',
+      './bin/throne-cli where-i-stand purge [--dry-run]',
+      '`--remove` archives the entry with that code.',
+      'It is read-only; there is no file to edit.',
     ]),
     [],
   );
@@ -199,6 +182,7 @@ test('no doc or skill tells an agent to write the whole page any more', async ()
     assert.ok(!text.includes('--based-on'), `${source} names no --based-on`);
     assert.ok(!text.includes('where-i-stand unlock'), `${source} names no unlock command`);
     assert.ok(!text.includes('where-i-stand write'), `${source} names no where-i-stand write`);
+    assert.ok(!/where-i-stand (lock|save)|--checksum/.test(text), `${source} names no lock, save or checksum`);
   }
 });
 
@@ -208,7 +192,7 @@ test('the where-i-stand skill puts the differences on the page, not in the termi
     missingPhrases(differencesStep, [
       'The differences go to the page, not the terminal.',
       'The table and its change lines already show what step 2\'s run found new, gone or changed.',
-      'put every correction into `where-i-stand.md` through step 4',
+      'put every correction onto the page through step 4',
       'When step 2 finishes, tell the Lord nothing more unless something now needs him.',
       'Then write at most one line naming it, with the link again.',
     ]),
@@ -294,7 +278,7 @@ test("the record step writes its entry in the page's entry form", async () => {
     missingPhrases(recordStep, [
       "Its first lines are the page's entry form, as the where-i-stand skill's \"Writing rules for the page\" gives it: `- Links: …`, `- Kind: …`, `- Where it stands: …`.",
       "Each of these writes starts the entry with the page's entry form, as step 2 does.",
-      'throne where-i-stand put --code <objective code> --section "<section>" --text-file <file>',
+      'throne where-i-stand put --code <objective code> --section-id <id from list> --listing-token <token from list> --text-file <file>',
     ]),
     [],
   );
@@ -302,7 +286,7 @@ test("the record step writes its entry in the page's entry form", async () => {
     missingPhrases(await readSkillSection('write-todos', '# The record step (`99d_record_<topic>.md`)', 'record-todo-template.md'), [
       "Start it with the page's entry form from the where-i-stand skill's \"Writing rules for the page\": its `- Links: …`, `- Kind: …` and `- Where it stands: …` lines.",
       'starting with its links, kind and where-it-stands lines',
-      'throne where-i-stand put --code <objective code> --section "<section>" --text-file <file>',
+      'throne where-i-stand put --code <objective code> --section-id <id from list> --listing-token <token from list> --text-file <file>',
     ]),
     [],
   );
@@ -318,7 +302,7 @@ test("AGENTS.md and the role files tell the Stager, the Alpha and the Regent whe
       "**An Alpha keeps its campaign's entry on the Lord's page.**",
       'At launch it moves the entry to `## In flight`',
       'it puts an entry under `## Needs you` with the question in one sentence, and adds a note',
-      'When it unblocks it removes that entry and adds a note',
+      'When it unblocks it archives that entry and adds a note',
       'At delivery it moves the entry to `## Delivered, not on GitHub` or `## On GitHub`',
       'Only the delivery write is enforced',
       "**The Regent writes the Lord's page when it abandons, defers or releases a row.**",
@@ -328,7 +312,7 @@ test("AGENTS.md and the role files tell the Stager, the Alpha and the Regent whe
 
   assert.deepEqual(
     missingPhrases(await readSkillSection('queue-objective', "### 6b. Put the row on the Lord's page"), [
-      'throne where-i-stand put --code <code> --section "Queued and deferred" --text-file <file>',
+      'throne where-i-stand put --code <code> --section-id <id from list> --listing-token <token from list> --text-file <file>',
       'throne where-i-stand note "filed <code>: <what it is in one line>"',
     ]),
     [],
@@ -358,10 +342,10 @@ test("every bundle ends with a step that records the outcome on the Lord's page"
   const planningSkill = await readSkill('write-todos');
   assert.deepEqual(
     missingPhrases(planningSkill, [
-      'Every bundle is bracketed by five auto-included bookends',
+      'Every bundle is bracketed by six auto-included bookends',
       '└── 99d_record_<topic>.md',
       "99d — Record the outcome on the Lord's page",
-      '`00`, `99a`, `99b`, `99c`, and `99d` are non-negotiable — every new bundle ships with all five.',
+      '`00`, `99a`, `99b`, `99bs`, `99c`, and `99d` are non-negotiable — every new bundle ships with all six.',
       'Then write `99d_record_<topic>.md` (see `record-todo-template.md`) with `deps: [99c]`',
     ]),
     [],
@@ -411,7 +395,7 @@ test("every bundle ends with a step that records the outcome on the Lord's page"
 test("a single-slice campaign records the outcome through its own record step", async () => {
   assert.deepEqual(
     missingPhrases(await readSkillSection('execute-todos', '## Single-slice mode — Lord-authorized only', 'single-slice-mode.md'), [
-      'all of `99a_conform_`, `99b_verify_`, `99c_deliver_` and `99d_record_`',
+      'all of `99a_conform_`, `99b_verify_`, `99bs_spec_`, `99c_deliver_` and `99d_record_`',
       "the record step on the Lord's page are the ordinary sections above and below, unchanged.",
     ]),
     [],
@@ -425,7 +409,7 @@ test('the record step corrects every other entry about the same work', async () 
       'a Forgejo pull request and its GitHub twin are the same work',
       'when neither has a pull request, the same ticket and the same commit or branch',
       '`throne forge status <pull request url> --json` (its `mergeTarget`) and write both',
-      'remove it, when your entry now says everything it said',
+      'when your entry now says everything it said',
       'correct its `Where it stands:` and state lines to the new truth and add one line ``Superseded by `### <objective code>` on <date>``',
       '`throne check-where-i-stand` refuses while such an older entry stands uncorrected, naming the entry and the line to fix.',
     ]),
@@ -434,7 +418,7 @@ test('the record step corrects every other entry about the same work', async () 
   const law = await readLawAndRoleFiles();
   assert.deepEqual(
     missingPhrases(law, [
-      'removes every other entry about the same work or marks it superseded, and adds a note',
+      'archives every other entry about the same work or marks it superseded, and adds a note',
       'and while an older entry about the same work stands uncorrected',
     ]),
     [],
@@ -472,7 +456,7 @@ test('the where-i-stand skill tells every role to supersede older entries about 
   );
   assert.deepEqual(
     missingPhrases(await readSkillSection('where-i-stand', STEP_HEADINGS[3]), [
-      'remove or mark superseded every other entry about the same work as an entry you corrected',
+      'archive or mark superseded every other entry about the same work as an entry you corrected',
     ]),
     [],
   );

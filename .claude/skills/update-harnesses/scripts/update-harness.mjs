@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 import {
   chmodSync,
@@ -198,9 +198,8 @@ function probeStagedHarness(config, binary, throneRoot) {
     env: { ...process.env, [config.binaryEnvironment]: binary },
   });
   results.push(`${config.launcher} --version with staged binary override`);
-  const tsLoader = path.join(throneRoot, 'test', 'register-typescript.mjs');
   const launcherResolutionTest = 'test/ompy-launcher.test.ts';
-  run(process.execPath, ['--import', tsLoader, '--test', launcherResolutionTest], {
+  run(process.execPath, ['test', `./${launcherResolutionTest}`], {
     cwd: throneRoot,
   });
   results.push(`${launcherResolutionTest} proves the shared binary-override resolution that ${config.launcher} also uses`);

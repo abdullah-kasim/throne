@@ -33,6 +33,7 @@ import {
 export { withTargetDeliveryLock } from "./merge-git-tree-transaction.ts";
 import type { TreeMergeTarget } from "./merge-git-tree-contracts.ts";
 export type { TreeMergeTarget } from "./merge-git-tree-contracts.ts";
+import { sendGoAheadAfterMerge } from "../supervisor-wait/send-go-ahead.ts";
 import { renderEntranceRefusal } from "../shared-policy/entrance-refusal.ts";
 import { DEFAULT_DATA_DIR } from "../agentdata/spawn-data-contracts.ts";
 import { refuseUnreconciledQueueAmendments } from "../amendment/merge-refusal.ts";
@@ -243,6 +244,7 @@ export interface MergeGitTreeDeps {
     commitHash: string,
     targetBranch: string,
   ) => ReturnType<typeof checkValidateDeliveryVerdict>;
+  sendGoAheadAfterMerge?: (name: string, dataDir: string | undefined) => Promise<string | undefined>;
   out?: (message: string) => void;
   err?: (message: string) => void;
 }
@@ -472,6 +474,12 @@ export async function run(
       out(
         `merge-git-tree: validate-delivery independently proved ${deliveredCommit}\n`,
       );
+      try {
+        const goAheadNotice = await (deps.sendGoAheadAfterMerge ?? sendGoAheadAfterMerge)(name, parsed.dataDir);
+        if (goAheadNotice !== undefined) out(goAheadNotice);
+      } catch (goAheadError) {
+        err(`merge-git-tree: recording the acceptance of "${name}" failed: ${(goAheadError as Error).message}; the merge stands\n`);
+      }
       return 0;
     },
     err,

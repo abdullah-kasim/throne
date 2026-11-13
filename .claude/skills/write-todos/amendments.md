@@ -68,5 +68,5 @@ row's highest amendment.
 after `99a` or `99b` has already passed makes that PASS stale: completion
 requires a fresh real Shadow re-run of every terminal gate the amendment
 invalidates — `99a` whenever the amendment changes what was asked for, `99b`
-whenever it changes code — over the amended bundle, before any `99c`
+and `99bs` whenever it changes code — over the amended bundle, before any `99c`
 delivery.

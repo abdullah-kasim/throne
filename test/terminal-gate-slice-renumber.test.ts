@@ -11,6 +11,7 @@ import {
   isTerminalGateShadowName,
   terminalGateRoleFromShadowName,
 } from "../src/merge-git-tree/terminal-gate-shadow.ts";
+import { isShadowSlice99Name } from "../src/config.ts";
 
 test("the three-gate chain classifies conform, verify and deliver by role word", () => {
   assert.equal(
@@ -61,4 +62,17 @@ test("non-gate and malformed names are not terminal gates at all", () => {
   assert.equal(terminalGateRoleFromShadowName("shadow-abc-01-build"), undefined);
   assert.equal(terminalGateRoleFromShadowName("alpha-abc-99c-deliver"), undefined);
   assert.equal(terminalGateRoleFromShadowName("shadow-abc-99az"), undefined);
+});
+
+test("a spec slice with no diff merges like a verify gate", () => {
+  assert.equal(terminalGateRoleFromShadowName("shadow-abc-99bs-spec"), "verdict");
+  assert.equal(terminalGateRoleFromShadowName("shadow-abc-99bs_spec_widgets"), "verdict");
+  assert.equal(isTerminalGateShadowName("shadow-abc-99bs-spec"), true);
+  assert.equal(isTerminalDeliveryShadowName("shadow-abc-99bs-spec"), false);
+});
+
+test("a spec slice is routed through the 99 gate pool", () => {
+  assert.equal(isShadowSlice99Name("shadow-abc-99bs-spec", "abc"), true);
+  assert.equal(isShadowSlice99Name("shadow-abc-99bs-spec"), true);
+  assert.equal(isShadowSlice99Name("shadow-abc-99bz-spec", "abc"), false);
 });

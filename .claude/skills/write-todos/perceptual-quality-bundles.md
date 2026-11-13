@@ -33,6 +33,25 @@ and the preset that produced it. Pin the command's exact invocation and the
 JSON keys in `01`'s `## Semantic contract`; every later critic gate cites
 them by name.
 
+**Independent cases run together, not one after another.** When the evidence
+tool has more than one independent case (presets, screens, fixtures), it starts
+those cases at the same time and collects every result. It runs cases serially
+only when two of them share one real machine, one lock, one account or one
+counter, and `01` says why in one sentence. Each case gets its own pane, port,
+temporary folder, data home and container name, chosen by the tool at run
+time, never fixed. The tool runs at most 6 cases at once by default, fewer when
+each case starts a browser, a container or a harness and the host shows
+strain. When you run several independent commands by hand, start them
+together (your harness's background mode, or one command that starts them all
+and waits for all), never one wait after another. Its JSON log records the wall-clock seconds of each case and of the
+whole run. So `01`'s `## Semantic contract` states which cases run together,
+the cap (6 unless it names a reason for fewer), and which cases run serially
+and why. A recipe app's tool that captures twelve screens starts six capture
+browsers at once, each on its own port and temporary folder. This rule does
+not reach the repository's own suites or the single assembled full-suite
+run; those keep their existing rules, including running that suite in the
+foreground.
+
 Every module slice additionally ships a **showcase entrypoint** — a mode that
 stages a representative scene of only that module, so the critic can grade
 the module in isolation before integration hides its defects.

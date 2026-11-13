@@ -11,8 +11,8 @@ const REPO_ROOT = path.resolve(new URL('..', import.meta.url).pathname);
 const COMPILE_STEP = 'step "Compile"';
 const COMPILED_ENTRYPOINT_CHECK = '[ -f dist/src/tools.js ] || die';
 const PRESSURE_BASELINE_STEP = 'step "Pressure baseline"';
-const HARNESSES_STEP = 'step "Harnesses (claude, codex)"';
-const FORM_BASELINE_COMMAND = 'node ./dist/src/tools.js resource-pressure --form-baseline';
+const NTFY_STEP = 'step "ntfy (phone notifications)"';
+const FORM_BASELINE_COMMAND = '"$runtime" ./dist/src/tools.js resource-pressure --form-baseline';
 const WARNING_MARKER = '\u001b[33m!\u001b[0m';
 const INSTALL_CONTINUED = 'install continued';
 
@@ -32,7 +32,7 @@ function positionOf(source: string, text: string): number {
 }
 
 function pressureBaselineStep(source: string): string {
-  return source.slice(positionOf(source, PRESSURE_BASELINE_STEP), positionOf(source, HARNESSES_STEP));
+  return source.slice(positionOf(source, PRESSURE_BASELINE_STEP), positionOf(source, NTFY_STEP));
 }
 
 function printingHelpers(source: string): string {
@@ -42,13 +42,13 @@ function printingHelpers(source: string): string {
     .join('\n');
 }
 
-async function folderWithRefusingNode(): Promise<string> {
+async function refusingRuntime(): Promise<string> {
   const folder = await mkdtemp(path.join(tmpdir(), 'install-pressure-baseline-'));
   scratch.push(folder);
-  const fakeNode = path.join(folder, 'node');
-  await writeFile(fakeNode, '#!/bin/sh\necho "disk busy 60% — the machine is not quiet"\nexit 1\n');
-  await chmod(fakeNode, 0o755);
-  return folder;
+  const fakeRuntime = path.join(folder, 'throne-runtime');
+  await writeFile(fakeRuntime, '#!/bin/sh\necho "disk busy 60% — the machine is not quiet"\nexit 1\n');
+  await chmod(fakeRuntime, 0o755);
+  return fakeRuntime;
 }
 
 test('the install runs the pressure baseline step after compiling and before the court starts', async () => {
@@ -56,28 +56,27 @@ test('the install runs the pressure baseline step after compiling and before the
   const compile = positionOf(source, COMPILE_STEP);
   const compiledEntrypointCheck = positionOf(source, COMPILED_ENTRYPOINT_CHECK);
   const pressureBaseline = positionOf(source, PRESSURE_BASELINE_STEP);
-  const harnesses = positionOf(source, HARNESSES_STEP);
+  const ntfy = positionOf(source, NTFY_STEP);
 
   assert.ok(compile < compiledEntrypointCheck);
   assert.ok(compiledEntrypointCheck < pressureBaseline);
-  assert.ok(pressureBaseline < harnesses);
+  assert.ok(pressureBaseline < ntfy);
   assert.ok(pressureBaselineStep(source).includes(FORM_BASELINE_COMMAND));
   assert.doesNotMatch(pressureBaselineStep(source), /\bdie\b/);
 });
 
 test('a refused pressure baseline prints one warning and does not fail the install', async () => {
   const source = await installScript();
-  const fakeBin = await folderWithRefusingNode();
+  const fakeRuntime = await refusingRuntime();
   const script = [
     'set -euo pipefail',
+    `runtime='${fakeRuntime}'`,
     printingHelpers(source),
     pressureBaselineStep(source),
     `echo "${INSTALL_CONTINUED}"`,
   ].join('\n');
 
-  const { stdout } = await execFileAsync('bash', ['-c', script], {
-    env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH ?? ''}` },
-  });
+  const { stdout } = await execFileAsync('bash', ['-c', script]);
 
   const warnings = stdout.split('\n').filter((line) => line.includes(WARNING_MARKER));
   assert.equal(warnings.length, 1);

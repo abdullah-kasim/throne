@@ -47,7 +47,7 @@ single-slice is the usual shape; its effort follows the row).
 ## 1. Read the pull request as it runs, not as it is described
 
 ```bash
-node .claude/skills/pr-address-feedback/threads.mjs <url>
+bun .claude/skills/pr-address-feedback/threads.mjs <url>
 <gh> pr view <n> --repo <owner>/<repo> --json title,body,baseRefName,headRefName,headRefOid,files
 <gh> pr diff <n> --repo <owner>/<repo>
 ```
@@ -169,8 +169,8 @@ throne forge stage <github url>
 Check the payload, then post the review:
 
 ```bash
-node .claude/skills/pr-review/pending-review.mjs <url> ~/tmp/review-<n>.json --dry-run
-node .claude/skills/pr-review/pending-review.mjs <url> ~/tmp/review-<n>.json
+bun .claude/skills/pr-review/pending-review.mjs <url> ~/tmp/review-<n>.json --dry-run
+bun .claude/skills/pr-review/pending-review.mjs <url> ~/tmp/review-<n>.json
 ```
 
 The url may be the Forgejo pull request or its staged GitHub twin; either
@@ -229,8 +229,8 @@ review from them, dry run first:
 
 ```bash
 throne forge pr review-findings <forgejo url> --out ~/tmp/review-<n>-github.json
-node .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github --dry-run
-node .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github
+bun .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github --dry-run
+bun .claude/skills/pr-review/pending-review.mjs <github url> ~/tmp/review-<n>-github.json --to-github
 ```
 
 The script pins the review to the head commit, omits the submit event (so

@@ -198,7 +198,7 @@ test("a port that is already taken does not stop the backend", async () => {
   await new Promise((resolve) => occupied.close(resolve));
 
   assert.equal(logged.length, 1);
-  assert.match(logged[0]!, new RegExp(`not listening on port ${takenPort}: .*EADDRINUSE`));
+  assert.match(logged[0]!, new RegExp(`not listening on port ${takenPort}: .*port ${takenPort} in use`));
 });
 
 test("the listener stops when the backend asks it to", async () => {

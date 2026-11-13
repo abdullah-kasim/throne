@@ -221,6 +221,26 @@ export async function isAncestor(root: string, ancestor: string, descendant: str
   );
 }
 
+export async function findCommitWithIdenticalTree(
+  root: string,
+  tip: string,
+  target: string,
+): Promise<string | undefined> {
+  const sharedBase = await readGitStatus(['merge-base', tip, target], root);
+  if (sharedBase.code !== 0) return undefined;
+  const tipTree = await runGit(['rev-parse', `${tip}^{tree}`], root);
+  const history = await runGit(
+    ['log', '--first-parent', '--format=%H %T', target, `^${sharedBase.stdout.trim()}`],
+    root,
+  );
+  return history
+    .split('\n')
+    .map((line) => line.trim().split(' '))
+    .filter(([, tree]) => tree === tipTree)
+    .map(([commit]) => commit!)
+    .at(-1);
+}
+
 async function isCandidateBehindRecordedDelivery(
   root: string,
   candidate: string,

@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { after, test } from 'node:test';
-import { provisionPinnedNode } from './pinned-node.support.ts';
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(new URL('..', import.meta.url).pathname);
@@ -222,7 +221,7 @@ async function buildFixture(): Promise<Fixture> {
     `if [ "$1" = git-identity ]; then printf '%s\\t%s\\t%s\\t%s\\n' '${IDENTITY_NAME}' '${IDENTITY_EMAIL}' ABCDEF openpgp; exit 0; fi`,
     'exit 2',
   ]);
-  await provisionPinnedNode(throneRoot, throneRoot);
+  await writeFakeExecutable(path.join(throneRoot, 'bin', 'throne-runtime'), [`exec "${process.execPath}" "$@"`]);
   await writeFakeCurl(fixture);
   await writeFakeUname(fixture, 'Linux');
   await writeFakeExecutable(path.join(fakeBin, 'systemctl'), [

@@ -178,7 +178,6 @@ export async function installDarwinServices(
       tokens: {
         throneRoot: options.throneRoot,
         herdrBin,
-        nodeBin: deps.resolveNodeBin(options.throneRoot),
       },
       dryRun: options.dryRun,
     })),

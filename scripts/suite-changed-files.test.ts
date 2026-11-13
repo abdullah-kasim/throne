@@ -45,7 +45,7 @@ test("the files changed against main are linted before the tests run", async () 
   assert.deepEqual(chooseLintTargets("[]"), { lintEverything: false, files: [] });
 
   const testIsolated = JSON.parse(readFileSync(path.join(repositoryRoot, "package.json"), "utf8")).scripts["test:isolated"];
-  const changedFilesLintAt = testIsolated.indexOf("node scripts/lint-changed-files.mjs");
+  const changedFilesLintAt = testIsolated.indexOf("bun scripts/lint-changed-files.mjs");
   assert.ok(changedFilesLintAt !== -1);
   assert.ok(changedFilesLintAt < testIsolated.indexOf("--test "));
 });

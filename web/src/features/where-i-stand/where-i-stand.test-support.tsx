@@ -1,16 +1,15 @@
-import type { PullRequestRecords, SaveRequest } from "@contract/where-i-stand.ts";
+import { entryEnd, ENTRY_HEADING_LEVEL, headingLevelOf, headingTextOf, SECTION_HEADING_LEVEL } from "@contract/page-entry-lines.ts";
+import type { PullRequestRecords, StoredPage, StoredRow, StoredSection, StoredTab } from "@contract/where-i-stand.ts";
 import { act, cleanup, createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { expect, vi } from "vitest";
 import { App } from "@/app/app";
-import { entryMeantHasChanged, removalLeavesLinesBehind, replaceUnitLines, unitIsRepeated } from "../../../../src/where-i-stand/page-save.ts";
 
 const PAGE_PATH = "/throne/where-i-stand/";
 const API_PATH = "/throne/api/";
-const EPICS_HEADING_LINE = "## Epics";
 const FILE_TIME = "2026-11-05T04:00:00.000Z";
 
-export const ENTRY_REPEATED_WORDS = "Not saved: this entry's text is on the page more than once, so the save cannot tell which one you mean, and nothing was overwritten.";
+export const EPIC_CHANGED_WORDS = "Not saved: this epic changed since it was loaded, and nothing was overwritten. Here is the current one.";
 
 export const EPICS_HASH = "#epics";
 export const BAKERY = "Open a second bakery";
@@ -105,46 +104,191 @@ interface HeldAnswer {
   readonly release: () => void;
 }
 
-function saveAnswer(outcome: string, message: string, status: number): Response {
-  return Response.json({ outcome, message }, { status });
+export type WriteBody = Record<string, unknown> & { readonly address: string; readonly method: string };
+
+const LISTING_TOKEN = "fake-listing-token";
+const FRAME: readonly (readonly [string, readonly string[]])[] = [
+  ["Now", ["Needs you", "Just happened", "In flight"]],
+  ["Epics", ["Epics"]],
+  ["Queue", ["Queued and deferred"]],
+  ["Delivered", ["Delivered, not on GitHub"]],
+  ["Pull requests", ["On GitHub"]],
+];
+const EPICS = "Epics";
+const ENTRY_FIELD_PATTERN = /^\s*[-*+]\s+(Links|Kind|Where it stands):\s*(.*)$/;
+
+interface MarkdownEntry {
+  readonly section: string;
+  readonly start: number;
+  readonly end: number;
+  readonly lines: readonly string[];
+  readonly kind: StoredRow["kind"];
+  readonly identity: string;
+}
+
+function writeAnswer(outcome: "done" | "refused", message: string, row?: StoredRow): Response {
+  return Response.json({ outcome, message, ...(row === undefined ? {} : { row }) }, { status: 200 });
+}
+
+function readMarkdownEntries(markdown: string): MarkdownEntry[] {
+  const lines = markdown.split("\n");
+  const entries: MarkdownEntry[] = [];
+  let section = "";
+  for (let position = 0; position < lines.length; position += 1) {
+    const level = headingLevelOf(lines[position]);
+    if (level === SECTION_HEADING_LEVEL) section = headingTextOf(lines[position]);
+    else if (level === ENTRY_HEADING_LEVEL) {
+      const end = entryEnd(lines, position);
+      entries.push({ section, start: position, end, lines: lines.slice(position, end), kind: section === EPICS ? "epic" : "work", identity: headingTextOf(lines[position]) });
+      position = end - 1;
+    } else if (lines[position].trim() !== "" && section !== "") {
+      entries.push({ section, start: position, end: position + 1, lines: [lines[position]], kind: "event", identity: lines[position].replace(/^\s*-\s+/, "") });
+    }
+  }
+  return entries;
+}
+
+function rowFieldsOf(entry: MarkdownEntry) {
+  if (entry.kind === "event") return { code: null, links: null, workKind: null, whereItStands: null, freeLines: [], text: entry.identity };
+  if (entry.kind === "epic") return { code: null, links: null, workKind: null, whereItStands: null, freeLines: entry.lines.slice(1), text: entry.identity };
+  const fields = new Map<string, string>();
+  const freeLines = entry.lines.slice(1).filter((line) => {
+    const field = ENTRY_FIELD_PATTERN.exec(line);
+    if (field !== null && !fields.has(field[1])) fields.set(field[1], field[2].trim());
+    return field === null;
+  });
+  return { code: entry.identity, links: fields.get("Links") ?? null, workKind: fields.get("Kind") ?? null, whereItStands: fields.get("Where it stands") ?? null, freeLines, text: "" };
 }
 
 export class FakeBackend {
   markdown: string;
   records: unknown;
-  archiveMarkdown = "";
   recordsAnswer: Response | null = null;
   pageIsUnreadable = false;
   networkIsDown = false;
-  answerToNextSaves: ((body: SaveRequest) => Promise<Response> | Response) | null = null;
+  answerToNextSaves: ((body: WriteBody) => Promise<Response> | Response) | null = null;
   holdPageReads = false;
   readonly heldPageReads: HeldAnswer[] = [];
   holdRecordsReads = false;
   readonly heldRecordsReads: HeldAnswer[] = [];
-  readonly saveBodies: SaveRequest[] = [];
+  readonly saveBodies: WriteBody[] = [];
   readonly addresses: string[] = [];
+  readonly archivedRows: StoredRow[] = [];
   answersOnTheirWay = 0;
+  private readonly rowIds = new Map<string, string>();
+  private readonly lastSeen = new Map<string, { text: string; writtenAt: string; changedAt: string }>();
+  private lastTime = new Date(FILE_TIME).getTime();
+  private nextId = 1;
 
   constructor(markdown = SAMPLE_MARKDOWN, records: unknown = SAMPLE_RECORDS) {
     this.markdown = markdown;
     this.records = records;
   }
 
-  private saveToThePage(change: SaveRequest): Response {
-    const { loaded } = change;
-    if (loaded === EPICS_HEADING_LINE && !this.markdown.includes(EPICS_HEADING_LINE)) this.markdown = `${this.markdown}\n${EPICS_HEADING_LINE}\n`;
-    if (unitIsRepeated(this.markdown, change)) return saveAnswer("entry-repeated", ENTRY_REPEATED_WORDS, 409);
-    const saved = replaceUnitLines(this.markdown, change);
-    if (saved === undefined || removalLeavesLinesBehind(this.markdown, change) || entryMeantHasChanged(this.markdown, change)) return saveAnswer("entry-changed", "Not saved: this entry changed since the page loaded, and nothing was overwritten.", 409);
-    this.markdown = saved;
-    return saveAnswer("saved", "Saved.", 200);
+  private freshTime(): string {
+    this.lastTime = Math.max(Date.now(), this.lastTime + 1);
+    return new Date(this.lastTime).toISOString();
+  }
+
+  private sectionNames(): string[] {
+    const named = readMarkdownEntries(this.markdown).map(({ section }) => section);
+    const sectionLines = this.markdown.split("\n").filter((line) => headingLevelOf(line) === SECTION_HEADING_LEVEL).map(headingTextOf);
+    const framed = FRAME.flatMap(([, sections]) => sections);
+    return [...new Set([...framed, ...sectionLines, ...named])];
+  }
+
+  sectionId(name: string): string {
+    return `s${this.sectionNames().indexOf(name) + 1}`;
+  }
+
+  private tabs(): StoredTab[] {
+    return FRAME.map(([name], position) => ({ id: `t${position + 1}`, name, position, writtenAt: FILE_TIME, writtenBy: "fixture", changedAt: FILE_TIME, changedBy: "fixture", archivedAt: null, archivedBy: null }));
+  }
+
+  private sections(): StoredSection[] {
+    return this.sectionNames().map((name, position) => {
+      const tabPosition = FRAME.findIndex(([, sections]) => sections.includes(name));
+      return { id: this.sectionId(name), tabId: `t${Math.max(tabPosition, 0) + 1}`, parentId: null, name, position, writtenAt: FILE_TIME, writtenBy: "fixture", changedAt: FILE_TIME, changedBy: "fixture", archivedAt: null, archivedBy: null };
+    });
+  }
+
+  private rowOf(entry: MarkdownEntry, occurrence: number): StoredRow {
+    const key = `${entry.section}\n${entry.identity}\n${occurrence}`;
+    if (!this.rowIds.has(key)) this.rowIds.set(key, `r${this.nextId++}`);
+    const id = this.rowIds.get(key)!;
+    const text = entry.lines.join("\n");
+    const seen = this.lastSeen.get(id);
+    const times = seen === undefined ? { text, writtenAt: FILE_TIME, changedAt: FILE_TIME } : seen.text === text ? seen : { text, writtenAt: seen.writtenAt, changedAt: this.freshTime() };
+    this.lastSeen.set(id, times);
+    return { id, sectionId: this.sectionId(entry.section), kind: entry.kind, ...rowFieldsOf(entry), writtenDateIsEstimate: false, position: 0, writtenAt: times.writtenAt, writtenBy: "fixture", changedAt: times.changedAt, changedBy: "fixture", archivedAt: null, archivedBy: null };
+  }
+
+  private liveRows(): { entry: MarkdownEntry; row: StoredRow }[] {
+    const occurrences = new Map<string, number>();
+    return readMarkdownEntries(this.markdown).map((entry) => {
+      const key = `${entry.section}\n${entry.identity}`;
+      const occurrence = (occurrences.get(key) ?? 0) + 1;
+      occurrences.set(key, occurrence);
+      return { entry, row: this.rowOf(entry, occurrence) };
+    });
+  }
+
+  storedPage(): StoredPage {
+    const archivedRowCounts: Record<string, number> = {};
+    for (const row of this.archivedRows) archivedRowCounts[row.sectionId] = (archivedRowCounts[row.sectionId] ?? 0) + 1;
+    return { now: new Date().toISOString(), listing: { tabs: this.tabs(), sections: this.sections(), listingToken: LISTING_TOKEN }, rows: this.liveRows().map(({ row }) => row), archivedRowCounts };
+  }
+
+  private withoutLines(start: number, end: number): string {
+    const lines = this.markdown.split("\n");
+    const blankAfter = lines[end]?.trim() === "" ? 1 : 0;
+    lines.splice(start, end - start + blankAfter);
+    return lines.join("\n");
+  }
+
+  private withEpicAdded(lines: readonly string[]): string {
+    const epicsHeading = `## ${EPICS}`;
+    const markdown = this.markdown.includes(epicsHeading) ? this.markdown : `${this.markdown}\n${epicsHeading}\n`;
+    return markdown.replace(`${epicsHeading}\n`, `${epicsHeading}\n\n${lines.join("\n")}\n`);
+  }
+
+  private write(address: string, method: string, body: Record<string, unknown>): Response {
+    const live = this.liveRows();
+    const rowId = /rows\/(r\d+)/.exec(address)?.[1];
+    const found = live.find(({ row }) => row.id === rowId);
+    if (method === "PUT") {
+      if (found === undefined) return writeAnswer("refused", `There is no row ${rowId}.`);
+      if (body.loadedChangedAt !== found.row.changedAt) return writeAnswer("refused", EPIC_CHANGED_WORDS, found.row);
+      const freeLines = (body.row as { freeLines: string[] }).freeLines;
+      const lines = this.markdown.split("\n");
+      lines.splice(found.entry.start, found.entry.end - found.entry.start, found.entry.lines[0], ...freeLines);
+      this.markdown = lines.join("\n");
+      return writeAnswer("done", `Saved ${rowId}.`, this.liveRows().find(({ row }) => row.id === rowId)?.row);
+    }
+    if (address.endsWith("/archive")) {
+      if (found === undefined) return writeAnswer("refused", `There is no row ${rowId}.`);
+      if (body.loadedChangedAt !== undefined && body.loadedChangedAt !== found.row.changedAt) return writeAnswer("refused", `Not archived: row ${rowId} changed since it was loaded.`, found.row);
+      this.markdown = this.withoutLines(found.entry.start, found.entry.end);
+      this.archivedRows.unshift({ ...found.row, archivedAt: this.freshTime(), archivedBy: "Lord" });
+      return writeAnswer("done", `Archived ${rowId}.`);
+    }
+    if (address.endsWith("/restore")) {
+      const archived = this.archivedRows.findIndex(({ id }) => id === rowId);
+      if (archived === -1) return writeAnswer("refused", `There is no archived row ${rowId}.`);
+      const [row] = this.archivedRows.splice(archived, 1);
+      if (row.kind === "epic") this.markdown = this.withEpicAdded([`### ${row.text}`, ...row.freeLines]);
+      return writeAnswer("done", `Restored ${rowId}.`);
+    }
+    const added = body.row as { text: string; freeLines: string[] };
+    this.markdown = this.withEpicAdded([`### ${added.text}`, ...(added.freeLines.length === 0 ? [] : ["", ...added.freeLines])]);
+    return writeAnswer("done", "Added.");
   }
 
   private async answerPageRead(): Promise<Response> {
-    const markdownWhenAsked = this.markdown;
+    const pageWhenAsked = this.storedPage();
     if (this.holdPageReads) await new Promise<void>((release) => this.heldPageReads.push({ release }));
     if (this.pageIsUnreadable) return Response.json({ outcome: "failed", message: "gone" }, { status: 500 });
-    return Response.json({ markdown: markdownWhenAsked, lastModified: FILE_TIME });
+    return Response.json(pageWhenAsked);
   }
 
   private async answerRecordsRead(): Promise<Response> {
@@ -153,14 +297,16 @@ export class FakeBackend {
   }
 
   private async route(address: string, options?: RequestInit): Promise<Response> {
-    if (options?.method === "POST") {
-      const body = JSON.parse(String(options.body)) as SaveRequest;
+    const method = options?.method ?? "GET";
+    if (method !== "GET") {
+      const body = { ...(JSON.parse(String(options?.body)) as Record<string, unknown>), address, method };
       this.saveBodies.push(body);
-      return this.answerToNextSaves === null ? this.saveToThePage(body) : this.answerToNextSaves(body);
+      return this.answerToNextSaves === null ? this.write(address, method, body) : this.answerToNextSaves(body);
     }
     if (address.endsWith("/health")) return Response.json({ ok: true });
-    if (address.endsWith("/where-i-stand/page")) return this.answerPageRead();
-    if (address.endsWith("/where-i-stand/archive")) return Response.json({ markdown: this.archiveMarkdown });
+    if (address.endsWith("/where-i-stand/store/page")) return this.answerPageRead();
+    const archivedOf = /sections\/(s\d+)\/archived-rows$/.exec(address)?.[1];
+    if (archivedOf !== undefined) return Response.json({ rows: this.archivedRows.filter(({ sectionId }) => sectionId === archivedOf) });
     return this.answerRecordsRead();
   }
 
@@ -180,7 +326,7 @@ export class FakeBackend {
     const released = new Promise<void>((resolve) => (release = resolve));
     this.answerToNextSaves = async (body) => {
       await released;
-      return this.saveToThePage(body);
+      return this.write(body.address, body.method, body);
     };
     return () => release();
   }

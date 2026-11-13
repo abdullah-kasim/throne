@@ -9,6 +9,7 @@ const DIRECT_FLAG = "--direct";
 const AT_FLAG = "--at";
 const AFTER_FLAG = "--after";
 const PROMPT_FILE_FLAG = "--prompt-file";
+const ENTER_ONLY_FLAG = "--enter-only";
 
 /**
  * Names a caller plausibly reaches for when they mean `--prompt-file`.
@@ -75,6 +76,8 @@ const USAGE =
   `[${DIRECT_FLAG}]\n` +
   `[${AT_FLAG} <RFC3339-with-timezone> | ${AFTER_FLAG} <duration>]\n` +
   `[${PROMPT_FILE_FLAG} <path> | ${PROMPT_FILE_FLAG} - (stdin)]\n` +
+  `send-agent <recipient-name> ${ENTER_ONLY_FLAG} presses Enter once in the ` +
+  "recipient's input box, takes no lock, enqueues nothing, and refuses only a dialog or an unreadable box.\n" +
   `${CLEAR_BLOCKED_FLAG} explicitly clears the recipient's durable blocked ` +
   "marker as part of this send, independent of the message content.\n" +
   "By default send-agent enqueues one durable work item and exits " +
@@ -121,6 +124,7 @@ export interface SendAgentInput {
   readonly key?: string;
   readonly clearBlocked: boolean;
   readonly direct: boolean;
+  readonly enterOnly?: true;
   readonly scheduled?: ScheduledSendTiming;
 }
 
@@ -183,6 +187,7 @@ export function parseSendAgentInput(
   let key: string | undefined;
   let clearBlocked = false;
   let direct = false;
+  let enterOnly = false;
   let at: string | undefined;
   let after: string | undefined;
   let promptFile: string | undefined;
@@ -192,6 +197,8 @@ export function parseSendAgentInput(
       clearBlocked = true;
     } else if (argument === DIRECT_FLAG) {
       direct = true;
+    } else if (argument === ENTER_ONLY_FLAG) {
+      enterOnly = true;
     } else if (argument === AT_FLAG) {
       if (at !== undefined) throw new Error(`duplicate ${AT_FLAG} flag`);
       at = readFlagValue(args, index, AT_FLAG);
@@ -268,6 +275,12 @@ export function parseSendAgentInput(
     throw new Error(
       `pass either a prompt argument or ${PROMPT_FILE_FLAG}, not both`,
     );
+  }
+  if (enterOnly) {
+    if (promptFile !== undefined || promptParts.length > 0 || at !== undefined || after !== undefined) {
+      throw new Error(`${ENTER_ONLY_FLAG} takes no message, ${PROMPT_FILE_FLAG}, ${AT_FLAG} or ${AFTER_FLAG}`);
+    }
+    return { recipientName: canonicalIdentityName(recipientName), prompt: "", clearBlocked, direct, enterOnly: true };
   }
   if (promptFile === undefined && promptParts.length === 0)
     throw new Error("missing required prompt");

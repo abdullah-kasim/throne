@@ -49,7 +49,7 @@ import {
 } from './delivery-receipt-check-test-fixtures.ts';
 
 const INLINE_LIMIT_BYTES = 768;
-const POINTER_LINE = /said: Large message — read then delete: .+ read-payload "[^"]+" \[message \d+\]$/u;
+const POINTER_LINE = /^<message(\d+)>\n.*said: Large message — read then delete: .+ read-payload "[^"]+"\n<\/message\1>$/u;
 const OPENING_PROMPT =
   `You are \`${RECIPIENT_NAME}\` (Shadow). Your supervisor is \`${SENDER_NAME}\`. ` +
   'Read your assignment from the ledger, do the work in your own worktree, and report when it is done.';
@@ -124,14 +124,16 @@ test('a delivery notice is never itself receipt-checked', async () => {
   });
 });
 
-test('a delivery notice is typed ending with the command that reads the message', async () => {
+test('a delivery notice carries both tags around the command that reads the message', async () => {
   await withReceiptCheckScene(async (scene) => {
     const pane = typingPane(scene);
     enqueueNoticeFor(scene, 41);
     const delivered = await deliverQueuedMessage(scene, pane.submitToAgent);
     assert.equal(delivered.state, MessageQueueWorkItemState.Delivered, delivered.failureReason ?? '');
-    assert.deepEqual(pane.typedTexts, [buildDeliveryNotice('truncated', 41, SENDER_NAME)]);
-    assert.ok(pane.typedTexts[0]!.endsWith(`${READ_MESSAGE_COMMAND_LINE} 41`));
+    assert.deepEqual(pane.typedTexts, [
+      `<message${delivered.id}>\n${buildDeliveryNotice('truncated', 41, SENDER_NAME)}\n</message${delivered.id}>`,
+    ]);
+    assert.ok(pane.typedTexts[0]!.includes(`${READ_MESSAGE_COMMAND_LINE} 41\n</message${delivered.id}>`));
   });
 });
 
@@ -166,10 +168,12 @@ test('a clipped opening prompt earns one notice and is never pasted a second tim
     );
     const delivered = await deliverQueuedMessage(scene, pane.submitToAgent);
     assert.equal(delivered.state, MessageQueueWorkItemState.Delivered, delivered.failureReason ?? '');
-    assert.deepEqual(pane.typedTexts, [`${OPENING_PROMPT} [message ${delivered.id}]`]);
+    assert.deepEqual(pane.typedTexts, [
+      `<message${delivered.id}>\n${OPENING_PROMPT}\n</message${delivered.id}>`,
+    ]);
     await writeRecipientTranscript(
       scene,
-      userTurn(`${TAIL_THAT_SURVIVED_THE_CLIP} [message ${delivered.id}]`),
+      userTurn(`${TAIL_THAT_SURVIVED_THE_CLIP}\n</message${delivered.id}>`),
     );
     const check = await runReceiptCheckAfter(scene, FIRST_RECEIPT_CHECK_DELAY_MS);
     assert.equal(outcomeOf(scene, check), 'truncated');

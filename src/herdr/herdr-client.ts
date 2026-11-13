@@ -1,8 +1,10 @@
 import { execFile, spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Injectable } from '@nestjs/common';
 import { RecipientPaneLockService } from '../shared-policy/recipient-pane-lock.service.ts';
+import { executeHerdrOverSocketOrCommandLine } from './herdr-socket.ts';
 
 export const OWNED_HERDR_CLIENT_RELEASE_TAG = 'v0.9.5';
 
@@ -31,13 +33,6 @@ export class DuplicateAgentNameAcrossSessionsError extends Error {
     );
   }
 }
-/** The wire protocol `OWNED_HERDR_CLIENT_RELEASE_TAG` actually speaks, as
- *  reported by `herdr --session <name> status`. Verified against the pinned
- *  release, never assumed: v0.8.2 reports 20 — read from the new binary's
- *  own live `status server --json` inside the isolated rehearsal session on
- *  2026-08-24, not inferred from the mismatch error text. (v0.8.0 reported
- *  19.) An incorrect value here rejects a perfectly good server as
- *  incompatible. Re-read it from the binary whenever the pinned tag moves. */
 export const THRONE_HERDR_PROTOCOL = '22';
 export const CODEX_HERDR_READ_TIMEOUT_MS = 10_000;
 export const THRONE_HERDR_SESSION = THRONE_HERDR_SESSION_NAME;
@@ -88,7 +83,7 @@ const MUTATING_HERDR_COMMANDS = new Set([
   'tab rename',
 ]);
 
-function isMutatingHerdrCommand(commandArgs: readonly string[]): boolean {
+export function isMutatingHerdrCommand(commandArgs: readonly string[]): boolean {
   return MUTATING_HERDR_COMMANDS.has(`${commandArgs[0] ?? ''} ${commandArgs[1] ?? ''}`);
 }
 
@@ -129,6 +124,33 @@ export function isHerdrServerNotRunning(failure: unknown): boolean {
     failure instanceof NestHerdrCommandError &&
     failure.code === HERDR_SERVER_NOT_RUNNING_ERROR_CODE
   );
+}
+
+const HERDR_ERROR_CODES_MEANING_THE_SERVER_CHANGED = new Set([
+  HERDR_SERVER_NOT_RUNNING_ERROR_CODE,
+  'server_unavailable',
+  'protocol_mismatch',
+]);
+
+export function herdrFailureMeansServerChanged(failure: unknown): boolean {
+  return (
+    failure instanceof NestHerdrCommandError &&
+    failure.code !== undefined &&
+    HERDR_ERROR_CODES_MEANING_THE_SERVER_CHANGED.has(failure.code)
+  );
+}
+
+type HerdrExecute = HerdrReadOnlyClientDependencies['executeHerdrReadOnly'];
+
+const compatibleHerdrByExecute = new WeakMap<HerdrExecute, string>();
+
+function herdrIdentity(executablePath: string): string {
+  try {
+    const binary = statSync(executablePath);
+    return [executablePath, binary.ino, binary.size, binary.mtimeMs, THRONE_HERDR_SESSION_NAME].join('|');
+  } catch {
+    return [executablePath, 'unreadable', THRONE_HERDR_SESSION_NAME].join('|');
+  }
 }
 
 export const HERDR_PANE_NOT_FOUND_ERROR_CODE = 'pane_not_found';
@@ -214,6 +236,14 @@ export function executeHerdrReadOnly(
   args: readonly string[],
   options: { env?: NodeJS.ProcessEnv; timeoutMilliseconds?: number } = {},
 ): Promise<HerdrReadOnlyResult> {
+  return executeHerdrOverSocketOrCommandLine(executablePath, args, options, launchHerdr);
+}
+
+function launchHerdr(
+  executablePath: string,
+  args: readonly string[],
+  options: { env?: NodeJS.ProcessEnv; timeoutMilliseconds?: number },
+): Promise<HerdrReadOnlyResult> {
   return new Promise((resolve, reject) => {
     execFile(
       executablePath,
@@ -253,7 +283,6 @@ export const DEFAULT_HERDR_PROCESS_BOUNDARY: HerdrProcessBoundary = {
 };
 
 @Injectable()
-@Injectable()
 export class HerdrClientService {
   readonly dependencies: HerdrReadOnlyClientDependencies;
 
@@ -280,10 +309,30 @@ export class HerdrClientService {
     if (isMutatingHerdrCommand(commandArgs)) {
       await this.preflightCompatibility();
     }
-    return this.execute(commandArgs);
+    return this.forgettingCompatibilityWhenTheServerChanged(this.execute(commandArgs));
+  }
+
+  async forgettingCompatibilityWhenTheServerChanged<Result>(call: Promise<Result>): Promise<Result> {
+    try {
+      return await call;
+    } catch (failure) {
+      if (herdrFailureMeansServerChanged(failure)) {
+        compatibleHerdrByExecute.delete(this.dependencies.executeHerdrReadOnly);
+      }
+      throw failure;
+    }
   }
 
   async preflightCompatibility(): Promise<void> {
+    const execute = this.dependencies.executeHerdrReadOnly;
+    const identity = herdrIdentity(this.dependencies.ownedHerdrClientPath());
+    if (compatibleHerdrByExecute.get(execute) === identity) return;
+    compatibleHerdrByExecute.delete(execute);
+    await this.checkCompatibility();
+    compatibleHerdrByExecute.set(execute, identity);
+  }
+
+  private async checkCompatibility(): Promise<void> {
     const version = await this.execute(['--version']);
     const status = await this.execute(['status', 'server', '--json']);
     const expectedVersion = `herdr ${OWNED_HERDR_CLIENT_RELEASE_TAG.slice(1)}`;
@@ -352,7 +401,10 @@ export async function writeToPaneHoldingItsLock(
   paneId: string,
   write: () => Promise<unknown>,
 ): Promise<void> {
-  await PANE_LOCK.withRecipientPaneLock(paneId, write);
+  await PANE_LOCK.withRecipientPaneLock(paneId, async () => {
+    await PANE_LOCK.confirmStillOwnsPaneLock(paneId);
+    await write();
+  });
 }
 
 
@@ -386,10 +438,10 @@ export function runHerdr(
     invocation.args,
     options,
   );
-  if (isMutatingHerdrCommand(args)) {
-    return client.preflightCompatibility().then(execute);
-  }
-  return execute();
+  const call = isMutatingHerdrCommand(args)
+    ? client.preflightCompatibility().then(execute)
+    : execute();
+  return client.forgettingCompatibilityWhenTheServerChanged(call);
 }
 
 export function runHerdrInSession(
@@ -431,6 +483,13 @@ export function sendText(target: string, text: string): Promise<void> {
 
 export function pressEnter(pane: string): Promise<void> {
   return DEFAULT_CLIENT.pressEnter(pane);
+}
+
+export async function pressEnterIgnoringLocks(
+  pane: string,
+  processBoundary: HerdrProcessBoundary = DEFAULT_HERDR_PROCESS_BOUNDARY,
+): Promise<void> {
+  await runHerdr(['pane', 'send-keys', pane, 'Enter'], processBoundary);
 }
 
 export function pressPaneKey(pane: string, key: string): Promise<void> {

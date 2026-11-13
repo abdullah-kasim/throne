@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -62,12 +62,12 @@ const HARNESSES = [
   { name: 'codex', executable: 'codex' },
 ];
 const HERDR_SESSION = 'throne';
-const LOCKFILE = 'package-lock.json';
+const LOCKFILE = 'bun.lock';
 const VERSION_IN_OUTPUT = /\d+\.\d+\.\d+\S*/;
-const NODE_PIN_LINE = /^\s*node\s*=\s*"([^"]+)"/m;
+const BUN_PIN_LINE = /^\s*bun\s*=\s*"([^"]+)"/m;
 const HARNESS_MOVED_LINE = /^update-harness: \S+ moved from (\S+) to (\S+)$/m;
 const UNKNOWN_VERSION = 'unknown';
-const NODE_ON_PATH = 'node';
+const BUN_ON_PATH = 'bun';
 const SHORT_COMMIT_LENGTH = 12;
 const HARNESS_UPDATER = path.join('.claude', 'skills', 'update-harnesses', 'scripts', 'update-harness.mjs');
 const HERDR_UPGRADER = path.join('scripts', 'herdr-upgrade.mjs');
@@ -138,7 +138,7 @@ function lockfileHash(contents) {
 }
 
 function installedLockfileStampPath(root) {
-  return path.join(root, 'vendor', '.stamps', 'npm-deps');
+  return path.join(root, 'vendor', '.stamps', 'dependencies');
 }
 
 function readInstalledLockfileHash(root) {
@@ -244,25 +244,25 @@ function runStep(context, say, label, command, args) {
   return result.stdout;
 }
 
-function pinnedNodeBinary(context) {
-  const version = NODE_PIN_LINE.exec(readFileSync(path.join(context.root, 'mise.toml'), 'utf8'))?.[1];
-  return path.join(context.home, '.local', 'share', 'mise', 'installs', 'node', String(version), 'bin', 'node');
+function pinnedBunBinary(context) {
+  const version = BUN_PIN_LINE.exec(readFileSync(path.join(context.root, 'mise.toml'), 'utf8'))?.[1];
+  return path.join(context.home, '.local', 'share', 'mise', 'installs', 'bun', String(version), 'bin', 'bun');
 }
 
-function installPinnedNode(context, say) {
-  if (!existsSync(pinnedNodeBinary(context))) runStep(context, say, 'mise install node', 'mise', ['install', 'node']);
+function installPinnedBun(context, say) {
+  if (!existsSync(pinnedBunBinary(context))) runStep(context, say, 'mise install bun', 'mise', ['install', 'bun']);
 }
 
-function withPinnedNodeFirstOnPath(context) {
-  const nodeFolder = path.dirname(pinnedNodeBinary(context));
-  const env = { ...process.env, PATH: `${nodeFolder}${path.delimiter}${process.env.PATH}` };
+function withPinnedBunFirstOnPath(context) {
+  const bunFolder = path.dirname(pinnedBunBinary(context));
+  const env = { ...process.env, PATH: `${bunFolder}${path.delimiter}${process.env.PATH}` };
   return { ...context, runProcess: (command, args, options = {}) => context.runProcess(command, args, { env, ...options }) };
 }
 
 function installDependencies(context, say) {
   const lockfile = readFileSync(path.join(context.root, LOCKFILE));
   if (dependenciesAreCurrent(context.root, lockfile)) return;
-  runStep(context, say, 'npm ci', 'npm', ['ci', '--no-audit', '--no-fund']);
+  runStep(context, say, 'bun install', 'bun', ['install', '--frozen-lockfile']);
   mkdirSync(path.dirname(installedLockfileStampPath(context.root)), { recursive: true });
   writeFileSync(installedLockfileStampPath(context.root), `${lockfileHash(lockfile)}\n`);
 }
@@ -270,7 +270,7 @@ function installDependencies(context, say) {
 function buildWhenBehindSource(context, say) {
   if (!checkDistIsFresh(context.root, path.join(context.root, 'dist')).ok) {
     oweBotBridgesARestart(context);
-    runStep(context, say, 'npm run build', 'npm', ['run', 'build']);
+    runStep(context, say, 'bun run build', 'bun', ['run', 'build']);
   }
 }
 
@@ -283,7 +283,7 @@ function moveHarnessToPin(context, say, harness) {
   const updater = path.join(context.root, HARNESS_UPDATER);
   const owedBeforeTheStep = readPendingRestarts(context.root);
   if (harness.moves) addPendingRestarts(context.root, [AGENTS_PENDING]);
-  const result = runStepKeepingItsResult(context, say, label, NODE_ON_PATH, [
+  const result = runStepKeepingItsResult(context, say, label, BUN_ON_PATH, [
     updater,
     'pinned',
     '--harness',
@@ -368,7 +368,7 @@ async function finishThroughHerdrUpgrade(context, say, plan, answers) {
   const owedBeforeTheStep = readPendingRestarts(context.root);
   const logLengthBeforeTheStep = readHerdrLogLength(context);
   if (plan.herdrMoves) await oweHerdrRestart(context, logLengthBeforeTheStep);
-  const result = runStepKeepingItsResult(context, say, label, NODE_ON_PATH, [path.join(context.root, HERDR_UPGRADER), '--pinned', ...word]);
+  const result = runStepKeepingItsResult(context, say, label, BUN_ON_PATH, [path.join(context.root, HERDR_UPGRADER), '--pinned', ...word]);
   const handedOverTo = herdrHandOverLogIn(result.stdout);
   if (handedOverTo === undefined) writePendingRestarts(context.root, owedBeforeTheStep);
   else if (!plan.herdrMoves) await oweHerdrRestart(context, logLengthBeforeTheStep);
@@ -392,8 +392,8 @@ function pullOwingWhatThePullChanges(context, plan) {
 async function performUpdate(contextBeforePull, say, plan, answers) {
   settleDetachedRestart(contextBeforePull.root, plan.detachedRestart);
   const madeMergeCommit = pullOwingWhatThePullChanges(contextBeforePull, plan);
-  installPinnedNode(contextBeforePull, say);
-  const context = withPinnedNodeFirstOnPath(contextBeforePull);
+  installPinnedBun(contextBeforePull, say);
+  const context = withPinnedBunFirstOnPath(contextBeforePull);
   installDependencies(context, say);
   buildWhenBehindSource(context, say);
   const harnesses = plan.harnesses.map((harness) => moveHarnessToPin(context, say, harness));

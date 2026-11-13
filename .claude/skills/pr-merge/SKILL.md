@@ -1,6 +1,6 @@
 ---
 name: pr-merge
-description: 'This throne-only, STAGER-ONLY skill gets a stack of pull requests ready for merge the way the Lord prefers, and lands it only on his explicit order to merge: identify the whole stack from any one pull request in it, roll every upper pull request into the root, bring it up to date, self-review it with /pr-review unless an earlier self-review already covers its head, prove the human scenario the Lord names on the rolled branch, and repromote it, leaving the root open and ready for merge. Only when his words explicitly order a merge ("merge it", "squash and merge", "land it") does the row then squash-merge the root on GitHub so the feature lands as one revertable commit, after answering every automated reviewer's finding on the final head; a person's comment posted during the run stops the merge. Forgejo never merges a pull request itself: a pull request staged there merges on GitHub, and after an actual merge its Forgejo pull request is closed with a comment saying so. In a repository whose git config sets throne.forge.landsOnMain to true there is no GitHub pull request at all: the /pr-merge order is itself the order to merge, and the Forgejo pull request lands on main as one signed squash commit. Invoked by /pr-merge <pull request url>, or when the Lord says "roll up this stack", "merge this stack", "land these PRs", "roll all PRs stacked on N into it", or "squash and merge N once scenario M passes". It asks the Lord two things (which pull request, the criteria that allow the merge), never whether it may merge, and then files one queue row; only the Lord orders a merge.'
+description: 'This throne-only, STAGER-ONLY skill gets a stack of pull requests ready for merge the way the Lord prefers, and lands it only on his explicit order to merge: identify the whole stack from any one pull request in it, roll every upper pull request into the root, bring it up to date, self-review it with /pr-review unless an earlier self-review already covers its head, prove the human scenario the Lord names on the rolled branch, and repromote it, leaving the root open and ready for merge. Only when his words explicitly order a merge ("merge it", "squash and merge", "land it") does the row then squash-merge the root on GitHub so the feature lands as one revertable commit, after answering every automated reviewer's finding on the final head; a person's comment posted during the run stops the merge. Forgejo never merges a pull request itself: a pull request staged there merges on GitHub, and after an actual merge its Forgejo pull request is closed with a comment saying so. In a repository whose git config sets throne.forge.pullRequestsStayOnForgejo to true there is no GitHub pull request at all: the /pr-merge order is itself the order to merge, and the Forgejo pull request lands on main as one signed squash commit pushed to the GitHub mirror. Invoked by /pr-merge <pull request url>, or when the Lord says "roll up this stack", "merge this stack", "land these PRs", "roll all PRs stacked on N into it", or "squash and merge N once scenario M passes". It asks the Lord two things (which pull request, the criteria that allow the merge), never whether it may merge, and then files one queue row; only the Lord orders a merge.'
 version: 1.3.0
 user-invocable: true
 ---
@@ -20,15 +20,15 @@ lands.
 
 ## 1. Identify the stack from any pull request in it
 
-First check whether the repository lands on main:
-`git -C <repo> config --type=bool --get throne.forge.landsOnMain`. When it
+First check whether the repository's pull requests stay on Forgejo:
+`git -C <repo> config --type=bool --get throne.forge.pullRequestsStayOnForgejo`. When it
 prints `true`, its pull requests live only in Forgejo and the script below
-stops on every one of them; follow "### When the repository lands on main"
+stops on every one of them; follow "### When pull requests stay on Forgejo"
 instead, which replaces this step and every GitHub step after it.
 
 ```bash
-node .claude/skills/pr-merge/stack.mjs <pull request url>
-node .claude/skills/pr-merge/stack.mjs <pull request url> --json
+bun .claude/skills/pr-merge/stack.mjs <pull request url>
+bun .claude/skills/pr-merge/stack.mjs <pull request url> --json
 ```
 
 Give it any pull request, top, middle or bottom. It resolves the host to
@@ -295,7 +295,7 @@ The body carries this shape, filled in from the script's output:
 
 ### When the root is staged in Forgejo
 
-Outside a repository that lands on main (below), Forgejo is only the
+Outside a repository whose pull requests stay on Forgejo (below), Forgejo is only the
 staging area, and nothing is merged there (Lord, 2026-10-07: "nothing gets
 merged in forgejo"). There, `throne forge pr merge` refuses a Forgejo pull
 request. A staged root is the same row as above,
@@ -313,15 +313,15 @@ on the Forgejo pull request and closes it, never merges it. A twin that is
 already closed gets no second comment, so running it twice is safe. The
 Lord's merge order covers this one Forgejo write.
 
-### When the repository lands on main
+### When pull requests stay on Forgejo
 
-A repository whose git config sets `throne.forge.landsOnMain` to `true`
-keeps its pull requests only in Forgejo; GitHub only ever holds its `main`
-(Lord, 2026-10-22: "when we /pr-merge, changes go straight to main ... so no
+A repository whose git config sets `throne.forge.pullRequestsStayOnForgejo` to `true`
+keeps its pull requests only in Forgejo; GitHub is only a mirror of its
+`main`, updated by the landing (Lord, 2026-10-22: "when we /pr-merge, changes go straight to main ... so no
 oull requests on github"). Check it in the local checkout:
 
 ```bash
-git -C <repo> config --type=bool --get throne.forge.landsOnMain
+git -C <repo> config --type=bool --get throne.forge.pullRequestsStayOnForgejo
 ```
 
 `true` means this section applies; no output means it does not. Linked
@@ -369,8 +369,12 @@ The row then runs as above, with these changes:
   `Landed on main as <sha>` on the Forgejo pull request and closes it as
   merged: Forgejo's manual-merge mark records the landed commit as the
   merge, and Forgejo makes no commit of its own. It prints
-  `{"forgejoUrl","landedCommit","base":"main","closed":true}`. Read it
-  back: `git -C <repo> ls-remote origin main` names `landedCommit` and
+  `{"forgejoUrl","landedCommit","mirror","base":"main","closed":true}`,
+  where `mirror` is the `origin` URL the commit was pushed to. Before it
+  comments or closes anything, the landing reads
+  `git ls-remote origin refs/heads/main` back and refuses, saying GitHub's
+  main does not hold the commit, unless it names `landedCommit`; the
+  Forgejo pull request then stays open. Read it back yourself too:
   `throne forge pr view <forgejo root url>` shows the pull request
   `MERGED`.
   REPORT.md records the landed commit.

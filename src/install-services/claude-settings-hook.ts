@@ -21,7 +21,7 @@ export interface SettingsWithHookRegistered {
   change: SettingsHookRegistrationChange;
 }
 
-export type ClaudeHookEvent = 'PreToolUse' | 'PostToolUse' | 'SessionStart' | 'SessionEnd' | 'UserPromptSubmit';
+export type ClaudeHookEvent = 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailure' | 'SessionStart' | 'SessionEnd' | 'UserPromptSubmit';
 
 export interface ClaudeSettingsHook {
   event: ClaudeHookEvent;

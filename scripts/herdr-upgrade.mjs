@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // herdr-upgrade — move the throne's pinned herdr to a new release, end to end.
 //
 // Written after doing it by hand on 2026-08-24 (v0.8.0 -> v0.8.2). Every
@@ -87,7 +87,7 @@ async function sh(file, args, opts = {}) {
 
 appendToLog(`===== herdr-upgrade ${MODE} ${TAG ?? 'no tag'} ${new Date().toISOString()} =====`);
 if (!TAG && !CHECK) {
-  die('pass the target release tag, e.g. `node scripts/herdr-upgrade.mjs v0.8.3`, or --pinned, or --check');
+  die('pass the target release tag, e.g. `bun scripts/herdr-upgrade.mjs v0.8.3`, or --pinned, or --check');
 }
 if (PINNED && NAMED_TAG) {
   die(`--pinned goes to the tag this checkout pins, so it takes no tag, and ${NAMED_TAG} was passed`);

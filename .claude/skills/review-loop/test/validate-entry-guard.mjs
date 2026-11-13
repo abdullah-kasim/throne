@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Proves review-loop's SKILL.md reuses the canonical entry guard from
 // execute-todos/SKILL.md instead of pasting a second copy of the resolver.
 //

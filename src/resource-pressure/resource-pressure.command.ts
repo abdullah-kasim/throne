@@ -5,7 +5,7 @@
 // report only: nothing here can launch, nudge, or reap anything.
 
 import { readFileSync } from 'node:fs';
-import { availableParallelism, homedir, loadavg } from 'node:os';
+import os, { availableParallelism, loadavg } from 'node:os';
 import { createInterface } from 'node:readline/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Command as CommanderCommand } from 'commander';
@@ -71,7 +71,7 @@ export async function collectResourcePressureSnapshot(
     cpuCount: availableParallelism(),
     memTotalKib,
     memAvailableKib,
-    responsiveness: await measureResponsiveness(resolveThroneHome(), homedir()),
+    responsiveness: await measureResponsiveness(resolveThroneHome(), os.homedir()),
   };
 }
 
@@ -96,7 +96,7 @@ export function baselineFormingContextFor(
 ): BaselineFormingContext {
   return {
     dataHome: resolveThroneHome(),
-    userHome: homedir(),
+    userHome: os.homedir(),
     inputIsTerminal: input.isTTY === true,
     ask: (question) => askOneLine(input, output, question),
     print: (line) => output.write(`${line}\n`),

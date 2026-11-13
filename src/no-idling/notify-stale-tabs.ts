@@ -1,11 +1,11 @@
 import type { HerdrAgent } from '../herdr/herdr-inventory.service.ts';
 import { buildStaleTabsMessage, buildStrandedSpawnsMessage } from './message.ts';
 import { NO_IDLING_REGENT_NAME } from './idle-family.ts';
-import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
+import type { NoIdlingDependencies, NoIdlingPageLedger } from './no-idling-dependencies.types.ts';
+import { inMemoryPageLedger, submitUnlessAlreadyPaged } from './present-facts.ts';
 import {
   writeOut,
   writeErr,
-  NO_IDLING_SENDER,
   NO_IDLING_SUBMIT_TIMEOUT_MS,
   regentAcceptsNotice,
 } from './no-idling-notify-guard.ts';
@@ -14,22 +14,14 @@ function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-export function noIdlingStaleTabsWindowKey(
-  target: HerdrAgent,
-  tabIds: readonly string[],
-  nowMs: number,
-): string {
+export function noIdlingStaleTabsPageKey(target: HerdrAgent, tabIds: readonly string[]): string {
   const ids = [...tabIds].sort().join(',');
-  return `no-idling-stale-tabs:${target.name ?? target.paneId}:${ids}:${Math.floor(nowMs / 60_000)}`;
+  return `no-idling-stale-tabs:${target.name ?? target.paneId}:${ids}`;
 }
 
-export function noIdlingStrandedSpawnsWindowKey(
-  target: HerdrAgent,
-  tabIds: readonly string[],
-  nowMs: number,
-): string {
+export function noIdlingStrandedSpawnsPageKey(target: HerdrAgent, tabIds: readonly string[]): string {
   const ids = [...tabIds].sort().join(',');
-  return `no-idling-stranded-spawns:${target.name ?? target.paneId}:${ids}:${Math.floor(nowMs / 60_000)}`;
+  return `no-idling-stranded-spawns:${target.name ?? target.paneId}:${ids}`;
 }
 
 /**
@@ -43,6 +35,7 @@ export function noIdlingStrandedSpawnsWindowKey(
 export async function notifyRegentOfStaleTabs(
   deps: NoIdlingDependencies,
   dataDir: string,
+  ledger: NoIdlingPageLedger = inMemoryPageLedger(),
 ): Promise<void> {
   const staleTabs = await deps.detectStaleTabs(dataDir);
   if (staleTabs.length === 0) {
@@ -54,19 +47,15 @@ export async function notifyRegentOfStaleTabs(
       writeOut(deps, `no-idling: Regent is ${regent.agentStatus}; deferred stale-tab notice\n`);
       return;
     }
-    await deps.submitToAgent(
+    const paged = await submitUnlessAlreadyPaged(
+      deps,
+      ledger,
       regent,
-      NO_IDLING_SENDER,
       buildStaleTabsMessage({ staleTabs }),
-      {
-        key: noIdlingStaleTabsWindowKey(
-          regent,
-          staleTabs.map((tab) => tab.tabId),
-          deps.now?.() ?? Date.now(),
-        ),
-        composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
-      },
+      noIdlingStaleTabsPageKey(regent, staleTabs.map((tab) => tab.tabId)),
+      { composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS },
     );
+    if (!paged) return;
     writeOut(
       deps,
       `no-idling: notified Regent about stale throne-owned tab(s) ${staleTabs
@@ -88,6 +77,7 @@ export async function notifyRegentOfStaleTabs(
 export async function notifyRegentOfStrandedSpawns(
   deps: NoIdlingDependencies,
   dataDir: string,
+  ledger: NoIdlingPageLedger = inMemoryPageLedger(),
 ): Promise<void> {
   const strandedSpawns = await deps.detectStrandedSpawns(dataDir);
   if (strandedSpawns.length === 0) {
@@ -99,19 +89,15 @@ export async function notifyRegentOfStrandedSpawns(
       writeOut(deps, `no-idling: Regent is ${regent.agentStatus}; deferred stranded-spawn notice\n`);
       return;
     }
-    await deps.submitToAgent(
+    const paged = await submitUnlessAlreadyPaged(
+      deps,
+      ledger,
       regent,
-      NO_IDLING_SENDER,
       buildStrandedSpawnsMessage({ strandedSpawns }),
-      {
-        key: noIdlingStrandedSpawnsWindowKey(
-          regent,
-          strandedSpawns.map((spawn) => spawn.tabId),
-          deps.now?.() ?? Date.now(),
-        ),
-        composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS,
-      },
+      noIdlingStrandedSpawnsPageKey(regent, strandedSpawns.map((spawn) => spawn.tabId)),
+      { composerWaitMilliseconds: NO_IDLING_SUBMIT_TIMEOUT_MS },
     );
+    if (!paged) return;
     writeOut(
       deps,
       `no-idling: notified Regent about stranded spawn(s) ${strandedSpawns
@@ -132,7 +118,7 @@ export async function notifyRegentOfStrandedSpawns(
 export async function recoverStrandedSpawns(
   deps: NoIdlingDependencies,
   dataDir: string,
-): Promise<void> {
+): Promise<Set<string>> {
   const strandedSpawns = await deps.detectStrandedSpawns(dataDir);
   for (const spawn of strandedSpawns) {
     const result = await deps.recoverStrandedSpawn(
@@ -147,4 +133,5 @@ export async function recoverStrandedSpawns(
       writeOut(deps, `no-idling: stranded-spawn recovery ${summary}\n`);
     }
   }
+  return new Set(strandedSpawns.map((spawn) => spawn.agentName));
 }

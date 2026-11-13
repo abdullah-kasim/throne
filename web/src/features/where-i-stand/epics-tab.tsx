@@ -14,10 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AddEpicForm } from "@/features/where-i-stand/add-epic-form";
-import { epicNameAmong, headingLineOf, notesOf } from "@/features/where-i-stand/epic-markdown";
+import { ArchivedSpoiler } from "@/features/where-i-stand/archived-spoiler";
+import { headingLineOf, notesOf } from "@/features/where-i-stand/epic-markdown";
 import { MarkdownText, UnsavedText } from "@/features/where-i-stand/markdown-text";
-import { selectedTabButton, selectedTabNameOf, TabName } from "@/features/where-i-stand/page-tabs";
+import { selectedTabButton, TabName } from "@/features/where-i-stand/page-tabs";
 import type { PageEntry, PageSection } from "@/features/where-i-stand/read-page";
+import { RowAge } from "@/features/where-i-stand/row-age";
 import { draftIsUnsaved, holdsUnsavedWords, type EpicEditors } from "@/features/where-i-stand/use-epic-editors";
 
 export function isSaveShortcut(event: { metaKey: boolean; ctrlKey: boolean; key: string }): boolean {
@@ -25,7 +27,7 @@ export function isSaveShortcut(event: { metaKey: boolean; ctrlKey: boolean; key:
 }
 
 function RemoveEpicControl({ epic, name, editors, isDisabled }: { epic: PageEntry; name: string; editors: EpicEditors; isDisabled: boolean }) {
-  const epicsTabIsShowing = selectedTabNameOf(useLocation().hash) === TabName.Epics;
+  const epicsTabIsShowing = useLocation().hash === `#${TabName.Epics}`;
   const [isAsking, setIsAsking] = useState(false);
   if (isAsking && !epicsTabIsShowing) setIsAsking(false);
 
@@ -49,7 +51,7 @@ function RemoveEpicControl({ epic, name, editors, isDisabled }: { epic: PageEntr
       <AlertDialogContent className="[overflow-wrap:anywhere] data-[state=closed]:animate-none!" onCloseAutoFocus={focusTheShownTabInsteadOfAHiddenButton}>
         <AlertDialogHeader>
           <AlertDialogTitle>{`Remove epic '${name}'?`}</AlertDialogTitle>
-          <AlertDialogDescription>This takes the epic and its notes off the page.</AlertDialogDescription>
+          <AlertDialogDescription>This moves the epic and its notes under Archived at the foot of this tab, where you can restore it.</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Keep epic</AlertDialogCancel>
@@ -65,9 +67,9 @@ function toggleWords(isOpen: boolean, wordsWouldBeLost: boolean): { words: strin
   return isOpen ? { words: "Close", labelStart: "Close" } : { words: "Edit", labelStart: "Edit" };
 }
 
-function EpicBlock({ epic, editors }: { epic: PageEntry; editors: EpicEditors }) {
+function EpicBlock({ epic, editors, now }: { epic: PageEntry; editors: EpicEditors; now: number }) {
   const state = editors.stateOf(epic);
-  const name = epicNameAmong(epic, editors.epics);
+  const name = epic.identity;
   const label = `${name} epic`;
   const wordsWouldBeLost = holdsUnsavedWords(state);
   const { words, labelStart } = toggleWords(state.isOpen, wordsWouldBeLost);
@@ -84,7 +86,7 @@ function EpicBlock({ epic, editors }: { epic: PageEntry; editors: EpicEditors })
     const pressedInsideTheEpic = event.currentTarget.contains(event.target as Node);
     if (!state.isOpen || !pressedInsideTheEpic) return;
     if (isSaveShortcut(event)) saveNotes();
-    if (event.key === "Escape" && !wordsWouldBeLost) editors.closeEditorOntoItsToggle(epic.identity);
+    if (event.key === "Escape" && !wordsWouldBeLost) editors.closeEditorOntoItsToggle(epic.id);
   }
 
   return (
@@ -102,19 +104,20 @@ function EpicBlock({ epic, editors }: { epic: PageEntry; editors: EpicEditors })
         />
       )}
       <div className="unit-controls">
+        <RowAge row={epic.row} now={now} />
         {draftIsUnsaved(state) && (
           <Button type="button" size="sm" aria-label={`Save ${label}`} onClick={saveNotes}>
             Save
           </Button>
         )}
         <Button
-          ref={(button) => editors.rememberToggleButton(epic.identity, button)}
+          ref={(button) => editors.rememberToggleButton(epic.id, button)}
           type="button"
           variant="outline"
           size="sm"
           aria-label={`${labelStart} ${label}`}
           disabled={state.isSavingNotes}
-          onClick={() => (state.isOpen ? editors.closeEditor(epic.identity) : editors.openEditor(epic))}
+          onClick={() => (state.isOpen ? editors.closeEditor(epic.id) : editors.openEditor(epic))}
         >
           {words}
         </Button>
@@ -130,18 +133,20 @@ interface EpicsTabProps {
   readonly section: PageSection | undefined;
   readonly editors: EpicEditors;
   readonly announce: (message: string) => void;
+  readonly now: number;
 }
 
-export function EpicsTab({ section, editors, announce }: EpicsTabProps) {
+export function EpicsTab({ section, editors, announce, now }: EpicsTabProps) {
   return (
     <>
-      <AddEpicForm announce={announce} />
+      {section !== undefined && <AddEpicForm section={section} announce={announce} />}
       {section !== undefined && (
         <section>
-          <MarkdownText markdown={section.opening} />
+          <h2>{section.heading}</h2>
           {editors.epics.map((epic) => (
-            <EpicBlock key={epic.identity} epic={epic} editors={editors} />
+            <EpicBlock key={epic.id} epic={epic} editors={editors} now={now} />
           ))}
+          <ArchivedSpoiler section={section} now={now} announce={announce} />
         </section>
       )}
     </>

@@ -230,8 +230,21 @@ export function buildUntaskedAgentsMessage(params: UntaskedAgentsMessageParams):
   const waitingAgents = params.untasked
     .filter(isWaitingOnBackgroundWork)
     .map(({ name, backgroundWork }) => ({ agent: name, backgroundWork }));
-  const idleAgents = params.untasked.filter((agent) => !isWaitingOnBackgroundWork(agent));
+  const finishedAgents = params.untasked.filter(
+    (agent) => !isWaitingOnBackgroundWork(agent) && agent.finished === true,
+  );
+  const idleAgents = params.untasked.filter(
+    (agent) => !isWaitingOnBackgroundWork(agent) && agent.finished !== true,
+  );
   const sections: string[] = [];
+  if (finishedAgents.length > 0) {
+    const details = finishedAgents
+      .map(({ name, role }) => `${name} (${role})`)
+      .join('; ');
+    sections.push(
+      `No-idling detected live agent(s) that finished and wrote REPORT.md but were never recorded as tasked: ${details}. Each is waiting on its supervisor to accept or answer its report. Ask the supervisor to act on that report.`,
+    );
+  }
   if (idleAgents.length > 0) {
     const details = idleAgents
       .map(
@@ -330,4 +343,12 @@ export function buildUnnamedAgentsMessage(params: UnnamedAgentsMessageParams): s
     )
     .join('; ');
   return `No-idling detected live agent pane(s) whose herdr agent name is gone, so they cannot send or receive and their owner shows as DEAD: ${details}. Run the rename command given for each pane with a likely owner, and inspect each pane whose owner is unknown before naming it; this notice never renames a pane itself.`;
+}
+
+export function buildClaimWakeMessage(childName: string): string {
+  return `${childName} has claimed; reap it.`;
+}
+
+export function buildClaimReminderMessage(supervisorName: string): string {
+  return `${supervisorName} accepted your slice and sent you the go-ahead. Publish your reapability claim {"reapable":"completed"} as your latest message now.`;
 }

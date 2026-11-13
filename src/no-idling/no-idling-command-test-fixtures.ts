@@ -130,6 +130,8 @@ export function deps(overrides: Partial<NoIdlingDependencies> = {}): {
         recordDeferredRowPing: () => {},
         close: () => {},
       }),
+      readComposer: async () => ({ state: 'empty', text: '' }),
+      submitStuckDraft: async () => {},
       ...overrides,
     },
   };

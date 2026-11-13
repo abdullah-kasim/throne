@@ -20,6 +20,7 @@
 // home — never silently read, never auto-merged.
 
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -247,11 +248,6 @@ function legacySteeringMigrationError(
 
 export async function loadUserConfigFile(
   configPath?: string,
-  // Node's ESM loader caches by resolved URL and never observes a file
-  // changed on disk after its first import in this process. A caller that
-  // re-reads the SAME path after writing it in the same process (e.g.
-  // `switch-persona` verifying its own write) must pass a fresh value here
-  // to force re-parsing instead of silently serving the stale cached module.
   cacheBustToken?: string,
 ): Promise<UserConfigFile | undefined> {
   const resolvedPath = configPath ?? (await resolveUserConfigPath());
@@ -259,10 +255,8 @@ export async function loadUserConfigFile(
 
   let userModule: { default?: unknown };
   try {
-    const url = pathToFileURL(resolvedPath).href;
-    userModule = (await import(
-      cacheBustToken ? `${url}?cacheBust=${encodeURIComponent(cacheBustToken)}` : url
-    )) as {
+    if (cacheBustToken) delete createRequire(import.meta.url).cache[resolvedPath];
+    userModule = (await import(pathToFileURL(resolvedPath).href)) as {
       default?: unknown;
     };
   } catch (cause) {

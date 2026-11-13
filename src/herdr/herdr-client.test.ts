@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import {
   HerdrClientService,
+  HerdrCommandError,
   HerdrCompatibilityError,
   OWNED_HERDR_CLIENT_RELEASE_TAG,
   ownedHerdrClientPath,
@@ -86,4 +87,90 @@ test('a herdr server whose socket is outside the throne session is refused as in
   const { client } = clientAnsweringStatus({ ...runningPinnedServer, socket: '/home/someone/.config/herdr/herdr.sock' });
 
   await assert.rejects(client.preflightCompatibility(), HerdrCompatibilityError);
+});
+
+async function pinnedHerdrServing(answer: (args: readonly string[]) => { stdout: string; stderr: string } | Error) {
+  const root = await mkdtemp(path.join(tmpdir(), 'herdr-remembered-'));
+  const binaryPath = path.join(root, 'herdr');
+  await writeFile(binaryPath, 'herdr 0.9.5');
+  const checks: (readonly string[])[] = [];
+  const client = new HerdrClientService({
+    ownedHerdrClientPath: () => binaryPath,
+    executeHerdrReadOnly: async (_executablePath, args) => {
+      if (args.includes('--version')) {
+        checks.push(args);
+        return { stdout: `herdr ${OWNED_HERDR_CLIENT_RELEASE_TAG.slice(1)}\n`, stderr: '' };
+      }
+      if (args.includes('status')) return { stdout: JSON.stringify(runningPinnedServer), stderr: '' };
+      const reply = answer(args);
+      if (reply instanceof Error) throw reply;
+      return reply;
+    },
+  });
+  return { client, checks, binaryPath, cleanUp: () => rm(root, { recursive: true, force: true }) };
+}
+
+const sendKeys = ['pane', 'send-keys', 'pane-1', 'Enter'];
+
+test("herdr's compatibility is checked once for many herdr calls", async () => {
+  const herdr = await pinnedHerdrServing(() => ({ stdout: '', stderr: '' }));
+  try {
+    for (let call = 0; call < 5; call += 1) await herdr.client.run(sendKeys);
+    assert.equal(herdr.checks.length, 1);
+  } finally {
+    await herdr.cleanUp();
+  }
+});
+
+test('a new herdr version is checked again', async () => {
+  const herdr = await pinnedHerdrServing(() => ({ stdout: '', stderr: '' }));
+  try {
+    await herdr.client.run(sendKeys);
+    await writeFile(herdr.binaryPath, 'herdr 0.9.6 with a different body');
+    await herdr.client.run(sendKeys);
+    assert.equal(herdr.checks.length, 2);
+  } finally {
+    await herdr.cleanUp();
+  }
+});
+
+test('a herdr failure that says the server changed makes the next call check again', async () => {
+  let serverStopped = false;
+  const herdr = await pinnedHerdrServing((args) =>
+    serverStopped && args.includes('list')
+      ? new HerdrCommandError(args, 'server not running', { code: 'server_not_running' })
+      : { stdout: '', stderr: '' });
+  try {
+    await herdr.client.run(sendKeys);
+    serverStopped = true;
+    await assert.rejects(herdr.client.run(['agent', 'list']), HerdrCommandError);
+    serverStopped = false;
+    await herdr.client.run(sendKeys);
+    assert.equal(herdr.checks.length, 2);
+  } finally {
+    await herdr.cleanUp();
+  }
+});
+
+test('a herdr failure about one pane keeps the remembered compatibility', async () => {
+  const herdr = await pinnedHerdrServing((args) =>
+    args.includes('gone-pane')
+      ? new HerdrCommandError(args, 'pane not found', { code: 'pane_not_found' })
+      : { stdout: '', stderr: '' });
+  try {
+    await herdr.client.run(sendKeys);
+    await assert.rejects(herdr.client.run(['pane', 'send-keys', 'gone-pane', 'Enter']), HerdrCommandError);
+    await herdr.client.run(sendKeys);
+    assert.equal(herdr.checks.length, 1);
+  } finally {
+    await herdr.cleanUp();
+  }
+});
+
+test('a foreign herdr server is still refused on every call', async () => {
+  const { client, invocations } = clientAnsweringStatus({ ...runningPinnedServer, socket: '/home/someone/.config/herdr/herdr.sock' });
+
+  await assert.rejects(client.run(sendKeys), HerdrCompatibilityError);
+  await assert.rejects(client.run(sendKeys), HerdrCompatibilityError);
+  assert.equal(invocations.filter((args) => args.includes('--version')).length, 2);
 });

@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-
 import { HARNESS_PROVENANCE_STATES, harnessProvenance } from "../src/herdr/harness-provenance.ts";
 import type { HerdrAgent } from "../src/herdr/herdr-identity-contracts.ts";
 import type { HerdrPaneProcessInfo } from "../src/herdr/herdr-inventory.service.ts";
@@ -19,6 +18,7 @@ import {
 } from "../src/restart-harnesses/restart-harnesses-runtime.ts";
 import { run, type DetachedRunDeps } from "../src/restart-harnesses/restart-harnesses-run.ts";
 import { missingPhrases, readMarkdownSection, readSkillSource, unwrap } from "./skill-contract-test-helpers.ts";
+import { installPinnedBun } from "./pinned-bun.support.ts";
 
 const SELF_PANE = "w1:pSELF";
 const VENDORED_BINARY = "/throne/vendor/node_modules/.bin/claude";
@@ -549,7 +549,7 @@ interface DetachedRunEvidence {
 }
 
 let detachedRunEvidence: Promise<DetachedRunEvidence> | undefined;
-const detachedRunHome = mkdtemp(path.join(tmpdir(), "restart-detached-"));
+const detachedRunHome = mkdtemp(path.join(tmpdir(), "restart-detached-")).then(async (home) => (await installPinnedBun(home), home));
 
 async function logTextSoFar(logPath: string): Promise<string> {
   try {
@@ -572,8 +572,6 @@ async function startDetachedRun(): Promise<DetachedRunEvidence> {
       HERDR_PANE_ID: SELF_PANE,
       FIXTURE_CLI_RESULT: cliResultPath,
       FIXTURE_CLI_ARGUMENTS: JSON.stringify([
-        "--import",
-        "./test/register-typescript.mjs",
         "test/fixtures/restart-harnesses-from-a-pane.ts",
         "restart-harnesses",
         "--force",
@@ -667,7 +665,7 @@ interface ForegroundRun {
 function runInForeground(home: string, args: readonly string[]): Promise<ForegroundRun> {
   const cli = spawn(
     process.execPath,
-    ["--import", "./test/register-typescript.mjs", "test/fixtures/restart-harnesses-from-a-pane.ts", "restart-harnesses", ...args],
+    ["test/fixtures/restart-harnesses-from-a-pane.ts", "restart-harnesses", ...args],
     {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, HOME: home, HERDR_PANE_ID: SELF_PANE, FIXTURE_HARNESS_PID: String(process.pid) },

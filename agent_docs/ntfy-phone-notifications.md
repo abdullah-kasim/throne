@@ -162,7 +162,7 @@ Then update the handoff block above so the Lord re-subscribes to the right URL.
 - `systemd/ntfy-serve` gets its runtime from
   `systemd/container-runtime-ensure`. When no runtime answers `info`, that
   script starts the installed one on a mac (a podman machine, colima,
-  OrbStack, Docker Desktop), once, under a `flock` lock shared with Forgejo;
+  OrbStack, Docker Desktop), once, under a lock row in `locks.sqlite3` shared with Forgejo;
   on linux it starts nothing. It then waits up to 180 seconds
   (`THRONE_CONTAINER_RUNTIME_WAIT_SECONDS`), and only after that does the
   wrapper exit non-zero.

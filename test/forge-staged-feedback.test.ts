@@ -19,7 +19,7 @@ import {
   type StagingHost,
 } from "./forge-staging-test-support.ts";
 import { runForgeCapturing } from "./forge-test-support.ts";
-import { installPinnedNode } from "./pinned-node.support.ts";
+import { installPinnedBun } from "./pinned-bun.support.ts";
 
 interface FeedbackItem {
   readonly id: number;
@@ -295,11 +295,11 @@ test("nothing reaches GitHub until promote or repromote is run", async () => {
 });
 
 test("the GitHub thread dump of a staged pull request sends the reader to its Forgejo twin", async () => {
-  const homeWithPinnedNode = await mkdtemp(path.join(tmpdir(), "forge-staged-home-"));
-  await installPinnedNode(homeWithPinnedNode);
-  const refused = await promisify(execFile)(process.execPath, [THREADS_SCRIPT, githubUrl], { cwd: host.checkout.repo, env: { ...process.env, HOME: homeWithPinnedNode } })
+  const homeWithPinnedBun = await mkdtemp(path.join(tmpdir(), "forge-staged-home-"));
+  await installPinnedBun(homeWithPinnedBun);
+  const refused = await promisify(execFile)(process.execPath, [THREADS_SCRIPT, githubUrl], { cwd: host.checkout.repo, env: { ...process.env, HOME: homeWithPinnedBun } })
     .catch((error: { code: number; stderr: string }) => error)
-    .finally(() => rm(homeWithPinnedNode, { recursive: true, force: true }));
+    .finally(() => rm(homeWithPinnedBun, { recursive: true, force: true }));
 
   assert.equal("code" in refused ? refused.code : 0, 1);
   assert.match(

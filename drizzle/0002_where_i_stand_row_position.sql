@@ -1,0 +1,1 @@
+ALTER TABLE `content` ADD `position` integer DEFAULT 0 NOT NULL;

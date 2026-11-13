@@ -26,12 +26,6 @@ const DRIVER_PATH = path.join(
   SRC_DIR,
   'application-config.service.consumer-probe.driver.mjs',
 );
-const REGISTER_TYPESCRIPT_PATH = path.join(
-  SRC_DIR,
-  '..',
-  'test',
-  'register-typescript.mjs',
-);
 
 interface PromptCapture {
   name: string;
@@ -135,7 +129,7 @@ export async function runPersonaConsumerProbe(
   const childEnv = { ...process.env, THRONE_LIVE_ROOT: fixtureCwd };
   const { stdout } = await execFileAsync(
     process.execPath,
-    ['--import', REGISTER_TYPESCRIPT_PATH, DRIVER_PATH, fixtureCwd],
+    [DRIVER_PATH, fixtureCwd],
     { cwd: SRC_DIR, maxBuffer: 8 * 1024 * 1024, env: childEnv },
   );
   return JSON.parse(stdout) as PersonaConsumerProbeResult;

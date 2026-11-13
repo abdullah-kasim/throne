@@ -17,7 +17,7 @@ after(async () => {
   for (const directory of scratch) await rm(directory, { recursive: true, force: true });
 });
 
-const fakeForgeSource = String.raw`#!/usr/bin/env node
+const fakeForgeSource = String.raw`#!/usr/bin/env bun
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 const state = process.env.FAKE_FORGE_STATE;

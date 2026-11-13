@@ -3,6 +3,7 @@ import { installClaudeGuardHook } from '../install-services/claude-guard-hook.ts
 import type { SettingsHookOutcome } from '../install-services/claude-settings-hook.ts';
 import { installCodexHookRegistration } from '../install-services/hook-and-command.ts';
 import { installHiddenSkillPointerHook } from '../install-services/hidden-skill-pointer-hook.ts';
+import { installWebFetchFailurePointerHook } from '../install-services/web-fetch-failure-pointer-hook.ts';
 import { installJevFenceHook } from '../install-services/jev-fence-hook.ts';
 import type {
   InstallServicesDeps,
@@ -84,6 +85,11 @@ const HOOK_INSTALLERS: readonly HookInstaller[] = [
     hook: 'claude hidden skill pointer',
     install: async (deps, options) =>
       settingsHookState(await installHiddenSkillPointerHook(deps, options)),
+  },
+  {
+    hook: 'claude web fetch failure pointer',
+    install: async (deps, options) =>
+      settingsHookState(await installWebFetchFailurePointerHook(deps, options)),
   },
   {
     hook: 'codex session start',

@@ -5,7 +5,7 @@ import {
 } from '../regent-queue/regent-queue.store.ts';
 import type { QueueDeferral } from '../regent-queue/regent-queue-row.ts';
 import type { NoIdlingDependencies } from './no-idling-dependencies.types.ts';
-import { shouldMessageFamily } from './cooldown.ts';
+import { repageIntervalElapsed } from '../blocked-paging/blocked-agent-escalation-ledger.ts';
 import { NO_IDLING_REGENT_NAME } from './idle-family.ts';
 import {
   NO_IDLING_SENDER,
@@ -106,7 +106,7 @@ export function planDeferredRowPings(
         : [],
     )
     .filter((ping) =>
-      shouldMessageFamily(ping.key, nowMs, lastPings.get(ping.key), DEFERRED_ROW_PING_INTERVAL_MS),
+      repageIntervalElapsed(lastPings.get(ping.key), nowMs, DEFERRED_ROW_PING_INTERVAL_MS),
     );
 }
 

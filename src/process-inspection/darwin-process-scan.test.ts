@@ -1,5 +1,4 @@
-// Requirement: reap-agent's worktree teardown (and through it the autoreap
-// cron) can find the processes a reaped agent left running on macOS. The
+// Requirement: reap-agent's worktree teardown can find the processes a reaped agent left running on macOS. The
 // Linux path enumerates `/proc/<pid>/cwd`; on a Mac that directory does not
 // exist, the scan returned nothing, and every leftover process under a
 // reaped worktree survived — the orphan class the teardown exists to end.
@@ -124,7 +123,7 @@ test('the process table is read the same way from macOS and Linux ps output', as
       return output;
     });
     const shell = table.find((row) => row.command.startsWith('bash -c sleep 30'));
-    assert.deepEqual(askedFor, ['ps -A -o pid=,ppid=,pgid=,command='], capture);
+    assert.deepEqual(askedFor, ['ps -A -o pid=,ppid=,pgid=,lstart=,command='], capture);
     assert.deepEqual(table, parseProcessTable(output), capture);
     assert.ok(shell !== undefined, capture);
     assert.deepEqual(

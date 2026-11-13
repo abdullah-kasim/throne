@@ -24,7 +24,7 @@ any queue read — no Alpha is born, no queue row is touched, and no
 floor-breach page is sent (the breach is the operator's deliberate state).
 Running or paused, the autoscaler never releases or launches a `deferred`
 row: only the Regent's `throne release-deferred` starts one. Everything else keeps
-running: keep-going, no-idling, autoreap, dispatch, the Regent and live
+running: keep-going, no-idling, dispatch, the Regent and live
 agents. Paused means "the throne takes on no new campaigns", not "the court
 is dead".
 
@@ -77,9 +77,8 @@ restart in either direction.
      down: rerun it as `throne alpha-autoscale-tick --local`.
    - `on`: do NOT run the tick as verification — a live tick with launchable
      work spawns a real Alpha. Verify the value with:
-     `node -e "import('./src/alpha-autoscale/kill-switch.ts').then(async m => console.log(JSON.stringify(await m.readAutoscaleEnabledInUserConfig())))"`
-     run through `node --import ./test/register-typescript.mjs` from the live
-     root, expecting `{"enabled":true}`.
+     `bin/throne-runtime -e "import('./src/alpha-autoscale/kill-switch.ts').then(async m => console.log(JSON.stringify(await m.readAutoscaleEnabledInUserConfig())))"`
+     run from the live root, expecting `{"enabled":true}`.
    - `status`: the same one-liner; report its output verbatim.
 4. Report to the Lord: the value written, the verification line verbatim,
    and — for `off` — that the cron tick will keep logging that skip line

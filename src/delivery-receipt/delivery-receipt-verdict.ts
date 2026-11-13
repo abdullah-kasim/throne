@@ -65,17 +65,48 @@ export function deliveredTextContains(deliveredText: string, typedText: string):
   );
 }
 
-export function deliveryReceiptVerdict(
+function messageTagsIn(text: string, messageId: number): { opening: boolean; closing: boolean } {
+  return {
+    opening: new RegExp(`<message${messageId}>`, 'u').test(text),
+    closing: new RegExp(`</message${messageId}>`, 'u').test(text),
+  };
+}
+
+function taggedVerdict(
   typedText: string,
   messageId: number,
-  transcript: string,
+  texts: readonly string[],
+): DeliveryReceiptVerdict {
+  let anyTag = false;
+  for (const text of texts) {
+    const { opening, closing } = messageTagsIn(withoutPasteTagsAndWhitespace(text), messageId);
+    if (opening && closing && deliveredTextContains(text, typedText)) return 'intact';
+    anyTag ||= opening || closing;
+  }
+  return anyTag ? 'truncated' : 'absent';
+}
+
+function trailingNumberVerdict(
+  typedText: string,
+  messageId: number,
+  texts: readonly string[],
 ): DeliveryReceiptVerdict {
   const messageNumber = `[message${messageId}]`;
-  const textsCarryingTheMessage = deliveredTexts(transcript).filter((text) =>
+  const textsCarryingTheMessage = texts.filter((text) =>
     withoutPasteTagsAndWhitespace(text).includes(messageNumber),
   );
   if (textsCarryingTheMessage.length === 0) return 'absent';
   return textsCarryingTheMessage.some((text) => deliveredTextContains(text, typedText))
     ? 'intact'
     : 'truncated';
+}
+
+export function deliveryReceiptVerdict(
+  typedText: string,
+  messageId: number,
+  transcript: string,
+): DeliveryReceiptVerdict {
+  const texts = deliveredTexts(transcript);
+  const tagged = taggedVerdict(typedText, messageId, texts);
+  return tagged === 'absent' ? trailingNumberVerdict(typedText, messageId, texts) : tagged;
 }

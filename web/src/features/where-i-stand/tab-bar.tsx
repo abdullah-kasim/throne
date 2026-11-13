@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import { NavigationType, useNavigationType } from "react-router";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { pageTabs, selectedTabButton, tabLabel, TabName, type TabCounts } from "@/features/where-i-stand/page-tabs";
+import { selectedTabButton, tabLabel, TabName, type PageTab, type TabCounts } from "@/features/where-i-stand/page-tabs";
 
 const TYPING_PAUSE_MILLISECONDS = 1000;
 const LONGEST_KEY_THAT_TYPES_A_LETTER = 1;
@@ -19,7 +19,7 @@ function keepTabInsideItsBar(tab: HTMLElement) {
   bar.scrollLeft += Math.max(0, tabEdges.right - barEdges.right) + Math.min(0, tabEdges.left - barEdges.left);
 }
 
-function useTypingTowardsATab() {
+function useTypingTowardsATab(tabs: readonly PageTab[]) {
   const typedWords = useRef("");
   const lastTypedAt = useRef(0);
   return function moveToTheTabBeingTyped(event: KeyboardEvent<HTMLDivElement>) {
@@ -27,19 +27,20 @@ function useTypingTowardsATab() {
     const typingContinues = event.timeStamp - lastTypedAt.current < TYPING_PAUSE_MILLISECONDS;
     typedWords.current = `${typingContinues ? typedWords.current : ""}${event.key.toLowerCase()}`;
     lastTypedAt.current = event.timeStamp;
-    const tab = pageTabs.find(({ words }) => words.toLowerCase().startsWith(typedWords.current));
+    const tab = tabs.find(({ words }) => words.toLowerCase().startsWith(typedWords.current));
     if (tab === undefined) return;
     event.preventDefault();
     event.currentTarget.querySelector<HTMLElement>(`[data-tab-name="${tab.name}"]`)?.focus();
   };
 }
 
-function useOpeningTheSelectedTab(selectedTabName: TabName, knownCounts: number) {
+function useOpeningTheSelectedTab(tabs: readonly PageTab[], selectedTabName: TabName, knownCounts: number) {
   const previousTabName = useRef(selectedTabName);
   useLayoutEffect(() => {
     if (selectedTabName === previousTabName.current) return;
+    const leftARealTab = tabs.some(({ name }) => name === previousTabName.current);
     previousTabName.current = selectedTabName;
-    if (focusIsLeftBehind()) selectedTabButton()?.focus();
+    if (leftARealTab && focusIsLeftBehind()) selectedTabButton()?.focus();
     window.scrollTo(0, 0);
   }, [selectedTabName]);
   useEffect(() => {
@@ -64,18 +65,19 @@ function useFocusOnTheSelectedTabAfterBeingHidden() {
 }
 
 interface TabBarProps {
+  readonly tabs: readonly PageTab[];
   readonly selectedTabName: TabName;
   readonly counts: TabCounts | null;
   readonly needsYouCount: number;
 }
 
-export function TabBar({ selectedTabName, counts, needsYouCount }: TabBarProps) {
-  const moveToTheTabBeingTyped = useTypingTowardsATab();
-  useOpeningTheSelectedTab(selectedTabName, pageTabs.filter(({ name }) => counts?.[name] !== undefined).length);
+export function TabBar({ tabs, selectedTabName, counts, needsYouCount }: TabBarProps) {
+  const moveToTheTabBeingTyped = useTypingTowardsATab(tabs);
+  useOpeningTheSelectedTab(tabs, selectedTabName, tabs.filter(({ name }) => counts?.[name] !== undefined).length);
   useFocusOnTheSelectedTabAfterBeingHidden();
   return (
     <TabsList variant="line" aria-label="Parts of the page" className="page-tabs" onKeyDown={moveToTheTabBeingTyped}>
-      {pageTabs.map(({ name, words }) => {
+      {tabs.map(({ name, words }) => {
         const tabNeedsYouCount = name === TabName.Now ? needsYouCount : 0;
         const count = counts?.[name];
         return (

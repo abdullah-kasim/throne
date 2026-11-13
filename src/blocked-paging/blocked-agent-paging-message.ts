@@ -2,6 +2,7 @@ import {
   SELECTED_OPTION_CURSOR,
   type DetectedInteractivePrompt,
 } from '../pane-prompts/detect-interactive-prompt.ts';
+import { SUPERVISOR_WAIT_STEPS, type SupervisorWaitStep } from '../supervisor-wait/read-supervisor-wait.ts';
 
 export interface BlockedAgentPagingMessageParams {
   readonly agentName: string;
@@ -35,6 +36,7 @@ function renderDetectedPrompt(agentName: string, prompt: DetectedInteractiveProm
     prompt.selectedNumber === null ? 'no option is selected' : `option ${prompt.selectedNumber} is selected`;
   return [
     `Prompt (${prompt.harness} ${prompt.kind}): ${prompt.question}`,
+    ...(prompt.folder === undefined ? [] : [`Folder: ${prompt.folder}`]),
     ...(prompt.command === undefined ? [] : [`Command:\n${prompt.command}`]),
     ...prompt.warnings.map((warning) => `Warning: ${warning}`),
     `Options (${selected}):\n${renderOptions(prompt)}`,
@@ -97,6 +99,24 @@ export function buildNoBackgroundRunPagingMessage(params: AgentPaneParams): stri
   return (
     `${params.agentName} is blocked: it says it waits on its own background run, but none is running ` +
     `(${renderAgentPaneContext(params)}). The run finished or died -- read its pane and tell it directly.`
+  );
+}
+
+const SUPERVISOR_ACTION_BY_STEP: Readonly<Record<SupervisorWaitStep, (shadow: string) => string>> = {
+  [SUPERVISOR_WAIT_STEPS.DONE_AWAITING_ACCEPTANCE]: (shadow) =>
+    `merge or accept ${shadow}: run merge-git-tree for it, or in a no-merge campaign accept its verdict and tell it so.`,
+  [SUPERVISOR_WAIT_STEPS.ACCEPTED_AWAITING_GO_AHEAD]: (shadow) =>
+    `${shadow} is accepted but no go-ahead is recorded: send it "you may publish your reapability claim".`,
+  [SUPERVISOR_WAIT_STEPS.GO_AHEAD_SENT_AWAITING_CLAIM]: (shadow) =>
+    `${shadow} has its go-ahead but has not claimed: tell it to publish {"reapable":"completed"}.`,
+  [SUPERVISOR_WAIT_STEPS.CLAIMED_AWAITING_REAP]: (shadow) =>
+    `${shadow} has claimed: reap it with reap-agent ${shadow} --reason completed.`,
+};
+
+export function buildSupervisorWaitPagingMessage(params: AgentPaneParams & { readonly step: SupervisorWaitStep }): string {
+  return (
+    `${params.agentName} reported DONE and is blocked waiting on you (${renderAgentPaneContext(params)}). ` +
+    SUPERVISOR_ACTION_BY_STEP[params.step](params.agentName)
   );
 }
 

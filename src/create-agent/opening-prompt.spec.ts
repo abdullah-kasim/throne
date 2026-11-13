@@ -118,6 +118,9 @@ async function withSpawnOf(
   const eventsInOrder: string[] = [];
   const errorLines: string[] = [];
   let readinessWaits = 0;
+  const queueStore = queueStoreThatRecordsEnqueues(databasePath, eventsInOrder);
+  const closeQueueStore = queueStore.close.bind(queueStore);
+  queueStore.close = () => {};
   try {
     const court = await courtWith({
       ...options.court,
@@ -147,8 +150,7 @@ async function withSpawnOf(
       }) as PolicyResolution,
       baseDeps({
         resolveAgent: async () => pane,
-        openMessageQueueStore: () =>
-          queueStoreThatRecordsEnqueues(databasePath, eventsInOrder),
+        openMessageQueueStore: () => queueStore,
         sleep: async () => {
           if (!options.promptIsNeverDelivered) {
             deliverEveryQueuedPrompt(databasePath, eventsInOrder);
@@ -184,6 +186,7 @@ async function withSpawnOf(
       store.close();
     }
   } finally {
+    closeQueueStore();
     await rm(scratchRoot, { recursive: true, force: true });
   }
 }

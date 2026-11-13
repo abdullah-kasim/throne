@@ -17,9 +17,9 @@ import {
 import type { StrandedSpawnClassification } from "../src/no-idling/stranded-spawn-classification.ts";
 import {
   countInFlightRecipientPaneLocks,
-  RECIPIENT_PANE_LOCK_DIRECTORY_ENV,
   RecipientPaneLockService,
 } from "../src/shared-policy/recipient-pane-lock.service.ts";
+import { THRONE_HOME_ENV } from "../src/shared-policy/throne-home.ts";
 
 const SOURCE_ROOT = path.join(import.meta.dirname, "..", "src");
 const FIXTURES = path.join(import.meta.dirname, "fixtures");
@@ -35,11 +35,14 @@ const SHELL_WRITERS_BEFORE_THE_HARNESS_STARTS: ReadonlyMap<string, string> = new
   ["herdr/herdr-launch.ts", "types the launch command into the new tab's shell before any harness or agent name exists"],
   ["herdr/herdr-readiness.ts", "probes the new tab's shell before any harness or agent name exists"],
 ]);
+const WRITERS_THAT_IGNORE_THE_LOCK_BY_RULING: ReadonlyMap<string, string> = new Map([
+  ["pressEnterIgnoringLocks", "the forced Enter presses one key and takes no lock, by the Lord's ruling"],
+]);
 
-const lockDirectory = await mkdtemp(path.join(tmpdir(), "composer-write-pane-lock-"));
-process.env[RECIPIENT_PANE_LOCK_DIRECTORY_ENV] = lockDirectory;
+const throneHome = await mkdtemp(path.join(tmpdir(), "composer-write-pane-lock-"));
+process.env[THRONE_HOME_ENV] = throneHome;
 
-const paneLocksHeldNow = () => countInFlightRecipientPaneLocks({ lockDirectory });
+const paneLocksHeldNow = () => countInFlightRecipientPaneLocks({ throneHome });
 
 async function sourceFilesUnder(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -78,6 +81,9 @@ function runsInsideAPaneLock(node: ts.Node): boolean {
       parent.arguments.includes(current as ts.Expression) &&
       LOCKING_CALLS.has(calledName(parent) ?? "");
     if (isCallbackOfALockingCall) return true;
+    const isWriterThatIgnoresTheLock =
+      ts.isFunctionDeclaration(parent) && WRITERS_THAT_IGNORE_THE_LOCK_BY_RULING.has(parent.name?.text ?? "");
+    if (isWriterThatIgnoresTheLock) return true;
   }
   return false;
 }
@@ -171,7 +177,6 @@ test("a write to a composer made while its pane lock is already held does not wa
   await new RecipientPaneLockService().withRecipientPaneLock(
     paneId,
     () => sendTextInSession("throne", paneId, "hello", boundary),
-    { acquisitionCeilingMs: 2_000 },
   );
 
   assert.equal(writesRanAt.length, 1);

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Empirical proof that N pairs of `rollback-guard-real-systemd.spec.ts` can
  * run genuinely concurrently (overlapping in wall-clock time, not merely
@@ -10,7 +10,7 @@
  * self-skip -- if every run in a pair skips, that pair is recorded SKIP, not
  * PASS.
  *
- * Usage: node scripts/rollback-guard-overlap-probe.mjs [pairCount]
+ * Usage: bun scripts/rollback-guard-overlap-probe.mjs [pairCount]
  * Exit code: 0 for PASS or SKIP, 1 for FLAKE (or any run error).
  */
 
@@ -24,7 +24,6 @@ const SPEC_PATH = path.join(
   REPO_ROOT,
   "src/throne-backend/rollback-guard-real-systemd.spec.ts",
 );
-const REGISTER_PATH = path.join(REPO_ROOT, "test/register-typescript.mjs");
 
 const PAIR_COUNT = Number.parseInt(process.argv[2] ?? "5", 10);
 if (!Number.isInteger(PAIR_COUNT) || PAIR_COUNT < 1) {
@@ -43,10 +42,8 @@ function runOneSpecInstance(label) {
     const child = spawn(
       process.execPath,
       [
-        "--import",
-        REGISTER_PATH,
-        "--test",
-        "--test-timeout=60000",
+        "test",
+        "--timeout=60000",
         SPEC_PATH,
       ],
       { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "pipe"] },

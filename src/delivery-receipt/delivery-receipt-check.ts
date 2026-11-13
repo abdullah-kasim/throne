@@ -86,7 +86,7 @@ async function transcriptPathsIn(projectDirectory: string): Promise<string[]> {
   }
 }
 
-async function modifiedTimeOf(transcriptPath: string): Promise<number | undefined> {
+export async function modifiedTimeOf(transcriptPath: string): Promise<number | undefined> {
   try {
     return (await stat(transcriptPath)).mtimeMs;
   } catch {
@@ -94,7 +94,7 @@ async function modifiedTimeOf(transcriptPath: string): Promise<number | undefine
   }
 }
 
-async function transcriptTextOf(transcriptPath: string): Promise<string> {
+export async function transcriptTextOf(transcriptPath: string): Promise<string> {
   try {
     return await readFile(transcriptPath, 'utf8');
   } catch {
@@ -104,7 +104,7 @@ async function transcriptTextOf(transcriptPath: string): Promise<string> {
 
 async function transcriptPathsWrittenSince(
   recipientName: string,
-  deliveredAtMs: number,
+  queuedAtMs: number,
   deps: DeliveryReceiptCheckDeps,
 ): Promise<string[] | undefined> {
   const spawnRecord = await readSpawnSpec(recipientName, deps.spawnRecordsDirectory);
@@ -117,7 +117,7 @@ async function transcriptPathsWrittenSince(
   );
   const transcriptPaths = await transcriptPathsIn(projectDirectory);
   const modifiedTimes = await Promise.all(transcriptPaths.map(modifiedTimeOf));
-  return transcriptPaths.filter((_, index) => (modifiedTimes[index] ?? -Infinity) >= deliveredAtMs);
+  return transcriptPaths.filter((_, index) => (modifiedTimes[index] ?? -Infinity) >= queuedAtMs);
 }
 
 async function receiptVerdictAcross(
@@ -179,7 +179,11 @@ export async function checkDeliveryReceipt(
   const message = store.readWorkItem(messageId);
   if (message === undefined) return concludeCheck(store, check, 'unobserved');
   const { recipientName } = message.payload as MessageDeliveryWorkItemPayload;
-  const transcriptPaths = await transcriptPathsWrittenSince(recipientName, deliveredAtMs, deps);
+  const transcriptPaths = await transcriptPathsWrittenSince(
+    recipientName,
+    message.createdAt,
+    deps,
+  );
   if (transcriptPaths === undefined) return concludeCheck(store, check, 'unobserved');
 
   const verdict = await receiptVerdictAcross(typedText, messageId, transcriptPaths);

@@ -3,7 +3,7 @@
 # install.sh — stand up a throne on a bare machine.
 #
 # Takes a fresh `git clone` with no herdr, no claude and no codex on it, and
-# leaves a working court: node dependencies installed, the CLI compiled, all
+# leaves a working court: dependencies installed, the CLI compiled, all
 # three harnesses vendored at pinned versions, the throne's services
 # installed and running under the host's own service manager — systemd
 # --user on linux, launchd (per-user LaunchAgents) on macOS — and a Regent
@@ -18,7 +18,7 @@
 #
 # Everything downloaded lands in gitignored locations:
 #   ./vendor/                       claude + codex, pinned by vendor-pins.json
-#   ./node_modules/, ./dist/        npm dependencies and the compiled CLI
+#   ./node_modules/, ./dist/        bun dependencies and the compiled CLI
 #   ~/.local/share/throne/herdr/    herdr, pinned and checksum-verified
 # herdr sits outside the repo on purpose: campaign worktrees are separate
 # checkouts that must all resolve the SAME herdr, and the runtime looks for it
@@ -47,18 +47,21 @@ PINS_FILE="$THRONE_ROOT/vendor-pins.json"
 STAMP_DIR="$VENDOR_DIR/.stamps"
 
 FORCE=0
+HARNESSES_ONLY=0
 
 usage() {
     cat <<'EOF'
-usage: ./install.sh [--force] [--help]
+usage: ./install.sh [--force] [--harnesses-only] [--help]
 
-  --force        Redo every step even when it looks already done.
+  --force           Redo every step even when it looks already done.
+  --harnesses-only  Run the preflight and the vendored harness step, then stop.
 EOF
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --force)       FORCE=1 ;;
+        --harnesses-only) HARNESSES_ONLY=1 ;;
         -h|--help)     usage; exit 0 ;;
         *) echo "install.sh: unknown argument \"$1\"" >&2; usage >&2; exit 2 ;;
     esac
@@ -111,29 +114,11 @@ case "$os_kernel" in
     *)      die "unsupported platform $os_kernel; the throne runs on linux (systemd --user) and macOS (launchd) only." ;;
 esac
 
-# The per-recipient pane mutex (src/shared-policy/recipient-pane-lock.service.ts)
-# shells out to `flock`: util-linux on linux, absent from stock macOS. Without
-# it EVERY pane write fails with `spawn flock ENOENT`, one queued message at
-# a time and never loudly — measured 2026-09-02: the resurrected Regent's
-# opening prompt was the first casualty. The discoteq/flock brew formula is
-# argument-compatible, so on a mac with brew it is installed here.
-if ! command -v flock >/dev/null 2>&1; then
-    if [ "$os_kernel" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
-        brew install flock
-        did "installed flock (brew) — the recipient-pane mutex shells out to it"
-    else
-        die "\`flock\` is not on PATH; the recipient-pane mutex shells out to it.
-     linux: install util-linux. macOS: brew install flock. Then re-run."
-    fi
-fi
-ok "flock: $(command -v flock)"
-
-. "$THRONE_ROOT/bin/pinned-node-lib.sh"
+runtime="$THRONE_ROOT/bin/throne-runtime"
 mise trust --quiet "$THRONE_ROOT/mise.toml"
-mise install node
-pinned_node_reports_pinned_version "$THRONE_ROOT" || die "fix the pinned node error above and re-run."
-use_pinned_node "$THRONE_ROOT"
-ok "node $("$pinned_node" --version) (pinned in mise.toml), npm $(npm --version)"
+mise install bun
+bun_version=$("$runtime" --version) || die "fix the pinned bun error above and re-run."
+ok "bun $bun_version (pinned in mise.toml)"
 
 [ -f "$PINS_FILE" ] || die "missing $PINS_FILE — this is not a throne checkout."
 ok "pins: $(basename "$PINS_FILE")"
@@ -149,7 +134,7 @@ stamp_is_current() {
 stamp_write() { printf '%s\n' "$2" > "$STAMP_DIR/$1"; }
 
 pin_field() {
-    node -e '
+    "$runtime" -e '
       const pins = require(process.argv[1]).harnesses;
       const entry = pins[process.argv[2]];
       if (!entry) { console.error("no pin for " + process.argv[2]); process.exit(1); }
@@ -157,7 +142,7 @@ pin_field() {
     ' "$PINS_FILE" "$1" "$2"
 }
 tool_pin_field() {
-    node -e '
+    "$runtime" -e '
       const pins = require(process.argv[1]).tools;
       const entry = pins[process.argv[2]];
       if (!entry) { console.error("no tool pin for " + process.argv[2]); process.exit(1); }
@@ -209,17 +194,70 @@ install_ntfy() {
     fi
 }
 
-# --- node dependencies ----------------------------------------------------
+# --- vendored harnesses ---------------------------------------------------
+# claude, codex and jscpd ship as npm packages, so a pinned `bun add --exact`
+# into ./vendor gives an exact, reproducible, self-contained harness that no
+# global install can shadow.
 
-step "Node dependencies"
+step "Harnesses (claude, codex, jscpd)"
 
-lock_hash=$(sha256 package-lock.json | cut -d' ' -f1)
-if [ -d node_modules ] && stamp_is_current npm-deps "$lock_hash"; then
-    ok "node_modules matches package-lock.json"
+vendor_bin() { printf '%s/node_modules/.bin/%s' "$VENDOR_DIR" "$1"; }
+
+installed_version() {
+    local binary="$1"
+    [ -x "$binary" ] || return 1
+    "$binary" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
+}
+
+harness_specs=()
+for harness in claude codex jscpd; do
+    package=$(pin_field "$harness" package)
+    version=$(pin_field "$harness" version)
+    harness_specs+=("${package}@${version}")
+done
+
+pins_hash=$(printf '%s\n' "${harness_specs[@]}" | sha256 | cut -d' ' -f1)
+if stamp_is_current harnesses "$pins_hash" &&
+   [ -x "$(vendor_bin claude)" ] && [ -x "$(vendor_bin codex)" ] &&
+   [ -x "$(vendor_bin jscpd)" ]; then
+    ok "vendored harnesses match vendor-pins.json"
 else
-    npm ci --no-audit --no-fund
-    stamp_write npm-deps "$lock_hash"
-    did "installed node dependencies"
+    # A minimal private manifest keeps bun from walking up into the throne's
+    # own package.json and installing the throne's dependencies again.
+    [ -f "$VENDOR_DIR/package.json" ] ||
+        printf '{ "name": "throne-vendor", "private": true, "version": "0.0.0" }\n' \
+            > "$VENDOR_DIR/package.json"
+    ( cd "$VENDOR_DIR" && "$runtime" add --exact "${harness_specs[@]}" )
+    stamp_write harnesses "$pins_hash"
+    did "vendored ${harness_specs[*]}"
+fi
+
+for harness in claude codex jscpd; do
+    binary=$(vendor_bin "$harness")
+    [ -x "$binary" ] || die "vendored $harness is missing at $binary"
+    want=$(pin_field "$harness" version)
+    got=$(installed_version "$binary" || true)
+    [ "$got" = "$want" ] ||
+        die "vendored $harness reports \"${got:-nothing}\", expected $want"
+    ok "$harness $got → ${binary#"$THRONE_ROOT"/}"
+done
+
+if [ "$HARNESSES_ONLY" -eq 1 ]; then
+    ok "--harnesses-only: stopping after the vendored harnesses"
+    exit 0
+fi
+
+# --- dependencies ---------------------------------------------------------
+
+step "Dependencies"
+
+lock_hash=$(sha256 bun.lock | cut -d' ' -f1)
+if [ -d node_modules ] && stamp_is_current dependencies "$lock_hash"; then
+    ok "node_modules matches bun.lock"
+else
+    "$runtime" install --frozen-lockfile
+    stamp_write dependencies "$lock_hash"
+    did "installed dependencies"
 fi
 
 step "agent-browser (pr-media captures)"
@@ -227,8 +265,10 @@ step "agent-browser (pr-media captures)"
 if command -v agent-browser >/dev/null 2>&1; then
     ok "agent-browser $(agent-browser --version 2>/dev/null | head -n1) on PATH"
 else
-    npm install -g agent-browser --no-audit --no-fund
-    did "installed agent-browser globally with npm (unpinned by the Lord's word, 2026-09-14)"
+    "$runtime" add --global agent-browser
+    bun_global_bin=$("$runtime" pm bin --global)
+    export PATH="$bun_global_bin:$PATH"
+    did "installed agent-browser globally with bun (unpinned by the Lord's word, 2026-09-14)"
 fi
 if agent-browser doctor >/dev/null 2>&1; then
     ok "agent-browser doctor passes"
@@ -243,7 +283,7 @@ else
 fi
 
 # --- compile --------------------------------------------------------------
-# Production runs compiled JavaScript from dist/. Node's native type stripping
+# Production runs compiled JavaScript from dist/. Running TypeScript directly
 # does NOT apply the Nest decorator transform, so an uncompiled tree cannot
 # serve as production evidence — see CLAUDE.md.
 
@@ -268,7 +308,7 @@ if [ -x dist/src/tools.js ] && stamp_is_current build "$src_hash"; then
 elif [ -f dist/src/tools.js ] && stamp_is_current build "$src_hash"; then
     ok "dist/ matches src/"
 else
-    npm run build
+    "$runtime" run build
     stamp_write build "$src_hash"
     did "compiled the CLI to dist/"
 fi
@@ -277,55 +317,8 @@ fi
 
 step "Pressure baseline"
 
-node ./dist/src/tools.js resource-pressure --form-baseline ||
+"$runtime" ./dist/src/tools.js resource-pressure --form-baseline ||
     warn "pressure baseline not formed: it will form on its own from quiet moments"
-
-# --- vendored harnesses ---------------------------------------------------
-# claude and codex ship as npm packages, so a pinned `npm install --prefix`
-# into ./vendor gives an exact, reproducible, self-contained harness that no
-# global install can shadow.
-
-step "Harnesses (claude, codex)"
-
-vendor_bin() { printf '%s/node_modules/.bin/%s' "$VENDOR_DIR" "$1"; }
-
-installed_version() {
-    local binary="$1"
-    [ -x "$binary" ] || return 1
-    "$binary" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
-}
-
-harness_specs=()
-for harness in claude codex; do
-    package=$(pin_field "$harness" package)
-    version=$(pin_field "$harness" version)
-    harness_specs+=("${package}@${version}")
-done
-
-pins_hash=$(printf '%s\n' "${harness_specs[@]}" | sha256 | cut -d' ' -f1)
-if stamp_is_current harnesses "$pins_hash" &&
-   [ -x "$(vendor_bin claude)" ] && [ -x "$(vendor_bin codex)" ]; then
-    ok "vendored harnesses match vendor-pins.json"
-else
-    # A minimal private manifest keeps npm from walking up into the throne's
-    # own package.json and installing the throne's dependencies again.
-    [ -f "$VENDOR_DIR/package.json" ] ||
-        printf '{ "name": "throne-vendor", "private": true, "version": "0.0.0" }\n' \
-            > "$VENDOR_DIR/package.json"
-    ( cd "$VENDOR_DIR" && npm install --no-audit --no-fund --save-exact "${harness_specs[@]}" )
-    stamp_write harnesses "$pins_hash"
-    did "vendored ${harness_specs[*]}"
-fi
-
-for harness in claude codex; do
-    binary=$(vendor_bin "$harness")
-    [ -x "$binary" ] || die "vendored $harness is missing at $binary"
-    want=$(pin_field "$harness" version)
-    got=$(installed_version "$binary" || true)
-    [ "$got" = "$want" ] ||
-        die "vendored $harness reports \"${got:-nothing}\", expected $want"
-    ok "$harness $got → ${binary#"$THRONE_ROOT"/}"
-done
 
 # --- herdr + services -----------------------------------------------------
 # `install-services` owns the rest: it downloads and CHECKSUM-VERIFIES the
@@ -340,7 +333,7 @@ step "ntfy (phone notifications)"
 install_ntfy
 
 step "herdr + services"
-node ./dist/src/tools.js install-services
+"$runtime" ./dist/src/tools.js install-services
 
 # install-services enables and starts the live units itself, but it
 # deliberately never restarts a running herdr — a restart drops every
@@ -376,7 +369,7 @@ step "herdr workspace"
 # pin where that is instead of hardcoding a tag here and silently
 # skipping this step the first time the pin moves (which is exactly what
 # a stale literal v0.8.0 did against the v0.8.2 pin).
-herdr_bin=$(node -e '
+herdr_bin=$("$runtime" -e '
   import("./dist/src/install-services/herdr-release.service.js")
     .then((m) => process.stdout.write(m.ownedHerdrExecutablePath()));
 ')
@@ -393,7 +386,7 @@ else
     workspace_count=unknown
     for _attempt in 1 2 3 4 5 6 7 8 9 10; do
         if workspace_list=$("$herdr_bin" --session throne workspace list 2>/dev/null); then
-            workspace_count=$(printf '%s' "$workspace_list" | node -e '
+            workspace_count=$(printf '%s' "$workspace_list" | "$runtime" -e '
               let raw = "";
               process.stdin.on("data", (chunk) => { raw += chunk; });
               process.stdin.on("end", () => {
@@ -446,7 +439,7 @@ step "Regent + Stager"
 # | ensure | stay-down | refuse <reason>), the Regent's canonical name,
 # and the persona titles the install order is written in.
 court_probe() {
-    node --input-type=module -e '
+    "$runtime" -e '
       const rs = await import("./dist/src/regent-state/regent-state.service.js");
       const roster = await import("./dist/src/agent-statuses/agent-statuses-roster.js");
       const floor = await import("./dist/src/alpha-autoscale/stager-floor.js");
@@ -499,17 +492,17 @@ dump_retained_pane() {
     "$herdr_bin" --session throne pane read "$pane" --source recent --lines 25 --format text 2>/dev/null |
         sed '/^[[:space:]]*$/d' | tail -15 | sed 's/^/        | /' || true
 }
-# Runs a CLI command, printing its output indented and without node's
+# Runs a CLI command, printing its output indented and without the
 # SQLite experimental-warning noise; returns the command's exit status.
 court_cli() {
     local output status
-    output=$(node ./dist/src/tools.js "$@" 2>&1) && status=0 || status=$?
+    output=$("$runtime" ./dist/src/tools.js "$@" 2>&1) && status=0 || status=$?
     printf '%s\n' "$output" | grep -vE 'ExperimentalWarning|--trace-warnings' |
         sed '/^$/d; s/^/      /'
     return "$status"
 }
 
-read_probe || die "could not probe the court through dist/; run: node ./dist/src/tools.js agent-statuses"
+read_probe || die "could not probe the court through dist/; run: ./bin/throne-cli agent-statuses"
 
 if [ "$desired_state" = "dismissed" ]; then
     ok "Regent desired-state is dismissed — the court stays down (summon-regent stands it back up)"
@@ -570,7 +563,7 @@ else
             ;;
         *)
             # The worker did not deliver within the wait; apply the floor here.
-            node --input-type=module -e '
+            "$runtime" -e '
               const floor = await import("./dist/src/alpha-autoscale/stager-floor.js");
               const decision = await floor.ensureLiveStager();
               process.stdout.write(`      stager-floor: ${JSON.stringify(decision)}\n`);
@@ -580,7 +573,7 @@ else
                 present*) did "raised the Stager directly: ${stager_state#present } (the court liveness worker had not within ${waited}s)" ;;
                 refuse*)  warn "Stager floor refused: ${stager_state#refuse }"
                           dump_retained_pane "${stager_state#refuse }" ;;
-                *)        warn "no live Stager after ${waited}s and a direct floor pass (state: $stager_state); inspect: node ./dist/src/tools.js agent-statuses" ;;
+                *)        warn "no live Stager after ${waited}s and a direct floor pass (state: $stager_state); inspect: ./bin/throne-cli agent-statuses" ;;
             esac
             ;;
     esac
@@ -606,7 +599,7 @@ cat <<EOF
 
     Services: throne-herdr (the herdr server), throne-backend (the cron
     host) and ntfy (phone notifications, tailnet-only). The court itself
-    is up too: node ./dist/src/tools.js agent-statuses lists the Regent
+    is up too: ./bin/throne-cli agent-statuses lists the Regent
     and the Stager.
     linux: systemctl --user status throne-herdr throne-backend ntfy
     macOS: launchctl print gui/\$(id -u)/com.throne.throne-herdr

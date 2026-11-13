@@ -32,10 +32,7 @@ export interface IdleFamilyEvidence {
   // read.
   readonly supervisors: ReadonlyMap<string, IdentityLineRead>;
   readonly lastMessageTags?: ReadonlyMap<string, LastMessageTagState>;
-  // Keyed by agent name, ANY role — an Alpha's just-spawned child is exactly
-  // as indistinguishable-from-stalled as a just-spawned Alpha, and children
-  // outnumber Alphas, so this is the more frequent path. See AGENT_MIN_AGE_MS.
-  readonly agentAgeMs?: ReadonlyMap<string, number>;
+  readonly withinSpawnGrace?: ReadonlySet<string>;
   // Names of CHILDREN positively marked idle-by-design — a receive-only
   // canary carrying its own ledger marker file recording that it was never
   // meant to be given work. A child in this set is excluded from

@@ -96,15 +96,15 @@ test("a Needs you card whose entries all sit in the spoiler says where they are"
   const page = await openPage(new FakeBackend(MARKDOWN_NEEDING_ONLY_THRONE_WORK, RECORDS));
   const card = () => page.panel().querySelector(".needs-you");
 
-  expect(card()?.textContent).toBe(`Needs you${ENTRIES_MOVED_WORDS}`);
-  expect(card()?.querySelectorAll("a, button, summary")).toHaveLength(0);
+  expect([...(card()?.querySelectorAll("h2, p") ?? [])].map(({ textContent }) => textContent)).toEqual(["Needs you", ENTRIES_MOVED_WORDS]);
+  expect([...(card()?.querySelectorAll("a, button, summary") ?? [])].map((control) => control.getAttribute("aria-label"))).toEqual(["Archive section Needs you"]);
   expect(page.panel().textContent?.split(ENTRIES_MOVED_WORDS)).toHaveLength(2);
 
   await page.refreshWith(MARKDOWN);
   expect(card()?.textContent).not.toContain(ENTRIES_MOVED_WORDS);
 
   await page.refreshWith("## Needs you\n");
-  expect(card()?.textContent).toBe("Needs you");
+  expect([...(card()?.querySelectorAll("h2, p") ?? [])].map(({ textContent }) => textContent)).toEqual(["Needs you"]);
 });
 
 test("a dotfiles entry with no pull request is sorted by its Kind line", async () => {
@@ -142,8 +142,8 @@ test("throne and dotfiles entries move out of their sections into one collapsed 
   const sections = [...page.panel().querySelectorAll("section")];
   const textsIn = (container: Element, selector: string) => [...container.querySelectorAll(selector)].map((element) => element.textContent);
 
-  expect(sections.map((section) => textsIn(section, "h2"))).toEqual([["Needs you"], ["In flight"], ["Done"], []]);
-  expect(sections.slice(0, 3).map((section) => textsIn(section, "h3"))).toEqual([["alpha-giftcard"], ["alpha-oven"], []]);
+  expect(sections.map((section) => textsIn(section, "h2"))).toEqual([["Needs you"], ["Just happened"], ["In flight"], ["Done"], []]);
+  expect(sections.slice(0, 4).map((section) => textsIn(section, "h3"))).toEqual([["alpha-giftcard"], [], ["alpha-oven"], []]);
   const [spoiler] = page.spoilers();
   expect(textsIn(spoiler, "h3")).toEqual(["alpha-bow", "alpha-connectors", "alpha-prompt"]);
   expect(textsIn(spoiler, "div > p:first-child")).toEqual(["Section: Needs you", "Section: In flight", "Section: In flight"]);

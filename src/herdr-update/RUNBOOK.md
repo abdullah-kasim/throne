@@ -24,11 +24,11 @@ pressure.
 
 ## Performing a real upgrade: `scripts/herdr-upgrade.mjs`
 
-    node scripts/herdr-upgrade.mjs --check
-    node scripts/herdr-upgrade.mjs v0.8.3 --dry-run
-    node scripts/herdr-upgrade.mjs v0.8.3 --yes --restart-ordered-by-lord "<the Lord's words, verbatim>"
-    node scripts/herdr-upgrade.mjs --pinned --dry-run
-    node scripts/herdr-upgrade.mjs --pinned --restart-ordered-by-lord "<the Lord's words, verbatim>"
+    bun scripts/herdr-upgrade.mjs --check
+    bun scripts/herdr-upgrade.mjs v0.8.3 --dry-run
+    bun scripts/herdr-upgrade.mjs v0.8.3 --yes --restart-ordered-by-lord "<the Lord's words, verbatim>"
+    bun scripts/herdr-upgrade.mjs --pinned --dry-run
+    bun scripts/herdr-upgrade.mjs --pinned --restart-ordered-by-lord "<the Lord's words, verbatim>"
 
 Ten phases, each verified before the next. Written after doing v0.8.0 ->
 v0.8.2 by hand on 2026-08-24; every guard in it exists because that run hit

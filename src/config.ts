@@ -383,12 +383,12 @@ export function isShadowSlice99Name(
     const campaignPrefix = `${canonicalCode}-`;
     return (
       resolved.rest.startsWith(campaignPrefix) &&
-      /^99(?:a|b|c|d)?(?:$|[-_])/.test(
+      /^99(?:a|bs|b|c|d)?(?:$|[-_])/.test(
         resolved.rest.slice(campaignPrefix.length),
       )
     );
   }
-  return /^(?:[a-z0-9]+-)?99(?:a|b|c|d)?(?:$|[-_])/.test(resolved.rest);
+  return /^(?:[a-z0-9]+-)?99(?:a|bs|b|c|d)?(?:$|[-_])/.test(resolved.rest);
 }
 
 export function classifyPlanRole(

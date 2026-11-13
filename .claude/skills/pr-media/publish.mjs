@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { spawnSync } from 'node:child_process';
 import { accessSync, constants, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -80,7 +80,7 @@ export function wizardInstructions(pullRequest, files) {
   lines.push('A drop landing outside the Screenshots spoiler is fine: the collect step below moves every loose upload into its anchor inside the wrapper.');
   lines.push('3. Wait until every upload has turned into a link or <img> tag, then press "Update comment".');
   lines.push('4. Say "done" here. The collect step then reads the live body, moves each upload into its anchor and removes the loose copies.');
-  lines.push('', `Then run: node "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url> --collect`);
+  lines.push('', `Then run: bun "$THRONE_LIVE_ROOT/.claude/skills/pr-media/publish.mjs" <pr-url> --collect`);
   return lines.join('\n');
 }
 

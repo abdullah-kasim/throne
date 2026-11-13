@@ -30,7 +30,6 @@ import { throneSessionFilePath, throneSessionFileText, throneShellBlock } from '
 const TOKENS = {
   throneRoot: '/srv/throne',
   herdrBin: '/srv/herdr/v9/herdr',
-  nodeBin: '/srv/mise/node/24.19.0/bin/node',
 };
 
 async function exists(filePath: string): Promise<boolean> {
@@ -89,7 +88,6 @@ function makeDeps(world: FakeWorld, home = '/srv/home'): InstallServicesDeps {
       world.installedPlists.delete(targetPath);
       world.removed.push(path.basename(targetPath));
     },
-    resolveNodeBin: () => TOKENS.nodeBin,
     ownedHerdrPath: () => TOKENS.herdrBin,
     herdrCacheDirectory: () => '/srv/cache',
     installHerdr: async (options) => ({
@@ -161,14 +159,20 @@ function binaryNestStartsTheAppWith(renderedUnit: string): string | undefined {
   return /nest\.js start .*--exec (\S+)/.exec(renderedUnit)?.[1];
 }
 
-test('the throne backend app runs the node version pinned in mise.toml, not the node on PATH', async () => {
+function binaryRunningNest(renderedUnit: string): string | undefined {
+  return /(\/[^\s=]+) \S+nest\.js start/.exec(renderedUnit)?.[1];
+}
+
+test('the throne backend watcher and app both start through the runtime launcher, not a runtime on PATH', async () => {
   for (const unitSource of [
     path.join(LAUNCHD_SOURCE_DIR, LAUNCHD_AGENT_NAMES.THRONE_BACKEND.basename),
     path.join(SYSTEMD_SOURCE_DIR, SYSTEMD_UNIT_NAMES.THRONE_BACKEND),
   ]) {
     const rendered = renderUnitSource(await readFile(unitSource, 'utf8'), TOKENS);
 
-    assert.equal(binaryNestStartsTheAppWith(rendered), TOKENS.nodeBin, unitSource);
+    const launcher = `${TOKENS.throneRoot}/bin/throne-runtime`;
+    assert.equal(binaryRunningNest(rendered), launcher, unitSource);
+    assert.equal(binaryNestStartsTheAppWith(rendered), launcher, unitSource);
   }
 });
 

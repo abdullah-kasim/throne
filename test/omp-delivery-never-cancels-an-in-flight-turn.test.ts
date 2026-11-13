@@ -16,7 +16,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { setTimeout as sleep } from "node:timers/promises";
 
 /** The extension's poll interval; a couple of ticks is well inside the
@@ -82,8 +84,9 @@ async function startExtension(
     // and pane id from the environment AT MODULE LOAD, so each case needs its
     // own instance, and a static import would bind all four to whichever
     // environment happened to be set first.
-    const specifier = `${new URL("../extensions/omp/throne-omp-delivery.ts", import.meta.url).href}?instance=${paneId}`;
-    const loaded: unknown = await import(specifier);
+    const extensionPath = fileURLToPath(new URL("../extensions/omp/throne-omp-delivery.ts", import.meta.url));
+    delete createRequire(import.meta.url).cache[extensionPath];
+    const loaded: unknown = await import(extensionPath);
     assert.ok(
       loaded !== null && typeof loaded === "object" && "default" in loaded,
       "the extension must default-export its factory",

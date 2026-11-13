@@ -1,11 +1,11 @@
 import { screen, waitFor } from "@testing-library/react";
 import { expect, onTestFinished, test, vi } from "vitest";
-import { pageTabs } from "@/features/where-i-stand/page-tabs";
 import { FakeBackend, openPage, SAMPLE_MARKDOWN, SAMPLE_RECORDS, startOpeningPage, type OpenedPage } from "@/features/where-i-stand/where-i-stand.test-support";
 
 const TAB_WIDTH = 100;
 const TABS_THAT_FIT = 3;
 const TAB_NAMES = ["Now", "Epics", "Queue", "Delivered", "Pull requests", "Archive"];
+const TAB_ADDRESSES = ["now", "epics", "queue", "delivered", "pull-requests", "archive"];
 const SPELT_MARKDOWN = SAMPLE_MARKDOWN.replace("Order rye flour", "Order spelt flour");
 const MARKDOWN_WITH_NOTHING_NEEDING_YOU = `## Needs you
 
@@ -15,7 +15,7 @@ const MARKDOWN_WITH_NOTHING_NEEDING_YOU = `## Needs you
 - Kind: bug fix — Keep the oven warm
 `;
 
-const LABELS_WITHOUT_PULL_REQUESTS = ["Now, 3 items, 2 needs you", "Epics, 2 items", "Queue, 1 item", "Delivered, 2 items"];
+const LABELS_WITHOUT_PULL_REQUESTS = ["Now, 4 items, 2 needs you", "Epics, 2 items", "Queue, 1 item", "Delivered, 2 items"];
 
 const countOf = (tab: HTMLElement) => tab.querySelector(".tab-count")?.textContent;
 const labelsOf = (page: OpenedPage) => page.tabs().map((tab) => tab.getAttribute("aria-label"));
@@ -52,12 +52,6 @@ test("an unknown hash opens Now", async () => {
 
   expect(page.selectedTabs()).toEqual(["Now"]);
   expect(page.headings(2)).toEqual(["Needs you", "Just happened", "In flight"]);
-});
-
-test("a section the tabs do not name stays on Now so nothing on the page is lost", async () => {
-  const page = await openPage(new FakeBackend("## Done\n\n### alpha-menu\n- Kind: skill change — Sort\n"));
-
-  expect(page.headings(2)).toEqual(["Done"]);
 });
 
 test("the selected tab survives a reload through the hash", async () => {
@@ -112,7 +106,7 @@ test("changing tab starts the reader at the top and a refresh keeps the scroll p
 function measureTabsInAThreeTabBar() {
   const edges = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function edgesInAThreeTabBar(this: Element) {
     const bar = this.closest<HTMLElement>('[role="tablist"]');
-    const position = pageTabs.findIndex(({ name }) => name === this.getAttribute("data-tab-name"));
+    const position = TAB_ADDRESSES.indexOf(this.getAttribute("data-tab-name") ?? "");
     const left = position * TAB_WIDTH - (bar?.scrollLeft ?? 0);
     return this === bar ? new DOMRect(0, 0, TAB_WIDTH * TABS_THAT_FIT, 1) : new DOMRect(left, 0, TAB_WIDTH, 1);
   });
@@ -164,7 +158,7 @@ test("the Pull requests tab shows no count until the records have answered", asy
   const page = await openPageWithRecordsOnTheirWay("#pull-requests");
 
   expect(labelsOf(page)).toEqual([...LABELS_WITHOUT_PULL_REQUESTS, "Pull requests", "Archive"]);
-  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", undefined, undefined]);
+  expect(page.tabs().map(countOf)).toEqual(["4", "2", "1", "2", undefined, undefined]);
   expect(page.panel().querySelector("table")).toBeNull();
   expect(page.spoilers()).toEqual([]);
 
@@ -180,7 +174,7 @@ test("a failed read of the records shows no count on the Pull requests tab", asy
   const page = await openPage(backend, "#pull-requests");
 
   expect(labelsOf(page)).toEqual([...LABELS_WITHOUT_PULL_REQUESTS, "Pull requests", "Archive"]);
-  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", undefined, undefined]);
+  expect(page.tabs().map(countOf)).toEqual(["4", "2", "1", "2", undefined, undefined]);
   expect(page.panel().textContent).toContain("Could not fetch the pull request records");
 });
 
@@ -197,9 +191,9 @@ test("a failed refresh keeps the count of the records still shown", async () => 
 test("each tab shows how many entries it holds", async () => {
   const page = await openPage();
 
-  expect(page.tabs().map(countOf)).toEqual(["3", "2", "1", "2", "3", undefined]);
+  expect(page.tabs().map(countOf)).toEqual(["4", "2", "1", "2", "3", undefined]);
   expect(page.tabs().map((tab) => tab.getAttribute("aria-label"))).toEqual([
-    "Now, 3 items, 2 needs you",
+    "Now, 4 items, 2 needs you",
     "Epics, 2 items",
     "Queue, 1 item",
     "Delivered, 2 items",
@@ -356,5 +350,5 @@ test("the page fetches the stored page and the pull request records and nothing 
 
   await openPage(backend);
 
-  expect([...backend.addresses].sort()).toEqual(["/throne/api/health", "/throne/api/where-i-stand/page", "/throne/api/where-i-stand/records"]);
+  expect([...backend.addresses].sort()).toEqual(["/throne/api/health", "/throne/api/where-i-stand/records", "/throne/api/where-i-stand/store/page"]);
 });

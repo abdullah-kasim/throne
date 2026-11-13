@@ -97,3 +97,23 @@ test('no cursor on any row reports a null selected number', () => {
   assert.ok(prompt);
   assert.equal(prompt.selectedNumber, null);
 });
+
+test('an agent waiting at the folder-trust prompt is seen as waiting on that prompt', async () => {
+  const prompt = detectInteractivePrompt(await fixture('claude-folder-trust-prompt.txt'));
+  assert.ok(prompt);
+  assert.equal(prompt.harness, 'claude');
+  assert.equal(prompt.kind, INTERACTIVE_PROMPT_KINDS.FOLDER_TRUST);
+  assert.equal(prompt.folder, '/var/tmp/trustcapture-herdr-12345');
+  assert.match(prompt.question, /^Quick safety check: Is this a project you created or one you trust\?/u);
+  assert.deepEqual(prompt.options, [
+    { number: 1, label: 'No, exit' },
+    { number: 2, label: 'Yes, I trust this folder' },
+  ]);
+  assert.equal(prompt.selectedNumber, 1);
+  assert.equal(prompt.hint, 'Enter to confirm · Esc to cancel');
+});
+
+test('a folder-trust frame with no workspace line above its options is not taken for a folder-trust prompt', () => {
+  const frame = ' Quick safety check\n\n ❯ No, exit\n   Yes, I trust this folder\n\n Enter to confirm · Esc to cancel\n';
+  assert.equal(detectInteractivePrompt(frame)?.kind, undefined);
+});

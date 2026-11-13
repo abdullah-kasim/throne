@@ -165,6 +165,13 @@ export async function isDurablyAccountedFor(
 ): Promise<boolean> {
   if (await hasCompletionReport(path.join(baseDir, name))) return true;
   if ((await DELIVERY_EVIDENCE_DATA.read(name, baseDir)) !== null) return true;
+  return isArchivedOnReap(name, baseDir);
+}
+
+export async function isArchivedOnReap(
+  name: string,
+  baseDir: string = DEFAULT_DATA_DIR,
+): Promise<boolean> {
   return fileExists(path.join(baseDir, REAPED_DIR_NAME, name, "identity.md"));
 }
 

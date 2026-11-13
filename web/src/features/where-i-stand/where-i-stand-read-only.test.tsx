@@ -23,17 +23,6 @@ const MARKDOWN_WITH_A_LONG_SECTION = `## In flight\n\n${ENTRY_NAMES_OF_A_LONG_SE
 
 const TABS_WITHOUT_EDITING = ["Now", "Queue", "Delivered", "Pull requests"];
 
-test("no tab but Epics offers an edit, save or remove control", async () => {
-  const page = await openPage();
-
-  for (const words of TABS_WITHOUT_EDITING) {
-    await page.chooseTab(words);
-    expect(within(page.panel()).queryAllByRole("button")).toEqual([]);
-    expect(within(page.panel()).queryAllByRole("textbox")).toEqual([]);
-    expect(page.panel().querySelector("[contenteditable]")).toBeNull();
-  }
-});
-
 test("the section headings and entry headings cannot be edited", async () => {
   const page = await openPage(new FakeBackend(), "#epics");
 

@@ -12,8 +12,8 @@ It is **only a staging area**: nothing is merged in Forgejo. A pull request
 reaches GitHub through `/pr-promote` on the Lord's word and is merged there;
 its Forgejo pull request is then closed with a comment saying it was merged
 on the GitHub side (`throne forge close-merged-twin`, see
-`agent_docs/commands.md` `## forge`). The one exception is a repository that
-lands on main (below), whose pull requests never reach GitHub.
+`agent_docs/commands.md` `## forge`). The one exception is a repository whose
+pull requests stay on Forgejo (below), whose pull requests never reach GitHub.
 
 It is **optional**. A plain `./install.sh` or `install-services` run never
 pulls, renders, enables or starts anything Forgejo. Only
@@ -154,23 +154,34 @@ creates a detached review worktree fetched from the checkout's `forgejo`
 remote when Forgejo holds the head (`origin` otherwise). The `/pr-open` skill
 runs it.
 
-## Repositories that land on main
+## Repositories whose pull requests stay on Forgejo
 
-A repository can use Forgejo as its only pull-request forge: GitHub holds
-only its `main`, and the forge seam never makes a GitHub pull request,
+A repository can use Forgejo as its only pull-request forge: GitHub is only
+a mirror of its `main`, and the landing below is what updates it; and the forge seam never makes a GitHub pull request,
 review or comment for it. The mark is one git config key in the repository's
 local checkout, which its linked worktrees share:
 
 ```bash
-git -C <repo> config throne.forge.landsOnMain true
-git -C <repo> config --type=bool --get throne.forge.landsOnMain
+git -C <repo> config throne.forge.pullRequestsStayOnForgejo true
+git -C <repo> config --type=bool --get throne.forge.pullRequestsStayOnForgejo
 ```
 
 The second line prints `true` for a marked repository. Unset or `false`
 leaves the repository on the staging flow above.
 
-In a marked repository `throne forge land <pr>`, `throne forge promote <pr>`
-and `throne forge pr merge <pr> --squash` run one landing, in this order:
+The key used to be `throne.forge.landsOnMain`. A repository that still
+carries only the old key is refused by every forge operation that reads the
+setting, with nothing changed, until it is renamed:
+
+```bash
+git -C <repo> config throne.forge.pullRequestsStayOnForgejo true
+git -C <repo> config --unset throne.forge.landsOnMain
+```
+
+In a marked repository `throne forge land <pr>` and
+`throne forge pr merge <pr> --squash` (/pr-merge) run one landing, and
+`throne forge promote <pr>` (/pr-promote) changes nothing and exits 0.
+The landing runs in this order:
 
 1. refuse unless the pull request's base is the default branch;
 2. fetch `main` from `origin` and the head from Forgejo;
@@ -182,7 +193,8 @@ and `throne forge pr merge <pr> --squash` run one landing, in this order:
    `## What (human)` section, or else its first paragraph, with records and
    `<details>` tags removed;
 5. push the commit to `origin` `main`, then to the `forgejo` remote's `main`,
-   never forced;
+   never forced, then read `git ls-remote origin refs/heads/main` back and
+   refuse, before any comment or close, unless it names the commit;
 6. comment `Landed on main as <sha>` on the Forgejo pull request, then close
    it as merged: turn on the copy's `allow_manual_merge` setting and post
    Forgejo's manual-merge mark (`POST …/pulls/{n}/merge` with
@@ -192,7 +204,8 @@ and `throne forge pr merge <pr> --squash` run one landing, in this order:
    again;
 7. remove the scratch worktree, on a refusal too.
 
-It prints `{"forgejoUrl","landedCommit","base":"main","closed":true}`.
+It prints `{"forgejoUrl","landedCommit","mirror","base":"main","closed":true}`,
+`mirror` being the `origin` URL.
 Both remotes end on the same commit, so the next `pr create` finds Forgejo's
 copy of `main` current. The Forgejo head branch is left in place.
 
@@ -213,7 +226,7 @@ reach GitHub, and `pr review-findings` (so /pr-review's "promote the
 review"). In an unmarked repository, `land` refuses and changes nothing.
 Rows filed on a marked repository carry a pull-request branch
 (`/queue-objective` step 5), so each stops at a Forgejo pull request until
-the Lord says `/pr-merge` or `/pr-promote`.
+the Lord says `/pr-merge`.
 
 ## Keeping Forgejo copies current
 
@@ -499,7 +512,7 @@ the pin is missing, so the
 service manager retries. The runtime comes from
 `systemd/container-runtime-ensure`: a runtime whose `info` answers, `docker`
 before `podman` (`THRONE_CONTAINER_RUNTIME=<name>` forces one). When none
-answers, on a mac it starts the installed one once, under a `flock` lock shared
+answers, on a mac it starts the installed one once, under a lock row in `locks.sqlite3` shared
 with ntfy, and on either platform it waits up to 180 seconds
 (`THRONE_CONTAINER_RUNTIME_WAIT_SECONDS`) before the script exits non-zero.
 The retry policy: `Restart=on-failure`, `RestartSec=5s`, at most 5

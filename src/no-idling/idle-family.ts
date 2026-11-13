@@ -19,6 +19,7 @@ export type {
 
 export const NO_IDLING_REGENT_NAME = 'Regent';
 export const NO_IDLING_ALPHA_ROLE = 'Alpha';
+export const NO_IDLING_SHADOW_ROLE = 'Shadow';
 // A stager's entire point is sitting idle for hours waiting on the Lord —
 // the report's consumer (the Regent) acts on what it contains (nudge/reap),
 // and either action against a live stager destroys or interrupts a live
@@ -41,6 +42,10 @@ export function isAlphaRole(role: string | undefined): boolean {
   return roleMatches(role, NO_IDLING_ALPHA_ROLE);
 }
 
+export function isShadowRole(role: string | undefined): boolean {
+  return roleMatches(role, NO_IDLING_SHADOW_ROLE);
+}
+
 export function isStagerRole(role: string | undefined): boolean {
   return roleMatches(role, NO_IDLING_STAGER_ROLE);
 }
@@ -51,35 +56,6 @@ export {
   classifyReapabilityAwareLastMessageTags,
   lastMessageBlock,
 } from './idle-pane-tag-classification.ts';
-
-// Milliseconds since `spawn.json`'s `spawned_at` timestamp, or undefined when
-// the timestamp is missing or unparseable — the same computation
-// `throne-startup-reconciliation.service.ts` uses for its own registration-age
-// floor. An Alpha this cannot be measured for gains no age-based protection or
-// penalty; it falls through to the pre-existing status/pane-tag judgment.
-export function spawnedAtAgeMs(
-  spawnedAt: string | undefined,
-  nowMs: number,
-): number | undefined {
-  if (spawnedAt === undefined) return undefined;
-  const spawnedAtMs = Date.parse(spawnedAt);
-  return Number.isNaN(spawnedAtMs) ? undefined : nowMs - spawnedAtMs;
-}
-
-// The no-idling sweep runs every minute against the live court. Measured
-// 2026-08-11 (QUEUE.md ESCALATED subsection): alpha-cag-complete-agent-gate
-// was flagged by the sweep "seconds after spawn while still BOOTING," and
-// repeated operator observation puts ordinary agent boot time at "about a
-// minute." 90s is a safety margin above that observed ~60s boot time, not a
-// lab-instrumented millisecond figure — the sweep's own per-minute
-// granularity does not need finer precision than that.
-//
-// Role-neutral and shared: originally Alpha-only (`ALPHA_MIN_AGE_MS`), but a
-// freshly-spawned CHILD reading its own ASSIGNMENT.md is exactly as
-// indistinguishable-from-stalled as a freshly-spawned Alpha, and children
-// outnumber Alphas — observed live 2026-08-11 (shadow-dsr2-99b flagged 9s
-// after spawn, mid-first-turn). Same floor, one constant, both roles (BGS-2).
-export const AGENT_MIN_AGE_MS = 90_000;
 
 // Explicit predicate so "no live children" and "children, all idle" are two
 // distinct, separately named cases instead of an emergent property of
@@ -236,8 +212,7 @@ function findBareEntryPoints(evidence: IdleFamilyEvidence): FullyIdleFamily[] {
       continue;
     }
     if (!cwdIsMissing(entry.name, evidence)) {
-      const ageMs = evidence.agentAgeMs?.get(entry.name);
-      if (ageMs !== undefined && ageMs < AGENT_MIN_AGE_MS) {
+      if (evidence.withinSpawnGrace?.has(entry.name) === true) {
         continue;
       }
       if (evidence.idleByDesignChildren?.has(entry.name) === true) {
@@ -293,8 +268,7 @@ export function findFullyIdleFamilies(
     // signal either way — it falls through to the judgment below exactly as
     // it did before this check existed. A missing `cwd` overrides this and
     // every exclusion below: it is stale by definition.
-    const alphaAgeMs = evidence.agentAgeMs?.get(alpha.name);
-    if (!alphaCwdMissing && alphaAgeMs !== undefined && alphaAgeMs < AGENT_MIN_AGE_MS) {
+    if (!alphaCwdMissing && evidence.withinSpawnGrace?.has(alpha.name) === true) {
       continue;
     }
     // An Alpha that already landed its durable REPORT.md completion signal
@@ -330,8 +304,7 @@ export function findFullyIdleFamilies(
       ) {
         return false;
       }
-      const childAgeMs = evidence.agentAgeMs?.get(entry.name);
-      if (childAgeMs !== undefined && childAgeMs < AGENT_MIN_AGE_MS) {
+      if (evidence.withinSpawnGrace?.has(entry.name) === true) {
         return false;
       }
       if (evidence.idleByDesignChildren?.has(entry.name) === true) {

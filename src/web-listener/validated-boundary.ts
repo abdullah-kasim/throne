@@ -2,12 +2,11 @@ import { BadRequestException, InternalServerErrorException } from "@nestjs/commo
 import type { z } from "zod";
 import { parseNamingTheField } from "../web-api-contract/parse-naming-the-field.ts";
 import { failedResponse } from "../web-api-contract/where-i-stand.ts";
-import { SaveOutcome } from "../where-i-stand/page-save.ts";
 
 const BODY_IS_NOT_JSON = "request body is not JSON";
 
 function refusedRequest(message: string): BadRequestException {
-  return new BadRequestException(validatedResponse(failedResponse, { outcome: SaveOutcome.Failed, message }));
+  return new BadRequestException(validatedResponse(failedResponse, { outcome: "failed", message }));
 }
 
 function jsonInBody(body: unknown): unknown {

@@ -2,8 +2,8 @@ import { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import {
   SPAWN_STARTING_BOUND_MS,
   isSpawnStillStarting,
+  spawnedAtAgeMs,
 } from "../agentdata/spawn-starting.ts";
-import { spawnedAtAgeMs } from "../no-idling/idle-family.ts";
 import { FORCE_FLAG, SPAWN_PROCESS_GONE_FLAG } from "./input.ts";
 import type { ReapDeps, ReapRequest } from "./reap-agent.types.ts";
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Reaper for leaked herdr fixture servers — the fifth litter population
 // (`herdrfixture`, distinct from `podmanlitter`'s podman artefacts,
 // `litterbomb`'s filesystem-scratch/compile-cache sweeps, and
@@ -25,12 +25,12 @@
 // containers, mirrored here via `isFixtureServerOwnProcessLine`.
 //
 // Usage:
-//   node scripts/herdr-fixture-server-reap.mjs [--dry-run]
+//   bun scripts/herdr-fixture-server-reap.mjs [--dry-run]
 //     Prints per-candidate discovery + verdict + reason. Nothing is torn
 //     down. This is the default even with no arguments.
-//   node scripts/herdr-fixture-server-reap.mjs --apply
+//   bun scripts/herdr-fixture-server-reap.mjs --apply
 //     Tears down every REMOVE-verdict candidate.
-//   node scripts/herdr-fixture-server-reap.mjs --help
+//   bun scripts/herdr-fixture-server-reap.mjs --help
 //     Prints usage, exits 0, touches nothing.
 import { spawnSync } from "node:child_process";
 
@@ -43,9 +43,9 @@ import { teardownHerdrFixtureServer } from "./herdr-fixture-server-teardown.mjs"
 const USAGE = `herdr-fixture-server-reap: reap leaked herdr fixture servers
 
 Usage:
-  node scripts/herdr-fixture-server-reap.mjs [--dry-run]   classify only (default)
-  node scripts/herdr-fixture-server-reap.mjs --apply       tear down REMOVE-verdict candidates
-  node scripts/herdr-fixture-server-reap.mjs --help        show this message
+  bun scripts/herdr-fixture-server-reap.mjs [--dry-run]   classify only (default)
+  bun scripts/herdr-fixture-server-reap.mjs --apply       tear down REMOVE-verdict candidates
+  bun scripts/herdr-fixture-server-reap.mjs --help        show this message
 
 Candidates are discovered by listening socket path only (never process name).
 The court's own config-socket holder is always excluded. Reap eligibility is

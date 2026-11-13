@@ -44,7 +44,7 @@ The orchestrator (you, the Alpha) holds the queue, picks the order, evaluates re
 
      ```bash
      slice_id="<slice-id>"
-     slice_addr="$(node "$THRONE/dist/src/tools.js" derive-shadow-name-from-alpha "$ALPHA" "$slice_id")" || exit 1
+     slice_addr="$("$THRONE/bin/throne-cli" derive-shadow-name-from-alpha "$ALPHA" "$slice_id")" || exit 1
      ```
 
      The result is the full address (`shadow-<code>-<slice-id>`). Do not construct
@@ -74,7 +74,7 @@ The orchestrator (you, the Alpha) holds the queue, picks the order, evaluates re
      spawn the slice tree against `$CAMPAIGN_REPO` using the derived address:
      ```bash
      repo_flag=(); [ -n "$CAMPAIGN_REPO" ] && repo_flag=(--repo "$CAMPAIGN_REPO")
-     node "$THRONE/dist/src/tools.js" spawn-git-tree "$slice_addr" "${repo_flag[@]}"
+     "$THRONE/bin/throne-cli" spawn-git-tree "$slice_addr" "${repo_flag[@]}"
      ```
      Because `$slice_addr` is shaped `shadow-<code>-…`, `spawn-git-tree` treats
      it as a campaign Shadow: it bases the tree on the supervising **Alpha's
@@ -98,11 +98,11 @@ The orchestrator (you, the Alpha) holds the queue, picks the order, evaluates re
      merge target step 6 lands in.
   3. **The Shadow harness/model — resolve it inside the active role pool.**
      Re-read the live `active_plan` at spawn time. Ordinary slices select from
-     `rolePools.Shadow`; `99a`, `99b` and `99c` all select from
+     `rolePools.Shadow`; `99a`, `99b`, `99bs` and `99c` all select from
      `rolePools.ShadowSlice99`. Preserve
      pool order while applying the slice requirement, then quota/availability.
      ```bash
-     node "$THRONE/dist/src/tools.js" create-agent \
+     "$THRONE/bin/throne-cli" create-agent \
        --harness <selected in-pool harness> --model <selected in-pool model> \
        --name "$slice_addr" \
        --supervisor <your own herdr name — you are the Alpha> --escalation Regent \
@@ -122,11 +122,11 @@ The orchestrator (you, the Alpha) holds the queue, picks the order, evaluates re
      No terminal gate carries `--deliverable-shape verdict-only`: `99b`
      legitimately commits the fixes it makes, and `99c` legitimately commits
      the target absorb. `99a` genuinely produces no diff — it grades and never
-     repairs — and a `99b` that found nothing to fix correctly produces none
-     either; `merge-git-tree` accepts both no-diff merges on the terminal
+     repairs — and a `99b` that found nothing to fix, or a `99bs` whose
+     campaign changed nothing observable, correctly produces none either; `merge-git-tree` accepts both no-diff merges on the terminal
      gate's own name shape rather than on a declared deliverable shape. Keep
      the role word in every terminal slice address (`99a-conform-…`,
-     `99b-verify-…`, `99c-deliver-…`): classification reads the verb, not the
+     `99b-verify-…`, `99bs-spec-…`, `99c-deliver-…`): classification reads the verb, not the
      letter, because the letters mean different things across bundle
      generations.
 
@@ -191,8 +191,12 @@ The orchestrator (you, the Alpha) holds the queue, picks the order, evaluates re
 
      Issue exactly this one ordinary `send-agent` call. Let it derive the
      Alpha's canonical sender name automatically and deliver one
-     recipient-visible `<sender-name> said: <prompt>` turn through the shared
-     submit engine; do not hand-prefix the text or add a follow-up send/Enter.
+     recipient-visible turn in three parts, each on its own line: the opening
+     tag `<message<id>>`, `<sender-name> said: <prompt>`, and the closing tag
+     `</message<id>>`, through the shared submit engine. A missing tag means a
+     clipped message: follow AGENTS.md "A message missing a tag: re-read it by
+     the id in its tags". Do not hand-prefix the text or add a follow-up
+     send/Enter.
      Write the prompt to a FILE, never inline into `send-agent`: real newlines
      inside one quoted argument survive, but separate prompt arguments are
      space-joined and large bodies remain unproven at this seam. A file the
@@ -202,7 +206,7 @@ The orchestrator (you, the Alpha) holds the queue, picks the order, evaluates re
      Rule 6 completion section into `ASSIGNMENT.md` is no longer sufficient
      — build it with the `src/slice-assignment/slice-assignment-template.ts`
      renderer (or hand-append its fixed marker exactly) and then run `node
-node "$THRONE/dist/src/tools.js" lint-slice-assignment
+"$THRONE/bin/throne-cli" lint-slice-assignment
 "$THRONE_DATA/$slice_addr/ASSIGNMENT.md"` against the file you just
      wrote. A nonzero exit is a hard stop: fix the assignment file and
      re-lint before spawning. Do not `create-agent`/`send-agent` a Shadow
@@ -231,7 +235,7 @@ node "$THRONE/dist/src/tools.js" lint-slice-assignment
      reap only the Shadow tab/ledger through ordinary throne tooling. In
      `git-repo`,
      Land the slice with `node
-`node "$THRONE/dist/src/tools.js" merge-git-tree "$slice_addr" "<slice message>"`: it reads the tree's
+`"$THRONE/bin/throne-cli" merge-git-tree "$slice_addr" "<slice message>"`: it reads the tree's
 recorded `tree-base.json`and merges into the recorded`branch`— your
 Alpha branch, never the target branch, and never a silent fallback to
 root HEAD. **Transport is flexible; the destination is not:** it lands at
@@ -259,13 +263,18 @@ via plain`complete-agent`, and skipping the call because "there's
      nothing to merge" leaves it with no completion proof at all.
 
      **Confirm, then wait for the claim — never reap in the same turn as the
-     merge.** Immediately after `merge-git-tree` succeeds, send the Shadow
-     exactly one `send-agent` confirmation that its merge landed (e.g. "merged
-     into <branch>; you may publish your reapability claim"). Then end your
+     merge.** When `merge-git-tree` succeeds on a Shadow's tree it sends the
+     Shadow its confirmation itself ("you may publish your reapability
+     claim") and records the acceptance in `data/<shadow>/acceptance.json`.
+     A no-merge campaign never calls `merge-git-tree`: accept a verdict-only
+     Shadow's slice with `throne accept-slice "$slice_addr"`, which records
+     and sends the same confirmation without touching git. If either command
+     prints that the go-ahead FAILED, send the confirmation yourself with
+     `send-agent`. Then end your
      own turn idle, publishing `{"blocked":true}` with a
      `__BLOCKED_BY_<slice_addr>__` marker per the existing blocked-marker
      convention (Rule 3 above) — do not call `reap-agent` in the same turn
-     you send the confirmation. Reaping immediately would give the Shadow no
+     the confirmation is sent. Reaping immediately would give the Shadow no
      turn to publish its claim and recreate the same deadlock one message
      later. The Shadow's own reapability-claim message is what wakes you; only
      in the turn that message arrives do you tear the Shadow down (tab +
@@ -305,7 +314,7 @@ via plain`complete-agent`, and skipping the call because "there's
 
   The orchestrator (you, the Alpha) still owns the queue, ordering, active-plan
   resolution (Rule 6), and merge-back; a Shadow executes only its one slice.
-  `99a_conform`, `99b_verify` and `99c_deliver` run in order after all ordinary slices as three distinct fresh real Shadows when applicable. If a 99 slice is not applicable to the exact request, simulate its contract, record `N/A — no-op` with the reason, and do not spawn or execute it; report the no-op explicitly. Applicable gates retain their normal dependency chain and use `rolePools.ShadowSlice99`; none may be Alpha-executed. The `99d` record step that follows `99c` is not a gate and is the one terminal todo the Alpha performs itself; see "`99d` — record the outcome on the Lord's page".
+  `99a_conform`, `99b_verify`, `99bs_spec` and `99c_deliver` run in order after all ordinary slices as four distinct fresh real Shadows when applicable. If a 99 slice is not applicable to the exact request, simulate its contract, record `N/A — no-op` with the reason, and do not spawn or execute it; report the no-op explicitly. Applicable gates retain their normal dependency chain and use `rolePools.ShadowSlice99`; none may be Alpha-executed. The `99d` record step that follows `99c` is not a gate and is the one terminal todo the Alpha performs itself; see "`99d` — record the outcome on the Lord's page".
   When the bundle has a `98_ticket_` todo, `99a_conform` does not start until that todo records `**Ticket alignment outcome:** PASS`; see "`99a` waits for the ticket-alignment check" below.
 
   The following campaign-topology rules are `git-repo` only. **Propagation is

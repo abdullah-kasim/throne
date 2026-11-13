@@ -1,3 +1,8 @@
+import { readAgentPresentState } from '../agentdata/agent-present-state.ts';
+import {
+  appendBlockedPageLedgerEntry,
+  readBlockedPageLedger,
+} from '../blocked-paging/blocked-agent-escalation-ledger.ts';
 import path from 'node:path';
 import { RUNTIME_THRONE_ROOT } from '../shared-policy/runtime-throne-root.ts';
 import { Command as CommanderCommand } from 'commander';
@@ -27,6 +32,10 @@ import {
 import { detectStaleThroneTabs, detectStrandedSpawns } from './stale-tab-report.ts';
 import { openRegentQueueStore } from '../regent-queue/regent-queue.store.ts';
 import { recoverStrandedSpawn } from './stranded-spawn-recovery.ts';
+import { emptyStuckDraftMemory } from './stuck-draft-sweep.ts';
+import { forceEnter, readComposerWithinTimeout } from '../herdr/forced-enter.ts';
+import type { HerdrAgent } from '../herdr/herdr-inventory.service.ts';
+import type { ActiveComposerSnapshot } from '../codex-screen/composer/composer.types.ts';
 import { detectUnnamedAgents } from './unnamed-agent-report.ts';
 import { ConfirmedObservationTracker } from './confirmed-observation.ts';
 import { renderEntranceRefusal } from '../shared-policy/entrance-refusal.ts';
@@ -67,6 +76,10 @@ async function hasFutureSqliteScheduledDelivery(name: string, nowMs: number): Pr
 
 const hasFutureScheduledDelivery = hasFutureSqliteScheduledDelivery;
 
+async function readComposer(agent: HerdrAgent): Promise<ActiveComposerSnapshot> {
+  return (await readComposerWithinTimeout(agent)) ?? { state: 'unavailable' };
+}
+
 export const REAL_NO_IDLING_DEPENDENCIES: NoIdlingDependencies = {
   resolveLiveRoot: async () => THRONE_ROOT,
   getRoster: async () => getAgentStatusesRoster(),
@@ -97,6 +110,14 @@ export const REAL_NO_IDLING_DEPENDENCIES: NoIdlingDependencies = {
   isRegisteredAgent: (name, dataDir) => agentRegistrationExists(name, dataDir),
   hasProvenDelivery: (name, dataDir) => hasProvenDelivery(name, dataDir),
   openRegentQueue: () => openRegentQueueStore(),
+  readComposer,
+  submitStuckDraft: (agent) => forceEnter(agent),
+  stuckDraftMemory: emptyStuckDraftMemory(),
+  readPresentState: (name, nowMs, dataDir) => readAgentPresentState(name, nowMs, { dataDir }),
+  pageLedger: {
+    read: () => readBlockedPageLedger(),
+    append: (entry) => appendBlockedPageLedgerEntry(entry),
+  },
   now: () => Date.now(),
   // Process-lifetime: the hosted worker and this route handler share this
   // exact dependency object across every scheduled/manual sweep, so one

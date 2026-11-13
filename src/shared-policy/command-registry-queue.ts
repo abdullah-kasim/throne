@@ -17,6 +17,7 @@ import { AttachThroneHerdrCommand } from "../attach-throne-herdr/attach-throne-h
 import { WorkLogCommand } from "../work-log/work-log.command.ts";
 import { WhereIStandCommand } from "../where-i-stand/where-i-stand.command.ts";
 import { CheckWhereIStandCommand } from "../where-i-stand/check-where-i-stand.command.ts";
+import { WhereIStandImportCommand } from "../where-i-stand-import/where-i-stand-import.command.ts";
 import { PreviewCommand } from "../previews/preview.command.ts";
 import type { CommandRegistryEntry } from "./command-registry-entry.ts";
 
@@ -114,7 +115,15 @@ export const QUEUE_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: true,
     description:
-      "Show the Lord's where-i-stand page with its version, replace it from a file when the version still matches, or add one event to its Just happened list. Any agent may write; every write is locked and journaled.",
+      "List the Lord's where-i-stand tabs and sections with their ids and listing token, show the page as Markdown, put or archive a work entry, note an event, archive or restore a row or section, create a tab or section, and purge rows archived over six months. Reaches throne-backend; --local opens the database in this process.",
+  },
+  {
+    name: "where-i-stand-import",
+    provider: WhereIStandImportCommand,
+    visibility: "public",
+    migrated: true,
+    description:
+      "Import today's Markdown where-i-stand page and its archive file into the where-i-stand database once, reading the files without changing them, or compare the database with a Markdown page.",
   },
   {
     name: "check-where-i-stand",

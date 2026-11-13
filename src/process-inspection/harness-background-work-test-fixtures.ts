@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { HerdrPaneProcessInfo } from '../herdr/herdr-inventory.service.ts';
-import { listProcessesUnderPathDarwin, parseProcessTable, type RunHostCommand } from './darwin-process-scan.ts';
+import { parseProcessTable, type RunHostCommand } from './darwin-process-scan.ts';
+import { readDarwinProcessTable } from './process-table.ts';
 import type { HarnessBackgroundWorkHost } from './harness-background-work.ts';
 
 const PROCESS_TABLES_DIRECTORY = path.join(import.meta.dirname, '..', '..', 'test', 'fixtures', 'process-tables');
@@ -45,16 +46,13 @@ export function harnessProcessHost(fixture: {
   const runHostCommand: RunHostCommand = async (file, args) => {
     hostCommands.push([file, ...args].join(' '));
     if (file === 'lsof') return lsofCwdRecords(cwdByPid);
-    if (args.includes('pid=,args=')) {
-      return parseProcessTable(fixture.processTable).map((row) => `${row.pid} ${row.command}`).join('\n');
-    }
     return fixture.processTable;
   };
   return {
     hostCommands,
     readPaneProcessInfo: async (paneId) => paneProcessInfo(paneId, fixture.harnessDirectory, fixture.processTable),
     runHostCommand,
-    listProcessesUnderPath: (directory) => listProcessesUnderPathDarwin(directory, runHostCommand),
+    readProcessTable: readDarwinProcessTable,
   };
 }
 
@@ -65,5 +63,5 @@ export const PROCESS_HOST_WITHOUT_HERDR: HarnessBackgroundWorkHost = {
   runHostCommand: async (file) => {
     throw new Error(`${file} is not available`);
   },
-  listProcessesUnderPath: async () => [],
+  readProcessTable: readDarwinProcessTable,
 };

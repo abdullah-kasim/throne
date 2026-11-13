@@ -146,15 +146,15 @@ So when your slice adds or touches a test:
   already did this, so let's add some more to the slow test list.* On container
   tests: *we should isolate those away and disable them by default. Only an agent
   can judge whether to run them.* A file listed in `test/slow-tests.json` (with
-  its measured seconds and why it is slow) is skipped by the default `npm test`
-  and runs with `npm run test:slow` or `THRONE_SLOW_TESTS=1`. A file that starts
+  its measured seconds and why it is slow) is skipped by the default `bun run test`
+  and runs with `bun run test:slow` or `THRONE_SLOW_TESTS=1`. A file that starts
   a podman or docker container is listed in `test/container-tests.json` and runs
-  with `npm run test:containers` or `THRONE_CONTAINER_TESTS=1`; an agent runs that
+  with `bun run test:containers` or `THRONE_CONTAINER_TESTS=1`; an agent runs that
   group only on its judgment that the change reaches what those tests cover, and
   records that decision in its execution log or report. For these two groups the
   rule above and the shrinking manifest below are superseded by that ruling; the
   heavy group keeps both. The law still binds every default run.
-- **ENFORCEMENT IS MANDATORY — `npm test` FAILS on a violation.** Not warns, not
+- **ENFORCEMENT IS MANDATORY — `bun run test` FAILS on a violation.** Not warns, not
   reports. The Lord's follow-up: *"npm test should fail if something ran for more
   than 10 seconds."* He was asked to reconsider on flakiness grounds and
   reaffirmed. An earlier ruling calling this a bug-not-failure threshold is
@@ -465,7 +465,11 @@ The repository half is not optional and it is where duplication actually
 happens. Picture a slice asked for a discount line on an invoice that writes
 a second currency formatter two files away from the existing `formatMoney`,
 because nothing put that name in front of it; the fix is one option on
-`formatMoney`. Start from the
+`formatMoney`. Before writing slices, read the target's feature map and the
+spec files of the area the objective touches, by the rule in
+`/queue-objective` step 3b (an area the map does not cover is searched in the
+code as before), and name in `00_overview.md` which spec areas the campaign
+touches, so the spec slice knows what to update. Start from the
 queue row's `REUSE:` entries, then grep the touched module for every verb the
 objective uses (`git grep -n -E "func (sign|verify)|function retry" -- <module>`)
 and record every hit in the overview's reuse ledger: `path:line — what it
@@ -488,15 +492,16 @@ Planning must carry this audit into the overview, the relevant slice
 deliverables, the validator contract, and the report expectation so execution
 can re-check it after recon.
 
-Every bundle is bracketed by five auto-included bookends: `00_overview.md`
+Every bundle is bracketed by six auto-included bookends: `00_overview.md`
 (the north-star — read first, never executed), `99a_conform_<topic>.md` (the
 fresh conformance gate, which grades the candidate against what was literally
 asked for), `99b_verify_<topic>.md` (the fresh tests-and-lint gate, which fixes
-what it finds), and `99c_deliver_<topic>.md` (the fresh conflict-owning
+what it finds), `99bs_spec_<topic>.md` (the fresh Shadow that brings the spec
+and feature map up to date with the whole change), `99c_deliver_<topic>.md` (the fresh conflict-owning
 delivery Shadow), and `99d_record_<topic>.md` (the step the Alpha performs
 itself after delivery, which records the outcome on the Lord's page).
-Ordinary slices live between `00` and `99a`; the three
-terminal Shadows run in `99a` → `99b` → `99c` order, and `99d` follows them.
+Ordinary slices live between `00` and `99a`; the four
+terminal Shadows run in `99a` → `99b` → `99bs` → `99c` order, and `99d` follows them.
 
 ## Proposed function contract map — a legible shape, never a mandate
 
@@ -574,18 +579,20 @@ forbids.
     ├── 98_ticket_<topic>.md           ← ticket-driven bundles only: does this match the TICKET?
     ├── 99a_conform_<topic>.md         ← fresh gate: does this do what was ASKED?
     ├── 99b_verify_<topic>.md          ← fresh tests-and-lint gate, fixes what fails
+    ├── 99bs_spec_<topic>.md           ← fresh Shadow updates the spec and feature map
     ├── 99c_deliver_<topic>.md         ← fresh Shadow merges latest and delivers LAST
     └── 99d_record_<topic>.md          ← the Alpha itself records the outcome on the Lord's page
 ```
 
 - **Folder name**: literal `todo-` prefix + ISO-style timestamp + kebab-case topic. Get the timestamp with `date +%Y-%m-%d-%H%M`. Example: `todo-2026-05-08-1430-login-config-page/`.
 - **Topic**: 2–5 kebab-case words capturing the deliverable (`login-config-page`, `fix-cache-corruption`, `migrate-auth-middleware`). Don't repeat what the campaign name already implies.
-- **Sequence number**: zero-padded. `00`, `99a`, `99b`, `99c`, and `99d` are reserved
+- **Sequence number**: zero-padded. `00`, `99a`, `99b`, `99bs`, `99c`, and `99d` are reserved
   bookends — `00_overview.md` is read-first context,
   `99a_conform_<topic>.md` grades the candidate against what was literally
   asked for (by a report skill's own gate rule when the bundle runs one that
   defines it; see `conformance-todo-template.md`), `99b_verify_<topic>.md` runs the
-  tests and lint and fixes what fails, and `99c_deliver_<topic>.md` merges the
+  tests and lint and fixes what fails, `99bs_spec_<topic>.md` updates the spec
+  and feature map from the whole change, and `99c_deliver_<topic>.md` merges the
   latest target and delivers.
   `99d_record_<topic>.md` is the Alpha's own step after delivery: it records
   the outcome on the Lord's page.
@@ -594,7 +601,7 @@ forbids.
   `perceptual-quality-bundles.md`). A ticket-driven bundle keeps `98` for `98_ticket_<topic>.md`
   (see `ticket-todo-template.md`), so its other slices take `01`–`97`. Numbers order and cross-reference; ordinary slices do
   NOT force numerical execution order. `00` reads first, then the fresh
-  terminal Shadows run `99a`, `99b` and `99c` in order. Keep the role word in
+  terminal Shadows run `99a`, `99b`, `99bs` and `99c` in order. Keep the role word in
   each terminal filename: the throne classifies terminal gates by verb, not by
   letter.
 - **Filename body**: snake_case verb-phrase summarizing the deliverable (`implement_store`, `wire_route`, `audit_orders_index`).
@@ -603,7 +610,7 @@ forbids.
 
 When identity.md carries `- **Execution mode:** single-slice (Lord-authorized)`,
 the bundle holds `00_overview.md`, exactly one implementation slice
-`01_<task>.md`, and all of `99a_conform_`, `99b_verify_`, `99c_deliver_` and
+`01_<task>.md`, and all of `99a_conform_`, `99b_verify_`, `99bs_spec_`, `99c_deliver_` and
 `99d_record_` (plus `98_ticket_` for a ticket-driven row). Every Done-when
 criterion maps to `01` or to a gate. `create-agent` refuses to spawn any
 Shadow under that Alpha while the bundle has another shape
@@ -642,18 +649,19 @@ Output the **list of titles** in numerical order, bracketed by the two bookends:
 98 — Check the candidate against the ticket     ← ticket-driven bundles only
 99a — Grade the candidate against what was literally asked for
 99b — Run the tests and lint, and fix what fails
+99bs — Update the spec and feature map from the whole change
 99c — Merge the latest target, then deliver and smoke-check it
 99d — Record the outcome on the Lord's page    ← the Alpha's own step, after delivery
 ```
 
-Annotate each executed entry (`01`–`98`, `99a`, `99b`, and `99c`) with a ≤6-word
+Annotate each executed entry (`01`–`98`, `99a`, `99b`, `99bs`, and `99c`) with a ≤6-word
 reason describing what it is and why it is its own slice, as above. Model
 selection is NOT part of this: the throne routes every worker itself, so a
 planner does not rank or score slices. Spend the
 judgment on the CUT instead — whether each slice is genuinely independently
 testable, and whether its boundary is a real seam.
 
-`00`, `99a`, `99b`, `99c`, and `99d` are non-negotiable — every new bundle ships with all five. A ticket-driven bundle also ships `98_ticket_<topic>.md` (see `ticket-todo-template.md`). Draft `00`'s "Done when:" checklist HERE, out loud, and confirm **every criterion maps to a numbered slice and every slice maps to a criterion**. That mapping IS the answer to "do these steps actually achieve the goal?" — and catching a gap now costs one line of text, not an execution re-run.
+`00`, `99a`, `99b`, `99bs`, `99c`, and `99d` are non-negotiable — every new bundle ships with all six. A ticket-driven bundle also ships `98_ticket_<topic>.md` (see `ticket-todo-template.md`). Draft `00`'s "Done when:" checklist HERE, out loud, and confirm **every criterion maps to a numbered slice and every slice maps to a criterion**. That mapping IS the answer to "do these steps actually achieve the goal?" — and catching a gap now costs one line of text, not an execution re-run.
 
 **COUNT YOUR DEPENDENCY CHAIN BEFORE YOU COMMIT TO IT (Lord, 2026-08-25).**
 Slice by independently-testable unit, not by sequential phase. The test is one
@@ -743,18 +751,21 @@ Once the breakdown is settled:
    a front-end bundle whose `99b` lacks it is malformed. The exception is
    `frontend_row: builder`, which takes the `## Browser function check` block
    from that template instead (see `front-end-bundles.md`).
-6. Write `99c_deliver_<topic>.md` last (see `delivery-todo-template.md`) with
-   `deps: [99b]` and the conflict-owning delivery
+6. Write `99bs_spec_<topic>.md` (see `spec-todo-template.md`) with
+   `deps: [99b]`. Name in it the areas the campaign touches, so its Shadow
+   knows which spec files to bring up to date.
+7. Write `99c_deliver_<topic>.md` (see `delivery-todo-template.md`) with
+   `deps: [99bs]` and the conflict-owning delivery
    contract. It merges the target branch into the campaign branch and re-checks
    until the target goes quiet, then delivers with plain git — checking out the
    target branch and merging the campaign branch into it — only while the target
    HEAD is unchanged since that final check, inspects the resulting target
    diff/content, and runs meaningful delivered-feature smoke checks on the
    target.
-7. Then write `99d_record_<topic>.md` (see `record-todo-template.md`) with
+8. Then write `99d_record_<topic>.md` (see `record-todo-template.md`) with
    `deps: [99c]`. It is the bundle's last file and is not a gate: the Alpha
    performs it itself, so `99c` stays the last todo a Shadow executes.
-8. Report the folder path and the file list in your report upward. That
+9. Report the folder path and the file list in your report upward. That
    completion report to Regent must also state the exact planned real-E2E
    strategy: the actual system/components, the required runtime state, the
    trigger/action that will exercise the path, the observable final outcome,
@@ -832,6 +843,8 @@ mechanics, and call-graph shape to the executing Shadow after recon.>
 
 - <User-visible / contract-visible outcome>
 - <Verification command, e.g. `npm --prefix web test` exits 0>
+- Write no spec. End the execution log with two or three lines on what
+  changed for a user or for another module; the spec slice reads them.
 - The slice's focused tests and mutation checks pass, and the file-size and
   lint/static-analysis/duplicate mechanical checks pass over the slice's OWN
   diff, before it reports DONE.
@@ -846,7 +859,7 @@ mechanics, and call-graph shape to the executing Shadow after recon.>
   message clears it. Otherwise no-idling pages the Regent every minute.
 ```
 
-For slices (`01`–`98`), the `## Out of scope` and `## Deliverable` sections are non-negotiable, and `## Kill list` is non-negotiable whenever the slice supersedes existing code (omit it only when nothing is superseded — see "Code cleanup is mandatory"). Everything else is shaped by the slice's semantic contract — a cross-slice contract todo emphasizes externally fixed interfaces and invariants; an implement-the-page todo emphasizes observable UX states and validation evidence; a fix-the-bug todo emphasizes the failing reproduction, the shared decision, and the invariant being restored. (`00`, `99a`, `99b`, and `99c` follow their own templates below.)
+For slices (`01`–`98`), the `## Out of scope` and `## Deliverable` sections are non-negotiable, and `## Kill list` is non-negotiable whenever the slice supersedes existing code (omit it only when nothing is superseded — see "Code cleanup is mandatory"). Everything else is shaped by the slice's semantic contract — a cross-slice contract todo emphasizes externally fixed interfaces and invariants; an implement-the-page todo emphasizes observable UX states and validation evidence; a fix-the-bug todo emphasizes the failing reproduction, the shared decision, and the invariant being restored. (`00`, `99a`, `99b`, `99bs`, and `99c` follow their own templates below.)
 
 ## Concurrency stamps (`deps:` / `touches:`)
 
@@ -1193,9 +1206,11 @@ Every todo with non-obvious boundaries gets an explicit `## Out of scope` sectio
 
 State both:
 - The visible outcome (`/recipes route shows the cuisine filter`).
-- The verification command (`npm test` exits 0; `npm run build` exits 0).
+- The verification command (`bun run test` exits 0; `bun run build` exits 0).
 
 Without the verification command, the executor self-grades and the bar drifts. The same rule scales up: `00`'s `## Done when` is the whole bundle's deliverable, `99b` runs the tests and lint and fixes what fails, and `99c` merges the latest target and delivers the result to it.
+
+**Independent cases run together, not one after another.** A slice that builds a check for the executor to run itself (an evidence tool, a probe script, a batch of one-off runs) states in its `## Semantic contract` which cases run together, the cap (6 at once unless it names a reason for fewer, such as each case starting a browser, a container or a harness), and which cases run serially and why. Cases run serially only when two of them share one real machine, one lock, one account or one counter. Each case gets its own pane, port, temporary folder, data home and container name, chosen at run time, never fixed, and the tool's log records the wall-clock seconds of each case and of the whole run. An executor running several independent commands by hand starts them together (the harness's background mode, or one command that starts them all and waits for all), never one wait after another. A recipe app's check that probes four routes probes all four at once. The repository's own suites and the single assembled full-suite run keep their existing rules, including running that suite in the foreground.
 
 ### Match the project's naming style
 
@@ -1206,6 +1221,7 @@ Action-shaped titles, targets baked in: `Implement recipe page`, `Wire the relea
 - `ticket-todo-template.md` — read when the bundle is ticket-driven and you are writing the `98` file.
 - `conformance-todo-template.md` — read when writing the `99a` file.
 - `verify-todo-template.md` — read when writing the `99b` file.
+- `spec-todo-template.md` — read when writing the `99bs` file.
 - `delivery-todo-template.md` — read when writing the `99c` file.
 - `record-todo-template.md` — read when writing the `99d` file.
 - `front-end-bundles.md` — read when any slice's `touches:` includes a front-end path, or the queue row stamps `frontend_row:`.

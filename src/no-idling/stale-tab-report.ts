@@ -7,6 +7,7 @@ import {
 import { LedgerDataService } from '../agentdata/ledger-data.service.ts';
 import { openingPromptPath } from '../agentdata/identity-data.service.ts';
 import { fileExists, readSpawnSpec } from '../agentdata/spawn-data-contracts.ts';
+import { isWithinSpawnGrace } from '../agentdata/spawn-starting.ts';
 import { HARNESS_NAMES } from '../harness-routing/harness.ts';
 import {
   classifyStrandedSpawnPane,
@@ -126,7 +127,7 @@ export interface UnreadablePaneReport {
 type CandidateClassification =
   | { readonly kind: 'stranded'; readonly report: StrandedSpawnReport }
   | { readonly kind: 'unreadable'; readonly report: UnreadablePaneReport }
-  | { readonly kind: 'none' };
+  | { readonly kind: 'none'; readonly withinSpawnGrace?: true };
 
 export interface CandidatePaneReads {
   readVisibleAnsi(paneId: string): Promise<string>;
@@ -186,6 +187,9 @@ export async function classifyCandidateThroneTab(
       },
     };
   }
+  if (isWithinSpawnGrace(spawnSpec, Date.now())) {
+    return { kind: 'none', withinSpawnGrace: true };
+  }
   const classification = classifyStrandedSpawnPane(
     HARNESS_NAMES.CLAUDE,
     paneAnsi,
@@ -236,7 +240,7 @@ export async function splitStaleAndStrandedThroneTabs(
       strandedSpawns.push(classified.report);
     } else if (classified.kind === 'unreadable') {
       unreadablePanes.push(classified.report);
-    } else {
+    } else if (classified.withinSpawnGrace !== true) {
       staleTabs.push(candidate);
     }
   }

@@ -13,7 +13,6 @@ import {
 const TOKENS = {
   throneRoot: '/srv/throne',
   herdrBin: '/srv/herdr/v9/herdr',
-  nodeBin: '/srv/mise/node/24.19.0/bin/node',
 };
 
 test('every committed conduwuit systemd source renders with the linux token set and no leftover token', async () => {
@@ -73,7 +72,7 @@ test('every committed throne-bot systemd source is registered, renders with the 
   }
 });
 
-test("the rendered forgejo.service runs this checkout's forgejo-serve with the absolute node path and restarts on failure", async () => {
+test("the rendered forgejo.service runs this checkout's forgejo-serve and restarts on failure", async () => {
   const source = await readFile(
     path.join(SYSTEMD_SOURCE_DIR, SYSTEMD_UNIT_NAMES.FORGEJO),
     'utf8',
@@ -85,7 +84,6 @@ test("the rendered forgejo.service runs this checkout's forgejo-serve with the a
   const rendered = renderUnitSource(source, TOKENS);
   assert.doesNotMatch(rendered, /\{\{/);
   assert.match(rendered, /^ExecStart=\/srv\/throne\/systemd\/forgejo-serve$/m);
-  assert.match(rendered, /^Environment=FORGEJO_NODE_BIN=\/srv\/mise\/node\/24\.19\.0\/bin\/node$/m);
   assert.match(rendered, /^Restart=on-failure$/m);
   assert.match(rendered, /^StateDirectory=forgejo$/m);
   for (const bootRaceRetry of [/^StartLimitIntervalSec=.*$/m, /^StartLimitBurst=.*$/m, /^RestartSec=.*$/m, /^TimeoutStartSec=.*$/m]) {
@@ -112,6 +110,6 @@ test('the ~/tmp cache cleaner timer is installed and enabled and nothing retires
   const rendered = renderUnitSource(source, TOKENS);
   assert.match(
     rendered,
-    /^ExecStart=\/srv\/mise\/node\/24\.19\.0\/bin\/node \/srv\/throne\/dist\/src\/tools\.js sweep-tmp-scratch --apply --tmp-root %h\/tmp --min-age-ms 2592000000 --min-free-bytes 100000000000$/m,
+    /^ExecStart=\/srv\/throne\/bin\/throne-runtime \/srv\/throne\/dist\/src\/tools\.js sweep-tmp-scratch --apply --tmp-root %h\/tmp --min-age-ms 2592000000 --min-free-bytes 100000000000$/m,
   );
 });

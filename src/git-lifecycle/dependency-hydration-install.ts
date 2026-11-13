@@ -7,6 +7,7 @@ import {
 } from "../forge/forge-dependencies.ts";
 import { readPinnedNodeVersion } from "../install-services/pinned-node-version.ts";
 import type { DependencyHydrationPlan } from "./dependency-hydration-fingerprint.ts";
+import { THRONE_RUNTIME_COMMAND } from "../shared-policy/throne-runtime-command.ts";
 import { THRONE_PROJECT_DIR } from "./git-worktree.service.ts";
 import { MiseNodeReleases } from "./mise-node-releases.ts";
 import { nodeForProject, type NodeChoice } from "./node-for-project.ts";
@@ -81,6 +82,16 @@ export class NpmInstallPlatform implements DependencyInstallPlatform {
     destinationProjectDir: string,
     node: NodeChoice,
   ): Promise<void> {
+    if (await pathExists(path.join(destinationProjectDir, "bun.lock"))) {
+      const result = await this.runProcess(THRONE_RUNTIME_COMMAND, ["install"], {
+        cwd: destinationProjectDir,
+        environment: process.env,
+      });
+      if (result.exitCode === 0) return;
+      throw new Error(
+        `bun install failed in "${destinationProjectDir}": ${result.stderr.trim()}`,
+      );
+    }
     const result = await this.runProcess("npm", ["install"], {
       cwd: destinationProjectDir,
       environment: {

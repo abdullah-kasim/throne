@@ -11,7 +11,7 @@ import { findOnPath, linkRealCommands, writeFakeExecutable } from './support/fak
 
 const execFileAsync = promisify(execFile);
 const REPO_ROOT = path.resolve(new URL('..', import.meta.url).pathname);
-const REAL_COMMANDS = ['chmod', 'date', 'dirname', 'flock', 'grep', 'head', 'id', 'mkdir', 'perl', 'sleep'];
+const REAL_COMMANDS = ['chmod', 'date', 'dirname', 'grep', 'head', 'id', 'mkdir', 'perl', 'sleep'];
 const SERVE_SCRIPTS = ['forgejo-serve', 'container-runtime-ensure'];
 const TAILNET_IP = '192.0.2.10';
 const LOOPBACK_PUBLISH = '127.0.0.1:8421:3000';
@@ -79,6 +79,8 @@ async function buildHost(): Promise<Host> {
       2,
     ),
   );
+  await mkdir(path.join(throneRoot, 'bin'), { recursive: true });
+  await writeFakeExecutable(path.join(throneRoot, 'bin', 'throne-runtime'), `exec "${process.execPath}" "$@"`);
   await linkRealCommands(fakeBin, REAL_COMMANDS);
   const host = { throneRoot, fakeBin, stateHome, tailscaleAppCli };
   await installRuntime(host, 'podman', PODMAN_CLI_VERSION_REPORT);
@@ -138,7 +140,6 @@ async function runForgejoServe(host: Host, extraEnv: NodeJS.ProcessEnv = {}): Pr
           XDG_STATE_HOME: host.stateHome,
           FORGEJO_TAILSCALE_APP_CLI: host.tailscaleAppCli,
           FORGEJO_TAILNET_WAIT_SECONDS: '0',
-          FORGEJO_NODE_BIN: process.execPath,
           ...extraEnv,
         },
       },
@@ -245,18 +246,17 @@ test('forgejo-serve refuses to start a forge the installer has not configured', 
   assert.equal(await runtimeWasStarted(host, 'podman'), false);
 });
 
-test('forgejo-serve refuses instead of running the node on PATH when no pinned node is given', async () => {
+test('forgejo-serve reads its pin through the runtime launcher, never the node on PATH', async () => {
   const host = await buildHost();
   await configureForge(host);
   const decoyNodeRanMarker = path.join(host.throneRoot, 'decoy-node-ran');
   await writeFakeExecutable(path.join(host.fakeBin, 'node'), `touch "${decoyNodeRanMarker}"`);
 
-  const result = await runForgejoServe(host, { FORGEJO_NODE_BIN: undefined });
+  const result = await runForgejoServe(host);
 
-  assert.notEqual(result.code, 0);
-  assert.match(result.stderr, /FORGEJO_NODE_BIN is not set/);
+  assert.equal(result.code, 0, result.stderr);
   await assert.rejects(access(decoyNodeRanMarker));
-  assert.equal(await runtimeWasStarted(host, 'podman'), false);
+  assert.ok((await containerRunArguments(host, 'podman')).includes(PINNED_FORGEJO_IMAGE));
 });
 
 test('forgejo-serve exits non-zero when no tailnet address appears', async () => {
@@ -359,7 +359,7 @@ test('forgejo-serve reads the Forgejo image pin from the real vendor-pins.json',
   const { stdout } = await execFileAsync(
     await findOnPath('sh'),
     ['-c', `${await forgejoImagePinLine()}\nprintf '%s' "$forgejo_image"`],
-    { env: { PATH: process.env.PATH, node_binary: process.execPath, pins_file: pinsFile } },
+    { env: { PATH: process.env.PATH, runtime_launcher: process.execPath, pins_file: pinsFile } },
   );
 
   assert.equal(stdout, pinnedImage);
@@ -371,10 +371,10 @@ function environmentOfUnit(renderedUnit: string): NodeJS.ProcessEnv {
   );
 }
 
-test("forgejo-serve finds node under the rendered forgejo.service's own environment", async () => {
+test("forgejo-serve finds its runtime under the rendered forgejo.service's own environment", async () => {
   const source = await readFile(path.join(SYSTEMD_SOURCE_DIR, SYSTEMD_UNIT_NAMES.FORGEJO), 'utf8');
   const unitEnvironment = environmentOfUnit(
-    renderUnitSource(source, { throneRoot: REPO_ROOT, herdrBin: '/unused/herdr', nodeBin: process.execPath }),
+    renderUnitSource(source, { throneRoot: REPO_ROOT, herdrBin: '/unused/herdr' }),
   );
   const stateHome = await mkdtemp(path.join(tmpdir(), 'forgejo-serve-unit-'));
   scratch.push(stateHome);
@@ -386,7 +386,6 @@ test("forgejo-serve finds node under the rendered forgejo.service's own environm
     (error: { stderr?: string }) => error.stderr ?? '',
   );
 
-  assert.equal(unitEnvironment.FORGEJO_NODE_BIN, process.execPath);
   assert.doesNotMatch(failure, /required command is unavailable/);
   assert.match(failure, /app\.ini does not exist/);
 });

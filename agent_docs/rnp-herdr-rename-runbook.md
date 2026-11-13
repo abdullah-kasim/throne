@@ -190,7 +190,7 @@ that isn't itself a herdr pane, since none exist yet) can trigger
 resurrection immediately instead of waiting for the half-hour mark:
 
 ```bash
-node <throne root>/dist/src/tools.js keep-going
+<throne root>/bin/throne-cli keep-going
 ```
 
 This is the same call the cron makes; running it by hand just doesn't wait
@@ -273,7 +273,7 @@ cleanly.
    ```
 5. Confirm `throne-herdr.service` is `active`.
 6. Resurrect the Regent: either wait ≤30 min for `throne-backend`'s cron, or
-   run `node <throne root>/dist/src/tools.js keep-going` by hand from a
+   run `<throne root>/bin/throne-cli keep-going` by hand from a
    non-pane shell for an immediate resurrection.
 7. **There is no revert.** (Historical: step 7 used to run
    `scripts/rnp-herdr-revert.sh`; deleted 2026-08-14 — see above.) If

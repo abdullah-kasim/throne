@@ -218,7 +218,7 @@ test("an unreadable lock record counts from its last write: fresh is held, older
 
 test("two contenders taking over the same stale sweep lock: exactly one wins, every round", async () => {
   const rounds = 200;
-  for (let round = 0; round < rounds; round += 1) {
+  await Promise.all(Array.from({ length: rounds }, async (_, round) => {
     const lockPath = uniqueTestSweepLockPath();
     const staleAt = Date.now() - SWEEP_LOCK_TIME_TO_LIVE_MS - 1_000;
     await writeHolder(lockPath, {
@@ -236,7 +236,7 @@ test("two contenders taking over the same stale sweep lock: exactly one wins, ev
     const winningLease = leaseOf(winners[0]!);
     assert.equal((await recordedHolder(lockPath)).token, winningLease.holder.token);
     await winningLease.release();
-  }
+  }));
 });
 
 test("two contenders that both saw the same stale sweep lock: the one that claims second loses to the first", async () => {

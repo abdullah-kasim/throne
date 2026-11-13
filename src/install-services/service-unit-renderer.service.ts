@@ -64,12 +64,6 @@ export const THRONE_ROOT_TOKEN = "{{THRONE_ROOT}}";
 /** The absolute herdr binary path substituted into unit sources at install time. */
 export const HERDR_BIN_TOKEN = "{{HERDR_BIN}}";
 
-/**
- * The absolute node interpreter path substituted into unit sources at
- * install time — the mise install of the exact version pinned in mise.toml.
- */
-export const NODE_BIN_TOKEN = "{{NODE_BIN}}";
-
 export const THRONE_LOGS_TOKEN = "{{THRONE_LOGS}}";
 
 export const SERVICE_MANAGER_EXECUTABLES = {
@@ -189,8 +183,6 @@ export interface InstalledUnit {
 export interface UnitTokens {
   throneRoot: string;
   herdrBin: string | null;
-  /** The mise install path of the node version pinned in mise.toml; only the units that call node directly use it. */
-  nodeBin?: string | null;
 }
 
 /** One unit to render and install. */
@@ -334,7 +326,6 @@ export function renderUnitSource(
   const substitutions: ReadonlyArray<readonly [string, string | null]> = [
     [THRONE_ROOT_TOKEN, tokens.throneRoot],
     [HERDR_BIN_TOKEN, tokens.herdrBin],
-    [NODE_BIN_TOKEN, tokens.nodeBin ?? null],
     [THRONE_LOGS_TOKEN, throneLogsDirectory(environment)],
   ];
   let rendered = source;

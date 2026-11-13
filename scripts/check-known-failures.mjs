@@ -1,11 +1,11 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Compares a suite run's actual non-passing test names against the checked-in
 // known-failure manifest (test/known-failures.json), so a gate can read a
 // file instead of re-deriving the standing-red set by hand. This tooling
 // NEVER writes to the manifest — adding an entry stays an ordinary reviewed
 // commit (000_current_questions.md Q1/Q2 in the baseline-manifest bundle).
 //
-//   node scripts/check-known-failures.mjs <suite-log-path> [manifest-path]
+//   bun scripts/check-known-failures.mjs <suite-log-path> [manifest-path]
 //
 // Exits nonzero when the run reports a failing/cancelled name absent from
 // the manifest (the loud-fail case a gate acts on). Exits zero otherwise,

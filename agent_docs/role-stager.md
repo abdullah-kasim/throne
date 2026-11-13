@@ -32,7 +32,8 @@ reply has reintroduced the block it was created to remove.
 **A Stager writes the Lord's page when it files and when it amends.** Right
 after filing, the Stager adds the row's entry, `### <objective code>`, under
 `## Queued and deferred` on the Lord's where-i-stand page with
-`throne where-i-stand put`, and adds a note with `throne where-i-stand note`, writing the entry in
+`throne where-i-stand put` by the section id and listing token
+`throne where-i-stand list` prints, and adds a note with `throne where-i-stand note`, writing the entry in
 the page's entry form.
 When it records an amendment that changes what the row is, it corrects that
 entry. The page itself and the Alpha's duty to

@@ -11,6 +11,7 @@ import { normalizeRenderedPayload } from '../codex-screen/composer/rendered-text
 export const INTERACTIVE_PROMPT_KINDS = {
   PERMISSION: 'permission',
   QUESTION: 'question',
+  FOLDER_TRUST: 'folder-trust',
 } as const;
 export type InteractivePromptKind =
   (typeof INTERACTIVE_PROMPT_KINDS)[keyof typeof INTERACTIVE_PROMPT_KINDS];
@@ -25,6 +26,7 @@ export interface DetectedInteractivePrompt {
   readonly kind: InteractivePromptKind;
   readonly question: string;
   readonly command?: string;
+  readonly folder?: string;
   readonly warnings: readonly string[];
   readonly options: readonly InteractivePromptOption[];
   readonly selectedNumber: number | null;
@@ -168,13 +170,75 @@ function detectClaudeInteractivePrompt(lines: readonly string[]): DetectedIntera
   };
 }
 
+export const CLAUDE_FOLDER_TRUST_HINT = 'Enter to confirm · Esc to cancel';
+export const CLAUDE_FOLDER_TRUST_ACCEPT_LABEL = 'Yes, I trust this folder';
+const CLAUDE_FOLDER_TRUST_HEADER = 'Accessing workspace:';
+const UNNUMBERED_OPTION_ROW_PATTERN = /^\s*(❯)?\s*(\S.*\S)\s*$/u;
+
+function nextNonBlankIndexAfter(lines: readonly string[], index: number): number {
+  let cursor = index + 1;
+  while (cursor < lines.length && isBlank(lines[cursor]!)) cursor += 1;
+  return cursor < lines.length ? cursor : -1;
+}
+
+function paragraphFrom(lines: readonly string[], firstIndex: number): string {
+  const paragraph: string[] = [];
+  for (let index = firstIndex; index < lines.length && !isBlank(lines[index]!); index += 1) {
+    paragraph.push(lines[index]!.trim());
+  }
+  return paragraph.join(' ');
+}
+
+function readUnnumberedOptionBlockAbove(lines: readonly string[], hintIndex: number): OptionBlock | undefined {
+  const lastIndex = lastNonBlankIndexBefore(lines, hintIndex);
+  if (lastIndex < 0) return undefined;
+  let firstIndex = lastIndex;
+  while (firstIndex - 1 >= 0 && !isBlank(lines[firstIndex - 1]!)) firstIndex -= 1;
+  const options: InteractivePromptOption[] = [];
+  let selectedNumber: number | null = null;
+  for (let index = firstIndex; index <= lastIndex; index += 1) {
+    const match = UNNUMBERED_OPTION_ROW_PATTERN.exec(lines[index]!);
+    if (match === null) return undefined;
+    const number = options.length + 1;
+    options.push({ number, label: match[2]! });
+    if (match[1] === SELECTED_OPTION_CURSOR) selectedNumber = number;
+  }
+  return { options, selectedNumber, firstLineIndex: firstIndex };
+}
+
+function detectClaudeFolderTrustPrompt(lines: readonly string[]): DetectedInteractivePrompt | undefined {
+  const hintIndex = lastLineIndexMatching(lines, CLAUDE_FOLDER_TRUST_HINT);
+  if (hintIndex < 0) return undefined;
+  const headerIndex = lastLineIndexMatching(lines.slice(0, hintIndex), CLAUDE_FOLDER_TRUST_HEADER);
+  if (headerIndex < 0) return undefined;
+  const folderIndex = nextNonBlankIndexAfter(lines, headerIndex);
+  const questionIndex = folderIndex < 0 ? -1 : nextNonBlankIndexAfter(lines, folderIndex);
+  if (questionIndex < 0 || questionIndex >= hintIndex) return undefined;
+  const optionBlock = readUnnumberedOptionBlockAbove(lines, hintIndex);
+  if (optionBlock === undefined || optionBlock.firstLineIndex <= questionIndex) return undefined;
+  return {
+    harness: HARNESS_NAMES.CLAUDE,
+    kind: INTERACTIVE_PROMPT_KINDS.FOLDER_TRUST,
+    question: paragraphFrom(lines, questionIndex),
+    folder: lines[folderIndex]!.trim(),
+    warnings: [],
+    options: optionBlock.options,
+    selectedNumber: optionBlock.selectedNumber,
+    hint: CLAUDE_FOLDER_TRUST_HINT,
+  };
+}
+
 export function detectCodexInteractivePrompt(_lines: readonly string[]): DetectedInteractivePrompt | undefined {
   return undefined;
 }
 
 export function detectInteractivePrompt(screenText: string): DetectedInteractivePrompt | undefined {
   const lines = screenText.split('\n');
-  return detectClaudeInteractivePrompt(lines) ?? detectCodexInteractivePrompt(lines);
+  return (
+    detectClaudeFolderTrustPrompt(lines) ??
+    detectClaudeInteractivePrompt(lines) ??
+    detectCodexInteractivePrompt(lines)
+  );
 }
 
 export function selectedOptionOf(prompt: DetectedInteractivePrompt): InteractivePromptOption | undefined {

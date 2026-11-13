@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Safe cleanup for orphaned throne-suite-app containers.
 //
 // ============================================================================
@@ -17,9 +17,7 @@
 //      required to be considered a candidate at all).
 //   2. No live host process's command line still references that
 //      container's compose project name or run id (cross-checked against
-//      the kernel via `ps`, the same verification shape
-//      scripts/suite-concurrency-guard-refusal.mjs's `isHolderVerified`
-//      uses — never trust metadata alone).
+//      the kernel via `ps` — never trust metadata alone).
 //   3. The container is older than the age floor (default 60 minutes),
 //      kept as an independent belt-and-suspenders floor even though signal
 //      2 alone should suffice.
@@ -32,18 +30,18 @@
 // network or image outside that one project.
 //
 // Usage:
-//   node scripts/suite-container-cleanup.mjs
-//   node scripts/suite-container-cleanup.mjs --dry-run
+//   bun scripts/suite-container-cleanup.mjs
+//   bun scripts/suite-container-cleanup.mjs --dry-run
 //     Prints what WOULD be removed and why, without removing anything.
 //     This is the default posture — run with no arguments first, always.
-//   node scripts/suite-container-cleanup.mjs --apply
+//   bun scripts/suite-container-cleanup.mjs --apply
 //     Actually removes the containers verdicted REMOVE.
-//   node scripts/suite-container-cleanup.mjs --apply --container <name>
+//   bun scripts/suite-container-cleanup.mjs --apply --container <name>
 //     Scopes classification and removal to exactly the named container.
-//   node scripts/suite-container-cleanup.mjs --apply --max-entries <n>
+//   bun scripts/suite-container-cleanup.mjs --apply --max-entries <n>
 //     Bounds how many REMOVE-verdict containers this run will act on before
 //     stopping and reporting what was and was not processed.
-//   node scripts/suite-container-cleanup.mjs --help
+//   bun scripts/suite-container-cleanup.mjs --help
 //     Prints this usage and exits without removing anything.
 //
 // Any argument outside {--help, -h, --apply, --dry-run, --container <name>,
@@ -192,8 +190,7 @@ function isContainerRuntimeSupervisorProcessLine(line) {
 /**
  * Signal 2's data source: every host process still alive whose argv
  * references a suite compose project or run id. Reuses `ps -eo` +
- * substring scan on argv, the same kernel cross-check shape
- * `isHolderVerified` uses — never trust recorded metadata alone. Lines
+ * substring scan on argv — never trust recorded metadata alone. Lines
  * belonging to podman's own container-runtime supervisor are excluded
  * before the scan: every running container is referenced by its own
  * supervisor by construction, so counting that as a live owner is

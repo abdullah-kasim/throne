@@ -238,7 +238,6 @@ export async function installLinuxServices(
       tokens: {
         throneRoot: options.throneRoot,
         herdrBin,
-        nodeBin: deps.resolveNodeBin(options.throneRoot),
       },
       dryRun: options.dryRun,
     })),

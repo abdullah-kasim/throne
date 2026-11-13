@@ -46,6 +46,7 @@ function dependencies(roster: AgentStatusesRosterEntry[], pages: string[], stder
       ledger.push(entry);
     },
     notifyLord: async () => true,
+    readPresentState: async () => ({ reaped: false, withinSpawnGrace: false }),
     now: () => 1_790_000_000_000,
     stderr: (text) => {
       stderr.push(text);
@@ -64,7 +65,7 @@ test("a blocked pane whose transcript herdr refuses to read is paged from its vi
   assert.equal(stderr.length, 0, `no read failure should be logged for a pane that is blocked: ${JSON.stringify(stderr)}`);
 });
 
-test("a working pane whose transcript cannot be read is skipped with a log line, and the sweep goes on to the next pane", async () => {
+test("a working pane is skipped before its transcript is read, and the sweep goes on to the next pane", async () => {
   const pages: string[] = [];
   const stderr: string[] = [];
   const roster = [
@@ -74,6 +75,5 @@ test("a working pane whose transcript cannot be read is skipped with a log line,
   await reconcileBlockedAgentPages(dependencies(roster, pages, stderr));
   assert.equal(pages.length, 1);
   assert.match(pages[0]!, /shadow-x-02-stuck/);
-  assert.equal(stderr.length, 1);
-  assert.match(stderr[0]!, /shadow-x-01-busy/);
+  assert.equal(stderr.length, 0, `a working pane is never read, so nothing is logged: ${JSON.stringify(stderr)}`);
 });

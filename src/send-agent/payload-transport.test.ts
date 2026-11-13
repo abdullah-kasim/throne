@@ -185,7 +185,7 @@ test("a short opening prompt is still typed into the pane", async () => {
   const openingPrompt = "You are `shadow-example-02` (Shadow). Read your charge from the ledger.";
   await withFakePane(async (pane) => {
     await deliverOpeningPromptThroughTheQueue(openingPrompt, pane);
-    assert.deepEqual(pane.typedTexts, [`${openingPrompt} [message 1]`]);
+    assert.deepEqual(pane.typedTexts, [`<message1>\n${openingPrompt}\n</message1>`]);
   });
   await withFakePane(async (pane) => {
     await typeOpeningPromptDirectly(openingPrompt, pane);

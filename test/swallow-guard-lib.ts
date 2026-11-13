@@ -9,41 +9,20 @@ type TargetTestRun = {
   succeeded: boolean;
 };
 
-/**
- * Counts top-level `test(` declarations in a source file, the file's stated
- * contract for how many tests `node --test` should report when run in
- * isolation.
- */
 export function countDeclaredTests(sourcePath: string): number {
   const source = readFileSync(sourcePath, "utf8");
   const matches = source.match(/^test\(/gm);
   return matches ? matches.length : 0;
 }
 
-/**
- * Runs a single test file as an isolated `node --test` child process and
- * returns the number of tests it reported. `repoRoot` is the cwd the child
- * process runs from; `relativeTargetPath` is the file to run, relative to
- * that root.
- */
 export async function countReportedTests(
   repoRoot: string,
   relativeTargetPath: string,
 ): Promise<number> {
-  const args = [
-    "--import",
-    "./test/register-typescript.mjs",
-    "--test",
-    "--test-concurrency=0",
-    relativeTargetPath,
-  ];
-  // Node's test runner refuses to nest itself: it detects NODE_TEST_CONTEXT
-  // in the environment and skips running the child's files entirely. Strip
-  // it so the spawned `node --test` actually runs the target file.
-  const { NODE_TEST_CONTEXT: _unused, ...childEnv } = process.env;
+  const args = ["test", `./${relativeTargetPath}`];
   const runTarget = async (): Promise<TargetTestRun> => {
     try {
-      const result = await execute(process.execPath, args, { cwd: repoRoot, env: childEnv });
+      const result = await execute(process.execPath, args, { cwd: repoRoot });
       return { combined: `${result.stdout}${result.stderr}`, succeeded: true };
     } catch (error) {
       const failure = error as { stdout?: string; stderr?: string };
@@ -62,13 +41,10 @@ export async function countReportedTests(
         `first run:\n${first.combined}\nretry:\n${measured.combined}`,
     );
   }
-  // Node's test runner picks its summary line's prefix by reporter (TAP's
-  // bare "#", the default "spec" reporter's "ℹ") depending on whether stdout
-  // is a TTY; accept either so the guard is robust to both.
-  const summary = measured.combined.match(/^(?:#|ℹ) tests (\d+)$/m);
+  const summary = measured.combined.match(/^Ran (\d+) tests? across/m);
   if (!summary) {
     throw new Error(
-      `expected a TAP "# tests N" summary line in child process output, got:\n${measured.combined}`,
+      `expected a "Ran N tests" summary line in child process output, got:\n${measured.combined}`,
     );
   }
   return Number(summary[1]);

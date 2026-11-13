@@ -35,7 +35,7 @@ Run a non-mutating release check. It resolves the pinned, vendored, native,
 and registry-latest versions and states which one agents actually run:
 
 ```bash
-node <skill-dir>/scripts/update-harness.mjs check \
+bun <skill-dir>/scripts/update-harness.mjs check \
   --harness claude \
   --throne-root <live-throne-root>
 ```
@@ -43,7 +43,7 @@ node <skill-dir>/scripts/update-harness.mjs check \
 Run an isolated stage, probe, and atomic pin transaction:
 
 ```bash
-node <skill-dir>/scripts/update-harness.mjs update \
+bun <skill-dir>/scripts/update-harness.mjs update \
   --harness claude \
   --throne-root <live-throne-root>
 ```
@@ -93,7 +93,7 @@ never touch it.
 Go to the version the checkout pins, never the registry's newest:
 
 ```bash
-node <skill-dir>/scripts/update-harness.mjs pinned \
+bun <skill-dir>/scripts/update-harness.mjs pinned \
   --harness claude \
   --throne-root <live-throne-root>
 ```
@@ -117,7 +117,7 @@ Running agents keep the version they loaded, as after `update`.
 Roll back one harness:
 
 ```bash
-node <skill-dir>/scripts/update-harness.mjs rollback \
+bun <skill-dir>/scripts/update-harness.mjs rollback \
   --harness claude \
   --throne-root <live-throne-root> \
   --source-evidence <evidence json printed by the update>

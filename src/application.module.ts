@@ -30,6 +30,7 @@ import { UsageRateCommand } from "./usage-rate/usage-rate.command.ts";
 import { DeriveShadowNameFromAlphaCommand } from "./derive-shadow-name-from-alpha/derive-shadow-name-from-alpha.command.ts";
 import { NotifyLordCommand } from "./notify-lord/notify-lord.command.ts";
 import { CheckConfigCommand } from "./check-config/check-config.command.ts";
+import { CheckJscpdCommand } from "./check-jscpd/check-jscpd.command.ts";
 import { ListHarnessesAndModelsCommand } from "./list-harnesses-and-models/list-harnesses-and-models.command.ts";
 import { SwitchPersonaCommand } from "./switch-persona/switch-persona.command.ts";
 import { AgentStatusesModule } from "./agent-statuses/agent-statuses.module.ts";
@@ -43,6 +44,7 @@ import { FindUntaskedAgentsCommand } from "./no-idling/find-untasked-agents.comm
 import { CompleteAgentCommand } from "./complete-agent/complete-agent.command.ts";
 import { ReapAgentCommand } from "./reap-agent/reap-agent.command.ts";
 import { SpawnGitTreeCommand } from "./spawn-git-tree/spawn-git-tree.command.ts";
+import { AcceptSliceCommand } from "./accept-slice/accept-slice.command.ts";
 import { MergeGitTreeCommand } from "./merge-git-tree/merge-git-tree.command.ts";
 import { MakeSquashCommitCommand } from "./make-squash-commit/make-squash-commit.command.ts";
 import { LintSliceAssignmentCommand } from "./slice-assignment/lint-slice-assignment.command.ts";
@@ -76,6 +78,9 @@ import { SweepTmpScratchCommand } from "./sweep-tmp-scratch/sweep-tmp-scratch.co
 import { MemoryDirCommand } from "./memory-dir/memory-dir.command.ts";
 import { SemaphoreCommand } from "./semaphore/semaphore.command.ts";
 import { SkillExtensionCommand } from "./skill-extension/skill-extension.command.ts";
+import { SpecLocationCommand } from "./spec-location/spec-location.command.ts";
+import { FeatureMapCommand } from "./feature-map/feature-map.command.ts";
+import { SpecLockCommand } from "./spec-lock/spec-lock.command.ts";
 import { ScratchPaneCommand } from "./scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "./migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "./memory-recall/recall.command.ts";
@@ -271,6 +276,10 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
       useFactory: () => new CheckConfigCommand(),
     },
     {
+      provide: CheckJscpdCommand,
+      useFactory: () => new CheckJscpdCommand(),
+    },
+    {
       provide: ListHarnessesAndModelsCommand,
       useFactory: () => new ListHarnessesAndModelsCommand(),
     },
@@ -284,6 +293,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     },
     SpawnGitTreeCommand,
     MergeGitTreeCommand,
+    AcceptSliceCommand,
     MakeSquashCommitCommand,
     LintSliceAssignmentCommand,
     AbsorbGitTreeCommand,
@@ -327,6 +337,9 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     MemoryDirCommand,
     SemaphoreCommand,
     SkillExtensionCommand,
+    SpecLocationCommand,
+    FeatureMapCommand,
+    SpecLockCommand,
     ScratchPaneCommand,
     MigrateHomeCommand,
     RecallCommand,

@@ -73,3 +73,16 @@ export async function assistantTurnsAfter(
   });
   return [...turns.values()].map((parts) => parts.join('\n'));
 }
+
+export function lastAssistantText(transcriptText: string): string | undefined {
+  const lines = transcriptText.split('\n');
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const entry = parsedEntry(lines[index] ?? '');
+    if (entry?.type !== ASSISTANT_ENTRY) continue;
+    const text = blocksOf(entry)
+      .flatMap((block) => (block.type === TEXT_BLOCK && typeof block.text === 'string' ? [block.text] : []))
+      .join('\n');
+    if (text !== '') return text;
+  }
+  return undefined;
+}

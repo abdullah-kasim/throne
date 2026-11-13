@@ -38,7 +38,7 @@ import {
   type GithubProgram,
   type PullRequestTarget,
 } from "./pull-request-forge.ts";
-import { refuseGithubWriteWhereRepositoryLandsOnMain } from "./repository-lands-on-main.ts";
+import { refuseGithubWriteWherePullRequestsStayOnForgejo } from "./pull-requests-stay-on-forgejo.ts";
 import { bodyKeepingSelfReviewRecord } from "./staging-records.ts";
 
 export interface ForgeContext {
@@ -91,12 +91,12 @@ function github(context: ForgeContext, program: GithubProgram, args: readonly st
   return runGithub(args, { program, repo: context.repo, bypass: context.bypass }, context.dependencies);
 }
 
-async function writeToGithubUnlessRepositoryLandsOnMain(
+async function writeToGithubUnlessPullRequestsStayOnForgejo(
   context: ForgeContext,
   githubWrite: string,
   write: () => Promise<ProcessResult>,
 ): Promise<ProcessResult> {
-  await refuseGithubWriteWhereRepositoryLandsOnMain(context.repo, githubWrite, context.dependencies);
+  await refuseGithubWriteWherePullRequestsStayOnForgejo(context.repo, githubWrite, context.dependencies);
   return write();
 }
 
@@ -167,7 +167,7 @@ export async function createPullRequest(
       const created = await createForgejoPullRequest(context.repo, { ...request, body }, api, context.dependencies);
       return printedLine(created.url);
     },
-    (program) => writeToGithubUnlessRepositoryLandsOnMain(context, "Opening a GitHub pull request", () => github(context, program, githubCreateArguments(request))),
+    (program) => writeToGithubUnlessPullRequestsStayOnForgejo(context, "Opening a GitHub pull request", () => github(context, program, githubCreateArguments(request))),
   );
 }
 
@@ -197,7 +197,7 @@ export async function editPullRequest(
       return printedLine((await editForgejoPullRequest(context.repo, parsed, { title, body }, api, context.dependencies)).url);
     },
     (program) =>
-      writeToGithubUnlessRepositoryLandsOnMain(context, "Editing a GitHub pull request", () =>
+      writeToGithubUnlessPullRequestsStayOnForgejo(context, "Editing a GitHub pull request", () =>
         bodyFile === undefined
           ? github(context, program, githubEditArguments(target, { title }))
           : sendBodyFileToGithub(context, bodyFile, (githubBodyFile) => github(context, program, githubEditArguments(target, { title, bodyFile: githubBodyFile }))),
@@ -240,7 +240,7 @@ export async function commentOnPullRequest(context: ForgeContext, target: string
       return printedLine(await commentOnForgejoPullRequest(context.repo, parsed, body, api, context.dependencies));
     },
     (program) =>
-      writeToGithubUnlessRepositoryLandsOnMain(context, "Commenting on a GitHub pull request", () =>
+      writeToGithubUnlessPullRequestsStayOnForgejo(context, "Commenting on a GitHub pull request", () =>
         sendBodyFileToGithub(context, bodyFile, (githubBodyFile) => github(context, program, githubCommentArguments(target, githubBodyFile))),
       ),
   );

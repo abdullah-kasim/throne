@@ -256,3 +256,45 @@ export function outcomeOf(scene: ReceiptCheckScene, check: WorkItemRow): string 
   assert.equal(stored.state, MessageQueueWorkItemState.Delivered);
   return workItemOutcome(stored);
 }
+
+export interface RecordedTimings {
+  readonly queuedAt: string;
+  readonly deliveredAt: string;
+  readonly checkedAt: string;
+}
+
+export interface ReplayedTranscript {
+  readonly transcript: string;
+  readonly lastWrittenAt: string;
+  readonly sessionId: string;
+}
+
+export async function writeTranscriptLastWrittenAt(
+  scene: ReceiptCheckScene,
+  { transcript, lastWrittenAt, sessionId }: ReplayedTranscript,
+): Promise<void> {
+  const transcriptPath = await writeRecipientTranscript(scene, transcript, sessionId);
+  const lastWritten = new Date(lastWrittenAt);
+  await utimes(transcriptPath, lastWritten, lastWritten);
+}
+
+export async function replayDelivery(
+  scene: ReceiptCheckScene,
+  timings: RecordedTimings,
+  typedTextFor: (messageId: number) => Promise<string>,
+  transcriptsFor: (messageId: number) => Promise<readonly ReplayedTranscript[]>,
+): Promise<{ message: WorkItemRow; check: WorkItemRow }> {
+  await registerRecipient(scene);
+  scene.nowMs = Date.parse(timings.queuedAt);
+  const queued = enqueueMessageDelivery(scene.store, messagePayload());
+  scene.nowMs = Date.parse(timings.deliveredAt);
+  const message = await deliverQueuedMessage(scene, async () => typedTextFor(queued.id));
+  for (const transcript of await transcriptsFor(queued.id)) {
+    await writeTranscriptLastWrittenAt(scene, transcript);
+  }
+  scene.recipientStatus = 'idle';
+  scene.nowMs = Date.parse(timings.checkedAt);
+  const claimed = scene.store.claimNextDueWorkItem([DELIVERY_RECEIPT_CHECK_WORK_ITEM_KIND]);
+  assert.ok(claimed, `a receipt check is due at ${timings.checkedAt}`);
+  return { message, check: await checkDeliveryReceipt(scene.store, claimed, scene.checkDeps) };
+}

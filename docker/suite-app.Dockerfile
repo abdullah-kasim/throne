@@ -1,20 +1,7 @@
-# Sibling of suite.Dockerfile: that one builds the per-suite redis service,
-# this one builds the container the suite's own `npm test` work runs inside.
-# Build context is the repo root (see .dockerignore), unlike
-# suite.Dockerfile's context of just docker/ — this image needs the whole
-# repo baked in.
-#
-# The repo is COPYed in and `npm ci` runs INSIDE the build, rather than bind
-# mounting the host's own node_modules, so native bindings (tree-sitter,
-# tree-sitter-bash) are compiled against this image's own glibc instead of
-# risking an ABI mismatch with the host's.
-#
-# node:24.19.0-bookworm (glibc, not alpine) because tree-sitter's native addon
-# build needs a standard build toolchain, and bookworm's apt has it.
-FROM docker.io/library/node:24.19.0-bookworm
+FROM docker.io/library/debian:trixie-slim
 ARG TARGETARCH
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl python3 make g++ git unzip ripgrep && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl python3 make g++ git unzip ripgrep procps util-linux gnupg openssh-client && rm -rf /var/lib/apt/lists/*
 
 # The image is built as one uid (root, at build time) and run as the host's
 # uid (podman --userns=keep-id / docker --user, at run time, see
@@ -25,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl python3 ma
 # regardless of which uid/HOME the container ends up running as.
 RUN git config --system --add safe.directory '*'
 
-ENV BUN_VERSION=1.4.0 \
+ENV BUN_VERSION=1.4.4 \
     HERDR_VERSION=0.8.2 \
     OMP_VERSION=18.0.4 \
     BUN_INSTALL=/usr/local/bun \
@@ -39,20 +26,19 @@ RUN case "${TARGETARCH}" in \
     && curl --fail --location --silent --show-error --output /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${bun_target}.zip" \
     && unzip -q /tmp/bun.zip -d /tmp/bun \
     && install -D -m 0755 "/tmp/bun/bun-linux-${bun_target}/bun" /usr/local/bun/bin/bun \
+    && mkdir -p "/opt/mise/installs/bun/${BUN_VERSION}/bin" \
+    && ln -s /usr/local/bun/bin/bun "/opt/mise/installs/bun/${BUN_VERSION}/bin/bun" \
     && rm -rf /tmp/bun /tmp/bun.zip \
     && curl --fail --location --silent --show-error --output /usr/local/bin/herdr "https://github.com/herdrdev/herdr/releases/download/v${HERDR_VERSION}/herdr-linux-${herdr_target}" \
     && echo "${herdr_sha256}  /usr/local/bin/herdr" | sha256sum --check \
     && chmod 0755 /usr/local/bin/herdr
 
-RUN npm install --global "@oh-my-pi/pi-coding-agent@${OMP_VERSION}"
+RUN bun install --global "@oh-my-pi/pi-coding-agent@${OMP_VERSION}"
 
 WORKDIR /throne
 
-# Dependency manifests only, so this layer's cache key depends on what npm ci
-# actually reads — not on the rest of the repo. An unrelated source change no
-# longer busts the cached node_modules install.
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 COPY . .
 
@@ -61,6 +47,3 @@ RUN rm -rf .git \
     && git add --all \
     && git -c user.name="suite image" -c user.email="suite-image@localhost" commit --message="suite image source"
 
-# No ENTRYPOINT/CMD: scripts/run-suite-container.mjs always supplies the full
-# suite command as the runtime's `run` trailing argv (e.g. `npm run test:no-lock`),
-# so nothing here should assume or prepend an interpreter.

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // herdr-repair-identities — restart the herdr server and bring the court back.
 //
 // The resurrect lock is taken before the restart steps run and held until the
@@ -14,7 +14,7 @@
 // name sits on a pane with a live harness; a session id that differs after a
 // resume is not a failure.
 //
-//   node scripts/herdr-repair-identities.mjs '<snapshot json>' <herdr binary> '<restart steps>'
+//   bun scripts/herdr-repair-identities.mjs '<snapshot json>' <herdr binary> '<restart steps>'
 
 import { execFile } from 'node:child_process';
 import path from 'node:path';

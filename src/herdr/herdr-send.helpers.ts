@@ -26,8 +26,9 @@ export function recipientIdentityText(agent: HerdrAgent): string {
   return `${agent.terminalId}/${agent.tabId}/${agent.paneId}/${agent.agent}`;
 }
 
-export function messageIdSuffix(messageId: number | undefined): string {
-  return messageId === undefined ? '' : ` [message ${messageId}]`;
+export function taggedMessage(messageId: number | undefined, text: string): string {
+  if (messageId === undefined) return text;
+  return `<message${messageId}>\n${text}\n</message${messageId}>`;
 }
 
 const LINE_STARTING_WITH_COMPOSER_MARKER = new RegExp(
@@ -64,7 +65,10 @@ export function submittedPayload(
         `glyph(s) with "${COMPOSER_MARKER_REPLACEMENT}" before typing\n`,
     );
   }
-  return `${senderAttributedPrompt(senderName, prompt, options.omitSenderAttribution)}${messageIdSuffix(options.messageId)}`;
+  return taggedMessage(
+    options.messageId,
+    senderAttributedPrompt(senderName, prompt, options.omitSenderAttribution),
+  );
 }
 
 export function senderAttributedPrompt(

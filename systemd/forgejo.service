@@ -10,7 +10,6 @@ StartLimitBurst=5
 Type=simple
 WorkingDirectory=%h
 Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
-Environment=FORGEJO_NODE_BIN={{NODE_BIN}}
 ExecStart={{THRONE_ROOT}}/systemd/forgejo-serve
 StateDirectory=forgejo
 StateDirectoryMode=0700

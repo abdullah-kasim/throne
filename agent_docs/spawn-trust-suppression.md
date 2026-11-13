@@ -39,6 +39,20 @@
 > atomic (write-then-rename), idempotent, and refuses rather than launching an
 > agent into a modal nobody can see.
 >
+> **The lock is Claude Code's own: `<config>.lock`.** Every running Claude Code
+> session saves this file by taking that lock (a proper-lockfile directory),
+> reading the file, and renaming its new copy over it. Until 2026-11-11 throne
+> locked a separate `<config>.throne-lock`, so a session whose save straddled
+> the grant renamed a copy without the new entry over it. That is how
+> `shadow-diaghome-99b-verify` met the trust prompt on 2026-11-10 and how its
+> entry vanished again after the Regent answered it. Throne now waits on the
+> same lock for up to 12 seconds, longer than the 10 seconds after which Claude
+> Code treats a lock as stale, and like Claude Code it removes a lock older
+> than those 10 seconds, which a session killed mid-save leaves behind.
+> `isCourtCampaignWorktree` is the one decision of
+> which folders throne may trust: resolved path under
+> `<resolved throne home>/worktrees/`.
+>
 > **Sections below describing a seeded `CLAUDE_CONFIG_DIR` as the remedy
 > describe history, not current behaviour.** Read them for what they establish
 > about the modals, not for what throne does.

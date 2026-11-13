@@ -4,7 +4,7 @@
 
 The campaign stays incomplete while the latest verify verdict is absent or
 FAIL; only an explicit PASS from the latest fresh `99b` gate permits delivery.
-That PASS permits only the mandatory delivery-only `99c`; successful
+That PASS permits only the `99bs` spec gate and then the mandatory delivery-only `99c`; successful
 fresh-Shadow target inspection and delivered-feature smoke checks remain
 required before completion is reported. The `99c` report also carries the
 completed private-copy rehearsal's recorded absorbed target HEAD.

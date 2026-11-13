@@ -37,8 +37,6 @@ export interface InstallServicesDeps extends ServiceUnitDeps {
   platform: NodeJS.Platform;
   ownedHerdrPath(): string;
   herdrCacheDirectory(): string;
-  /** The mise install path of the node version pinned in the throne root's mise.toml, or null if it can't be located. */
-  resolveNodeBin(throneRoot: string): string | null;
   installHerdr(options: InstallHerdrOptions): Promise<HerdrInstallResult>;
   arch: string;
   launchctl(args: string[]): Promise<ServiceCommandResult>;

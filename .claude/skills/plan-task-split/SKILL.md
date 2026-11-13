@@ -34,6 +34,8 @@ two audiences and neither can be substituted for the other.
   consolidation checklist already demands independently-executable slice
   boundaries; this skill is how that demand is met. A body filed as a phase list
   has already lost the parallelism before any Alpha reads it.
+  Survey the tree first, feature map before grep, as `/queue-objective`
+  step 3b says.
 - **The Alpha PRESERVES or DESTROYS it.** `/write-todos` turns the plan body
   into `NN_<description>.md` slice files, assigns each a `touches:` footprint,
   and declares any inter-slice dependencies. A perfect star in the plan body
@@ -186,11 +188,33 @@ has, and a chain filed into that machinery silently discards its parallelism.
   `touches:` sets concurrently, up to its cap, and serializes everything else.
   Two spokes that overlap a file are not spokes. Cut footprints as deliberately
   as you cut seams.
+- **The verification-tooling slice states its concurrency.** When the first
+  slice builds an evidence tool or other self-written check, its body states
+  which cases run together, the cap, and which run serially and why.
+
+  **Independent cases run together, not one after another.** When a slice
+  writes a check for itself (an evidence tool, a probe script, a batch of
+  one-off runs) and it has more than one independent case, it starts those
+  cases at the same time and collects every result. It runs cases serially
+  only when two of them share one real machine, one lock, one account or one
+  counter, and the slice says that reason in one sentence. Each case gets
+  its own pane, port, temporary folder, data home and container name, chosen
+  by the tool at run time, never fixed. At most 6 cases run at once by
+  default, and fewer when each case starts a browser, a container or a
+  harness and the host shows strain. Several independent commands run by
+  hand start together (the harness's background mode, or one command that
+  starts them all and waits for all), never one wait after another. The
+  tool's log records the wall-clock seconds of each case and of the whole
+  run. The rule does not reach the repository's own suites or the single
+  assembled full-suite run; those keep their existing rules, including
+  running that suite in the foreground. A recipe app's evidence tool that
+  captures twelve screens starts six capture browsers at once, each on its
+  own port and temporary folder.
 - **A declared dependency serializes.** A slice declaring a dependency on
   another slice is a spoke-to-spoke edge in executable form: a deliberate cost,
   stated with its reason, never a default.
 - **The terminal gate chain is core work, not a spoke.** `99a` conformance,
-  `99b` tests-and-fixes, `99c` merges-and-delivers run last and in order. That
+  `99b` tests-and-fixes, `99bs` spec, `99c` merges-and-delivers run last and in order. That
   chain is the sanctioned one; its existence is not licence for chains
   elsewhere.
 - **Never manufacture a spoke.** A finding discovered mid-campaign is reported,

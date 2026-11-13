@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 // Proves every {{TOKEN}} placeholder used in templates/*.md is declared in
 // SKILL.md's "## Template rendering contract" table, and every declared
 // token is actually used somewhere in the templates — no undeclared token,

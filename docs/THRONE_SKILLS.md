@@ -40,6 +40,7 @@ another repository's worktree sees them too. You invoke each one as `/<name>`.
 - `/write-and-execute-todos` — chains `/write-todos` and `/execute-todos` in one unattended run, logging every question to the bundle instead of blocking; reach for it to plan and ship in one go; aliases: /do-all-todos, /plan-and-run-todos.
 - `/review-loop` — alternates reviewer rounds with fixer Alphas on a named target, using a named reviewer model, until one of its termination bounds fires; reach for it to review and fix something in a loop.
 - `/gap-analysis-model` — runs one pinned nested campaign per compared model and harness on the same task and distills per-model capability guidance from the stronger one; reach for it to compare two models.
+- `/write-feature-map-and-spec` — builds or repairs one repository's spec (a file per feature) and its generated feature map in one pass, asking once whether they stay in the repository or under the throne data home; reach for it to spec a whole repository or move its spec into the repository.
 
 ## Any agent
 

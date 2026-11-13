@@ -3,6 +3,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { test, type TestContext } from "node:test";
 import { setTimeout as waitFor } from "node:timers/promises";
+import { releaseLock } from "../shared-policy/lock-rows/lock-rows.ts";
 import { SemaphoreExitCode } from "./semaphore-runtime.ts";
 import { takeFirstFreeSlot } from "./semaphore-store.ts";
 import {
@@ -183,8 +184,10 @@ test("a slot taken again shows no holder until its new command starts, never the
   await semaphore(room, "create", "ovens", "--slots", "1");
   assert.equal(await semaphore(room, "run", "ovens", "--", "true"), SemaphoreExitCode.Done);
 
-  const taken = await takeFirstFreeSlot(room.throneHome, "ovens", 1);
-  t.after(() => taken?.lock.release());
+  const taken = takeFirstFreeSlot(room.throneHome, "ovens", 1);
+  t.after(() => {
+    if (taken !== undefined) releaseLock(taken.lock);
+  });
 
   assert.deepEqual(await heldSlotsIn(room, "ovens"), [{ slot: 1, holder: undefined }]);
 });

@@ -16,6 +16,7 @@ import {
   invokeThroneCliWithRetry,
   type CliInvocationOutcome,
 } from "./retryable-cli-invoke.ts";
+import { THRONE_RUNTIME_COMMAND } from "../shared-policy/throne-runtime-command.ts";
 
 export const STAGER_FLOOR_AGENT_NAME = "stager-floor";
 
@@ -157,7 +158,7 @@ async function invokeRequired(
   argv: readonly string[],
   effect: string,
 ): Promise<string | undefined> {
-  const outcome = await dependencies.invokeCli(process.execPath, [
+  const outcome = await dependencies.invokeCli(THRONE_RUNTIME_COMMAND, [
     cliEntrypoint,
     ...argv,
   ]);

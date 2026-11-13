@@ -93,7 +93,7 @@ export function throneNativeMemoryDir(
   return path.join(throneHome, THRONE_MEMORIES_DIRNAME, memorySlug(physicalHomeDir, repoRoot));
 }
 
-async function resolveRepoRoot(
+export async function resolveRepoRoot(
   dir: string,
   deps: MemoryResolverDeps,
 ): Promise<{ root: string; physicalDir: string }> {

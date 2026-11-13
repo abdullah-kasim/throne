@@ -14,4 +14,7 @@ export const BACKGROUND_WAIT_INSTRUCTION =
   "that message with `{\"blocked\":true} BLOCKED_BY_own-background-run (<what>)`, " +
   "for example `{\"blocked\":true} BLOCKED_BY_own-background-run (candidate and base suites)`; " +
   "your next ordinary message clears it. Otherwise no-idling pages the " +
-  `${PERSONA_CONFIG.tierTitles.regent} every minute about an agent that is not idle.`;
+  `${PERSONA_CONFIG.tierTitles.regent} every minute about an agent that is not idle. ` +
+  "Start a run you will wait on with your harness's own background mode, " +
+  "never a shell `&`, because only that wakes you when it ends. " +
+  "Stop any server you started before you end a turn with the marker.";

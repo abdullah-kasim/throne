@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import { TREE_BASE_DATA } from "../agentdata/tree-base-data.service.ts";
 import { readGitStatus } from "../git-lifecycle/git-command.service.ts";
 import { durableDefaultBranch, localBranchTip } from "../git-lifecycle/branch-authority.ts";
-import { isAncestor } from "../git-lifecycle/delivery.ts";
+import { findCommitWithIdenticalTree, isAncestor } from "../git-lifecycle/delivery.ts";
 import { repositoryIsYolo, YOLO_KEY } from "../forge/repository-yolo.ts";
 import { latestPlanBundle, readEvidenceText } from "../amendment/reconciliation-evidence.ts";
 import type { SliceEvidenceResult } from "./agent-evidence-gate.ts";
@@ -77,7 +77,7 @@ async function deliveredPartOfCampaign(repo: string, head: string, originTip: st
   if (sharedBase.code !== 0) return undefined;
   const deliveredHead = sharedBase.stdout.trim();
   const changesAfterOrigin = await readGitStatus(["diff", "--quiet", deliveredHead, head], repo);
-  if (changesAfterOrigin.code === 1) return undefined;
+  if (changesAfterOrigin.code === 1) return findCommitWithIdenticalTree(repo, head, originTip);
   if (changesAfterOrigin.code !== 0) {
     throw new Error(
       `cannot compare campaign head ${head} against ${deliveredHead}: ` +

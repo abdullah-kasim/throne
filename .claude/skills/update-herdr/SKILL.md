@@ -34,7 +34,7 @@ Run the three steps in order and stop at the first one that fails.
 ### 1. Check
 
 ```bash
-node scripts/herdr-upgrade.mjs --check
+bun scripts/herdr-upgrade.mjs --check
 ```
 
 Mutates nothing and needs no tag. Read in the log: the pinned tag, the
@@ -51,7 +51,7 @@ that there is no new release.
 ### 2. Rehearse
 
 ```bash
-node scripts/herdr-upgrade.mjs <tag> --dry-run
+bun scripts/herdr-upgrade.mjs <tag> --dry-run
 ```
 
 A real rehearsal: it downloads the release beside the pinned copy and runs
@@ -70,7 +70,7 @@ A hash mismatch or a failed sweep ends the update here.
 ### 3. Apply
 
 ```bash
-node scripts/herdr-upgrade.mjs <tag> --yes --restart-ordered-by-lord "<the Lord's words, verbatim>"
+bun scripts/herdr-upgrade.mjs <tag> --yes --restart-ordered-by-lord "<the Lord's words, verbatim>"
 ```
 
 An apply writes two sections to the log. The first opens with
@@ -121,8 +121,8 @@ already moved, because a pull brought it in, the machine has to catch up to it
 instead:
 
 ```bash
-node scripts/herdr-upgrade.mjs --pinned --dry-run
-node scripts/herdr-upgrade.mjs --pinned --restart-ordered-by-lord "<the Lord's words, verbatim>"
+bun scripts/herdr-upgrade.mjs --pinned --dry-run
+bun scripts/herdr-upgrade.mjs --pinned --restart-ordered-by-lord "<the Lord's words, verbatim>"
 ```
 
 The target is the tag `src/herdr/herdr-client.ts` pins, so this takes no tag.
