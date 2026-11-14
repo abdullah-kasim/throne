@@ -9,7 +9,7 @@ const OBSERVED_AT = new Date('2026-11-14T12:00:00.000Z');
 const DECLARED_AT = '2026-11-14T11:00:00.000Z';
 
 function declared(state: AgentStateName): AgentState {
-  return { state, blockedBy: [], waitingOn: null, reapableReason: null, declaredAt: DECLARED_AT, declaredBy: 'agent' };
+  return { state, blockedBy: [], waitingOn: null, reapableReason: null, declaredAt: DECLARED_AT, declaredBy: 'agent', remindInMinutes: 15 };
 }
 
 async function capacityOf(states: Record<string, AgentStateName>) {

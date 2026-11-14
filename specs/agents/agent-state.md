@@ -21,6 +21,7 @@ The marker line in a message stays for people reading the pane; no check reads a
 - ST-MISSING: A missing or malformed file reads as `working`.
 - ST-CONVERT: An old `blocked.json` is converted once on first read.
 - ST-TURN-START: Each prompt resets the file to `working`.
+- ST-REMIND-IN: `waiting-on-own-run --remind-in <minutes>` stores a whole number from 5 to 60 as `remindInMinutes`; outside that it is refused and nothing is written; a file without it, or a marker-only wait, reads 15.
 - ST-TURN-END: A Claude turn ending with a marker writes the matching state unless the command or the Regent already declared one that turn.
 
 ## How to reach it and prove it works

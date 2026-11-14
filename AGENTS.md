@@ -601,9 +601,12 @@ was filed with.
   pane's text. Its next prompt records it as working again (the turn-start
   hook writes `working`); it never repeats the marker when it resumes work.
   Otherwise no-idling pages the Regent every minute about an agent that is not
-  idle. The throne wakes an agent on this marker when a process it waited on
-  ends, and every 15 minutes while it still waits, but never twice within 5
-  minutes: runs that end in between are listed in the next wake. Start a run you will wait
+  idle. The throne never wakes an agent on this marker because one of
+  its processes started or ended. It wakes it once when nothing it started is
+  still running, and otherwise on a reminder every 15 minutes from the
+  declaration, or every N minutes when it declared with `--remind-in N` (a
+  whole number from 5 to 60; anything else is refused). Each declaration
+  starts its own count and its own number. Start a run you will wait
   on with your harness's own background mode, never a shell `&`, because only
   that wakes you when it ends. Stop any server you started before you end a
   turn with the marker.

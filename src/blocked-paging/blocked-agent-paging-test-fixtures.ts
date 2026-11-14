@@ -26,6 +26,7 @@ export function writeStateFile(stateFolder: string, agentName: string, declared:
     reapableReason: null,
     declaredBy: 'agent',
     ...declared,
+    remindInMinutes: declared.remindInMinutes ?? 15,
   };
   mkdirSync(path.join(stateFolder, agentName), { recursive: true });
   writeFileSync(path.join(stateFolder, agentName, 'state.json'), `${JSON.stringify(state)}\n`);

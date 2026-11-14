@@ -1,6 +1,8 @@
 import { text as readStreamAsText } from 'node:stream/consumers';
 import {
   AGENT_STATES,
+  LONGEST_REMIND_IN_MINUTES,
+  SHORTEST_REMIND_IN_MINUTES,
   declareAgentState,
   isAgentStateName,
   readAgentState,
@@ -45,12 +47,23 @@ interface MyStateRequest {
   children: string[];
   targetAgent: string | undefined;
   words: string[];
+  remindInMinutes: number | undefined;
+}
+
+const REMIND_IN_OPTION = '--remind-in';
+
+function parseRemindInMinutes(value: string | undefined): number | string {
+  const refusal = `${REMIND_IN_OPTION} needs a whole number of minutes from ${SHORTEST_REMIND_IN_MINUTES} to ${LONGEST_REMIND_IN_MINUTES}`;
+  if (value === undefined || !/^\d+$/.test(value)) return refusal;
+  const minutes = Number(value);
+  if (minutes < SHORTEST_REMIND_IN_MINUTES || minutes > LONGEST_REMIND_IN_MINUTES) return refusal;
+  return minutes;
 }
 
 function parseRequest(passedParams: readonly string[]): MyStateRequest | string {
   const [state, ...rest] = passedParams;
   if (state === undefined) return 'a state is required';
-  const request: MyStateRequest = { state, children: [], targetAgent: undefined, words: [] };
+  const request: MyStateRequest = { state, children: [], targetAgent: undefined, words: [], remindInMinutes: undefined };
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index]!;
     if (argument === '--by' || argument === '--agent') {
@@ -58,6 +71,11 @@ function parseRequest(passedParams: readonly string[]): MyStateRequest | string 
       if (value === undefined) return `${argument} needs a name`;
       if (argument === '--by') request.children.push(value);
       else request.targetAgent = value;
+      index += 1;
+    } else if (argument === REMIND_IN_OPTION) {
+      const minutes = parseRemindInMinutes(rest[index + 1]);
+      if (typeof minutes === 'string') return minutes;
+      request.remindInMinutes = minutes;
       index += 1;
     } else {
       request.words.push(argument);
@@ -100,6 +118,7 @@ export async function runMyState(
     waitingOn: request.state === 'reapable' || words === '' ? null : words,
     reapableReason: request.state === 'reapable' && words !== '' ? words : null,
     declaredBy: writesAnotherAgent ? 'regent' : 'agent',
+    remindInMinutes: request.remindInMinutes,
   };
   const written = await declareAgentState(target, declaration, deps.dataDirectory);
   deps.print(`${target}: ${written.state}\n`);

@@ -163,6 +163,7 @@ function readersOver(court: AutoscaleStatusCourt, reading: CourtReading): AlphaA
           reapableReason: null,
           declaredAt: new Date(0).toISOString(),
           declaredBy: "turn-start",
+          remindInMinutes: 15,
         }),
         now: () => new Date(),
       }),

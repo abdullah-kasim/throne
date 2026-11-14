@@ -16,6 +16,10 @@ export const AGENT_STATES = [
 
 export type AgentStateName = (typeof AGENT_STATES)[number];
 
+export const DEFAULT_REMIND_IN_MINUTES = 15;
+export const SHORTEST_REMIND_IN_MINUTES = 5;
+export const LONGEST_REMIND_IN_MINUTES = 60;
+
 export type AgentStateWriter = "agent" | "regent" | "turn-start";
 
 export interface AgentState {
@@ -25,6 +29,7 @@ export interface AgentState {
   reapableReason: string | null;
   declaredAt: string;
   declaredBy: AgentStateWriter;
+  remindInMinutes: number;
 }
 
 export interface AgentStateDeclaration {
@@ -33,6 +38,7 @@ export interface AgentStateDeclaration {
   waitingOn?: string | null;
   reapableReason?: string | null;
   declaredBy: AgentStateWriter;
+  remindInMinutes?: number;
 }
 
 interface OldBlockedFile {
@@ -61,7 +67,16 @@ function isTextOrNull(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
-function isAgentState(value: unknown): value is AgentState {
+export function isAllowedRemindInMinutes(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= SHORTEST_REMIND_IN_MINUTES &&
+    value <= LONGEST_REMIND_IN_MINUTES
+  );
+}
+
+function isAgentState(value: unknown): value is Omit<AgentState, "remindInMinutes"> & { remindInMinutes?: unknown } {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
   return (
@@ -91,6 +106,7 @@ function workingSince(declaredAt: string): AgentState {
     reapableReason: null,
     declaredAt,
     declaredBy: "turn-start",
+    remindInMinutes: DEFAULT_REMIND_IN_MINUTES,
   };
 }
 
@@ -130,6 +146,7 @@ async function convertOldBlockedFile(folder: string): Promise<AgentState | null>
     reapableReason: null,
     declaredAt: old.value.blockedAt,
     declaredBy: old.value.origin ?? "agent",
+    remindInMinutes: DEFAULT_REMIND_IN_MINUTES,
   };
   await writeStateFile(folder, converted);
   await rm(oldPath, { force: true });
@@ -140,7 +157,13 @@ export async function readAgentState(name: string, baseDir?: string): Promise<Ag
   const folder = agentFolder(name, baseDir);
   const stored = await readJson(path.join(folder, STATE_FILE_NAME));
   if (stored.found) {
-    if (isAgentState(stored.value)) return stored.value;
+    if (isAgentState(stored.value)) {
+      const remindInMinutes = stored.value.remindInMinutes;
+      return {
+        ...stored.value,
+        remindInMinutes: isAllowedRemindInMinutes(remindInMinutes) ? remindInMinutes : DEFAULT_REMIND_IN_MINUTES,
+      };
+    }
     process.stderr.write(`agent state: ${name}'s ${STATE_FILE_NAME} is unreadable; treating it as working\n`);
     return workingSince(new Date(0).toISOString());
   }
@@ -162,6 +185,7 @@ export async function declareAgentState(
     reapableReason: declaration.state === "reapable" ? declaration.reapableReason ?? null : null,
     declaredAt: new Date().toISOString(),
     declaredBy: declaration.declaredBy,
+    remindInMinutes: declaration.remindInMinutes ?? DEFAULT_REMIND_IN_MINUTES,
   };
   await writeStateFile(agentFolder(name, baseDir), state);
   return state;

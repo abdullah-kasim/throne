@@ -52,7 +52,7 @@ test("an agent's declared state is read back from its file", async () => {
   assert.deepEqual(state.blockedBy, ['shadow-1', 'shadow-2']);
   assert.equal(state.declaredBy, 'agent');
   const onDisk = JSON.parse(readFileSync(join(dataDirectory, 'alpha-abc', 'state.json'), 'utf8'));
-  assert.deepEqual(Object.keys(onDisk).sort(), ['blockedBy', 'declaredAt', 'declaredBy', 'reapableReason', 'state', 'waitingOn']);
+  assert.deepEqual(Object.keys(onDisk).sort(), ['blockedBy', 'declaredAt', 'declaredBy', 'reapableReason', 'remindInMinutes', 'state', 'waitingOn']);
 });
 
 test('waiting on its own run and reapable keep the words the agent gave', async () => {
@@ -204,4 +204,101 @@ test("a my-state call in the same turn wins over a disagreeing marker", async ()
   const state = await readAgentState('shadow-x', dataDirectory);
   assert.equal(state.state, 'blocked');
   assert.deepEqual(state.blockedBy, ['shadow-child']);
+});
+
+test('an agent can ask to be reminded every 30 minutes while it waits on its own run', async () => {
+  const dataDirectory = await dataDirectoryWith('shadow-x');
+
+  assert.equal(await runMyState(['waiting-on-own-run', 'the suite', '--remind-in', '30'], runAs('shadow-x', dataDirectory).deps), 0);
+
+  const state = await readAgentState('shadow-x', dataDirectory);
+  assert.equal(state.waitingOn, 'the suite');
+  assert.equal(state.remindInMinutes, 30);
+});
+
+test('a reminder interval outside 5 to 60 minutes is refused and nothing is written', async () => {
+  for (const value of ['4', '61', '7.5', 'ten', '']) {
+    const dataDirectory = await dataDirectoryWith('shadow-x');
+    const { deps, errors } = runAs('shadow-x', dataDirectory);
+
+    assert.equal(await runMyState(['waiting-on-own-run', 'the suite', '--remind-in', value], deps), 2, value);
+
+    assert.match(errors.join(''), /from 5 to 60/, value);
+    assert.equal(existsSync(join(dataDirectory, 'shadow-x', 'state.json')), false, value);
+  }
+});
+
+test('a wait declared without a reminder interval is reminded every 15 minutes', async () => {
+  const dataDirectory = await dataDirectoryWith('shadow-x');
+
+  await runMyState(['waiting-on-own-run', 'the suite'], runAs('shadow-x', dataDirectory).deps);
+
+  assert.equal((await readAgentState('shadow-x', dataDirectory)).remindInMinutes, 15);
+});
+
+test("a new declaration does not keep the earlier declaration's interval", async () => {
+  const dataDirectory = await dataDirectoryWith('shadow-x');
+  const { deps } = runAs('shadow-x', dataDirectory);
+
+  await runMyState(['waiting-on-own-run', 'the suite', '--remind-in', '45'], deps);
+  await runMyState(['waiting-on-own-run', 'the rerun'], deps);
+
+  assert.equal((await readAgentState('shadow-x', dataDirectory)).remindInMinutes, 15);
+});
+
+test('a wait declared only by the marker line is reminded every 15 minutes', async () => {
+  const dataDirectory = await dataDirectoryWith('shadow-x');
+  await startTurn('shadow-x', dataDirectory);
+
+  await endTurnWith('shadow-x', dataDirectory, '{"blocked":true} BLOCKED_BY_own-background-run (the suite)');
+
+  const state = await readAgentState('shadow-x', dataDirectory);
+  assert.equal(state.state, 'waiting-on-own-run');
+  assert.equal(state.remindInMinutes, 15);
+});
+
+test('the marker in the same turn does not drop the interval the command recorded', async () => {
+  const dataDirectory = await dataDirectoryWith('shadow-x');
+  await startTurn('shadow-x', dataDirectory);
+  await runMyState(['waiting-on-own-run', 'the suite', '--remind-in', '30'], runAs('shadow-x', dataDirectory).deps);
+
+  await endTurnWith('shadow-x', dataDirectory, '{"blocked":true} BLOCKED_BY_own-background-run (the suite)');
+
+  assert.equal((await readAgentState('shadow-x', dataDirectory)).remindInMinutes, 30);
+});
+
+test('a state file written before reminder intervals existed reads as 15 minutes', async () => {
+  const dataDirectory = await dataDirectoryWith('shadow-x');
+  const oldState = {
+    state: 'waiting-on-own-run',
+    blockedBy: [],
+    waitingOn: 'the suite',
+    reapableReason: null,
+    declaredAt: '2026-11-01T00:00:00.000Z',
+    declaredBy: 'agent',
+  };
+  writeFileSync(join(dataDirectory, 'shadow-x', 'state.json'), JSON.stringify(oldState));
+
+  const state = await readAgentState('shadow-x', dataDirectory);
+  assert.equal(state.state, 'waiting-on-own-run');
+  assert.equal(state.remindInMinutes, 15);
+});
+
+test('a state file holding a reminder interval outside 5 to 60 minutes reads as 15 minutes', async () => {
+  const dataDirectory = await dataDirectoryWith('shadow-x');
+  for (const stored of [0, -3, 2.5, 600]) {
+    writeFileSync(
+      join(dataDirectory, 'shadow-x', 'state.json'),
+      JSON.stringify({
+        state: 'waiting-on-own-run',
+        blockedBy: [],
+        waitingOn: 'the suite',
+        reapableReason: null,
+        declaredAt: '2026-11-01T00:00:00.000Z',
+        declaredBy: 'agent',
+        remindInMinutes: stored,
+      }),
+    );
+    assert.equal((await readAgentState('shadow-x', dataDirectory)).remindInMinutes, 15, `stored ${stored}`);
+  }
 });

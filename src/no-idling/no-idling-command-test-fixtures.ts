@@ -38,6 +38,7 @@ export function declaredState(
     reapableReason: null,
     declaredAt: '2026-11-13T00:00:00.000Z',
     declaredBy: 'agent',
+    remindInMinutes: 15,
     ...details,
   };
 }

@@ -11,10 +11,10 @@ import {
 import { MessageQueueWorkItemState } from '../message-queue/message-queue-work-item-state.ts';
 import { NOT_SENT_FAILURE_PREFIX, UNADDRESSABLE_RECIPIENT_FAILURE_PREFIX } from '../throne-work/message-delivery-retry-policy.ts';
 import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
+import { DEFAULT_REMIND_IN_MINUTES, LONGEST_REMIND_IN_MINUTES, SHORTEST_REMIND_IN_MINUTES } from '../agentdata/agent-state.service.ts';
 import type { BlockedAgentPagingDependencies } from './blocked-agent-paging-dependencies.types.ts';
 
-export const OWN_BACKGROUND_RUN_WAKE_INTERVAL_MS = 900_000;
-export const OWN_RUN_WAKE_MINIMUM_GAP_MS = 300_000;
+export const OWN_BACKGROUND_RUN_WAKE_INTERVAL_MS = DEFAULT_REMIND_IN_MINUTES * 60_000;
 
 export interface WatchedProcess {
   readonly pid: number;
@@ -22,59 +22,42 @@ export interface WatchedProcess {
   readonly command: string;
 }
 
-export interface UndeliveredWake {
-  readonly key: string;
-  readonly ended: readonly WatchedProcess[];
-  readonly previousLastWokenAt?: number;
+export interface WakeProgress {
+  readonly remindersSent?: number;
+  readonly wokenForNothingRunning?: boolean;
 }
 
-export interface RememberedOwnRunWait {
+export interface UndeliveredWake {
+  readonly key: string;
+  readonly progressBeforeTheWake: WakeProgress;
+}
+
+export interface RememberedOwnRunWait extends WakeProgress {
   readonly blockedAt: string;
-  readonly processes: readonly WatchedProcess[];
-  readonly lastWokenAt?: number;
-  readonly endedNotYetReported?: readonly WatchedProcess[];
   readonly undeliveredWake?: UndeliveredWake;
 }
 
 export interface OwnRunWake {
-  readonly ended: readonly WatchedProcess[];
   readonly stillRunning: readonly WatchedProcess[];
-}
-
-function sameProcess(left: WatchedProcess, right: WatchedProcess): boolean {
-  return left.pid === right.pid && left.startedAt === right.startedAt;
 }
 
 export function ownRunWakeDecision(
   remembered: RememberedOwnRunWait | null,
-  seenNow: { readonly blockedAt: string; readonly processes: readonly WatchedProcess[] },
+  seenNow: { readonly blockedAt: string; readonly remindInMinutes: number; readonly processes: readonly WatchedProcess[] },
   now: number,
 ): { readonly wake?: OwnRunWake; readonly nextRemembered: RememberedOwnRunWait } {
   const previous = remembered?.blockedAt === seenNow.blockedAt ? remembered : null;
-  const ended = [
-    ...(previous?.endedNotYetReported ?? []),
-    ...(previous?.processes ?? []).filter((watched) => !seenNow.processes.some((seen) => sameProcess(seen, watched))),
-  ];
-  const lastWokenAt = previous?.lastWokenAt;
-  const wokenTooRecently = lastWokenAt !== undefined && now - lastWokenAt < OWN_RUN_WAKE_MINIMUM_GAP_MS;
-  const markerAge = now - Date.parse(seenNow.blockedAt);
-  const timedWakeIsDue =
-    markerAge >= OWN_BACKGROUND_RUN_WAKE_INTERVAL_MS &&
-    (lastWokenAt === undefined || now - lastWokenAt >= OWN_BACKGROUND_RUN_WAKE_INTERVAL_MS);
-  if (wokenTooRecently || (ended.length === 0 && !timedWakeIsDue)) {
-    return {
-      nextRemembered: {
-        blockedAt: seenNow.blockedAt,
-        processes: seenNow.processes,
-        lastWokenAt,
-        ...(ended.length > 0 ? { endedNotYetReported: ended } : {}),
-      },
-    };
-  }
-  return {
-    wake: { ended, stillRunning: seenNow.processes },
-    nextRemembered: { blockedAt: seenNow.blockedAt, processes: seenNow.processes, lastWokenAt: now },
+  const remindersSent = previous?.remindersSent ?? 0;
+  const remindersDue = Math.max(0, Math.floor((now - Date.parse(seenNow.blockedAt)) / (seenNow.remindInMinutes * 60_000)));
+  const wokenForNothingRunning = previous?.wokenForNothingRunning === true;
+  const nothingRunningWakeIsDue = seenNow.processes.length === 0 && !wokenForNothingRunning;
+  const nextRemembered = {
+    blockedAt: seenNow.blockedAt,
+    remindersSent: Math.max(remindersSent, remindersDue),
+    wokenForNothingRunning: wokenForNothingRunning || nothingRunningWakeIsDue,
   };
+  if (remindersDue <= remindersSent && !nothingRunningWakeIsDue) return { nextRemembered };
+  return { wake: { stillRunning: seenNow.processes }, nextRemembered };
 }
 
 function runningFor(process: WatchedProcess, now: number): string {
@@ -86,16 +69,12 @@ function runningFor(process: WatchedProcess, now: number): string {
 export function buildOwnRunWakeMessage(wake: OwnRunWake, now: number): string {
   return [
     'You are waiting on your own background run.',
-    ...(wake.ended.length > 0
-      ? [
-          `Ended: ${wake.ended.map((process) => shortenedCommand(process.command)).join('; ')}.`,
-          'If the run you were waiting for is listed as ended, your wait is over: read its result, continue, and end your reply without the marker line, even if something is still running, and ignore the later instruction to publish the marker again. Stop or ignore anything still running that you are not waiting on.',
-        ]
-      : []),
     wake.stillRunning.length > 0
       ? `Still running: ${wake.stillRunning.map((process) => runningFor(process, now)).join('; ')}.`
       : 'Nothing is still running.',
-    'If your run has finished, read its result and continue. If you are still waiting, first check what is holding the run up, then run `throne my-state waiting-on-own-run "<what>"` and publish the marker again. If a run has gone on far longer than it should, it is stuck: find out what is holding it up and fix that cause; do not just start it again.',
+    'If your run has finished, read its result and continue. If you are still waiting, first check what is holding the run up, then run `throne my-state waiting-on-own-run "<what>"` and publish the marker again.',
+    `When you declare again you may ask for a longer wait with \`--remind-in <minutes>\` (${SHORTEST_REMIND_IN_MINUTES} to ${LONGEST_REMIND_IN_MINUTES}); if you ask for none, the next reminder comes within ${DEFAULT_REMIND_IN_MINUTES} minutes.`,
+    'If a run has gone on far longer than it should, it is stuck: find out what is holding it up and fix that cause; do not just start it again.',
   ].join('\n');
 }
 
@@ -116,12 +95,14 @@ export async function writeRememberedOwnRunWait(agentName: string, remembered: R
   await writeFile(ownRunWaitPath(agentName), `${JSON.stringify(remembered)}\n`);
 }
 
-async function ownRunMarkerBlockedAt(
+async function ownRunDeclaration(
   entry: AgentStatusesRosterEntry,
   deps: BlockedAgentPagingDependencies,
-): Promise<string | undefined> {
+): Promise<{ readonly blockedAt: string; readonly remindInMinutes: number } | undefined> {
   const declared = await deps.readAgentState(entry.name);
-  return declared.state === 'waiting-on-own-run' ? declared.declaredAt : undefined;
+  return declared.state === 'waiting-on-own-run'
+    ? { blockedAt: declared.declaredAt, remindInMinutes: declared.remindInMinutes }
+    : undefined;
 }
 
 const WAKE_STILL_BEING_DELIVERED = 'still being delivered';
@@ -133,7 +114,7 @@ async function rememberedWaitOnceDeliveryIsKnown(
   const wake = remembered?.undeliveredWake;
   if (remembered === null || wake === undefined) return remembered;
   const outcome = await deps.readMessageDeliveryOutcome(wake.key);
-  const { blockedAt, processes, lastWokenAt } = remembered;
+  const { blockedAt, remindersSent, wokenForNothingRunning } = remembered;
   const neverReachedThePane =
     outcome === undefined ||
     (outcome.state === MessageQueueWorkItemState.Failed &&
@@ -141,10 +122,10 @@ async function rememberedWaitOnceDeliveryIsKnown(
         (outcome.failureReason ?? '').startsWith(prefix),
       ));
   if (neverReachedThePane) {
-    return { blockedAt, processes: [...processes, ...wake.ended], lastWokenAt: wake.previousLastWokenAt };
+    return { blockedAt, ...wake.progressBeforeTheWake };
   }
   if (outcome.state === MessageQueueWorkItemState.Delivered || outcome.state === MessageQueueWorkItemState.Failed) {
-    return { blockedAt, processes, lastWokenAt };
+    return { blockedAt, remindersSent, wokenForNothingRunning };
   }
   return WAKE_STILL_BEING_DELIVERED;
 }
@@ -156,8 +137,9 @@ export async function wakeAgentWaitingOnItsOwnRun(
 ): Promise<void> {
   const agent = await deps.resolveAgent(entry.name);
   if (!agentStatusAcceptsInput(agent.agentStatus)) return;
-  const blockedAt = await ownRunMarkerBlockedAt(entry, deps);
-  if (blockedAt === undefined) return;
+  const declaration = await ownRunDeclaration(entry, deps);
+  if (declaration === undefined) return;
+  const { blockedAt } = declaration;
   const work = await deps.readHarnessBackgroundWork(paneId);
   if (work.kind === HARNESS_BACKGROUND_WORK_KINDS.UNKNOWN) return;
   const remembered = await rememberedWaitOnceDeliveryIsKnown(await deps.readRememberedOwnRunWait(entry.name), deps);
@@ -167,7 +149,7 @@ export async function wakeAgentWaitingOnItsOwnRun(
   const decision = ownRunWakeDecision(
     remembered,
     {
-      blockedAt,
+      ...declaration,
       processes: processes.map(({ pid, startedAt, command }) => ({ pid, startedAt, command })),
     },
     now,
@@ -181,8 +163,10 @@ export async function wakeAgentWaitingOnItsOwnRun(
     ...decision.nextRemembered,
     undeliveredWake: {
       key,
-      ended: decision.wake.ended,
-      previousLastWokenAt: remembered?.blockedAt === blockedAt ? remembered.lastWokenAt : undefined,
+      progressBeforeTheWake:
+        remembered?.blockedAt === blockedAt
+          ? { remindersSent: remembered.remindersSent, wokenForNothingRunning: remembered.wokenForNothingRunning }
+          : {},
     },
   });
   await deps.submitToAgent(agent, NO_IDLING_SENDER, buildOwnRunWakeMessage(decision.wake, now), {

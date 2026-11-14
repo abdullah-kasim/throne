@@ -15,7 +15,8 @@ export const BACKGROUND_WAIT_INSTRUCTION =
   "that message by running `throne my-state waiting-on-own-run \"<what>\"` and " +
   "publishing `{\"blocked\":true} BLOCKED_BY_own-background-run (<what>)`, " +
   "for example `{\"blocked\":true} BLOCKED_BY_own-background-run (candidate and base suites)`; " +
-  "your next prompt records you as working again. Otherwise no-idling pages the " +
+  "your next prompt records you as working again. When you know how long the " +
+  "run should take, give that time as `--remind-in <minutes>`. Otherwise no-idling pages the " +
   `${PERSONA_CONFIG.tierTitles.regent} every minute about an agent that is not idle. ` +
   "Start a run you will wait on with your harness's own background mode, " +
   "never a shell `&`, because only that wakes you when it ends. " +
