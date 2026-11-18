@@ -14,6 +14,10 @@ async function socketAnswering(answer: (request: Record<string, unknown>) => str
   const socketPath = join(folder, "agent.sock");
   const closed: string[] = [];
   const server: Server = createServer((incoming, outgoing) => {
+    if (incoming.method === "GET") {
+      outgoing.end("{}");
+      return;
+    }
     const pieces: Buffer[] = [];
     incoming.on("data", (piece: Buffer) => pieces.push(piece));
     incoming.on("end", () => {

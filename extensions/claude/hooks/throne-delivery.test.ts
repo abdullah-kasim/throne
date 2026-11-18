@@ -75,31 +75,26 @@ test('a message is reported delivered only after prompt submit resolves with no 
   expect(w.reports).toEqual([{ socketPath: SOCKET, url: 'http://helper/result', body: { id: 'message-1', status: 'delivered', as: 'turn' } }])
 })
 
-test('a draft in the composer reports not yet with the reason and submits nothing', async ($, on) => {
+test('a draft in the Claude box is left in the box when a message is submitted', async ($, on) => {
   const w = world(on, 'half typed')
   await start($)
   const child = await w.listeningChild()
-  child.say({ id: 'message-2', text: 'wait for me' })
+  child.say({ id: 'message-2', text: 'do not wait for me' })
   await w.settle()
-  expect(w.submitted).toEqual([])
-  expect(w.reports.map(report => report.body)).toEqual([{ id: 'message-2', status: 'not-yet', reason: 'draft' }])
+  expect(w.submitted).toEqual(['do not wait for me'])
+  expect(w.box.text).toBe('half typed')
+  expect(w.reports.map(report => report.body)).toEqual([{ id: 'message-2', status: 'delivered', as: 'turn' }])
 })
 
-test('a running turn reports not yet with the reason and submits nothing', async ($, on) => {
+test('a Claude agent in the middle of a turn submits the message at once', async ($, on) => {
   const w = world(on)
   await start($)
   const child = await w.listeningChild()
   await $.turn.start({ text: 'hold', turnId: 't1' })
-  child.say({ id: 'message-3', text: 'after the turn' })
+  child.say({ id: 'message-3', text: 'queued behind the turn' })
   await w.settle()
-  await $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId: 't1', reason: 'answer' } as any)
-  child.say({ id: 'message-3', text: 'after the turn' })
-  await w.settle()
-  expect(w.reports.map(report => report.body)).toEqual([
-    { id: 'message-3', status: 'not-yet', reason: 'turn-running' },
-    { id: 'message-3', status: 'delivered', as: 'turn' },
-  ])
-  expect(w.submitted).toEqual(['after the turn'])
+  expect(w.submitted).toEqual(['queued behind the turn'])
+  expect(w.reports.map(report => report.body)).toEqual([{ id: 'message-3', status: 'delivered', as: 'turn' }])
 })
 
 test('a dropped submit is reported refused and the next message is taken', async ($, on) => {
@@ -125,6 +120,36 @@ test('commands run via command run as the mod commands made them and are reporte
   expect(w.reports.map(report => report.body)).toEqual([
     { id: 'command-a', status: 'delivered', as: 'turn' },
     { id: 'command-b', status: 'delivered', as: 'turn' },
+  ])
+})
+
+test('a command during a turn is reported turn-running and $.command.run is not called', async ($, on) => {
+  const w = world(on)
+  await start($)
+  const child = await w.listeningChild()
+  await $.turn.start({ text: 'hold', turnId: 't2' })
+  child.say({ id: 'command-c', command: 'color', args: 'purple' })
+  await w.settle()
+  expect(w.commands).toEqual([])
+  expect(w.reports.map(report => report.body)).toEqual([{ id: 'command-c', status: 'not-yet', reason: 'turn-running' }])
+})
+
+test('the same id asked twice runs once', async ($, on) => {
+  const w = world(on)
+  await start($)
+  const child = await w.listeningChild()
+  child.say({ id: 'command-d', command: 'color', args: 'purple' })
+  child.say({ id: 'command-d', command: 'color', args: 'purple' })
+  child.say({ id: 'message-7', text: 'once only' })
+  child.say({ id: 'message-7', text: 'once only' })
+  await w.settle()
+  expect(w.commands).toEqual([{ command: 'color', args: 'purple' }])
+  expect(w.submitted).toEqual(['once only'])
+  expect(w.reports.map(report => report.body)).toEqual([
+    { id: 'command-d', status: 'delivered', as: 'turn' },
+    { id: 'command-d', status: 'delivered', as: 'turn' },
+    { id: 'message-7', status: 'delivered', as: 'turn' },
+    { id: 'message-7', status: 'delivered', as: 'turn' },
   ])
 })
 

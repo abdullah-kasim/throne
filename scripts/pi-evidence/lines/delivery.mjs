@@ -6,7 +6,8 @@ import path from "node:path";
 import { PIY_PATH, STAND_IN_KEY, THRONE_ROOT, pause, piEntryPath, pollUntil } from "../support.mjs";
 import { buildLaunchArgv } from "../../../src/harness-routing/harness.ts";
 import { agentAlive } from "../../../src/herdr/delivery-request-client.ts";
-import { DELIVERY_SOCKET_ENV } from "../../../extensions/shared/agent-delivery-contract.ts";
+import { DELIVERY_CALLBACK_ENV, DELIVERY_SOCKET_ENV } from "../../../extensions/shared/agent-delivery-contract.ts";
+import { ACCEPTED_WITHIN_MS, LONGEST_HOLD_MS, startTimedSocketProxy } from "../../claude-mod-evidence/lines/timed-socket-proxy.mjs";
 import { openMessageQueueStore } from "../../../src/message-queue/message-queue.store.ts";
 import { enqueueMessageDelivery } from "../../../src/send-agent/message-delivery-enqueue.ts";
 import { installPiDeliveryExtension, piDeliveryExtensionSource } from "../../../src/herdr/pi-extension-install.ts";
@@ -16,7 +17,6 @@ const HERDR_PI_INTEGRATION = path.join(os.homedir(), ".pi", "agent", "extensions
 const SLOW_TURN_WORD = "SLOW-TURN";
 const SLOW_TURN_MILLISECONDS = 6_000;
 const HUMAN_DRAFT = "human draft xyz";
-const DRAFT_HOLD_WINDOW_MILLISECONDS = 5_000;
 
 function userTexts(body) {
   return (body.messages ?? []).filter((message) => message.role === "user").map((message) =>
@@ -63,13 +63,14 @@ export async function court(workspace) {
   const databasePath = path.join(workspace.dataHome, "message-queue.sqlite3");
   const store = openMessageQueueStore(databasePath);
   const sockets = {};
+  const callbackSocket = path.join(socketFolder, "callback.sock");
   let backend;
   let backendOutput = "";
 
   const state = {
     herdr,
     sockets,
-    async startAgent(name, { withExtension = true } = {}) {
+    async startAgent(name, { withExtension = true, callbacks = false } = {}) {
       const standIn = await recordingStandIn(workspace);
       const ledger = path.join(workspace.dataHome, "data", name);
       const agentDirectory = path.join(ledger, "pi-agent");
@@ -93,6 +94,7 @@ export async function court(workspace) {
         PI_CODING_AGENT_DIR: agentDirectory,
         THRONE_DATA_HOME: workspace.dataHome,
         [DELIVERY_SOCKET_ENV]: sockets[name],
+        [DELIVERY_CALLBACK_ENV]: callbacks ? callbackSocket : "",
       }));
       const ready = await herdr.waitForPi(paneId, "deepseek-flash");
       if (!ready.found) throw new Error(`pi never started in ${paneId}: ${ready.cause}`);
@@ -118,7 +120,7 @@ export async function court(workspace) {
     async startBackend({ typing = false } = {}) {
       backend = spawn(process.execPath, [
         path.join(THRONE_ROOT, "scripts", "pi-evidence", "delivery-backend.mjs"),
-        JSON.stringify({ databasePath, sessionName: herdr.sessionName, sockets, refusalLog, waitMilliseconds: 60_000, typing }),
+        JSON.stringify({ databasePath, callbackSocket, sessionName: herdr.sessionName, sockets, refusalLog, waitMilliseconds: 60_000, typing }),
       ], { env: workspace.throneEnvironment(), stdio: ["ignore", "pipe", "pipe"] });
       backend.stdout.on("data", (part) => (backendOutput += part));
       backend.stderr.on("data", (part) => (backendOutput += part));
@@ -145,7 +147,7 @@ export async function court(workspace) {
     waitForFinished(id, timeoutMilliseconds) {
       return waitFor(() => {
         const row = store.readWorkItem(id);
-        return row !== undefined && row.state !== "queued" && row.state !== "in-flight" ? row : undefined;
+        return row !== undefined && !["queued", "in-flight", "accepted"].includes(row.state) ? row : undefined;
       }, timeoutMilliseconds);
     },
     backendOutput() {
@@ -197,28 +199,26 @@ async function idleAgentAnswersATurn(workspace) {
   );
 }
 
-async function draftWaitsAndStaysIntact(workspace) {
+async function draftStaysBesideTheMessage(workspace) {
   const room = await court(workspace);
   const agent = await room.startAgent("shadow-pievidence-a");
   await room.startBackend();
   await typeDraft(room, agent.paneId);
   const word = marker();
   const id = room.send(agent, `please answer ${word}`);
-  await pause(DRAFT_HOLD_WINDOW_MILLISECONDS);
-  const heldState = room.stateOf(id)?.state;
-  const reachedEarly = agent.standIn.turns.some((turn) => turn.latest.includes(word));
-  const paneWhileHeld = await room.herdr.savePane(agent.paneId, "pane-while-held.txt");
-  const draftIntact = paneWhileHeld.includes(HUMAN_DRAFT);
-  await room.herdr.call("pane", "send-keys", agent.paneId, "Enter");
   const row = await room.waitForFinished(id);
   await waitFor(() => occurrences(agent.standIn, word) === 1);
+  const draftSentWithIt = agent.standIn.turns.some((turn) => turn.latest.includes(HUMAN_DRAFT));
+  const paneAfter = await room.herdr.savePane(agent.paneId, "pane-after-delivery.txt");
+  const draftIntact = paneAfter.split("\n").slice(-12).some((line) => line.includes(HUMAN_DRAFT));
+  await room.herdr.call("pane", "send-keys", agent.paneId, "Enter");
   const draftTurn = (await waitFor(() => agent.standIn.turns.some((turn) => turn.latest === HUMAN_DRAFT), 15_000)) === true;
   const once = occurrences(agent.standIn, word);
   const refusals = await room.refusals();
   await room.finish([agent]);
   return verdict(
-    heldState === "in-flight" && !reachedEarly && draftIntact && draftTurn && row?.state === "delivered" && once === 1 && refusals === "",
-    `while the draft sat: queue state ${heldState}, message reached the provider: ${reachedEarly}, draft on screen: ${draftIntact}; after Enter the draft was its own turn exactly "${HUMAN_DRAFT}": ${draftTurn}; queue state ${row?.state}; message count in the conversation: ${once}; refused herdr calls: ${refusals === "" ? "none" : refusals}`,
+    row?.state === "delivered" && once === 1 && !draftSentWithIt && draftIntact && draftTurn && refusals === "",
+    `a draft sat in pi's box; the message went on the held request: queue state ${row?.state}, message count in the conversation: ${once}; the draft reached the provider with it: ${draftSentWithIt}; the draft is back in the box: ${draftIntact}; after Enter the draft was its own turn exactly "${HUMAN_DRAFT}": ${draftTurn}; refused herdr calls: ${refusals === "" ? "none" : refusals}`,
   );
 }
 
@@ -321,16 +321,13 @@ async function missingExtensionFallsBackToTypedKeys(workspace) {
 
 async function backendKillNeverDeliversTwice(workspace) {
   const room = await court(workspace);
-  const agent = await room.startAgent("shadow-pievidence-a");
+  const agent = await room.startAgent("shadow-pievidence-a", { callbacks: true });
   await room.startBackend();
-  await typeDraft(room, agent.paneId);
   const word = marker();
   const id = room.send(agent, `please answer ${word}`);
-  await pause(DRAFT_HOLD_WINDOW_MILLISECONDS);
-  const held = room.stateOf(id)?.state === "in-flight" && !agent.standIn.turns.some((turn) => turn.latest.includes(word));
+  const reached = await waitFor(() => ["accepted", "delivered"].includes(room.stateOf(id)?.state) && room.stateOf(id)?.state, 15_000);
   await room.killBackend();
   await room.startBackend();
-  await room.herdr.call("pane", "send-keys", agent.paneId, "Enter");
   await waitFor(() => occurrences(agent.standIn, word) >= 1);
   await pause(6000);
   const once = occurrences(agent.standIn, word);
@@ -339,17 +336,45 @@ async function backendKillNeverDeliversTwice(workspace) {
   const refusals = await room.refusals();
   await room.finish([agent]);
   return verdict(
-    held && once === 1 && turnsCarrying === 1 && refusals === "",
-    `the extension held the request behind the draft before the kill: ${held}; the kill closed the held connection; backend killed and restarted; message count in the conversation: ${once}; provider turns started by it: ${turnsCarrying}; queue state after restart: ${finalState}; refused herdr calls: ${refusals === "" ? "none" : refusals}`,
+    Boolean(reached) && once === 1 && turnsCarrying === 1 && finalState === "delivered" && refusals === "",
+    `the message reached ${reached} before the backend was killed; backend killed and restarted; message count in the conversation: ${once}; provider turns started by it: ${turnsCarrying}; queue state after restart: ${finalState}; refused herdr calls: ${refusals === "" ? "none" : refusals}`,
+  );
+}
+
+async function draftedAgentAcceptsAtOnceAndKeepsTheDraft(workspace) {
+  const room = await court(workspace);
+  const agent = await room.startAgent("shadow-pievidence-a", { callbacks: true });
+  const proxy = await startTimedSocketProxy(`${room.sockets[agent.name]}.timed`, room.sockets[agent.name]);
+  room.sockets[agent.name] = proxy.path;
+  await room.startBackend();
+  await typeDraft(room, agent.paneId);
+  const word = marker();
+  const id = room.send(agent, `please answer ${word}`);
+  const accepted = await waitFor(() => room.stateOf(id)?.state === "accepted" || room.stateOf(id)?.state === "delivered", 15_000);
+  const row = await room.waitForFinished(id);
+  await waitFor(() => occurrences(agent.standIn, word) === 1);
+  const pane = await room.herdr.savePane(agent.paneId, "pane-after-delivery.txt");
+  const draftBack = pane.split("\n").slice(-12).some((line) => line.includes(HUMAN_DRAFT));
+  const draftSent = agent.standIn.turns.some((turn) => turn.latest.includes(HUMAN_DRAFT));
+  const runtime = (await room.herdr.processInfo(agent.paneId).catch(() => undefined)) ?? {};
+  const deliveries = proxy.deliveries();
+  const acceptedFast = deliveries.length >= 1 && deliveries.every((hold) => hold.milliseconds < ACCEPTED_WITHIN_MS);
+  const refusals = await room.refusals();
+  await proxy.close();
+  await room.finish([agent]);
+  return verdict(
+    accepted === true && acceptedFast && row?.state === "delivered" && occurrences(agent.standIn, word) === 1 && draftBack && !draftSent && proxy.longest() <= LONGEST_HOLD_MS && refusals === "",
+    `a draft sat in pi's box when the message was sent; the row reached accepted: ${accepted === true}; POST /deliver held ${deliveries.map((hold) => hold.milliseconds).join(",")}ms; queue state ${row?.state} through the extension's callback over the backend's unix socket; message count in the conversation: ${occurrences(agent.standIn, word)}; the draft is back in the box: ${draftBack}; the draft reached the provider: ${draftSent}; socket holds: ${proxy.summary()}; pi process: ${JSON.stringify(runtime).slice(0, 300)}; refused herdr calls: ${refusals === "" ? "none" : refusals}`,
   );
 }
 
 export const lines = [
   { id: "P4.1", needsPane: true, run: idleAgentAnswersATurn },
-  { id: "P4.2", needsPane: true, run: draftWaitsAndStaysIntact },
+  { id: "P4.2", needsPane: true, run: draftStaysBesideTheMessage },
   { id: "P4.3", needsPane: true, run: midTurnMessageWaitsForTheTurn },
   { id: "P4.4", needsPane: true, run: tenMessagesReachOnlyTheirAgent },
   { id: "P4.5", needsPane: true, run: noTypingAndNoHistoryRead },
   { id: "P4.6", needsPane: true, run: missingExtensionFallsBackToTypedKeys },
   { id: "P4.7", needsPane: true, run: backendKillNeverDeliversTwice },
+  { id: "P4.8", needsPane: true, run: draftedAgentAcceptsAtOnceAndKeepsTheDraft },
 ];

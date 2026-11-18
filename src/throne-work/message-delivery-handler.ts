@@ -44,6 +44,7 @@ export interface MessageDeliveryHandlerDeps {
       waitForStartupQuiescence?: boolean;
       disableFileBackedDelivery?: boolean;
       messageId?: number;
+      onAccepted?: () => void;
     },
   ) => Promise<string | void>;
   clearBlockedState: (name: string) => Promise<void>;
@@ -205,13 +206,17 @@ export async function deliverMessageWorkItem(
     });
   }
   let attempt = 1;
+  let accepted = false;
+  const onAccepted = () => {
+    accepted = true;
+  };
   for (;;) {
     try {
       const typedText = await deps.submitToAgent(
         recipient,
         payload.senderName,
         payload.prompt,
-        { ...forwardedSubmitOptions(payload), ...messageIdTypedAfter(item) },
+        { ...forwardedSubmitOptions(payload), ...messageIdTypedAfter(item), onAccepted },
       );
       await recordAttributedDelivery(payload, deps);
       if (item.dueAt !== null) {
@@ -220,6 +225,7 @@ export async function deliverMessageWorkItem(
       if (payload.clearRecipientBlockedOnDelivery) {
         await deps.clearBlockedState(payload.recipientName);
       }
+      if (accepted) return store.acceptInFlightWorkItem(item.id);
       const finished = store.finishWorkItemIdempotently(item.id, MessageQueueWorkItemState.Delivered);
       scheduleReceiptCheckIgnoringFailure(store, finished, typedText);
       return finished;

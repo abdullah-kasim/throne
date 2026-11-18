@@ -5,7 +5,12 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import { startInTab } from './herdr-launch.ts';
-import { DELIVERY_HELPER_PATH, DELIVERY_RUNTIME_PATH, DeliverySocketPathTooLongError } from './delivery-socket-path.ts';
+import {
+  DELIVERY_HELPER_PATH,
+  DELIVERY_RUNTIME_PATH,
+  DeliverySocketPathTooLongError,
+  deliveryCallbackSocketPath,
+} from './delivery-socket-path.ts';
 import type { StartInTabDeps } from './herdr-create.contracts.ts';
 
 const temporaryFolder = (prefix: string) => mkdtemp(path.join(os.tmpdir(), prefix));
@@ -19,6 +24,7 @@ async function launchDeps(harness: string, recorded: string | undefined, home?: 
   }
   const typed: string[] = [];
   const recordedSockets: string[] = [];
+  const recordedCallbacks: string[] = [];
   const runHerdr = (async (args: string[]) => {
     if (args[0] === 'pane' && args[1] === 'send-text') typed.push(args[3]!);
     if (args[0] === 'agent' && args[1] === 'list') {
@@ -35,14 +41,15 @@ async function launchDeps(harness: string, recorded: string | undefined, home?: 
     deliverySocket: {
       throneHome,
       recorded: async () => recorded,
-      record: async (_agentName, socketPath) => {
+      record: async (_agentName, socketPath, callback) => {
         recordedSockets.push(socketPath);
+        recordedCallbacks.push(callback);
       },
     },
   };
   const script = () => readFile(typed[0]!.match(/^ bash '([^']+)'$/)![1]!, 'utf8');
   const exported = async (name: string) => (await script()).match(new RegExp(`^export ${name}='([^']*)'$`, 'm'))?.[1];
-  return { deps, typed, recordedSockets, exported };
+  return { deps, typed, recordedSockets, recordedCallbacks, exported };
 }
 
 test('a Claude agent launched with the mod records in spawn.json the same socket path its environment carries, with the runtime and helper paths', async () => {
@@ -92,4 +99,16 @@ test('a codex agent gets no delivery socket', async () => {
   await startInTab('agent-name', 'pane-1', { argv: ['codex'] }, launch.deps);
   assert.equal(await launch.exported('THRONE_DELIVERY_SOCKET'), undefined);
   assert.deepEqual(launch.recordedSockets, []);
+});
+
+test('a newly launched agent is given the callback socket path beside its delivery socket', async () => {
+  const claude = await launchDeps('claude', undefined);
+  const pi = await launchDeps('pi', undefined);
+  await startInTab('agent-name', 'pane-1', { argv: ['claude'] }, claude.deps);
+  await startInTab('agent-name', 'pane-1', { argv: ['piy'] }, pi.deps);
+  for (const launch of [claude, pi]) {
+    const callbackSocket = deliveryCallbackSocketPath(launch.deps.deliverySocket!.throneHome);
+    assert.equal(await launch.exported('THRONE_DELIVERY_CALLBACK'), callbackSocket);
+    assert.deepEqual(launch.recordedCallbacks, [callbackSocket]);
+  }
 });

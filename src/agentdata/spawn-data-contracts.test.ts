@@ -32,3 +32,19 @@ test("a spawn record with an empty or non-string delivery socket is not read as 
     assert.equal(await readSpawnSpec(name, folder), null);
   }
 });
+
+test("the callback socket path is recorded beside the delivery socket in spawn.json", async () => {
+  const folder = await dataFolder();
+  await writeSpawnSpec(
+    "agent",
+    {
+      ...baseSpec,
+      delivery_socket: "/home/x/.throne/s/ab12.sock",
+      delivery_callback: "/home/x/.throne/delivery-callback.sock",
+    },
+    folder,
+  );
+  const spec = await readSpawnSpec("agent", folder);
+  assert.equal(spec?.delivery_socket, "/home/x/.throne/s/ab12.sock");
+  assert.equal(spec?.delivery_callback, "/home/x/.throne/delivery-callback.sock");
+});

@@ -19,6 +19,7 @@ export function selectNextDueWorkItemId(
        AND NOT EXISTS (
          SELECT 1 FROM work_items AS earlier
          WHERE earlier.state = ? AND earlier.kind = work_items.kind AND earlier.id < work_items.id
+           AND (earlier.attempt_count > 0 OR earlier.due_at IS NULL OR earlier.due_at <= ?)
            AND IFNULL(json_extract(earlier.payload, '$.recipientName'), '') = ${RECIPIENT}
        )`;
   const candidate = db.prepare(
@@ -31,7 +32,7 @@ export function selectNextDueWorkItemId(
     timestamp,
     ...kinds,
     ...busy,
-    ...(busyRecipients === undefined ? [] : [queuedState]),
+    ...(busyRecipients === undefined ? [] : [queuedState, timestamp]),
   ) as unknown as { id: number } | undefined;
   return candidate?.id;
 }

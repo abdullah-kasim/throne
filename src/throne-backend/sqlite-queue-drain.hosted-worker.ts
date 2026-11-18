@@ -29,6 +29,7 @@ import type { CronHostedWorker } from "./hosted-worker.types.ts";
 export const SQLITE_QUEUE_DRAIN_HOSTED_WORKER_NAME = "sqlite-queue-drain";
 const SQLITE_DELIVERY_POLL_INTERVAL_MS = 1_000;
 const MAXIMUM_CONCURRENT_MESSAGE_DELIVERIES = 4;
+const SLOW_DELIVERY_GIVES_BACK_ITS_SLOT_AFTER_MS = 10_000;
 
 @Injectable()
 export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
@@ -38,6 +39,7 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
 
   private readonly dispatchingItemIds = new Set<number>();
   private readonly recipientsWithDeliveryUnderWay = new Set<string>();
+  private deliveriesHoldingASlot = 0;
   private reclaimedOrphanedWork = false;
 
   constructor(
@@ -45,6 +47,7 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
     @Optional() private readonly handlerDeps: ThroneWorkHandlerDeps = {},
     /** Test seam for the composer-cleared probe; production derives it below. */
     @Optional() private readonly composerProbe?: typeof probeComposerCleared,
+    @Optional() private readonly slowDeliveryLimitMs: number = SLOW_DELIVERY_GIVES_BACK_ITS_SLOT_AFTER_MS,
   ) {}
 
   async runOnce(): Promise<void> {
@@ -76,7 +79,7 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
   }
 
   private fillDeliveryLanes(): void {
-    while (this.recipientsWithDeliveryUnderWay.size < MAXIMUM_CONCURRENT_MESSAGE_DELIVERIES) {
+    while (this.deliveriesHoldingASlot < MAXIMUM_CONCURRENT_MESSAGE_DELIVERIES) {
       const item = this.store.claimNextDueWorkItem(
         [MESSAGE_DELIVERY_WORK_ITEM_KIND],
         this.recipientsWithDeliveryUnderWay,
@@ -86,10 +89,30 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
     }
   }
 
+  private fillDeliveryLanesLoggingFailure(): void {
+    try {
+      this.fillDeliveryLanes();
+    } catch (claimError: unknown) {
+      console.error("[sqlite-queue-drain] could not start the next delivery:", claimError);
+    }
+  }
+
   private startDelivery(item: WorkItemRow): void {
     const recipient = String((item.payload as { recipientName?: unknown }).recipientName ?? "");
     this.recipientsWithDeliveryUnderWay.add(recipient);
     this.dispatchingItemIds.add(item.id);
+    this.deliveriesHoldingASlot += 1;
+    let holdsASlot = true;
+    const giveBackSlot = (): void => {
+      if (!holdsASlot) return;
+      holdsASlot = false;
+      this.deliveriesHoldingASlot -= 1;
+    };
+    const slowDeliveryTimer = setTimeout(() => {
+      giveBackSlot();
+      this.fillDeliveryLanesLoggingFailure();
+    }, this.slowDeliveryLimitMs);
+    slowDeliveryTimer.unref?.();
     const deliveryDeps = this.handlerDeps.messageDelivery ?? REAL_MESSAGE_DELIVERY_HANDLER_DEPS;
     const laneBoundMs = deriveLaneBoundMs();
     const timer = armHardKillTimer(
@@ -165,13 +188,11 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
       })
       .finally(() => {
         timer.clear();
+        clearTimeout(slowDeliveryTimer);
+        giveBackSlot();
         this.dispatchingItemIds.delete(item.id);
         this.recipientsWithDeliveryUnderWay.delete(recipient);
-        try {
-          this.fillDeliveryLanes();
-        } catch (claimError: unknown) {
-          console.error("[sqlite-queue-drain] could not start the next delivery:", claimError);
-        }
+        this.fillDeliveryLanesLoggingFailure();
       });
   }
 }

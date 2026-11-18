@@ -32,7 +32,9 @@ inferred one.
 2. Read the live queue and current agent roster before acting. Do not spawn an
    Alpha, Shadow, or hidden in-harness worker for this invocation.
 3. Execute the Lord's scoped request directly in the invoking agent's own
-   session. Preserve unrelated queue work and ambient changes.
+   session. Before changing code, read the target's feature map and the spec
+   files of the area you touch (`throne spec-location <repo> --json`): this
+   work never passes through filing, so no spec citation check catches it. Preserve unrelated queue work and ambient changes.
 4. Resolve ambiguity by best judgment; never ask the Lord to choose between
    implementation options — the one mandatory question is the scope
    confirmation above (WHICH task, step 0); it is never repeated for

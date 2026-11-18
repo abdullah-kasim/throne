@@ -27,8 +27,8 @@ async function failingCommands(harness) {
   return folder;
 }
 
-export async function startCourtModAgent(harness, name) {
-  const agent = await startModAgent(harness, name);
+export async function startCourtModAgent(harness, name, { callbacks = true } = {}) {
+  const agent = await startModAgent(harness, name, undefined, { callbacks });
   await agent.submitTyped("Reply with only the word primed.");
   if (!(await answered(agent, "primed"))) throw new Error(`${name} never answered its first typed turn`);
   await recordModAgent(harness, agent);

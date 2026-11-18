@@ -22,6 +22,7 @@ export interface HarnessCommandRequest {
 
 export type ExtensionDeliveryOutcome =
   | { readonly kind: "delivered" }
+  | { readonly kind: "accepted" }
   | { readonly kind: "refused"; readonly detail: string }
   | { readonly kind: "timed-out"; readonly waitedMs: number }
   | { readonly kind: "not-answering"; readonly detail: string }
@@ -108,6 +109,22 @@ function readAnswer(body: string): Partial<DeliveryAnswer> | undefined {
   }
 }
 
+export const ACKNOWLEDGED_ANSWER_LIMIT_MILLISECONDS = 1500;
+export const ACKNOWLEDGED_ATTEMPTS = 3;
+
+async function takesAcknowledgedDelivery(socketPath: string, paneId: string): Promise<boolean> {
+  return (await agentAlive(socketPath, paneId))?.callbacks === true;
+}
+
+async function askUntilAnswered(socketPath: string, body: string): Promise<Exchange> {
+  let exchange: Exchange = { kind: "no-answer" };
+  for (let attempt = 1; attempt <= ACKNOWLEDGED_ATTEMPTS; attempt += 1) {
+    exchange = await exchangeOverSocket(socketPath, "POST", DELIVER_PATH, body, ACKNOWLEDGED_ANSWER_LIMIT_MILLISECONDS);
+    if (exchange.kind === "answered" || exchange.kind === "no-connection") return exchange;
+  }
+  return exchange;
+}
+
 export async function deliverThroughExtension(
   content: string | HarnessCommandRequest,
   timeoutMs: number,
@@ -122,17 +139,14 @@ export async function deliverThroughExtension(
   }
   const isCommand = typeof content !== "string";
   const id = deps.requestId ?? `${isCommand ? COMMAND_ID_PREFIX : MESSAGE_ID_PREFIX}${randomUUID()}`;
+  const acknowledged = !isCommand && (await takesAcknowledgedDelivery(deps.socketPath, recipientPaneId));
   const request: DeliveryRequest = isCommand
     ? { id, pane: recipientPaneId, command: content.command, args: content.args, waitMs: timeoutMs }
-    : { id, pane: recipientPaneId, text: content, waitMs: timeoutMs };
+    : { id, pane: recipientPaneId, text: content, waitMs: timeoutMs, ...(acknowledged ? { acknowledge: true as const } : {}) };
   const started = Date.now();
-  const exchange = await exchangeOverSocket(
-    deps.socketPath,
-    "POST",
-    DELIVER_PATH,
-    JSON.stringify(request),
-    timeoutMs + SENDER_MARGIN_MILLISECONDS,
-  );
+  const exchange = acknowledged
+    ? await askUntilAnswered(deps.socketPath, JSON.stringify(request))
+    : await exchangeOverSocket(deps.socketPath, "POST", DELIVER_PATH, JSON.stringify(request), timeoutMs + SENDER_MARGIN_MILLISECONDS);
   if (exchange.kind === "no-connection") return { kind: "not-answering", detail: exchange.detail };
   if (exchange.kind === "no-answer") return { kind: "timed-out", waitedMs: Date.now() - started };
   if (exchange.kind === "dropped") return { kind: "dropped", detail: exchange.detail };
@@ -145,6 +159,7 @@ export async function deliverThroughExtension(
     };
   }
   if (answer.status === "delivered") return { kind: "delivered" };
+  if (answer.status === "accepted") return { kind: "accepted" };
   if (answer.status === "busy") return { kind: "timed-out", waitedMs: Date.now() - started };
   if (answer.status === "refused") return { kind: "refused", detail: answer.detail ?? "refused without a reason" };
   return { kind: "refused", detail: `delivery socket answered "${String(answer.status)}"` };

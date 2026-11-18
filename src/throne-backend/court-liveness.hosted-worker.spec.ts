@@ -307,7 +307,7 @@ test("the backend hosts no worker that reaps agents on its own", () => {
   const workerNames = hostedWorkerClassesOfTheBackend().map(
     (worker) => (worker as { name: string }).name,
   );
-  assert.equal(workerNames.length, 13);
+  assert.equal(workerNames.length, 15);
   assert.deepEqual(
     workerNames.filter((name) => /reap/i.test(name)),
     [],

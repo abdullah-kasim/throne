@@ -201,6 +201,10 @@ export async function submitToAgentWhileLocked(
       options.messageId,
     );
     if (outcome.kind === "delivered") return piPayload;
+    if (outcome.kind === "accepted") {
+      options.onAccepted?.();
+      return piPayload;
+    }
     if (outcome.kind === "dropped") throw new SubmitAssumedFilledError(name, outcome.detail);
     if (outcome.kind === "refused") {
       throw new SubmitNotSentError(
@@ -242,6 +246,10 @@ export async function submitToAgentWhileLocked(
         },
       );
       if (outcome.kind === "delivered") return modPayload;
+      if (outcome.kind === "accepted") {
+        options.onAccepted?.();
+        return modPayload;
+      }
       if (outcome.kind === "dropped") throw new SubmitAssumedFilledError(name, outcome.detail);
       if (outcome.kind === "timed-out" && (await answering())) {
         throw new SubmitNotSentError(

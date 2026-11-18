@@ -31,7 +31,7 @@ async function settle(): Promise<void> {
 }
 
 async function withCourt(
-  options: { readonly deliveryMs?: number },
+  options: { readonly deliveryMs?: number; readonly slowDeliveryLimitMs?: number },
   body: (court: Court) => Promise<void>,
 ): Promise<void> {
   const directory = mkdtempSync(path.join(os.homedir(), "tmp", "throne-message-lanes-"));
@@ -64,6 +64,7 @@ async function withCourt(
       }
       return !busyRecipients.has(name);
     },
+    options.slowDeliveryLimitMs,
   );
   const court: Court = {
     store,
@@ -216,34 +217,91 @@ test("a backlog of forty messages for ten idle agents, as left by a restart, is 
   });
 });
 
-test("a held delivery keeps its lane and slot until it ends, and the other lanes keep delivering", async () => {
-  await withCourt({}, async (court) => {
+test("a held delivery keeps its lane and gives its slot back after the limit, and the other lanes keep delivering", async () => {
+  const slowDeliveryLimitMs = 100;
+  await withCourt({ slowDeliveryLimitMs }, async (court) => {
     court.queue("held", "held first");
     const heldSecond = court.queue("held", "held second");
-    for (let round = 1; round <= 3; round += 1) {
-      for (const agent of ["beta", "gamma", "delta"]) court.queue(agent, `${agent} message ${round}`);
-    }
+    for (const agent of ["beta", "gamma", "delta", "epsilon"]) court.queue(agent, `${agent} hello`);
     await court.worker.runOnce();
     await settle();
-    assert.deepEqual(court.started, ["held first", "beta message 1", "gamma message 1", "delta message 1"]);
+    assert.deepEqual(court.started, ["held first", "beta hello", "gamma hello", "delta hello"]);
 
-    for (let round = 1; round <= 3; round += 1) {
-      for (const agent of ["beta", "gamma", "delta"]) court.finishDelivery(`${agent} message ${round}`);
-      await settle();
-      await court.worker.runOnce();
-      await settle();
-    }
-    assert.equal(court.started.filter((prompt) => prompt.startsWith("held")).length, 1);
-    assert.equal(deliveredState(court, heldSecond), MessageQueueWorkItemState.Queued);
-
+    for (const agent of ["beta", "gamma", "delta"]) court.finishDelivery(`${agent} hello`);
+    await settle();
+    assert.deepEqual(court.started.slice(4), ["epsilon hello"]);
     for (const agent of ["one", "two", "three", "four"]) court.queue(agent, `${agent} hello`);
     await court.worker.runOnce();
     await settle();
-    assert.deepEqual(court.started.slice(-3), ["one hello", "two hello", "three hello"]);
+    assert.deepEqual(court.started.slice(5), ["one hello", "two hello"]);
+
+    await new Promise<void>((resolve) => setTimeout(resolve, slowDeliveryLimitMs + 50));
+    await settle();
+    assert.deepEqual(court.started.slice(7), ["three hello", "four hello"]);
+    assert.ok(!court.started.includes("held second"));
+    assert.equal(deliveredState(court, heldSecond), MessageQueueWorkItemState.Queued);
 
     court.finishDelivery("held first");
     await settle();
     assert.equal(court.started.at(-1), "held second");
-    assert.ok(!court.started.includes("four hello"));
+  });
+});
+
+test("with four deliveries held for a minute each, a message for a fifth, idle agent starts within the limit plus one tick; a second message for one of the four held agents still waits behind the first", async () => {
+  const slowDeliveryLimitMs = 200;
+  const tickMs = 100;
+  await withCourt({ slowDeliveryLimitMs }, async (court) => {
+    const held = ["one", "two", "three", "four"];
+    for (const agent of held) court.queue(agent, `${agent} held`);
+    const heldSecond = court.queue("one", "one second");
+    await court.worker.runOnce();
+    await settle();
+    assert.deepEqual(court.started, held.map((agent) => `${agent} held`));
+
+    const startedAt = Date.now();
+    court.queue("idle", "idle hello");
+    while (!court.started.includes("idle hello") && Date.now() - startedAt < 2_000) {
+      await court.worker.runOnce();
+      await new Promise<void>((resolve) => setTimeout(resolve, tickMs));
+    }
+    const elapsedMs = Date.now() - startedAt;
+    assert.ok(court.started.includes("idle hello"), "the idle agent was never delivered to");
+    assert.ok(elapsedMs <= slowDeliveryLimitMs + tickMs + 100, `took ${elapsedMs} ms`);
+    assert.ok(!court.started.includes("one second"));
+    assert.equal(deliveredState(court, heldSecond), MessageQueueWorkItemState.Queued);
+
+    court.finishDelivery("one held");
+    await settle();
+    assert.equal(court.started.at(-1), "one second");
+  });
+});
+
+test("a message scheduled for later does not hold up an immediate message for the same agent", async () => {
+  await withCourt({}, async (court) => {
+    const scheduled = court.store.insertWorkItem({
+      kind: MESSAGE_DELIVERY_WORK_ITEM_KIND,
+      payload: {
+        recipientName: "alpha",
+        recipientPaneId: "",
+        senderName: "sender",
+        prompt: "alpha in an hour",
+        clearRecipientBlockedOnDelivery: false,
+      },
+      dueAt: 1_000 + 60 * 60 * 1_000,
+    }).id;
+    court.queue("alpha", "alpha now");
+    await court.worker.runOnce();
+    await settle();
+    assert.deepEqual(court.started, ["alpha now"]);
+    assert.equal(deliveredState(court, scheduled), MessageQueueWorkItemState.Queued);
+
+    court.finishDelivery("alpha now");
+    await settle();
+    court.setNow(2_000 + 60 * 60 * 1_000);
+    const afterIt = court.queue("alpha", "alpha after the scheduled one");
+    await court.worker.runOnce();
+    await settle();
+    assert.deepEqual(court.started, ["alpha now", "alpha in an hour"]);
+    assert.equal(deliveredState(court, afterIt), MessageQueueWorkItemState.Queued);
   });
 });

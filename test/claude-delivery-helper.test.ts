@@ -11,6 +11,8 @@ import {
   DELIVERY_RUNTIME_ENV,
   DELIVERY_SOCKET_ENV,
   HELPER_LISTEN_TIMEOUT_MILLISECONDS,
+  MOD_REPORT_TIMEOUT_MILLISECONDS,
+  REMEMBERED_DELIVERED_IDS,
   RESULT_PATH,
 } from "../extensions/shared/agent-delivery-contract.ts";
 
@@ -23,7 +25,12 @@ afterEach(async () => {
   await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
 });
 
-type Helper = { socket: string; child: ChildProcessWithoutNullStreams; nextLine: () => Promise<Record<string, unknown>> };
+type Helper = {
+  socket: string;
+  child: ChildProcessWithoutNullStreams;
+  nextLine: () => Promise<Record<string, unknown>>;
+  unread: Record<string, unknown>[];
+};
 
 async function startHelper(): Promise<Helper> {
   const folder = await mkdtemp(path.join(tmpdir(), "cdh-"));
@@ -54,7 +61,7 @@ async function startHelper(): Promise<Helper> {
     return line ? Promise.resolve(line) : new Promise<Record<string, unknown>>((resolve) => waiters.push(resolve));
   };
   assert.deepEqual(await nextLine(), { listening: true });
-  return { socket, child, nextLine };
+  return { socket, child, nextLine, unread: lines };
 }
 
 function call(socket: string, method: string, url: string, body?: string, signal?: AbortSignal): Promise<Record<string, unknown>> {
@@ -98,9 +105,21 @@ test("a command request becomes a command line and the mod's report answers the 
   assert.deepEqual(await answer, { id: "command-x", pane: PANE, status: "refused", detail: "no such command" });
 });
 
-test("the helper answers GET /alive with harness claude and commands true", async () => {
+test("a silent mod ends busy and is asked once", { timeout: 15_000 }, async () => {
   const helper = await startHelper();
-  assert.deepEqual(await call(helper.socket, "GET", "/alive"), { pane: PANE, harness: "claude", commands: true });
+  const started = Date.now();
+  const answer = call(helper.socket, "POST", "/deliver", JSON.stringify({ id: "command-silent", pane: PANE, command: "color", args: "green", waitMs: 10_000 }));
+  assert.deepEqual(await helper.nextLine(), { id: "command-silent", command: "color", args: "green" });
+  assert.deepEqual(await answer, { id: "command-silent", pane: PANE, status: "busy", reason: "composer-unreadable" });
+  assert.ok(Date.now() - started < MOD_REPORT_TIMEOUT_MILLISECONDS + 2_000);
+  assert.deepEqual(await helper.nextLine(), { withdrawn: "command-silent" });
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.deepEqual(helper.unread, []);
+});
+
+test("the helper answers GET /alive with harness claude, commands true and callbacks true", async () => {
+  const helper = await startHelper();
+  assert.deepEqual(await call(helper.socket, "GET", "/alive"), { pane: PANE, harness: "claude", commands: true, callbacks: true });
 });
 
 test("a request in flight when the helper dies comes back to the sender as a dropped connection", async () => {
@@ -112,7 +131,11 @@ test("a request in flight when the helper dies comes back to the sender as a dro
 });
 
 test("the mod's mirrored constants match the shared contract", async () => {
-  assert.deepEqual(MIRRORED_CONTRACT, { resultPath: RESULT_PATH, helperListenTimeoutMilliseconds: HELPER_LISTEN_TIMEOUT_MILLISECONDS });
+  assert.deepEqual(MIRRORED_CONTRACT, {
+    resultPath: RESULT_PATH,
+    helperListenTimeoutMilliseconds: HELPER_LISTEN_TIMEOUT_MILLISECONDS,
+    rememberedStartedIds: REMEMBERED_DELIVERED_IDS,
+  });
   const modSource = await readFile(modScript, "utf8");
   for (const name of [DELIVERY_SOCKET_ENV, DELIVERY_RUNTIME_ENV, DELIVERY_HELPER_ENV]) assert.ok(modSource.includes(`$.env.get('${name}')`), name);
 });

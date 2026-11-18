@@ -286,7 +286,7 @@ export async function submitToAgentUnkeyed(
         refreshed,
         live.senderName,
         effectivePrompt,
-        live.options,
+        { ...live.options, onAccepted: options.onAccepted },
         deps,
       );
       await live.options.onDeliveredWhileLocked?.();

@@ -230,7 +230,7 @@ test("the groups M, G and T select every behaviour line, every flow and the timi
   const lines = (group: string) => selectSpecLines({ group }).map((entry: { line: string }) => entry.line);
   assert.deepEqual(lines("G"), ["G1", "G2", "G4", "G5"]);
   assert.deepEqual(lines("T"), ["T1"]);
-  assert.equal(lines("M").length, 16);
+  assert.equal(lines("M").length, 17);
   assert.deepEqual(lines("all"), SPEC_LINES.map((entry) => entry.line));
 });
 

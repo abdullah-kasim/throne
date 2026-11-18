@@ -98,6 +98,7 @@ export interface SpawnSpec {
   account?: string;
   claude_mod?: boolean;
   delivery_socket?: string;
+  delivery_callback?: string;
   account_requirement?: typeof COMPANY_ACCOUNT_WORD;
 }
 
@@ -217,6 +218,8 @@ function isSpawnSpec(value: unknown): value is SpawnSpec {
     (record.claude_mod === undefined || typeof record.claude_mod === "boolean") &&
     (record.delivery_socket === undefined ||
       (typeof record.delivery_socket === "string" && record.delivery_socket !== "")) &&
+    (record.delivery_callback === undefined ||
+      (typeof record.delivery_callback === "string" && record.delivery_callback !== "")) &&
     (record.account_requirement === undefined ||
       record.account_requirement === COMPANY_ACCOUNT_WORD) &&
     (record.token_balance_lane === undefined ||

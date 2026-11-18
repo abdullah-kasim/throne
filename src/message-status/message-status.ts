@@ -20,6 +20,7 @@ export const MessageStatusVerdict = {
   Scheduled: "scheduled",
   Cancelled: "cancelled",
   InFlight: "in-flight",
+  Accepted: "accepted",
   Delivered: "delivered",
   FailedWithReason: "failed-with-reason",
 } as const;
@@ -46,6 +47,7 @@ const NON_TERMINAL_STATE_TO_VERDICT: ReadonlyMap<
 > = new Map([
   [MessageQueueWorkItemState.Queued, MessageStatusVerdict.Queued],
   [MessageQueueWorkItemState.InFlight, MessageStatusVerdict.InFlight],
+  [MessageQueueWorkItemState.Accepted, MessageStatusVerdict.Accepted],
 ]);
 
 export function classifyHeartbeatStaleness(
@@ -126,6 +128,7 @@ export function formatMessageStatusOutput(
       return `failed: ${result.failureReason}\n`;
     case MessageStatusVerdict.Queued:
     case MessageStatusVerdict.InFlight:
+    case MessageStatusVerdict.Accepted:
       return result.heartbeatStaleness === undefined
         ? `${result.verdict}\n`
         : `${result.verdict}${describeHeartbeatStaleness(result.heartbeatStaleness)}\n`;

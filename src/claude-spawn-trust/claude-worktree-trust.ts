@@ -35,6 +35,7 @@
 // a spawn with no trust grant blocks on a modal nobody can see — a total court
 // outage, not a degradation.
 
+import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   readFileSync,
@@ -65,12 +66,25 @@ export interface ClaudeWorktreeTrustDeps {
   statSync: typeof statSync;
   realpathSync: typeof realpathSync;
   sleepMs: (ms: number) => void;
+  gitTopLevel: (folder: string) => string | undefined;
 }
 
 /** Synchronous sleep. The launch path that needs this is synchronous, and a
  *  spin would burn a core while several agents spawn at once. */
 function sleepMs(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function gitTopLevel(folder: string): string | undefined {
+  try {
+    const topLevel = execFileSync("git", ["-C", folder, "rev-parse", "--show-toplevel"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return topLevel === "" ? undefined : topLevel;
+  } catch {
+    return undefined;
+  }
 }
 
 export const REAL_CLAUDE_WORKTREE_TRUST_DEPS: ClaudeWorktreeTrustDeps = {
@@ -83,6 +97,7 @@ export const REAL_CLAUDE_WORKTREE_TRUST_DEPS: ClaudeWorktreeTrustDeps = {
   statSync,
   realpathSync,
   sleepMs,
+  gitTopLevel,
 };
 
 export interface ClaudeConfigTarget {
@@ -228,6 +243,16 @@ export function isCourtCampaignWorktree(
   return resolvedOrRaw(deps, folder).startsWith(worktreesRoot);
 }
 
+function globalSkillsRepositoryRoot(deps: ClaudeWorktreeTrustDeps): string | undefined {
+  try {
+    const skillsFolder = deps.realpathSync(path.join(deps.homedir(), ".claude", "skills"));
+    const topLevel = deps.gitTopLevel(path.dirname(path.dirname(skillsFolder)));
+    return topLevel === undefined ? undefined : deps.realpathSync(topLevel);
+  } catch {
+    return undefined;
+  }
+}
+
 function needsAutoModeNudgeDismissed(
   config: Record<string, unknown>,
   target: ClaudeConfigTarget,
@@ -250,6 +275,7 @@ export function grantThroneWorktreeTrust(
   target: ClaudeConfigTarget = primaryClaudeConfigTarget(deps),
 ): boolean {
   const worktreeRealPath = deps.realpathSync(worktreePath);
+  const skillsRepositoryRoot = globalSkillsRepositoryRoot(deps);
   const { configPath } = target;
 
   const untrustedPaths = (config: Record<string, unknown>): string[] => {
@@ -257,7 +283,11 @@ export function grantThroneWorktreeTrust(
       string,
       Record<string, unknown>
     >;
-    return throneOwnedProjectPaths(deps, projects, worktreeRealPath).filter(
+    const candidates = throneOwnedProjectPaths(deps, projects, worktreeRealPath);
+    if (skillsRepositoryRoot !== undefined && !candidates.includes(skillsRepositoryRoot)) {
+      candidates.push(skillsRepositoryRoot);
+    }
+    return candidates.filter(
       (projectPath) => projects[projectPath]?.hasTrustDialogAccepted !== true,
     );
   };

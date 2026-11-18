@@ -5,7 +5,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { agentAlive, deliverThroughExtension } from "../../../src/herdr/delivery-request-client.ts";
-import { deliveryEnvironment } from "../../../src/herdr/delivery-socket-path.ts";
+import { deliveryCallbackSocketPath, deliveryEnvironment } from "../../../src/herdr/delivery-socket-path.ts";
 
 const run = promisify(execFile);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -18,12 +18,13 @@ export function modSocket(harness, name) {
   return path.join(harness.root, `${name}.sock`);
 }
 
-export async function startModAgent(harness, name, folder = MOD_FOLDER) {
+export async function startModAgent(harness, name, folder = MOD_FOLDER, { callbacks = false } = {}) {
   const socket = modSocket(harness, name);
+  const callbackSocket = callbacks ? deliveryCallbackSocketPath(harness.dataHome) : "";
   const agent = await harness.startClaude({
     name,
     claudeArguments: ["--plugin-dir", folder, "--setting-sources", "local", "--model", "haiku"],
-    launchEnvironment: deliveryEnvironment(socket, true),
+    launchEnvironment: deliveryEnvironment(socket, callbackSocket, true),
   });
   return { ...agent, socket };
 }
@@ -36,7 +37,7 @@ export async function answering(agent) {
   return (await agentAlive(agent.socket, agent.pane)) !== undefined;
 }
 
-function transcriptFolder(harness) {
+export function transcriptFolder(harness) {
   return path.join(harness.claudeConfig, "projects", harness.repo.replace(/[^A-Za-z0-9]/g, "-"));
 }
 

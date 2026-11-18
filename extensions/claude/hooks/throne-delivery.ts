@@ -3,29 +3,33 @@ import type { Engine, Register, SpawnEnd, SpawnPiece } from './claude-code-2.1.3
 export const MIRRORED_CONTRACT = {
   resultPath: '/result',
   helperListenTimeoutMilliseconds: 5000,
+  rememberedStartedIds: 500,
 }
 
 type Helper = { socket: string; runtime: string; script: string }
 
-type TurnState = { turnRunning: boolean }
+type TurnState = { turnRunning: boolean; started: Map<string, Report | undefined> }
 
 type HelperLine = { id?: unknown; text?: unknown; command?: unknown; args?: unknown; listening?: unknown }
 
 type Report = { status: 'delivered'; as: 'turn' } | { status: 'not-yet'; reason: string } | { status: 'refused'; detail: string }
 
-async function submitMessage($: Engine, text: string, state: TurnState): Promise<Report> {
-  if (state.turnRunning) return { status: 'not-yet', reason: 'turn-running' }
-  const box = await $.prompt.read().catch(() => undefined)
-  if (box === undefined) return { status: 'not-yet', reason: 'composer-unreadable' }
-  if (box.text !== '') return { status: 'not-yet', reason: 'draft' }
-  state.turnRunning = true
+function rememberStarted(state: TurnState, id: string, report?: Report) {
+  state.started.delete(id)
+  state.started.set(id, report)
+  while (state.started.size > MIRRORED_CONTRACT.rememberedStartedIds) state.started.delete(state.started.keys().next().value as string)
+}
+
+async function submitMessage($: Engine, id: string, text: string, state: TurnState): Promise<Report> {
+  rememberStarted(state, id)
   const submitted = await $.prompt.submit({ text }).catch((error: unknown) => ({ drop: String(error) }))
   if (submitted.drop === undefined) return { status: 'delivered', as: 'turn' }
-  state.turnRunning = false
   return { status: 'refused', detail: `submit dropped: ${String(submitted.drop)}` }
 }
 
-async function runCommand($: Engine, command: string, args: unknown): Promise<Report> {
+async function runCommand($: Engine, id: string, command: string, args: unknown, state: TurnState): Promise<Report> {
+  if (state.turnRunning) return { status: 'not-yet', reason: 'turn-running' }
+  rememberStarted(state, id)
   const failure = await $.command
     .run({ command, args: typeof args === 'string' ? args : undefined })
     .then(() => undefined, (error: unknown) => String(error))
@@ -34,10 +38,12 @@ async function runCommand($: Engine, command: string, args: unknown): Promise<Re
 
 async function answerLine($: Engine, helper: Helper, line: HelperLine, state: TurnState) {
   if (typeof line.id !== 'string') return
-  let report: Report
-  if (typeof line.command === 'string') report = await runCommand($, line.command, line.args)
-  else if (typeof line.text === 'string') report = await submitMessage($, line.text, state)
-  else return
+  let report: Report | undefined
+  if (state.started.has(line.id)) report = state.started.get(line.id)
+  else if (typeof line.command === 'string') report = await runCommand($, line.id, line.command, line.args, state)
+  else if (typeof line.text === 'string') report = await submitMessage($, line.id, line.text, state)
+  if (report === undefined) return
+  if (report.status !== 'not-yet' && state.started.has(line.id)) rememberStarted(state, line.id, report)
   await $.http
     .fetch(`http://helper${MIRRORED_CONTRACT.resultPath}`, { method: 'POST', body: JSON.stringify({ id: line.id, ...report }), socketPath: helper.socket })
     .catch(() => undefined)
@@ -75,7 +81,7 @@ async function runHelperOnce($: Engine, helper: Helper, state: TurnState) {
         continue
       }
       if (line.listening === true) listening = true
-      else await answerLine($, helper, line, state)
+      else void answerLine($, helper, line, state).catch(() => undefined)
     }
   }
 }
@@ -89,7 +95,7 @@ async function keepHelperRunning($: Engine, helper: Helper, state: TurnState) {
 
 export const register: Register = on => {
   let started = false
-  const state: TurnState = { turnRunning: false }
+  const state: TurnState = { turnRunning: false, started: new Map() }
 
   on('turn.start', ($, e, next) => { if (!e.agentId) state.turnRunning = true; return next(e) })
   on('turn.complete', ($, e, next) => { if (!e.agentId) state.turnRunning = false; return next(e) })

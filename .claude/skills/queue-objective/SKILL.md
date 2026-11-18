@@ -144,7 +144,12 @@ because the Stager is the one reading the tree before the work starts.
 Read the feature map first. `throne spec-location <repo> --json` names where
 the target's spec folder and `FEATURE_MAP.md` live (`map.path`); when one
 exists, read it, open the spec files whose features look relevant, and cite
-each under `REUSE:` as `<spec file> — what it already covers`. Then grep as
+each under `REUSE:` as `<spec file> (<ID>) — what it already covers`, where
+`<ID>` is a sub-feature ID from that file. `add-to-queue` refuses a row for a
+target with a throne-form spec unless its body names at least one of that
+spec's real sub-feature IDs as a whole word, or carries a line
+`SPECS: none applies — <reason of a few words>` when no spec covers the work.
+Then grep as
 below anyway: the map points at code, it does not replace reading it. The
 map's first lines name the areas it covers; an area it does not cover, or a
 repository with no map yet, is searched in the code as before. Planning
@@ -168,9 +173,12 @@ required guarantee, and the `99a` conformance gate checks exactly that.
 ### 4. Lint the draft
 
 Write the body to a scratch file and run
-`throne lint-queue-plan --body-file <path>`. It checks the five markers
-only; a pass is NOT evidence that decisions were closed or nouns verified —
-that judgment stays yours.
+`throne lint-queue-plan --body-file <path> --target-repo <repo>` (or
+`--objective-code <code>` for a filed row, which reads its own target). It
+checks the five markers and, with a target, the same spec citation
+`add-to-queue` refuses without. A pass is NOT evidence that decisions were
+closed, nouns verified or the spec read: it proves only that an ID was
+copied. That judgment stays yours.
 
 ### 5. File it with the launch facts, in one step
 

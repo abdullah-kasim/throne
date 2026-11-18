@@ -78,7 +78,7 @@ async function scratchHome(root, repo, claudeConfig) {
   await mkdir(path.join(home, ".local", "share", "mise"), { recursive: true });
   await symlink(path.join(os.homedir(), ".local", "share", "mise", "installs"), path.join(home, ".local", "share", "mise", "installs"));
   const person = JSON.parse(await readFile(path.join(os.homedir(), ".claude.json"), "utf8"));
-  const trusted = JSON.stringify({ ...person, projects: Object.fromEntries([repo, root, repositoryRoot].map((folder) => [folder, { hasTrustDialogAccepted: true }])) });
+  const trusted = JSON.stringify({ ...person, projects: Object.fromEntries([repo, root, repositoryRoot, process.env.THRONE_LIVE_ROOT].filter(Boolean).map((folder) => [folder, { hasTrustDialogAccepted: true }])) });
   await writeFile(path.join(home, ".claude.json"), trusted);
   await symlink(claudeConfig, path.join(home, ".claude"));
   await symlink(path.join(os.homedir(), "dotfiles"), path.join(home, "dotfiles"));

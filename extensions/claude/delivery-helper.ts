@@ -1,11 +1,12 @@
 import {
+  DELIVERY_CALLBACK_ENV,
   DELIVERY_SOCKET_ENV,
   MOD_REPORT_TIMEOUT_MILLISECONDS,
   type BusyReason,
   type DeliveredAs,
   type DeliveryRequest,
 } from "../shared/agent-delivery-contract.ts";
-import { startDeliveryListener, type SubmitAttempt } from "../shared/agent-delivery-listener.ts";
+import { callbackTargetFrom, startDeliveryListener, type SubmitAttempt } from "../shared/agent-delivery-listener.ts";
 
 const DELIVERED_AS: readonly DeliveredAs[] = ["turn", "followUp"];
 const BUSY_REASONS: readonly BusyReason[] = ["draft", "turn-running", "composer-unreadable"];
@@ -47,16 +48,17 @@ function askMod(request: DeliveryRequest, withdrawn: AbortSignal): Promise<Submi
   return new Promise((resolve) => {
     const finish = (attempt: SubmitAttempt) => {
       clearTimeout(timer);
-      withdrawn.removeEventListener("abort", withdraw);
+      withdrawn.removeEventListener("abort", withdrawBySender);
       waiting.delete(request.id);
       resolve(attempt);
     };
-    const withdraw = () => {
+    const withdraw = (attempt: SubmitAttempt) => {
       printLine({ withdrawn: request.id });
-      finish({ status: "not-yet", reason: "composer-unreadable" });
+      finish(attempt);
     };
-    const timer = setTimeout(withdraw, MOD_REPORT_TIMEOUT_MILLISECONDS);
-    withdrawn.addEventListener("abort", withdraw, { once: true });
+    const timer = "command" in request ? setTimeout(() => withdraw({ status: "mod-silent" }), MOD_REPORT_TIMEOUT_MILLISECONDS) : undefined;
+    const withdrawBySender = () => withdraw({ status: "not-yet", reason: "composer-unreadable" });
+    withdrawn.addEventListener("abort", withdrawBySender, { once: true });
     waiting.set(request.id, finish);
     printLine(lineFor(request));
   });
@@ -76,5 +78,13 @@ if (!socketPath || !pane) {
   process.exit(1);
 }
 
-await startDeliveryListener({ socketPath, pane, harness: "claude", commands: true, tryDeliver: askMod, takeReport: takeModReport });
+await startDeliveryListener({
+  socketPath,
+  pane,
+  harness: "claude",
+  commands: true,
+  tryDeliver: askMod,
+  takeReport: takeModReport,
+  callback: callbackTargetFrom(process.env[DELIVERY_CALLBACK_ENV]),
+});
 printLine({ listening: true });

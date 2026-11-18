@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { rmdirSync, writeFileSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, realpath, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, symlink, utimes, writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { test } from "node:test";
 import { makeScratchDirectory } from "../scratch-directory.test-support.ts";
@@ -108,4 +109,98 @@ test("a lock left behind by a Claude Code session that was killed mid-save does 
   const config = await readConfig(configPath);
   assert.equal(config.projects?.[worktree]?.hasTrustDialogAccepted, true);
   assert.equal(config.numStartups, 7);
+});
+
+async function linkGlobalSkills(home: string, tree: string): Promise<void> {
+  await mkdir(path.join(home, ".claude"), { recursive: true });
+  await symlink(path.join(tree, ".claude", "skills"), path.join(home, ".claude", "skills"));
+}
+
+async function personalKitRepository(home: string): Promise<{ repository: string; tree: string }> {
+  const repository = path.join(home, "personal-kit");
+  const tree = path.join(repository, "agent", "skills");
+  await mkdir(path.join(tree, ".claude", "skills"), { recursive: true });
+  execFileSync("git", ["init", "--quiet", repository]);
+  return { repository, tree };
+}
+
+test("a spawn trusts the git repository that holds the global skills folder, whatever that repository is called", async () => {
+  const { deps, home, worktree } = await scratchHome();
+  const configPath = path.join(home, ".claude.json");
+  await writeFile(configPath, JSON.stringify({ numStartups: 7 }));
+  const { repository, tree } = await personalKitRepository(home);
+  await linkGlobalSkills(home, tree);
+
+  assert.equal(grantThroneWorktreeTrust(worktree, deps), true);
+
+  const config = await readConfig(configPath);
+  assert.equal(config.projects[repository].hasTrustDialogAccepted, true);
+  assert.equal(config.projects[worktree].hasTrustDialogAccepted, true);
+});
+
+test("the global skills repository is trusted in a secondary account's own config too", async () => {
+  const { deps, home, worktree } = await scratchHome();
+  const secondaryConfigPath = path.join(home, "secondary.claude.json");
+  await writeFile(path.join(home, ".claude.json"), JSON.stringify({}));
+  await writeFile(secondaryConfigPath, JSON.stringify({}));
+  const { repository, tree } = await personalKitRepository(home);
+  await linkGlobalSkills(home, tree);
+
+  grantThroneWorktreeTrust(worktree, deps, { configPath: secondaryConfigPath, dismissesAutoModeNudge: false });
+
+  const secondary = await readConfig(secondaryConfigPath);
+  assert.equal(secondary.projects[repository].hasTrustDialogAccepted, true);
+  assert.deepEqual(await readConfig(path.join(home, ".claude.json")), {});
+});
+
+test("a spawn with no global skills link trusts only its worktree and still succeeds", async () => {
+  const { deps, home, worktree } = await scratchHome();
+  const configPath = path.join(home, ".claude.json");
+  await writeFile(configPath, JSON.stringify({}));
+
+  assert.equal(grantThroneWorktreeTrust(worktree, deps), true);
+
+  assert.deepEqual(Object.keys((await readConfig(configPath)).projects), [worktree]);
+});
+
+test("a spawn with a broken global skills link trusts only its worktree and still succeeds", async () => {
+  const { deps, home, worktree } = await scratchHome();
+  const configPath = path.join(home, ".claude.json");
+  await writeFile(configPath, JSON.stringify({}));
+  await linkGlobalSkills(home, path.join(home, "missing-tree"));
+
+  assert.equal(grantThroneWorktreeTrust(worktree, deps), true);
+
+  assert.deepEqual(Object.keys((await readConfig(configPath)).projects), [worktree]);
+});
+
+test("a spawn whose global skills folder is outside any git repository trusts only its worktree and still succeeds", async () => {
+  const { deps, home, worktree } = await scratchHome();
+  const configPath = path.join(home, ".claude.json");
+  await writeFile(configPath, JSON.stringify({}));
+  const tree = path.join(home, "loose-skills");
+  await mkdir(path.join(tree, ".claude", "skills"), { recursive: true });
+  await linkGlobalSkills(home, tree);
+
+  assert.equal(grantThroneWorktreeTrust(worktree, { ...deps, gitTopLevel: () => undefined }), true);
+
+  assert.deepEqual(Object.keys((await readConfig(configPath)).projects), [worktree]);
+});
+
+test("a spawn whose worktree and global skills repository are already trusted rewrites nothing", async () => {
+  const { deps, home, worktree } = await scratchHome();
+  const configPath = path.join(home, ".claude.json");
+  const { repository, tree } = await personalKitRepository(home);
+  await linkGlobalSkills(home, tree);
+  const original = JSON.stringify({
+    projects: { [repository]: { hasTrustDialogAccepted: true }, [worktree]: { hasTrustDialogAccepted: true } },
+  });
+  await writeFile(configPath, original);
+  let lockTaken = false;
+
+  const changed = grantThroneWorktreeTrust(worktree, { ...deps, mkdirSync: (() => { lockTaken = true; }) as never });
+
+  assert.equal(changed, false);
+  assert.equal(lockTaken, false);
+  assert.equal(await readFile(configPath, "utf8"), original);
 });

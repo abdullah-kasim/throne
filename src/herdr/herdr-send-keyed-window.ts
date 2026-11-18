@@ -43,10 +43,11 @@ async function runOwnedKeyedWindow(
   key: string,
   store: KeyedSubmissionWindowStore,
   deps: SubmitToAgentDeps,
+  onAccepted?: () => void,
 ): Promise<string | undefined> {
   let typedText: string | undefined;
   try {
-    typedText = await submitToAgentUnkeyed(agent, '', '', {}, deps, { name, key, store });
+    typedText = await submitToAgentUnkeyed(agent, '', '', { onAccepted }, deps, { name, key, store });
   } catch (error) {
     await store.publishOutcome(name, key, classifySubmitError(error));
     throw error;
@@ -111,7 +112,7 @@ export async function submitToAgentKeyed(
     deps.now(),
   );
   if (claim.owner) {
-    return runOwnedKeyedWindow(agent, name, key, store, deps);
+    return runOwnedKeyedWindow(agent, name, key, store, deps, options.onAccepted);
   }
   return joinKeyedWindow(agent, name, key, store, deps);
 }

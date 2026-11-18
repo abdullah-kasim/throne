@@ -24,6 +24,7 @@ export {
   MessageQueueWorkItemState,
   WorkItemNotFoundError,
 };
+import { requeueLostAcceptedWorkItem } from "./lost-accepted-message.store.ts";
 import { createMessageQueueSchema } from "./message-queue-schema.ts";
 import { selectNextDueWorkItemId } from "./next-due-work-item.ts";
 import {
@@ -272,6 +273,8 @@ export class MessageQueueStore {
   insertUnlessDedupeKeyIsStored = <Row>(kind: string, dedupeKey: string, insert: () => Row): Row | undefined =>
     insertUnlessDedupeKeyIsStored(this.db, kind, dedupeKey, insert);
   recordWorkItemOutcome = (id: number, outcome: string): void => recordWorkItemOutcome(this.db, id, outcome);
+  requeueLostAcceptedWorkItem = (id: number, failureReason: string): boolean =>
+    requeueLostAcceptedWorkItem(this.db, id, failureReason, this.now());
 
   /**
    * A terminal transition that tolerates losing a race to another owner of
@@ -482,6 +485,10 @@ export class MessageQueueStore {
       );
     }
     return toWorkItemRow(row);
+  }
+
+  acceptInFlightWorkItem(id: number): WorkItemRow {
+    return this.transitionWorkItemState(id, MessageQueueWorkItemState.Accepted);
   }
 
   /** Cancels only an unclaimed row; an in-flight delivery has already won the race. */

@@ -15,11 +15,7 @@ import {
   defaultSubmitToAgentDeps,
   submitToAgentWhileLocked,
 } from "../herdr/herdr-send.service.ts";
-import {
-  EXTENSION_DELIVERY_TIMEOUT_MS,
-  type SubmitToAgentDeps,
-  type SubmitToAgentOptions,
-} from "../herdr/herdr-send.types.ts";
+import type { SubmitToAgentDeps, SubmitToAgentOptions } from "../herdr/herdr-send.types.ts";
 import { errorText } from "../shared-policy/error-text.ts";
 
 export const HARNESS_COMMAND_TYPING_OUTCOMES = {
@@ -53,6 +49,8 @@ const PANE_CLOSED: HarnessCommandTypingResult = {
 function failed(reason: string): HarnessCommandTypingResult {
   return { outcome: HARNESS_COMMAND_TYPING_OUTCOMES.FAILED, reason };
 }
+
+export const HARNESS_COMMAND_WAIT_MILLISECONDS = 2_000;
 
 const NO_SENDER_NAME = "";
 const DIALOG_CLOSING_KEY = "Escape";
@@ -113,11 +111,11 @@ async function runCommandThroughTheClaudeMod(
   const socketPath = await claudeMod.socketOf(recipientName(agent));
   const outcome = await deps.deliverThroughExtension(
     commandRequestOf(commandText),
-    EXTENSION_DELIVERY_TIMEOUT_MS,
+    HARNESS_COMMAND_WAIT_MILLISECONDS,
     agent.paneId,
     socketPath === undefined ? {} : { socketPath },
   );
-  if (outcome.kind === "delivered") return APPLIED;
+  if (outcome.kind === "delivered" || outcome.kind === "accepted") return APPLIED;
   if (outcome.kind === "timed-out" && (await claudeMod.alive(socketPath, agent.paneId)) !== undefined) return SKIPPED_BUSY;
   claudeMod.log(
     claudeModFallbackLine(

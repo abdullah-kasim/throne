@@ -24,9 +24,13 @@ import type {
   ExtensionDeliveryOutcome,
   HarnessCommandRequest,
 } from "../herdr/delivery-request-client.ts";
-import type { SubmitToAgentDeps } from "../herdr/herdr-send.types.ts";
+import {
+  EXTENSION_DELIVERY_TIMEOUT_MS,
+  type SubmitToAgentDeps,
+} from "../herdr/herdr-send.types.ts";
 import {
   HARNESS_COMMAND_TYPING_OUTCOMES,
+  HARNESS_COMMAND_WAIT_MILLISECONDS,
   typeHarnessCommandIntoIdleClaudePane,
 } from "./harness-command-typing.ts";
 
@@ -305,6 +309,7 @@ interface ClaudeModOptions {
 
 interface PaneWithClaudeMod extends FakeClaudePane {
   requests: (string | HarnessCommandRequest)[];
+  waits: number[];
   screenReads: number;
   fallbackLines: string[];
 }
@@ -314,6 +319,7 @@ function claudePaneWithMod(options: ClaudeModOptions): PaneWithClaudeMod {
   const pane: PaneWithClaudeMod = {
     ...base,
     requests: [],
+    waits: [],
     screenReads: 0,
     fallbackLines: [],
   };
@@ -325,8 +331,9 @@ function claudePaneWithMod(options: ClaudeModOptions): PaneWithClaudeMod {
       pane.screenReads += 1;
       return readScreen(target);
     },
-    deliverThroughExtension: async (content) => {
+    deliverThroughExtension: async (content, waitMilliseconds) => {
       pane.requests.push(content);
+      pane.waits.push(waitMilliseconds);
       return options.outcome ?? { kind: "delivered" };
     },
     claudeMod: {
@@ -353,6 +360,14 @@ test("a colour correction for an agent whose mod takes commands is applied throu
   assert.deepEqual(pane.requests, [{ command: "color", args: "red" }]);
   assert.equal(pane.screenReads, 0);
   assert.deepEqual(pane.inputs, []);
+});
+
+test("a harness command waits 2000 ms, not the message wait", async () => {
+  const pane = claudePaneWithMod({ takesCommands: true });
+  await typeHarnessCommandIntoIdleClaudePane(fakeClaudeAgent(), COLOUR_COMMAND, pane.deps);
+  assert.equal(HARNESS_COMMAND_WAIT_MILLISECONDS, 2_000);
+  assert.deepEqual(pane.waits, [2_000]);
+  assert.notEqual(pane.waits[0], EXTENSION_DELIVERY_TIMEOUT_MS);
 });
 
 test("a colour correction the mod does not take while it still answers is skipped as busy for the next tick", async () => {

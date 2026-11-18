@@ -8,6 +8,7 @@ import { buildSubmitToAgentDeps } from "../../src/herdr/herdr-send-enter-until-e
 import { resolveAgent } from "../../src/herdr/herdr-runtime.service.ts";
 import { listAgentsInSession } from "../../src/herdr/herdr-runtime-session-reads.ts";
 import { deliverToPi } from "../../src/herdr/pi-delivery-client.ts";
+import { startDeliveryCallbackListener } from "../../src/delivery-callback/delivery-callback.hosted-worker.ts";
 
 const settings = JSON.parse(process.argv[2]);
 const store = openMessageQueueStore(settings.databasePath);
@@ -34,7 +35,7 @@ const piOnlyDeps = {
   readRecentAgentAnsi: refuse("agent read"),
   readVisibleCodexAgentAnsi: refuse("agent read"),
   readRecentCodexAgentAnsi: refuse("agent read"),
-  fileBackedPayloadsEnabled: false,
+  fileBackedPayloadsEnabled: () => false,
   deliverToPi: deliverToRecordedSocket,
 };
 
@@ -56,6 +57,7 @@ const handlerDeps = {
 };
 
 reclaimOrphanedInFlightWorkItemsAsAssumedFilled(store);
+if (settings.callbackSocket !== undefined) await startDeliveryCallbackListener(settings.callbackSocket, () => openMessageQueueStore(settings.databasePath));
 process.stdout.write("backend ready\n");
 for (;;) {
   const item = store.claimNextDueWorkItem([MESSAGE_DELIVERY_WORK_ITEM_KIND]);

@@ -122,6 +122,7 @@ export interface SubmitToAgentOptions {
   composerWaitMilliseconds?: number;
   waitForStartupQuiescence?: boolean;
   onDeliveredWhileLocked?: () => Promise<void>;
+  onAccepted?: () => void;
 }
 
 export interface SubmitToAgentDeps {

@@ -138,7 +138,10 @@ body filed with `add-to-queue` as launch-ready MUST:
 2. **Verify every code noun against the live tree before writing it.**
    Model aliases, command names, file paths, preset names — grep them first;
    `VERIFIED-NOUNS:` lists the exact strings checked. Prose like "the codex
-   model" drifts; a registry alias greps to one place.
+   model" drifts; a registry alias greps to one place. When the target has a
+   throne-form spec, cite at least one of its real sub-feature IDs under
+   `REUSE:` or write `SPECS: none applies — <reason>`; `add-to-queue`
+   refuses the row otherwise.
 3. **Cite relevant memory files by name** (agent-docs memories, known-trap
    entries) so the implementing Alpha inherits existing scar tissue instead
    of re-earning it.

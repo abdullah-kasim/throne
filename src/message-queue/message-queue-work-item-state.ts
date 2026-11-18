@@ -11,6 +11,7 @@
 export const MessageQueueWorkItemState = {
   Queued: "queued",
   InFlight: "in-flight",
+  Accepted: "accepted",
   Cancelled: "cancelled",
   Delivered: "delivered",
   Failed: "failed",
@@ -30,8 +31,17 @@ const ALLOWED_FORWARD_TRANSITIONS: ReadonlyMap<
   [
     MessageQueueWorkItemState.InFlight,
     new Set([
+      MessageQueueWorkItemState.Accepted,
       MessageQueueWorkItemState.Delivered,
       MessageQueueWorkItemState.Failed,
+    ]),
+  ],
+  [
+    MessageQueueWorkItemState.Accepted,
+    new Set([
+      MessageQueueWorkItemState.Delivered,
+      MessageQueueWorkItemState.Failed,
+      MessageQueueWorkItemState.Queued,
     ]),
   ],
   [MessageQueueWorkItemState.Delivered, new Set()],
@@ -64,7 +74,7 @@ export class InvalidWorkItemStateTransitionError extends Error {
   ) {
     super(
       `work item ${id} cannot transition ${from} -> ${to}: the state machine ` +
-        `only moves forward through queued -> in-flight -> {delivered | failed}`,
+        `only moves forward through queued -> in-flight -> accepted -> {delivered | failed}`,
     );
     this.id = id;
     this.from = from;

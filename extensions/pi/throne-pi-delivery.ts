@@ -21,7 +21,7 @@ function log(pi: any, line: string): void {
 
 export default async function throneDeliveryExtension(pi: any) {
   const contract = await import(sharedModule("agent-delivery-contract.ts"));
-  const { startDeliveryListener } = await import(sharedModule("agent-delivery-listener.ts"));
+  const { callbackTargetFrom, startDeliveryListener } = await import(sharedModule("agent-delivery-listener.ts"));
   const socketPath = (process.env[contract.DELIVERY_SOCKET_ENV] ?? "").trim();
   const pane = (process.env.HERDR_PANE_ID ?? "").trim();
   if (socketPath === "" || pane === "") {
@@ -56,6 +56,16 @@ export default async function throneDeliveryExtension(pi: any) {
       return typeof value === "string" ? value : null;
     } catch {
       return null;
+    }
+  };
+  const restoreDraft = (draft: string): boolean => {
+    try {
+      const setEditorText = context?.ui?.setEditorText;
+      if (typeof setEditorText !== "function") return false;
+      setEditorText.call(context.ui, draft);
+      return true;
+    } catch {
+      return false;
     }
   };
   const readIdle = (): boolean | null => {
@@ -96,16 +106,20 @@ export default async function throneDeliveryExtension(pi: any) {
     socketPath,
     pane,
     harness: "pi",
+    callback: callbackTargetFrom(process.env[contract.DELIVERY_CALLBACK_ENV]),
     commands: false,
     tryDeliver: async (request: any, withdrawn: AbortSignal) => {
       if (typeof request.text !== "string") return { status: "refused", detail: "pi takes no commands" };
       const draft = readDraft();
       if (draft === null) return { status: "not-yet", reason: "composer-unreadable" };
-      if (draft.trim() !== "") return { status: "not-yet", reason: "draft" };
+      const hasDraft = draft.trim() !== "";
+      if (hasDraft && !restoreDraft("")) return { status: "not-yet", reason: "draft" };
       const as: DeliveredAs = readIdle() === false ? "followUp" : "turn";
-      const answer = await submit(request.text, as, withdrawn);
-      log(pi, `${request.id}: ${answer.status}${answer.status === "delivered" ? ` as ${as}` : ""}`);
-      return answer;
+      const answer = submit(request.text, as, withdrawn);
+      if (hasDraft) restoreDraft(draft);
+      const settled = await answer;
+      log(pi, `${request.id}: ${settled.status}${settled.status === "delivered" ? ` as ${as}` : ""}`);
+      return settled;
     },
   });
 }

@@ -16,7 +16,7 @@ import {
   hideFromBashHistory,
 } from "./herdr-launch-command.ts";
 import { CLAUDE_MOD_FOLDER, claudeModMisfitLine } from "./claude-mod-route.ts";
-import { chooseDeliverySocket, deliveryEnvironment } from "./delivery-socket-path.ts";
+import { chooseDeliverySocket, deliveryCallbackSocketPath, deliveryEnvironment } from "./delivery-socket-path.ts";
 import { HARNESS_NAMES } from "../harness-routing/harness.ts";
 import { renameAgent } from "./herdr-runtime.service.ts";
 import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
@@ -40,13 +40,19 @@ export async function startInTab(
     listensForDelivery && deps.deliverySocket !== undefined
       ? await chooseDeliverySocket(agentName, deps.deliverySocket.throneHome, await deps.deliverySocket.recorded(agentName))
       : undefined;
+  const deliveryCallback =
+    deliverySocket === undefined || deps.deliverySocket === undefined
+      ? undefined
+      : deliveryCallbackSocketPath(deps.deliverySocket.throneHome);
   const configuredEnvironment = (await deps.readHarnessEnvironment?.(expectedKind)) ?? {};
   const translated = await translatedLaunchContext(opts, {
     ...(expectedKind === HARNESS_NAMES.CLAUDE ? CLAUDE_CODE_MODE_ENVIRONMENT : {}),
     ...configuredEnvironment,
     ...opts.env,
     THRONE_AGENT_NAME: agentName,
-    ...(deliverySocket === undefined ? {} : deliveryEnvironment(deliverySocket, expectedKind === HARNESS_NAMES.CLAUDE)),
+    ...(deliverySocket === undefined || deliveryCallback === undefined
+      ? {}
+      : deliveryEnvironment(deliverySocket, deliveryCallback, expectedKind === HARNESS_NAMES.CLAUDE)),
     ...pinnedHarnessBinaryEnv(
       expectedKind,
       deps.vendoredHarnessBinaryDirectory ?? VENDORED_HARNESS_BINARY_DIRECTORY,
@@ -87,8 +93,8 @@ export async function startInTab(
     if (claudeModLaunch !== undefined) {
       await deps.claudeMod?.record(agentName, claudeModLaunch.load);
     }
-    if (deliverySocket !== undefined) {
-      await deps.deliverySocket?.record(agentName, deliverySocket);
+    if (deliverySocket !== undefined && deliveryCallback !== undefined) {
+      await deps.deliverySocket?.record(agentName, deliverySocket, deliveryCallback);
     }
     return paneId;
   } catch (error) {

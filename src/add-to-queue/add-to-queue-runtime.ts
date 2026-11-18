@@ -53,6 +53,7 @@ import {
   type LaunchDefaults,
 } from "./launch-defaults.ts";
 import { objectiveCodeLengthRefusal } from "./objective-code-length.ts";
+import { addToQueueRefusesUncitedBody } from "../lint-queue-plan/lint-queue-plan.ts";
 
 const OBJECTIVE_CODE_FLAG = "--objective-code";
 const LAUNCH_FLAGS = new Set([
@@ -427,6 +428,7 @@ export async function run(
     return 1;
   }
 
+  if (await addToQueueRefusesUncitedBody(parsed.body, launch.targetRepo)) return 1;
   const store = deps.openStore();
   try {
     const item = store.insertItem({

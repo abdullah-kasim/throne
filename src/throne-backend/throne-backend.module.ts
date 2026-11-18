@@ -16,11 +16,13 @@ import { CourtLivenessHostedWorker } from "./court-liveness.hosted-worker.ts";
 import { AgentSettingsHostedWorker } from "../agent-settings/agent-settings.hosted-worker.ts";
 import { WebListenerHostedWorker } from "../web-listener/web-listener.hosted-worker.ts";
 import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishing.hosted-worker.ts";
+import { LostAcceptedMessageHostedWorker } from "./lost-accepted-message.hosted-worker.ts";
+import { DeliveryCallbackHostedWorker } from "../delivery-callback/delivery-callback.hosted-worker.ts";
 
 /**
  * The long-lived `throne-backend` server: a real bootstrapped Nest
  * application (not `nest-commander`'s one-shot `CommandFactory`), hosting
- * exactly thirteen in-process workers, among them no-idling, the SQLite
+ * exactly fifteen in-process workers, among them no-idling, the SQLite
  * queue drain, the service-generation-marker refresher, the dispatcher, the blocked-agent
  * paging subscriber, the alpha-autoscale cron
  * (`AlphaAutoscaleHostedWorker`, the kill-switch-gated actor that spawns
@@ -71,6 +73,8 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
     AgentSettingsHostedWorker,
     WebListenerHostedWorker,
     TailnetPublishingHostedWorker,
+    LostAcceptedMessageHostedWorker,
+    DeliveryCallbackHostedWorker,
     {
       provide: HOSTED_WORKERS,
       inject: [
@@ -87,6 +91,8 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
         AgentSettingsHostedWorker,
         WebListenerHostedWorker,
         TailnetPublishingHostedWorker,
+        LostAcceptedMessageHostedWorker,
+        DeliveryCallbackHostedWorker,
       ],
       useFactory: (
         noIdling: NoIdlingHostedWorker,
@@ -102,6 +108,8 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
         agentSettings: AgentSettingsHostedWorker,
         webListener: WebListenerHostedWorker,
         tailnetPublishing: TailnetPublishingHostedWorker,
+        lostAcceptedMessage: LostAcceptedMessageHostedWorker,
+        deliveryCallback: DeliveryCallbackHostedWorker,
       ) => [
         noIdling,
         sqliteQueueDrain,
@@ -116,6 +124,8 @@ import { TailnetPublishingHostedWorker } from "../web-listener/tailnet-publishin
         agentSettings,
         webListener,
         tailnetPublishing,
+        lostAcceptedMessage,
+        deliveryCallback,
       ],
     },
     HostedWorkerRegistrarService,
