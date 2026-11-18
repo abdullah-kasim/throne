@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+tool_name=$(basename -- "${BASH_SOURCE[0]}")
+called_from_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+launcher_source="${BASH_SOURCE[0]}"
+launcher_hops=0
+while [ -L "$launcher_source" ] && [ "$launcher_hops" -lt 32 ]; do
+    launcher_link=$(readlink "$launcher_source")
+    case "$launcher_link" in
+        /*) launcher_source="$launcher_link" ;;
+        *)  launcher_source="$(dirname "$launcher_source")/$launcher_link" ;;
+    esac
+    launcher_hops=$((launcher_hops + 1))
+done
+LAUNCHER_BIN_DIR=$(cd -- "$(dirname -- "$launcher_source")" && pwd -P)
+THRONE_ROOT=$(cd -- "$LAUNCHER_BIN_DIR/.." && pwd -P)
+
+VENDORED_TOOL="$THRONE_ROOT/vendor/bin/$tool_name"
+if [ -x "$VENDORED_TOOL" ]; then
+    exec "$VENDORED_TOOL" "$@"
+fi
+
+IFS=: read -r -a path_entries <<< "${PATH:-}"
+for entry in "${path_entries[@]}"; do
+    resolved_entry=$(cd -- "${entry:-.}" 2>/dev/null && pwd -P) || continue
+    if [ "$resolved_entry" = "$LAUNCHER_BIN_DIR" ] || [ "$resolved_entry" = "$called_from_dir" ]; then
+        continue
+    fi
+    if [ -x "$resolved_entry/$tool_name" ] && [ ! -d "$resolved_entry/$tool_name" ] && ! cmp -s "$resolved_entry/$tool_name" "$launcher_source"; then
+        exec "$resolved_entry/$tool_name" "$@"
+    fi
+done
+
+echo "bin/$tool_name: no vendored $tool_name at $VENDORED_TOOL and none on PATH; run: cd \"$THRONE_ROOT\" && ./install.sh" >&2
+exit 127

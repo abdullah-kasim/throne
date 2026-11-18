@@ -7,7 +7,6 @@ export interface AskLintRequest {
 }
 
 export interface ParsedRecallArguments {
-  readonly hook: boolean;
   readonly status: boolean;
   readonly report: boolean;
   readonly since?: Date;
@@ -40,7 +39,7 @@ const FLAGS_WITH_A_VALUE = new Set([
   '--disagree',
 ]);
 const NO_SCOPE = { directories: [], memoryDirectories: [], includeGlobal: true } as const;
-const NO_MODE = { hook: false, status: false, report: false, ...NO_SCOPE } as const;
+const NO_MODE = { status: false, report: false, ...NO_SCOPE } as const;
 
 function parsedSince(value: string): Date {
   const since = new Date(value);
@@ -103,7 +102,6 @@ export function parseRecallArguments(
   commandArguments: readonly string[],
   currentDirectory: string,
 ): ParsedRecallArguments {
-  let hook = false;
   let status = false;
   let report = false;
   let includeGlobal = true;
@@ -120,8 +118,7 @@ export function parseRecallArguments(
   const taskWords: string[] = [];
   for (let index = 0; index < commandArguments.length; index += 1) {
     const argument = commandArguments[index] as string;
-    if (argument === '--hook') hook = true;
-    else if (argument === '--status') status = true;
+    if (argument === '--status') status = true;
     else if (argument === '--report') report = true;
     else if (argument === '--no-global') includeGlobal = false;
     else if (argument === '--spot-check') spotCheck = true;
@@ -147,7 +144,7 @@ export function parseRecallArguments(
   const namesAHandOnlyFlag = memoryDirectories.length > 0 || !includeGlobal || json;
   if (lintAsks || includesGlobalMemories) {
     const namesAnotherFlagOrTaskText =
-      hook || status || report || spotCheck || namesAHandOnlyFlag || taskText.length > 0 ||
+      status || report || spotCheck || namesAHandOnlyFlag || taskText.length > 0 ||
       [sessionId, since, count].some((value) => value !== undefined) || verdicts.length > 0;
     return askLintArgumentsOf({ lintAsks, includesGlobalMemories }, directories, namesAnotherFlagOrTaskText);
   }
@@ -156,27 +153,23 @@ export function parseRecallArguments(
   const spotCheckFlags = { spotCheck, count, verdicts };
   if (isSpotCheckRequest(spotCheckFlags)) {
     const namesAnotherFlag =
-      hook || status || report || sessionId !== undefined || directories.length > 0 || namesAHandOnlyFlag;
+      status || report || sessionId !== undefined || directories.length > 0 || namesAHandOnlyFlag;
     if (namesAnotherFlag || Number(spotCheck) + verdicts.length > 1) {
       throw new Error('--spot-check, --agree and --disagree each go alone');
     }
     return spotCheckArgumentsOf(spotCheckFlags, taskText);
   }
-  if ((hook || status || report) && namesAHandOnlyFlag) {
+  if ((status || report) && namesAHandOnlyFlag) {
     throw new Error('--memory-dir, --no-global and --json only go with a hand recall');
   }
   if (report) {
-    if (hook || taskText.length > 0) throw new Error('--report takes no task text and no --hook');
-    return { hook: false, status: false, report, ...NO_SCOPE, ...(since === undefined ? {} : { since }) };
+    if (taskText.length > 0) throw new Error('--report takes no task text');
+    return { status: false, report, ...NO_SCOPE, ...(since === undefined ? {} : { since }) };
   }
-  if (status) return { hook: false, status, report, ...NO_SCOPE };
-  if (hook) {
-    if (taskText.length > 0) throw new Error('--hook reads the task from stdin and takes no task text');
-    return { hook, status, report, ...NO_SCOPE };
-  }
+  if (status) return { status, report, ...NO_SCOPE };
   if (taskText.length === 0) throw new Error('the task text is required: say what the work is about');
   if (directories.length === 0 && memoryDirectories.length === 0) {
     throw new Error(missingScopeReason(currentDirectory));
   }
-  return { hook, status, report, taskText, sessionId, directories, memoryDirectories, includeGlobal, json };
+  return { status, report, taskText, sessionId, directories, memoryDirectories, includeGlobal, json };
 }

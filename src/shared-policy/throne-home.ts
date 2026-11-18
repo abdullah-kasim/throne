@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 
@@ -36,17 +35,6 @@ export function throneLogsDirectory(environment?: NodeJS.ProcessEnv, userHome?: 
 
 export function throneCacheDirectory(environment?: NodeJS.ProcessEnv, userHome?: string): string {
   return path.join(resolveThroneHome(environment, userHome), "cache");
-}
-
-let accountHomeDirectory: string | undefined;
-
-function homeOfThisAccount(): string {
-  accountHomeDirectory ??= execFileSync("sh", ["-c", 'eval echo "~$(id -un)"'], { encoding: "utf8" }).trim();
-  return accountHomeDirectory;
-}
-
-export function throneHomeOfThisMachine(): string {
-  return path.join(homeOfThisAccount(), THRONE_HOME_FOLDER_NAME);
 }
 
 export function retiredSettingsDirectory(userHome = os.homedir()): string {

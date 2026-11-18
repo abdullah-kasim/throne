@@ -1,9 +1,4 @@
 import type { AnsweringBackend } from '../relevance-classifier/answering-backend.ts';
-import {
-  CLASSIFIER_BUDGET_LOCK_BUSY,
-  CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER,
-  CLASSIFIER_RATE_LIMITED,
-} from '../relevance-classifier/classifier.types.ts';
 import { probabilityOfYes } from './recall-records.ts';
 import { isWorthServing, type MemoryDecision } from './select-memories.ts';
 
@@ -34,13 +29,8 @@ export function isVerdictLineWorthShowing(
   );
 }
 
-export function answeredByLabel(answeredBy: AnsweringBackend, verdict: Pick<RecallVerdict, 'confidence'>): string {
-  if (answeredBy.backend === 'jev') return `Jev (${Math.round(verdict.confidence * 100)}% sure)`;
-  if (answeredBy.jevFailure === undefined) return 'rules';
-  if (answeredBy.jevFailure === CLASSIFIER_RATE_LIMITED) return 'rules (Jev budget used up)';
-  if (answeredBy.jevFailure === CLASSIFIER_BUDGET_LOCK_BUSY) return 'rules (Jev budget lock busy)';
-  if (answeredBy.jevFailure === CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER) return 'rules (this build has no Jev limiter)';
-  return 'rules (Jev failed)';
+export function answeredByLabel(answeredBy: AnsweringBackend): string {
+  return answeredBy.failure === undefined ? 'rules' : 'rules (the judge failed)';
 }
 
 export function renderedVerdictLine(
@@ -48,7 +38,7 @@ export function renderedVerdictLine(
   answeredBy: AnsweringBackend,
   scopePhrase: string,
 ): string {
-  const label = answeredByLabel(answeredBy, verdict);
+  const label = answeredByLabel(answeredBy);
   return verdict.verdict === NO_RELEVANT_MEMORY
     ? `${label}: no relevant memory in ${scopePhrase}.\n`
     : `${label}: a relevant memory likely exists in ${scopePhrase}.\n`;

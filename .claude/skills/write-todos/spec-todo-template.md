@@ -21,15 +21,13 @@ Fresh spec Shadow. Follow `gate-99bs-spec.md` from `/execute-todos`.
 Areas this campaign touches: <area>, <area>.
 
 Read the campaign's whole change: `git diff <base>...HEAD` and the closing
-lines of every slice's execution log. Ask `throne spec-location <repository>
---json` where the spec and the feature map are, and in what state.
+lines of every slice's execution log. Follow
+`agent_docs/spec-writing-steps.md`, sections "Ask where the spec lives",
+"Act on the state", "Rewrite, never append" and "Regenerate and check the map".
 
-For each touched area, rewrite its spec file whole so it states what the code
-now does, in the form `agent_docs/spec-form.md` sets, within its size limit;
-or write one line saying nothing observable changed there. Create what does
-not exist yet for the touched areas only. Then regenerate the map with
-`throne feature-map <spec folder>` and run `throne feature-map <spec folder>
---check`.
+For each touched area, rewrite its spec file, or write one line saying
+nothing observable changed there. Create what does not exist yet for the
+touched areas only.
 
 ## Deliverable
 
@@ -38,9 +36,8 @@ not exist yet for the touched areas only. Then regenerate the map with
   so in one line and changes no spec file.
 - `throne feature-map <spec folder> --check` exits 0, cited with its output.
 - In a repository that is ours, the spec change is committed on the campaign
-  branch. In one that is not, it is written under the data home under
-  `throne spec-lock --repository <repository>`, and `git status --porcelain` in the repository shows no
-  file from this slice.
+  branch. In one that is not, it is written under the data home, and
+  `git status --porcelain` in the repository shows no file from this slice.
 - End with exactly one `**Spec outcome:** PASS` or `**Spec outcome:** FAIL`.
 - When you end a turn to wait on background work you started (a test or
   suite run, a monitor, a queued container slot, a background agent), end

@@ -3,6 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from '
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
 
 import { resumeRegisteredAgentInRestoredTabWithDeps } from './herdr-agent-recovery.ts';
 import { startInTab } from './herdr-launch.ts';
@@ -132,4 +133,62 @@ test('a missing vendored binary refuses the launch loudly before anything is typ
       /vendor-pins\.json/.test(error.message),
   );
   assert.deepEqual(calls, []);
+});
+
+test('a configured harness variable reaches the launch script with spaces, quotes and dollar signs unchanged', async () => {
+  const calls: string[][] = [];
+  const value = `two words 'single' "double" $HOME`;
+  const deps = { ...fakeDeps(calls, vendoredBinaryDirectory(['claude'])), readHarnessEnvironment: async () => ({ MY_FLAG: value }) };
+  await startInTab('agent-name', 'pane-1', { argv: ['claude'] }, deps);
+  const script = launchScriptText(typedLaunchLine(calls));
+  const exported = script.match(/^export MY_FLAG=(.*)$/m)?.[1];
+  assert.ok(exported, 'the configured variable is exported');
+  assert.equal(execFileSync('bash', ['-c', `printf %s ${exported}`], { encoding: 'utf8' }), value);
+});
+
+test('a variable throne sets itself keeps throne\'s value', async () => {
+  const calls: string[][] = [];
+  const deps = {
+    ...fakeDeps(calls, vendoredBinaryDirectory(['claude'])),
+    readHarnessEnvironment: async () => ({ SHARED_NAME: 'configured', THRONE_AGENT_NAME: 'configured' }),
+  };
+  await startInTab('agent-name', 'pane-1', { argv: ['claude'], env: { SHARED_NAME: 'throne' } }, deps);
+  const script = launchScriptText(typedLaunchLine(calls));
+  assert.match(script, /^export SHARED_NAME='throne'$/m);
+  assert.match(script, /^export THRONE_AGENT_NAME='agent-name'$/m);
+  assert.doesNotMatch(script, /configured/);
+});
+
+test('a Claude agent throne launches starts with code mode on', async () => {
+  const calls: string[][] = [];
+  await startInTab('agent-name', 'pane-1', { argv: ['claude'] }, fakeDeps(calls, vendoredBinaryDirectory(['claude'])));
+  assert.match(launchScriptText(typedLaunchLine(calls)), /^export CLAUDE_CODE_EXPERIMENTAL_CODE_MODE='1'$/m);
+});
+
+test('a codex agent throne launches gets no code mode variable', async () => {
+  const calls: string[][] = [];
+  await startInTab('agent-name', 'pane-1', { argv: ['codex'] }, fakeDeps(calls, vendoredBinaryDirectory(['codex']), 'codex'));
+  assert.doesNotMatch(launchScriptText(typedLaunchLine(calls)), /CLAUDE_CODE_EXPERIMENTAL_CODE_MODE/);
+});
+
+test('a pi agent throne launches gets no code mode variable in its environment', async () => {
+  const calls: string[][] = [];
+  await startInTab('agent-name', 'pane-1', { argv: ['piy'] }, fakeDeps(calls, vendoredBinaryDirectory(['piy']), 'pi'));
+  assert.doesNotMatch(launchScriptText(typedLaunchLine(calls)), /CLAUDE_CODE_EXPERIMENTAL_CODE_MODE/);
+});
+
+test('the operator can turn Claude code mode off with harnessEnvironment', async () => {
+  const calls: string[][] = [];
+  const deps = { ...fakeDeps(calls, vendoredBinaryDirectory(['claude'])), readHarnessEnvironment: async () => ({ CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: '0' }) };
+  await startInTab('agent-name', 'pane-1', { argv: ['claude'] }, deps);
+  assert.match(launchScriptText(typedLaunchLine(calls)), /^export CLAUDE_CODE_EXPERIMENTAL_CODE_MODE='0'$/m);
+});
+
+test("throne's own agent name still wins over every configured variable", async () => {
+  const calls: string[][] = [];
+  const deps = { ...fakeDeps(calls, vendoredBinaryDirectory(['claude'])), readHarnessEnvironment: async () => ({ THRONE_AGENT_NAME: 'configured' }) };
+  await startInTab('agent-name', 'pane-1', { argv: ['claude'] }, deps);
+  const script = launchScriptText(typedLaunchLine(calls));
+  assert.match(script, /^export THRONE_AGENT_NAME='agent-name'$/m);
+  assert.match(script, /^export CLAUDE_CODE_EXPERIMENTAL_CODE_MODE='1'$/m);
 });

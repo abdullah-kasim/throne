@@ -1,0 +1,13 @@
+{
+  "harness": "claude",
+  "model": "opus",
+  "effort": 1,
+  "cwd": "<worktrees>/throne/alpha-oldgrades-01",
+  "spawned_at": "2026-11-14T09:00:00.000Z",
+  "spawn_finished_at": "2026-11-14T09:01:10.000Z",
+  "objective_code": "oldgrades",
+  "tasked_at": "2026-11-14T09:01:12.000Z",
+  "capability": {
+    "verdict": "pass"
+  }
+}

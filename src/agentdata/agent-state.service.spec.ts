@@ -37,6 +37,7 @@ function runAs(caller: string, dataDirectory: string, role = 'Shadow', message =
       dataDirectory,
       print: () => {},
       printError: (text) => errors.push(text),
+      tellRegent: async () => {},
     },
   };
 }

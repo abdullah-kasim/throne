@@ -1,5 +1,6 @@
 import type { SpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import { HARNESS_PROVENANCE_STATES } from "../herdr/harness-provenance.ts";
+import { isClaudeViewerArgv } from "../herdr/herdr-process-detection.ts";
 import {
   sameAgentName,
   type HerdrAgent,
@@ -92,6 +93,9 @@ async function binaryRunningInPane(
   if (provenance.state === HARNESS_PROVENANCE_STATES.NO_HARNESS) {
     throw new Error(`relaunched, but pane "${paneId}" shows no harness process`);
   }
+  if (isClaudeViewerArgv(provenance.argv)) {
+    throw new Error(`relaunched, but pane "${paneId}" runs only a viewer (claude attach), not the session`);
+  }
   if (provenance.state === HARNESS_PROVENANCE_STATES.FOREIGN && !launchedOnCustomExecutable) {
     throw new Error(`relaunched on ${provenance.executablePath}, which is not the vendored binary`);
   }
@@ -133,6 +137,7 @@ async function relaunchInItsTab(
   agent: HerdrAgent,
   deps: RestartHarnessesDeps,
   stopRunningHarness: () => Promise<void>,
+  relaunch: { started: boolean },
 ): Promise<RestartOutcome> {
   const name = agent.name!;
   const existingSpec = await deps.readSpawnSpec(name);
@@ -151,6 +156,7 @@ async function relaunchInItsTab(
   }
   const effortNote = await applyConfiguredEffort(agent, name, deps);
   await stopRunningHarness();
+  relaunch.started = true;
   const relaunchedPaneId = await resumeAgentInItsTab(name, agent.tabId, deps);
   const launchedOnCustomExecutable = existingSpec?.harness_executable !== undefined;
   const runningBinary = await binaryRunningInPane(relaunchedPaneId, launchedOnCustomExecutable, deps);
@@ -163,9 +169,17 @@ export async function relaunchAgent(
   deps: RestartHarnessesDeps,
   stopRunningHarness: () => Promise<void> = async () => undefined,
 ): Promise<RestartOutcome> {
+  const relaunch = { started: false };
   try {
-    return await relaunchInItsTab(agent, deps, stopRunningHarness);
+    return await relaunchInItsTab(agent, deps, stopRunningHarness, relaunch);
   } catch (error) {
-    return { name: agent.name!, verdict: "failed", detail: errorText(error) };
+    const detail = errorText(error);
+    if (!relaunch.started) return { name: agent.name!, verdict: "failed", detail };
+    try {
+      await ensurePaneCarriesName(agent, agent.name!, deps);
+      return { name: agent.name!, verdict: "failed", detail };
+    } catch (renameError) {
+      return { name: agent.name!, verdict: "failed", detail: `${detail}; the pane could not be renamed: ${errorText(renameError)}` };
+    }
   }
 }

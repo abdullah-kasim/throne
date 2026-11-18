@@ -7,11 +7,7 @@ import { git, initRepo } from "./git-repo-test-fixture.ts";
 import { writeIdentity } from "../src/agentdata/identity-data.service.ts";
 import { writeSpawnSpec } from "../src/agentdata/spawn-data-contracts.ts";
 import { refreshStagerTreeForPrompt } from "../src/stager-tree-refresh/stager-tree-refresh.ts";
-import { runRecall } from "../src/memory-recall/recall.command.ts";
-import {
-  PULL_REQUEST_TASK,
-  harness,
-} from "../src/memory-recall/recall.command.test-support.ts";
+import { runRefreshStagerTree } from "../src/stager-tree-refresh/refresh-stager-tree.command.ts";
 
 const STAGER_NAME = "stager-scratch";
 
@@ -133,28 +129,78 @@ test("an Alpha or a Shadow tree is never fast-forwarded", async () => {
   assert.equal(await git(shadowTree, ["rev-parse", "HEAD"]), treeTip);
 });
 
-test("the prompt hook still prints recalled memories after refreshing the tree", async () => {
-  const scenario = await stagerScenario("stager-recall-");
-  const mainTip = await commitFile(scenario.repo, "one.txt");
-  const fixture = harness({ hookEnabled: true });
+function submittedPrompt(cwd: string): string {
+  return JSON.stringify({ session_id: "stager-session", cwd, hook_event_name: "UserPromptSubmit", prompt: "go on" });
+}
 
-  const exitCode = await runRecall(["--hook"], {
-    ...fixture.dependencies,
-    tabAgentName: STAGER_NAME,
+async function submitPrompt(scenario: StagerScenario, payload: string, agentName = STAGER_NAME) {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const exitCode = await runRefreshStagerTree({
+    readStdin: () => Promise.resolve(payload),
     agentLedgerDirectory: scenario.ledger,
-    readStdin: () =>
-      Promise.resolve(
-        JSON.stringify({
-          session_id: "stager-session",
-          cwd: scenario.tree,
-          hook_event_name: "UserPromptSubmit",
-          prompt: PULL_REQUEST_TASK,
-        }),
-      ),
+    tabAgentName: agentName,
+    writeStdout: (text) => stdout.push(text),
+    writeStderr: (text) => stderr.push(text),
   });
+  return { exitCode, stdout: stdout.join(""), stderr: stderr.join("") };
+}
 
-  assert.equal(exitCode, 0);
+test("a clean Stager tree two commits behind main is fast-forwarded when a prompt is submitted", async () => {
+  const scenario = await stagerScenario("stager-command-behind-");
+  await commitFile(scenario.repo, "one.txt");
+  const mainTip = await commitFile(scenario.repo, "two.txt");
+
+  const result = await submitPrompt(scenario, submittedPrompt(scenario.tree));
+
+  assert.equal(result.exitCode, 0);
   assert.equal(await git(scenario.tree, ["rev-parse", "HEAD"]), mainTip);
-  assert.match(fixture.stdout[0] ?? "", /^Fast-forwarded this Stager checkout 1 commit to main/);
-  assert.match(fixture.stdout.slice(1).join(""), /NEVER_REPUBLISH/);
+  assert.equal(result.stdout, `Fast-forwarded this Stager checkout 2 commits to main (${mainTip.slice(0, 7)}), so its skills and docs are current.\n`);
+});
+
+test("a dirty Stager tree gets the warning and is left unchanged when a prompt is submitted", async () => {
+  const scenario = await stagerScenario("stager-command-dirty-");
+  const treeTip = await git(scenario.tree, ["rev-parse", "HEAD"]);
+  await commitFile(scenario.repo, "one.txt");
+  await writeFile(path.join(scenario.tree, "draft.txt"), "unsaved\n", "utf8");
+
+  const result = await submitPrompt(scenario, submittedPrompt(scenario.tree));
+
+  assert.equal(await git(scenario.tree, ["rev-parse", "HEAD"]), treeTip);
+  assert.match(result.stdout, /^WARNING: this Stager checkout is 1 commit behind main and was NOT updated/);
+});
+
+test("an Alpha's tree is never touched by the prompt refresh", async () => {
+  const scenario = await stagerScenario("stager-command-alpha-");
+  const alphaTree = await addTree(scenario, "alpha-scratch-01");
+  await registerAgent(scenario.ledger, "alpha-scratch-01", "Alpha", alphaTree);
+  const treeTip = await git(alphaTree, ["rev-parse", "HEAD"]);
+  await commitFile(scenario.repo, "one.txt");
+
+  const result = await submitPrompt(scenario, submittedPrompt(alphaTree), "alpha-scratch-01");
+
+  assert.deepEqual(result, { exitCode: 0, stdout: "", stderr: "" });
+  assert.equal(await git(alphaTree, ["rev-parse", "HEAD"]), treeTip);
+});
+
+test("a refresh failure is reported on stderr and does not block the prompt", async () => {
+  const scenario = await stagerScenario("stager-command-failure-");
+
+  const result = await submitPrompt(scenario, "not a payload");
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /^refresh-stager-tree: the Stager checkout could not be refreshed: /);
+});
+
+test("a prompt refreshes a Stager tree once, and the next prompt finds nothing to do", async () => {
+  const scenario = await stagerScenario("stager-once-");
+  const mainTip = await commitFile(scenario.repo, "one.txt");
+
+  const first = await submitPrompt(scenario, submittedPrompt(scenario.tree));
+  const second = await submitPrompt(scenario, submittedPrompt(scenario.tree));
+
+  assert.match(first.stdout, /^Fast-forwarded this Stager checkout 1 commit/);
+  assert.equal(await git(scenario.tree, ["rev-parse", "HEAD"]), mainTip);
+  assert.deepEqual(second, { exitCode: 0, stdout: "", stderr: "" });
 });

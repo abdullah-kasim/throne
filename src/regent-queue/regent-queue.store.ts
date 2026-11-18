@@ -77,7 +77,7 @@ export {
 
 /** Fields a lifecycle write-back or migration import may set while transitioning a status. */
 export interface QueueItemTransitionFields extends QueueOutcomeMutation {
-  readonly agentName?: string;
+  readonly agentName?: string | null;
   readonly targetRepo?: string;
   readonly baseCommit?: string;
   readonly deliveryCommit?: string;

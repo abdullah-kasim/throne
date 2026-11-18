@@ -1,19 +1,12 @@
-import { installAgentExitMarkerHook } from '../install-services/agent-exit-marker-hook.ts';
-import { installAgentStateHook } from '../install-services/agent-state-hook.ts';
-import { installClaudeGuardHook } from '../install-services/claude-guard-hook.ts';
+import { claudeHookInstallers } from '../install-services/claude-hooks.ts';
 import type { SettingsHookOutcome } from '../install-services/claude-settings-hook.ts';
 import { installCodexHookRegistration } from '../install-services/hook-and-command.ts';
-import { installHiddenSkillPointerHook } from '../install-services/hidden-skill-pointer-hook.ts';
-import { installWebFetchFailurePointerHook } from '../install-services/web-fetch-failure-pointer-hook.ts';
-import { installJevFenceHook } from '../install-services/jev-fence-hook.ts';
 import type {
   InstallServicesDeps,
   InstallServicesOptions,
 } from '../install-services/install-services.types.ts';
-import { installMemoryReadLogHook } from '../install-services/memory-read-log-hook.ts';
 import { withInstallServicesOutput } from '../install-services/output.ts';
 import { REAL_DEPS } from '../install-services/platform.ts';
-import { installSkillWriteGuardHook } from '../install-services/skill-write-guard-hook.ts';
 import {
   NOTIFY_CONFIG,
   postNtfyMessage,
@@ -56,59 +49,28 @@ interface HookInstaller {
   ) => Promise<{ state: HookSetupState; reason?: string }>;
 }
 
-const HOOK_INSTALLERS: readonly HookInstaller[] = [
-  {
-    hook: 'claude scratch path guard',
-    install: async (deps, options) =>
-      settingsHookState(await installClaudeGuardHook(deps, options)),
+function hookInstallers(): HookInstaller[] {
+  return [
+    ...claudeHookInstallers().map((installer) => ({
+      hook: `claude ${installer.name}`,
+      install: async (deps: InstallServicesDeps, options: InstallServicesOptions) =>
+        settingsHookState(await installer.install(deps, options)),
+    })),
+    CODEX_HOOK_INSTALLER,
+  ];
+}
+
+const CODEX_HOOK_INSTALLER: HookInstaller = {
+  hook: 'codex session start',
+  install: async (deps, options) => {
+    const outcome = await installCodexHookRegistration(deps, options);
+    if (outcome.action === 'unchanged') return { state: 'unchanged' };
+    if (outcome.action === 'error') {
+      return { state: 'failed', reason: outcome.message ?? 'unknown failure' };
+    }
+    return { state: 'added' };
   },
-  {
-    hook: 'claude skill write guard',
-    install: async (deps, options) =>
-      settingsHookState(await installSkillWriteGuardHook(deps, options)),
-  },
-  {
-    hook: 'claude memory read log',
-    install: async (deps, options) =>
-      settingsHookState(await installMemoryReadLogHook(deps, options)),
-  },
-  {
-    hook: 'claude jev fence',
-    install: async (deps, options) =>
-      settingsHookState(await installJevFenceHook(deps, options)),
-  },
-  {
-    hook: 'claude agent exit marker',
-    install: async (deps, options) =>
-      settingsHookState(await installAgentExitMarkerHook(deps, options)),
-  },
-  {
-    hook: 'claude agent state',
-    install: async (deps, options) =>
-      settingsHookState(await installAgentStateHook(deps, options)),
-  },
-  {
-    hook: 'claude hidden skill pointer',
-    install: async (deps, options) =>
-      settingsHookState(await installHiddenSkillPointerHook(deps, options)),
-  },
-  {
-    hook: 'claude web fetch failure pointer',
-    install: async (deps, options) =>
-      settingsHookState(await installWebFetchFailurePointerHook(deps, options)),
-  },
-  {
-    hook: 'codex session start',
-    install: async (deps, options) => {
-      const outcome = await installCodexHookRegistration(deps, options);
-      if (outcome.action === 'unchanged') return { state: 'unchanged' };
-      if (outcome.action === 'error') {
-        return { state: 'failed', reason: outcome.message ?? 'unknown failure' };
-      }
-      return { state: 'added' };
-    },
-  },
-];
+};
 
 function settingsHookState(
   outcome: SettingsHookOutcome,
@@ -149,7 +111,7 @@ export async function ensureHarnessHooks(
     throneRootExplicit: true,
   };
   const results: HookSetupResult[] = [];
-  for (const installer of HOOK_INSTALLERS) {
+  for (const installer of hookInstallers()) {
     try {
       const { value, errorOutput } = await withInstallOutputHeld(() =>
         installer.install(installDeps, options),

@@ -28,7 +28,12 @@ import {
 import {
   FORCE_FLAG,
 } from './input.ts';
-import { reapAgentScratchDirs, removedScratchDirs, stillHeldScratchDirs } from './scratch-cleanup.ts';
+import {
+  reapAgentScratchDirs,
+  removedScratchDirs,
+  removeWebSearchProfileCopy,
+  stillHeldScratchDirs,
+} from './scratch-cleanup.ts';
 import { terminateReapedAgentProcesses } from './process-teardown.ts';
 import type {
   AbandonedDisposition,
@@ -342,6 +347,7 @@ async function cleanupReapedAgentScratch(
           `${stillHeld.join(', ')}\n`,
       );
     }
+    await removeWebSearchProfileCopy(request.name);
   } catch (error) {
     process.stderr.write(
       `reap-agent: scratch cleanup failed for "${request.name}" ` +

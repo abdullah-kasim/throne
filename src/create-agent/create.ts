@@ -37,9 +37,12 @@ import { UsageReadersService } from "../shared-policy/usage-readers.service.ts";
 import { realPlanUsageRemainingService } from "../plan-usage-remaining/plan-usage-remaining.service.ts";
 import { resolveSpawnPolicy } from "./policy.ts";
 import { resolveRegistration, removeRegistration } from "./registration.ts";
-import { prepareCreateAgentRequest } from "./request.ts";
+import { CREATE_AGENT_USAGE, prepareCreateAgentRequest } from "./request.ts";
 import { runResidentAgent } from "./resident-agent.ts";
-import { writeQueueLaunchLinkage } from "./queue-launch-writeback.ts";
+import {
+  giveBackRowOfFailedLaunch,
+  writeQueueLaunchLinkage,
+} from "./queue-launch-writeback.ts";
 import { TREE_BASE_DATA } from "../agentdata/tree-base-data.service.ts";
 import { readUsageBypassAuthorizationRegistry } from "./usage-bypass-authorization.ts";
 import { loadUserConfigFile } from "../user-config-loader.ts";
@@ -319,6 +322,7 @@ const REAL_DEPS: CreateAgentDeps = {
   refuseSingleSliceShadowSpawn: (shadowName, alphaName) =>
     singleSliceShadowSpawnRefusal(shadowName, alphaName, DEFAULT_DATA_DIR),
   writeQueueLaunchLinkage,
+  giveBackRowOfFailedLaunch,
   resolveTokenBalanceVerdict: () =>
     collectTokenBalanceReport(readUsageLogRowsOrEmpty()).verdict,
   isTokenBalanceOperatorEnabled: isTokenBalanceEnabled,
@@ -407,6 +411,11 @@ export async function runCreateAgent(
     await (dependencies.writeQueueLaunchLinkage ?? writeQueueLaunchLinkage)(
       policy.value.name,
       policy.value.objectiveContract,
+      policy.value.role,
+    );
+  } else {
+    await (dependencies.giveBackRowOfFailedLaunch ?? giveBackRowOfFailedLaunch)(
+      policy.value.name,
     );
   }
   return launchCode;
@@ -418,6 +427,10 @@ export async function run(
   customHarnessService?: CreateAgentDeps["customHarnessService"],
 ): Promise<number> {
   if (dependencies !== REAL_DEPS) return runCreateAgent(args, dependencies);
+  if (args.includes("--help")) {
+    process.stdout.write(CREATE_AGENT_USAGE);
+    return 0;
+  }
   let liveAgents;
   try {
     liveAgents = await listAgents();

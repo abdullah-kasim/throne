@@ -9,6 +9,13 @@ import { promisify } from "node:util";
 const run = promisify(execFile);
 const LAUNCHER_LIBRARY = path.join(import.meta.dirname, "..", "bin", "agent-launcher-lib.sh");
 const scratchDirectories: string[] = [];
+const HOOK_SCRIPTS = ["scratch-path-guard.py", "skill-write-guard.py", "memory-read-log.py", "agent-exit-marker.py", "agent-state.py", "hidden-skill-pointer.py", "web-fetch-failure-pointer.py"];
+
+async function writeHookList(throneRoot: string, scripts: string[]): Promise<void> {
+  await Promise.all(scripts.map((script) => writeFile(path.join(throneRoot, "claude-hooks", script), "")));
+  const entries = scripts.map((script) => ({ script, event: "PreToolUse", matcher: "Bash" }));
+  await writeFile(path.join(throneRoot, "claude-hooks", "hooks.json"), JSON.stringify(entries));
+}
 
 after(async () => {
   await Promise.all(scratchDirectories.map((directory) => rm(directory, { recursive: true, force: true })));
@@ -33,14 +40,7 @@ async function machine(repairExitCode: number): Promise<Machine> {
   await mkdir(path.join(throneRoot, "bin"), { recursive: true });
   await mkdir(path.join(throneRoot, ".claude"), { recursive: true });
   await mkdir(path.join(throneRoot, ".codex"), { recursive: true });
-  await writeFile(path.join(throneRoot, "claude-hooks", "scratch-path-guard.py"), "");
-  await writeFile(path.join(throneRoot, "claude-hooks", "skill-write-guard.py"), "");
-  await writeFile(path.join(throneRoot, "claude-hooks", "memory-read-log.py"), "");
-  await writeFile(path.join(throneRoot, "claude-hooks", "jev-fence.py"), "");
-  await writeFile(path.join(throneRoot, "claude-hooks", "agent-exit-marker.py"), "");
-  await writeFile(path.join(throneRoot, "claude-hooks", "agent-state.py"), "");
-  await writeFile(path.join(throneRoot, "claude-hooks", "hidden-skill-pointer.py"), "");
-  await writeFile(path.join(throneRoot, "claude-hooks", "web-fetch-failure-pointer.py"), "");
+  await writeHookList(throneRoot, HOOK_SCRIPTS);
   await writeFile(path.join(throneRoot, ".claude", "skill-dependencies.tsv"), "share-stuff\tglobal\nloop\tharness\n");
   const repairCommand = path.join(throneRoot, "bin", "throne-cli");
   await writeFile(repairCommand, `#!/bin/bash\necho "$*" >> "${repairLog}"\nexit ${repairExitCode}\n`);
@@ -49,7 +49,7 @@ async function machine(repairExitCode: number): Promise<Machine> {
 }
 
 async function registerEveryHook(target: Machine): Promise<void> {
-  const hooks = ["scratch-path-guard.py", "skill-write-guard.py", "memory-read-log.py", "jev-fence.py", "agent-exit-marker.py", "agent-state.py", "hidden-skill-pointer.py", "web-fetch-failure-pointer.py"].map(
+  const hooks = HOOK_SCRIPTS.map(
     (name) => `python3 \\"${path.join(target.throneRoot, "claude-hooks", name)}\\"`,
   );
   await writeFile(path.join(target.home, ".claude", "settings.json"), `{"hooks": "${hooks.join(" ")}"}\n`);
@@ -132,4 +132,39 @@ test("a launcher running from a linked worktree never repairs the live settings"
 
   assert.equal(repairs, "");
   assert.equal(stderr, "launched\n");
+});
+
+test("a hook added to the list is checked by the launcher", async () => {
+  const target = await machine(0);
+  await registerEveryHook(target);
+  await writeHookList(target.throneRoot, [...HOOK_SCRIPTS, "brand-new-hook.py"]);
+
+  const { stderr, repairs } = await launchCheck(target);
+
+  assert.match(stderr, /brand-new-hook\.py is not registered/);
+  assert.equal(repairs, `ensure-harness-setup --throne-root ${target.throneRoot}\n`);
+});
+
+test("a hook kept off claude is not checked against the claude settings", async () => {
+  const target = await machine(0);
+  await registerEveryHook(target);
+  const entries = HOOK_SCRIPTS.map((script) => ({ script, event: "PreToolUse" }));
+  entries.push({ script: "pi-only-hook.py", event: "PreToolUse", notOn: ["claude"] } as (typeof entries)[number]);
+  await writeFile(path.join(target.throneRoot, "claude-hooks", "hooks.json"), JSON.stringify(entries));
+
+  const { stderr, repairs } = await launchCheck(target);
+
+  assert.equal(repairs, "");
+  assert.match(stderr, /pi-only-hook\.py is missing from the throne checkout/);
+});
+
+test("a hook list the launcher cannot read is reported", async () => {
+  const target = await machine(0);
+  await registerEveryHook(target);
+  await writeFile(path.join(target.throneRoot, "claude-hooks", "hooks.json"), "[not json");
+
+  const { stderr } = await launchCheck(target);
+
+  assert.match(stderr, /hooks\.json could not be read/);
+  assert.match(stderr, /launched\n$/);
 });

@@ -194,13 +194,7 @@ export async function publishSquashDelivery(
   return preview.squashCommit;
 }
 
-/** Write the delivery-landing evidence ledger record for a genuinely new
- *  delivery — the primary signal `complete-agent`/`reap-agent`/
- *  `delivery-commit-proof.ts` read (grep of `Deliver <name>` commit messages
- *  retained there only as a fallback for pre-migration agents). Called
- *  immediately after the target-branch publish succeeds; independent of the
- *  candidate-branch advance that follows. */
-async function writeDeliveryEvidence(
+export async function writeDeliveryEvidence(
   name: string,
   repo: string,
   targetBranch: string,
@@ -341,7 +335,7 @@ export async function mergeBack(
  *  otherwise moves past its recorded spawn commit, so `reap-agent`'s own
  *  preflight (`branch-cleanup.ts` → `requireAdvancedSinceSpawn` +
  *  `requireReachableFromMergeTarget`) independently refuses teardown even
- *  after `hasDeliveryCommit` finds the stamp on the target branch — the
+ *  after the stamp is published on the target branch — the
  *  candidate branch must carry the same commit too. Resolves whether `name`
  *  (the branch being advanced, not any other branch a caller may have
  *  resolved a checkout for) is itself checked out somewhere and, if so,
@@ -424,8 +418,7 @@ export async function advanceCandidateBranch(
  *
  * Publishes the SAME commit on both `refs/heads/<targetBranch>` (via
  * `publishSquashDelivery`'s single-parent CAS/fast-forward mechanics) AND
- * `refs/heads/<name>` itself, so both `hasDeliveryCommit` (reads the target
- * branch's reachable history) and `reap-agent`'s branch-cleanup preflight
+ * `refs/heads/<name>` itself, so `reap-agent`'s branch-cleanup preflight
  * (reads the candidate branch's own tip against its recorded spawn commit
  * and merge-target reachability) find proof. Also writes the delivery-
  * evidence ledger record. Returns the published commit hash.

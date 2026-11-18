@@ -20,17 +20,39 @@ export const ACCOUNTS_CONFIG_KEYS = [
   "companyLogin",
   "mcpServersAllowedOnEveryAccount",
   "balancing",
+  "providerAccounts",
 ] as const;
 export const ACCOUNT_KEYS = ["name", "harness", "folder"] as const;
+export const PROVIDER_ACCOUNT_KEYS = ["name", "provider", "harness", "keyFile"] as const;
+export const PROVIDER_HARNESSES = {
+  deepseek: "pi",
+} as const;
+export type Provider = keyof typeof PROVIDER_HARNESSES;
 export const COMPANY_LOGIN_KEYS = ["emailDomain", "organizationUuid"] as const;
 
-const ACCOUNT_NAME_SHAPE = /^[a-z]+$/;
+export const ACCOUNT_NAME_SHAPE = /^[a-z]+$/;
 const PRIMARY_CLAUDE_FOLDER_NAME = ".claude";
 
 export interface Account {
   readonly name: string;
   readonly harness: AccountHarness;
   readonly folder: string;
+}
+
+export interface ProviderAccount {
+  readonly name: string;
+  readonly provider: Provider;
+  readonly harness: (typeof PROVIDER_HARNESSES)[Provider];
+  readonly keyFile: string;
+}
+
+export interface ProviderOnlyAccountsFile {
+  readonly providerAccounts: readonly ProviderAccount[];
+}
+
+export interface AccountsFile {
+  readonly config: AccountsConfig | null;
+  readonly providerAccounts: readonly ProviderAccount[];
 }
 
 export interface CompanyLogin {
@@ -44,6 +66,7 @@ export interface AccountsConfig {
   readonly companyLogin?: CompanyLogin;
   readonly mcpServersAllowedOnEveryAccount: readonly string[];
   readonly balancing?: boolean;
+  readonly providerAccounts?: readonly ProviderAccount[];
 }
 
 export class AccountsConfigError extends Error {
@@ -136,6 +159,42 @@ function parseAccounts(value: unknown, sourcePath: string): Account[] {
   return accounts;
 }
 
+export function isProvider(value: unknown): value is Provider {
+  return typeof value === "string" && Object.hasOwn(PROVIDER_HARNESSES, value);
+}
+
+function parseProviderAccount(value: unknown, index: number, sourcePath: string): ProviderAccount {
+  const where = `providerAccounts[${index}]`;
+  if (!isRecord(value)) throw new AccountsConfigError(sourcePath, `${where} must be an object`);
+  refuseUnknownKeys(value, PROVIDER_ACCOUNT_KEYS, where, sourcePath);
+  const { name, provider, harness, keyFile } = value;
+  if (typeof name !== "string" || !ACCOUNT_NAME_SHAPE.test(name) || name === COMPANY_ACCOUNT_WORD) {
+    throw new AccountsConfigError(sourcePath, `${where}.name must be one plain lowercase word other than "${COMPANY_ACCOUNT_WORD}"`);
+  }
+  if (!isProvider(provider)) {
+    throw new AccountsConfigError(sourcePath, `${where}.provider must be one of ${Object.keys(PROVIDER_HARNESSES).join(", ")}`);
+  }
+  if (harness !== PROVIDER_HARNESSES[provider]) {
+    throw new AccountsConfigError(sourcePath, `${where}.harness must be "${PROVIDER_HARNESSES[provider]}" for ${provider}`);
+  }
+  if (typeof keyFile !== "string" || !path.isAbsolute(keyFile)) {
+    throw new AccountsConfigError(sourcePath, `${where}.keyFile must be an absolute path`);
+  }
+  return { name, provider, harness: PROVIDER_HARNESSES[provider], keyFile };
+}
+
+function parseProviderAccounts(value: unknown, claudeAccounts: readonly Account[], sourcePath: string): ProviderAccount[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new AccountsConfigError(sourcePath, `"providerAccounts" must be a list`);
+  const providerAccounts = value.map((item, index) => parseProviderAccount(item, index, sourcePath));
+  const names = [...claudeAccounts.map((account) => account.name), ...providerAccounts.map((account) => account.name)];
+  const repeatedName = names.find((name, index) => names.indexOf(name) !== index);
+  if (repeatedName !== undefined) {
+    throw new AccountsConfigError(sourcePath, `account name "${repeatedName}" is listed twice`);
+  }
+  return providerAccounts;
+}
+
 function parseCompanyLogin(value: unknown, sourcePath: string): CompanyLogin {
   if (!isRecord(value)) throw new AccountsConfigError(sourcePath, `"companyLogin" must be an object`);
   refuseUnknownKeys(value, COMPANY_LOGIN_KEYS, "companyLogin", sourcePath);
@@ -158,7 +217,7 @@ function parseCompanyLogin(value: unknown, sourcePath: string): CompanyLogin {
   };
 }
 
-export function parseAccountsConfig(source: string, sourcePath: string): AccountsConfig {
+function parseFileObject(source: string, sourcePath: string): Record<string, unknown> {
   let value: unknown;
   try {
     value = JSON.parse(source);
@@ -167,7 +226,27 @@ export function parseAccountsConfig(source: string, sourcePath: string): Account
   }
   if (!isRecord(value)) throw new AccountsConfigError(sourcePath, "expected an object");
   refuseUnknownKeys(value, ACCOUNTS_CONFIG_KEYS, "the file", sourcePath);
+  return value;
+}
+
+export function parseAccountsFile(source: string, sourcePath: string): AccountsFile {
+  const value = parseFileObject(source, sourcePath);
+  if (value.accounts !== undefined || value.providerAccounts === undefined) {
+    const config = parseAccountsConfig(source, sourcePath);
+    return { config, providerAccounts: config.providerAccounts ?? [] };
+  }
+  refuseUnknownKeys(value, ["providerAccounts"], "a file with no \"accounts\"", sourcePath);
+  const providerAccounts = parseProviderAccounts(value.providerAccounts, [], sourcePath);
+  if (providerAccounts.length === 0) {
+    throw new AccountsConfigError(sourcePath, `"accounts" must be a non-empty list`);
+  }
+  return { config: null, providerAccounts };
+}
+
+export function parseAccountsConfig(source: string, sourcePath: string): AccountsConfig {
+  const value = parseFileObject(source, sourcePath);
   const accounts = parseAccounts(value.accounts, sourcePath);
+  const providerAccounts = parseProviderAccounts(value.providerAccounts, accounts, sourcePath);
   const { longRunningAccount, companyLogin, mcpServersAllowedOnEveryAccount, balancing } = value;
   if (
     longRunningAccount !== undefined &&
@@ -190,10 +269,11 @@ export function parseAccountsConfig(source: string, sourcePath: string): Account
     ...(companyLogin !== undefined ? { companyLogin: parseCompanyLogin(companyLogin, sourcePath) } : {}),
     mcpServersAllowedOnEveryAccount: mcpServersAllowedOnEveryAccount ?? [],
     ...(balancing !== undefined ? { balancing } : {}),
+    ...(providerAccounts.length > 0 ? { providerAccounts } : {}),
   };
 }
 
-export function readAccountsConfig(sourcePath: string = accountsConfigPath()): AccountsConfig | null {
+export function readAccountsFile(sourcePath: string = accountsConfigPath()): AccountsFile | null {
   let source: string;
   try {
     source = readFileSync(sourcePath, "utf8");
@@ -201,11 +281,15 @@ export function readAccountsConfig(sourcePath: string = accountsConfigPath()): A
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
-  return parseAccountsConfig(source, sourcePath);
+  return parseAccountsFile(source, sourcePath);
+}
+
+export function readAccountsConfig(sourcePath: string = accountsConfigPath()): AccountsConfig | null {
+  return readAccountsFile(sourcePath)?.config ?? null;
 }
 
 export async function writeAccountsConfig(
-  config: AccountsConfig,
+  config: AccountsConfig | ProviderOnlyAccountsFile,
   targetPath: string = accountsConfigPath(),
 ): Promise<void> {
   const temporaryPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;

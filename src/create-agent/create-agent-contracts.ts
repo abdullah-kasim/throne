@@ -1,5 +1,4 @@
 import type { DurableBypassAuthorizationRegistry } from "./durable-bypass-authorization.ts";
-import type { CapabilityEvidence } from "../harness-routing/policy/capabilities.ts";
 
 export type CreateAgentWriter = (text: string) => void;
 
@@ -84,8 +83,6 @@ export interface PolicyResolutionShape extends CreateAgentRequestShape {
   customPassthrough: string[];
   routingNote: string;
   durableRoutingNote: boolean;
-  capabilityEvidence?: CapabilityEvidence;
-  capabilityOverrideNote: string;
   effortOverrideNote: string;
   harnessOverrideNote: string;
   usageBypassAuthorization?: UsageBypassAuthorizationEvidence;

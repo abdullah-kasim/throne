@@ -1,0 +1,11 @@
+{
+  "harness": "claude",
+  "model": "opus",
+  "effort": 1,
+  "cwd": "<worktrees>/throne/shadow-oldgrades-01-core",
+  "spawned_at": "2026-11-14T09:10:00.000Z",
+  "spawn_finished_at": "2026-11-14T09:11:05.000Z",
+  "routing_note": "alpha-oldgrades-01-owned model-allowlist.json overrode the CurrentPlan/Shadow role pool for this spawn",
+  "objective_code": "oldgrades",
+  "tasked_at": "2026-11-14T09:11:07.000Z"
+}

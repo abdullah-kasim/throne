@@ -1,14 +1,11 @@
-import { readFile, realpath } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { chooseClassifierBackend } from '../relevance-classifier/choose-backend.ts';
 import type { ClassifierBackend } from '../relevance-classifier/classifier.types.ts';
 import { askFailingOpen } from '../relevance-classifier/fail-open-classifier.ts';
-import {
-  pathWithHomeExpanded,
-  type RecallConfig,
-} from '../relevance-classifier/recall-user-config.ts';
+import type { RecallConfig } from '../relevance-classifier/recall-user-config.ts';
 import { RULES_BACKEND, meaningfulWords } from '../relevance-classifier/rules-backend.ts';
 import { answeredPiecesGroupByGroup } from '../item-rank/answered-pieces.ts';
-import { isUnderAnyRoot, type RankItem } from '../item-rank/rank-items.ts';
+import type { RankItem } from '../item-rank/rank-items.ts';
 import { requestsPackedUnderTheStateLimit } from '../item-rank/rank-requests.ts';
 
 const HEAD_LINES_ALWAYS_INCLUDED = 120;
@@ -23,20 +20,12 @@ export interface Candidate {
 export interface JudgeDependencies {
   chooseBackend(config: RecallConfig): Promise<ClassifierBackend>;
   readFile(path: string): Promise<string>;
-  realPathOrUndefined(path: string): Promise<string | undefined>;
   writeStderr(text: string): void;
 }
 
 export const PRODUCTION_JUDGE_DEPENDENCIES: JudgeDependencies = {
-  chooseBackend: (config) => chooseClassifierBackend(config, 'locate'),
+  chooseBackend: () => chooseClassifierBackend(),
   readFile: (path) => readFile(path, 'utf8'),
-  realPathOrUndefined: async (path) => {
-    try {
-      return await realpath(path);
-    } catch {
-      return undefined;
-    }
-  },
   writeStderr: (text) => process.stderr.write(text),
 };
 
@@ -74,18 +63,14 @@ async function itemForCandidate(
   candidate: Candidate,
   task: string,
   dependencies: JudgeDependencies,
-  physicalAllowedRoots: readonly string[],
 ): Promise<RankItem> {
-  const physicalPath = await dependencies.realPathOrUndefined(candidate.path);
-  const mayBeSentToJev =
-    physicalPath !== undefined && isUnderAnyRoot(physicalPath, physicalAllowedRoots);
   let text: string;
   try {
     text = windowedText((await dependencies.readFile(candidate.path)).split('\n'), task);
   } catch {
     text = candidate.reasons.join('\n');
   }
-  return { id: candidate.path, text, mayBeSentToJev };
+  return { id: candidate.path, text };
 }
 
 async function probabilitiesByPath(
@@ -118,18 +103,6 @@ async function probabilitiesByPath(
   return probabilityByPath;
 }
 
-async function physicalAllowedRootsOf(
-  config: RecallConfig,
-  dependencies: JudgeDependencies,
-): Promise<readonly string[]> {
-  const resolved = await Promise.all(
-    config.rankAllowedRoots
-      .map((root) => pathWithHomeExpanded(root))
-      .map((root) => dependencies.realPathOrUndefined(root)),
-  );
-  return resolved.filter((root): root is string => root !== undefined);
-}
-
 export async function judgeCandidates(
   candidates: readonly Candidate[],
   task: string,
@@ -137,24 +110,10 @@ export async function judgeCandidates(
   dependencies: JudgeDependencies = PRODUCTION_JUDGE_DEPENDENCIES,
 ): Promise<readonly Candidate[]> {
   const backend = await dependencies.chooseBackend(config);
-  const physicalAllowedRoots = await physicalAllowedRootsOf(config, dependencies);
   const items = await Promise.all(
-    candidates.map((candidate) =>
-      itemForCandidate(candidate, task, dependencies, physicalAllowedRoots),
-    ),
+    candidates.map((candidate) => itemForCandidate(candidate, task, dependencies)),
   );
-  const sentItems = backend.name === 'jev' ? items.filter((item) => item.mayBeSentToJev) : [];
-  const keptLocalItems = items.filter((item) => !sentItems.includes(item));
-  if (backend.name === 'jev' && keptLocalItems.length > 0) {
-    dependencies.writeStderr(
-      `locate: not sent to Jev, judged by rules instead (outside recall.rankAllowedRoots): ${keptLocalItems.map((item) => item.id).join(', ')}\n`,
-    );
-  }
-  const [sentProbabilities, keptProbabilities] = await Promise.all([
-    probabilitiesByPath(backend, RULES_BACKEND, task, sentItems, dependencies),
-    probabilitiesByPath(RULES_BACKEND, undefined, task, keptLocalItems, dependencies),
-  ]);
-  const probabilityByPath = new Map([...sentProbabilities, ...keptProbabilities]);
+  const probabilityByPath = await probabilitiesByPath(backend, undefined, task, items, dependencies);
   return candidates.map((candidate) => ({
     ...candidate,
     score: probabilityByPath.get(candidate.path) ?? candidate.score,

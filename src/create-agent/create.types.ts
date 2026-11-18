@@ -28,7 +28,10 @@ import type {
 } from "../codex-trust/codex-trust.service.ts";
 import type { ObjectiveContract } from "../shared-policy/objective-contract.ts";
 import type { LaneBalanceVerdict } from "../token-balance/token-balance-report.ts";
-import type { writeQueueLaunchLinkage } from "./queue-launch-writeback.ts";
+import type {
+  giveBackRowOfFailedLaunch,
+  writeQueueLaunchLinkage,
+} from "./queue-launch-writeback.ts";
 import type { readUsageLogRaw } from "../plan-usage-remaining/telemetry-core/log.ts";
 import type {
   CodexUsageReader,
@@ -39,7 +42,6 @@ import type { NativeClaudeUsageReader } from "./native-availability.ts";
 import type { appendLaunchLedgerEntry } from "../alpha-launch-queue/launch-ledger.ts";
 import type { TreeBase } from "../agentdata/tree-base-data.service.ts";
 import type { RegentQueueStore } from "../regent-queue/regent-queue.store.ts";
-import type { CapabilityEvidence } from "../harness-routing/policy/capabilities.ts";
 import type { awaitSpawnTaskingConfirmation } from "../session/runtime-model-acceptance.ts";
 import type { writeModelAllowlist } from "./model-allowlist.ts";
 import type {
@@ -144,6 +146,7 @@ export interface ModelBypassAuthorizationEvidence {
 }
 
 export interface CreateAgentDeps {
+  piLaunchPlaces?: import("./pi-launch.ts").PiLaunchPlaces;
   composeSituationBrief?: (objectiveCode: string) => Promise<string>;
   customHarnessService?: {
     run: (
@@ -227,6 +230,7 @@ export interface CreateAgentDeps {
   writeStdout?: (text: string) => void;
   writeStderr?: (text: string) => void;
   writeQueueLaunchLinkage?: typeof writeQueueLaunchLinkage;
+  giveBackRowOfFailedLaunch?: typeof giveBackRowOfFailedLaunch;
   appendLaunchLedgerEntry?: typeof appendLaunchLedgerEntry;
   readTreeBase?: (name: string) => Promise<TreeBase | null>;
   launchLedgerPath?: string;
@@ -279,8 +283,6 @@ export interface PolicyResolution extends RegistrationResolution {
   launchEffort: number;
   routingNote: string;
   durableRoutingNote: boolean;
-  capabilityEvidence?: CapabilityEvidence;
-  capabilityOverrideNote: string;
   effortOverrideNote: string;
   harnessOverrideNote: string;
   usageBypassAuthorization?: UsageBypassAuthorizationEvidence;

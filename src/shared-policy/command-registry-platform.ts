@@ -19,10 +19,10 @@ import { SpecLockCommand } from "../spec-lock/spec-lock.command.ts";
 import { ScratchPaneCommand } from "../scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "../migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "../memory-recall/recall.command.ts";
+import { RefreshStagerTreeCommand } from "../stager-tree-refresh/refresh-stager-tree.command.ts";
 import { RankCommand } from "../item-rank/rank.command.ts";
 import { LocateCommand } from "../file-locate/locate.command.ts";
 import { SiftCommand } from "../log-sift/sift.command.ts";
-import { JevProbeCommand } from "../jev-probe/jev-probe.command.ts";
 import { GitIdentityCommand } from "../git-identity/git-identity.command.ts";
 import { ForgeCommand } from "../forge/forge.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "../reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
@@ -222,8 +222,16 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: false,
     description:
-      "Print the bodies of the recorded memories that apply to a task, searching the repositories named with --directory or the memory directories named with --memory-dir plus the global memories, most relevant first and capped in size; --hook serves a prompt-submit hook payload from stdin for the session's own repository.",
+      "Print the bodies of the recorded memories that apply to a task, searching the repositories named with --directory or the memory directories named with --memory-dir plus the global memories, most relevant first and capped in size.",
     ownHelp: true,
+  },
+  {
+    name: "refresh-stager-tree",
+    provider: RefreshStagerTreeCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Serve a prompt-submit hook payload from stdin: fast-forward a registered Stager's own clean tree to main when it is only behind, and print one line; a dirty or diverged tree gets a warning line and is left unchanged.",
   },
   {
     name: "rank",
@@ -250,15 +258,6 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Read command output on stdin, save the full copy under ~/tmp, and print only the chunks that matter to what you are looking for, with line numbers.",
-    ownHelp: true,
-  },
-  {
-    name: "jev-probe",
-    provider: JevProbeCommand,
-    visibility: "public",
-    migrated: false,
-    description:
-      "Ask Jev one yes/no question about one state within the machine's Jev budget, printing the estimated cost first; the only sanctioned way to test a Jev wording.",
     ownHelp: true,
   },
   {

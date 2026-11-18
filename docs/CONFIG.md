@@ -53,9 +53,10 @@ export default userConfig;
 | `steering` | `activePlanPresetName`, `activeTargetEffort`, `activeHarness`, `messageQueueTransport`, `customPlanPresets`, `stagerPool`, `roleEfforts`, `regentRoute`, `tokenBalanceEnabled`, `autoscaleEnabled`, `regentHeartbeatNudgeEnabled`, `macLoadPerCoreAtCapacity` | every fresh spawn's harness/model/effort, the Stager pool, the Regent's model and effort, the autoscaler, the token balancer (`agent_docs/MODEL_POLICY.md`) |
 | `identity` | `name`, `email`, `signingKey`, `signingFormat`, `identities`, `remotes` | every git commit the court makes (`throne git-identity`, the `bin/git` shim, tab creation; `agent_docs/commands.md`) |
 | `editor` (top level) | `editor` | `throne forge open` |
-| `recall` | `jevEnabled`, `jevKeyFile`, `hookEnabled`, `hookMode`, `verdictLineThreshold`, `hookTimeoutMilliseconds`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `repositoryMemoryNamesPerRepository`, `globalMemoryDirectories`, `rankAllowedRoots`, `jevTokensPerDay`, `jevTokensPerHour` | `throne recall`, `throne sift` and `throne rank` (`agent_docs/commands.md`) |
+| `recall` | `verdictLineThreshold`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `repositoryMemoryNamesPerRepository`, `globalMemoryDirectories` | `throne recall`, `throne sift` and `throne rank` (`agent_docs/commands.md`) |
 | `agentSettings` | `checkEnabled`, `colourByRole` | the `agent-settings` worker and `throne agent-settings-tick` (`agent_docs/commands.md`) |
 | `previews` (top level) | a list of `path` or `port`, with `address` or `folder` | the `tailnet-publishing` worker, the web listener and `throne preview` (`agent_docs/commands.md`) |
+| `harnessEnvironment` (top level) | one map per harness name of variable name to string value | every agent launch on that harness, and `throne check-config` |
 
 ## Persona — how the court speaks
 
@@ -124,21 +125,22 @@ pair the harness cannot run, all refuse the whole file.
 
 Harness and model names come from the registry: `throne list-harnesses-and-models`
 prints every pair the throne can spawn on this machine (harnesses `claude`,
-`codex`, `opencode`, `omp`; models such as `fable`, `opus`, `sonnet`, `haiku`,
-`gpt-5.6-sol`, `gpt-5.6-terra`).
+`codex`, `opencode`, `pi`; models such as `fable`, `opus`, `sonnet`, `haiku`,
+`gpt-5.6-sol`, `gpt-5.6-terra`, and pi's DeepSeek `flash` and `pro`). A pool
+entry `{ harness: 'pi', model: 'flash' }` is admitted wherever a claude entry is.
 
 ```ts
 steering: {
-  activePlanPresetName: 'OmpTrial',
+  activePlanPresetName: 'PiTrial',
   activeTargetEffort: 1,
   customPlanPresets: {
-    OmpTrial: {
-      alpha: [{ harness: 'omp', model: 'sonnet' }],
-      shadow: [{ harness: 'omp', model: 'sonnet' }],
-      shadowSlice99: [{ harness: 'omp', model: 'sonnet' }],
+    PiTrial: {
+      alpha: [{ harness: 'pi', model: 'flash' }],
+      shadow: [{ harness: 'pi', model: 'flash' }],
+      shadowSlice99: [{ harness: 'pi', model: 'flash' }],
     },
   },
-  stagerPool: [{ harness: 'omp', model: 'opus' }],
+  stagerPool: [{ harness: 'pi', model: 'pro' }],
   regentRoute: { harness: 'claude', model: 'opus' },
   roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3, stager: 3, regent: 3 },
   autoscaleEnabled: true,
@@ -196,79 +198,25 @@ signing key that is missing).
 
 `throne recall --directory <repo> "<task>"` prints the bodies of the recorded
 memories in that repository and the global memory directories that apply to a
-task (the prompt-submit hook searches only the session's repository and the
-global memories); `throne sift "<query>"` prints only the chunks of a long
-command output that matter. Both decide with plain keyword rules unless Jev is on.
-
-**Privacy.** With `jevEnabled: true`, the task text (the prompt), every
-candidate memory's `ask` line, for each other repository recall asks about its name, the `ask` in its `REPOSITORY.md` and its memory file titles, and, for `sift`, the raw log text piped in are
-sent to TypeSafe (`api.typesafe.ai`). `recall` and `sift` never send memory
-bodies; `throne recall --report` does, because its judge grades memories' full
-text against prompts, and for the acted-on rate it also sends the next five assistant messages of the session's transcript. With
-`jevEnabled: false` the TypeSafe SDK is never called and the key file is never
-read.
+task; `throne sift "<query>"` prints only the chunks of a long
+command output that matter. Both decide with plain keyword rules
+on this machine; nothing is sent over the network.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `jevEnabled` | boolean | `false` | Ask the Jev classifier instead of the keyword rules. Any Jev failure (timeout, HTTP 429, missing key, any error) falls back: recall asks the rules, sift keeps the chunk. |
-| `jevKeyFile` | string | `'~/.jev-key'` | File holding the TypeSafe API key. Whether it is usable is decided from the file alone (it exists, is a regular file and is not empty), never from its contents. Its contents are read only by the Jev backend, only when `jevEnabled` is true, and only after the budget has granted a request. Keep it mode 600. |
-| `jevTokensPerDay` | integer >= 0 | `15_000_000` | Most Jev tokens every process on this machine together may spend in one local calendar day. The budget is machine-wide, shared by every worktree and session, and kept under `~/.throne/data/recall/jev-budget/`. When a request would go over it, Jev is not called and the keyword rules answer. `0` switches Jev off. |
-| `jevTokensPerHour` | integer >= 0 | `1_250_000` | Most Jev tokens every process on this machine together may spend in a rolling hour (the last 60 minutes), from the same machine-wide budget. When a request would go over it, Jev is not called and the keyword rules answer. `0` switches Jev off. |
-| `rankAllowedRoots` | string[] | `[]` | With Jev on, `throne rank` sends FILE CONTENTS to TypeSafe only for files under one of these directories; every other file is ranked by word matching locally and named on stderr as not sent. Stdin items are sent only with `--allow-stdin-to-jev`. Empty means nothing is ever sent by `rank`. |
-| `hookEnabled` | boolean | `false` | While false, `throne recall --hook` judges and prints no memories, and records only a skipped run (`hook disabled`) in the ledger; a Stager's checkout refresh line does not depend on it. The prompt-submit hook is shared by every session on the machine, so this is the one switch. |
-| `hookMode` | `'serve'`, `'shadow'` or `'split'` | `'serve'` | What `throne recall --hook` does with each prompt while `hookEnabled` is true. `'serve'` prints the chosen memories. `'shadow'` judges every prompt and records in the ledger what would have been served, but prints nothing. `'split'` flips a coin seeded from the session and the prompt, so each prompt lands in serve or shadow half the time and the same prompt always lands in the same one. The summary line of every judged prompt and every full decision line record the arm. `'shadow'` and `'split'` also log every answer, a confident no as a compact line (see `agent_docs/commands.md` under `recall`). Each hook prompt's first 2,000 characters are kept in `~/.throne/data/recall/prompts.jsonl`, which never leaves the machine. |
-| `verdictLineThreshold` | number 0..1 | `0.9` | Every recall ends with Jev's verdict, that a relevant memory likely exists or that there is no relevant memory in the scope it searched, and its confidence. In the serve arm the line is printed with any served memories; when nothing is served it is printed alone only when Jev is surer than this that no relevant memory exists. |
-| `hookTimeoutMilliseconds` | integer >= 1 | `2500` | How long hook mode waits for the classifier before the rules answer instead. Such a run is recorded as `timed out`, and `recall --report` never counts a dig after it as a miss. |
+| `verdictLineThreshold` | number 0..1 | `0.9` | Every recall ends with the rules' verdict, that a relevant memory likely exists or that there is no relevant memory in the scope it searched, and its confidence. The line is printed with any served memories; when nothing is served it is printed alone only when the rules are surer than this that no relevant memory exists. |
 | `serveThreshold` | number 0..1 | `0.5` | A memory is served when the probability that it applies is at least this. |
 | `serveThresholdWhenCostIsHigh` | number 0..1 | `0.3` | The lower bar for a memory whose frontmatter says `cost_if_missed: high`. |
 | `siftKeepThreshold` | number 0..1 | `0.5` | A log chunk is kept when the probability that it matters is at least this. |
-| `maximumInjectedCharacters` | integer >= 1 | `8000` | Total characters one recall may print. Claude Code spills hook output over 10,000 characters to a file. |
-| `repositoryMemoryNamesPerRepository` | integer >= 1 | `40` | How many memory titles, most recently modified first, recall sends Jev for each other repository it asks about (the repositories recall has seen, in `~/.throne/data/recall/repositories.json`, outside the lookup's scope). Titles only, never bodies. Each title adds Jev tokens to every lookup: a repository with hundreds of memories would add about 7k tokens uncapped. |
+| `maximumInjectedCharacters` | integer >= 1 | `8000` | Total characters one recall may print. |
+| `repositoryMemoryNamesPerRepository` | integer >= 1 | `40` | How many memory titles, most recently modified first, recall weighs for each other repository it asks about (the repositories recall has seen, in `~/.throne/data/recall/repositories.json`, outside the lookup's scope). Titles only, never bodies. |
 | `globalMemoryDirectories` | string[] | `[]` | Memory directories shared by every project, read in addition to the project's own (`throne memory-dir .`). `~/` expands. |
 
-**Switching Jev off again.** Set `jevEnabled: false` (or delete it): the very
-next `recall`, `sift` or `rank` run obeys, with nothing to rebuild, restart or
-clear. `THRONE_JEV_DISABLED=1` in the environment wins over the file for that
-process and can only switch Jev off, never on. A missing, unreadable or empty
-key file also means off, with one stderr line. A `jevTokensPerDay` or
-`jevTokensPerHour` of `0` means off too. When off by any route there is
-no network call, no SDK client is constructed and the key file is not opened.
-`throne recall --status` (also `sift --status`, `rank --status`) prints which
-backend would answer now and why, never the key, followed by today's Jev tokens
-out of `jevTokensPerDay`, the rolling hour's out of `jevTokensPerHour`, what is
-left of each, and today's count of requests not sent because the budget lock
-was busy. Every ledger line names the backend that answered, with a `reason`
-when Jev did not.
-
-**When the Jev budget is used up.** The tally is one file,
-`~/.throne/data/recall/jev-budget/tally.json`, shared by every process and
-worktree on the machine and changed only under the lock `jev-budget/lock`. A
-request the day's or the rolling hour's budget cannot cover is never sent: the
-keyword rules answer instead, and the hook's verdict line says
-`rules (Jev budget used up)`. If the lock stays busy the rules answer too,
-labelled `rules (Jev budget lock busy)`. Each request, sent or not, is logged to
-`~/.throne/data/recall/jev-usage.jsonl`, and `throne recall --report` sums that
-log per local day and per caller. The report also says that the TypeSafe API
-does not expose the account's charged usage, so the TypeSafe console is the
-only cross-check of that spend.
-
-**The budget belongs to the machine, not the environment.** The budget
-directory and the usage log are found from the home directory the operating
-system's user database records for the account, joined with
-`.throne/data/recall/`. `HOME`, `THRONE_DATA_HOME` and `THRONE_LIVE_ROOT` do
-not move them, so a process run with a scratch home still spends from the
-machine's one budget.
-
-**Builds older than the limiter.** Every build carries a Jev limiter version,
-and the tally records the highest version the live build (the `dist` of the
-main checkout) has spent with. A build whose version is lower is never sent to
-Jev: the rules answer, the verdict line says
-`rules (this build has no Jev limiter)`, the ledger `reason` is
-`build without Jev limiter`, and the usage log records `outdated-build`. A
-worktree build with a higher version may spend but never raises the recorded
-version, so it cannot lock the live build out. A build made before the limiter
-existed has no code to refuse with; the PreToolUse fence refuses running such
-a build instead.
+`throne recall --status` (also `sift --status`, `rank --status`) prints that
+the keyword rules answer. Any field in the `recall` section that is not in the
+table above is dropped: the file loads anyway and prints one stderr line per
+such field saying it is no longer read and can be deleted. The other sections
+still refuse an unknown field.
 
 Memory frontmatter keys, all optional: `ask` (a yes/no test of WHEN the lesson
 applies), `scope` (`global` or the project memory directory's name), `kind`
@@ -330,6 +278,37 @@ the tailnet. A place that something else already holds, or a port with funnel
 enabled, is refused and left alone. Taking an entry out of the list takes it off
 the tailnet. `throne preview add|remove|list` edits this same list
 (`agent_docs/commands.md`).
+
+## `harnessEnvironment` — extra variables for each harness's agents
+
+Each key is a harness name; each value maps a variable name to a string. Every
+agent throne launches on that harness gets those variables in its process.
+
+```ts
+harnessEnvironment: {
+  claude: { EXAMPLE_TRACE_LEVEL: 'quiet' },
+  codex: { EXAMPLE_REGION: 'north' },
+},
+```
+
+- Throne's own values win: a variable throne also sets for the launch keeps
+  throne's value.
+- Throne turns Claude Code's code mode on for every Claude agent with
+  `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`, laid beneath this section, so an
+  entry here wins. To turn it off:
+
+  ```ts
+  harnessEnvironment: { claude: { CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: '0' } },
+  ```
+- Refused at load, naming the key: a harness name throne does not know, a
+  value that is not a string, a name starting `THRONE_`, `GIT_` or `HERDR_`,
+  `PATH`, `HOME`, and every variable throne uses to pin a harness binary.
+- Each launch reads the file fresh, so the next agent launched sees an edit.
+  A running agent keeps the environment it started with; `/restart-harnesses`
+  relaunches it with the new one. If the file fails to load at launch, the
+  agent launches without the extras and one line goes to stderr.
+- `throne check-config` prints each harness's variable names, never the values.
+- Not here: variables per role, unsetting a variable.
 
 ## How the file is loaded
 
@@ -401,3 +380,104 @@ with the file set aside, send-agent to an Alpha on the secondary account was
 refused with "transcript contains no assistant runtime-model record", because
 the transcript check looked in `~/.claude/projects` instead of the secondary
 folder. Set `"balancing": false` instead.
+
+The same file holds provider accounts, the keys of third-party providers,
+under `providerAccounts`. Today only `deepseek` exists, used by the `pi` harness: its entry names a key
+file that must exist, be non-empty and be readable only by its owner (mode
+600), or every pi launch is refused naming the problem. The key never appears
+in argv, `spawn.json`, pane text or the journal: the pane is given the key
+file's path and `bin/piy` reads it into `DEEPSEEK_API_KEY`, in pi's environment only. A file holding only
+provider accounts leaves every Claude launch exactly as with no file.
+
+### pi settings
+
+Each pi agent has its own pi configuration folder, `~/.throne/data/<agent>/pi-agent/`, and throne rewrites the `settings.json` in it at every launch. A pi agent started by throne never reads `~/.pi/agent/settings.json`.
+
+Throne writes these defaults, which make pi quiet:
+
+| Setting | Value | Effect |
+| --- | --- | --- |
+| `hideThinkingBlock` | `true` | hides the model's thinking blocks (`Ctrl+T` shows them in a session) |
+| `quietStartup` | `true` | hides the start-up header and the list of loaded resources |
+| `collapseChangelog` | `true` | shows a short changelog after an update |
+| `defaultTools` | `['+codemode']` | turns on pi's `codemode` tool, which runs a JavaScript script calling pi's other tools and returns only the script's output, next to the default tools `read`, `bash`, `edit` and `write` (pi's `docs/cli.md` "Enable codemode") |
+
+To change any of them, or to set any other pi setting, put one JSON object in `~/.throne/config/pi-settings.json`. Its entries are laid over the defaults:
+
+```json
+{
+  "hideThinkingBlock": false,
+  "defaultThinkingLevel": "low"
+}
+```
+
+- The file is read at each pi launch, so a change reaches an agent the next time it starts.
+- `defaultProvider` and `defaultModel` are throne's to set and are ignored in this file.
+- A file that is not one JSON object refuses every pi launch, naming the file.
+- No file means the defaults alone.
+- Throne also writes `skills`, naming its own `.claude/skills` folder, so a pi agent has throne's skills whatever folder it works in. Folders you list under `skills` in this file are added after it. The global skills in `~/.agents/skills` are found by pi itself.
+- Throne does not set `defaultProjectTrust`: a pi agent trusts no working folder's own pi resources unless you say so here.
+- Throne keeps `lastChangelogVersion`, which pi records itself, from one launch to the next, so pi does not show its changelog again on every start.
+
+The same settings can be written in `config.user.ts` as a top-level `piSettings` object. It is laid over the defaults after `pi-settings.json`, so for a key set in both, `config.user.ts` wins:
+
+```ts
+piSettings: {
+  defaultTools: ['read', 'bash', 'edit', 'write'],
+},
+```
+
+That entry replaces throne's `defaultTools` and so turns pi's `codemode` off. `codemode: { mode: 'only' }` instead hides the other tools from the model, which then reaches them through `codemode`; the default is `'on'` (pi's `docs/settings.md`).
+
+- `piSettings` must be one object of JSON values. Pi's own setting names are not checked.
+- `defaultProvider` and `defaultModel` in `piSettings` refuse the file at load, naming the key.
+- Throne's `skills` folder and its `defaultProvider` and `defaultModel` are still written after it.
+- It is read at each pi launch. A `config.user.ts` that fails to load there prints one line on stderr and the agent launches without the section.
+- A running pi agent keeps the `settings.json` it was launched with; the change reaches it when it is next launched.
+- `throne check-config` prints the key names it holds.
+- No section leaves `settings.json` exactly as before.
+
+Throne also places its own instruction file, `extensions/pi/AGENTS.md` in the throne checkout, in each agent's pi folder as `AGENTS.md`, linked back to the checkout at every launch so it never goes stale. It tells the agent to follow `~/.claude/CLAUDE.md`, to read both `AGENTS.md` and `CLAUDE.md` when the working folder has both, and to search the web only with the agent-browser skill and DuckDuckGo, from its own copy `~/.agent-browser/profiles/web-search-<agent>` of the persistent `~/.agent-browser/profiles/web-search` profile. Reaping the agent removes its copy; the base profile stays. A launch that cannot place it is refused with the reason. `~/.pi/agent/AGENTS.md` is not read by an agent throne starts.
+
+## `features` — switches that are off until you turn them on
+
+The `features` section of `config.user.ts` holds boolean switches, one object
+of `<name>: true | false`. No section, or no name, leaves the switch off; a
+value that is not a boolean, or a name throne does not know, refuses the file,
+naming the key. Each switch is read fresh at every message, so a change takes
+effect at the next one with no restart. A `config.user.ts` that fails to load
+reads every switch as off and prints one line on stderr; the message is still
+delivered. `throne check-config` shows each switch and its value, and says so
+when a leftover `~/.throne/config/features.json` is no longer read.
+
+| switch | default | effect when `true` |
+| --- | --- | --- |
+| `sendAgentFileBackedPayloads` | `false` | `send-agent` stages bodies of 768 bytes and over in a file and types a pointer (`agent_docs/commands.md` "File-backed bodies"). |
+
+`send-agent` hands messages for Claude Code and pi agents to the agent's own
+Unix socket, recorded in its `spawn.json` as `delivery_socket` and passed at
+launch as `THRONE_DELIVERY_SOCKET`. pi listens inside its extension; for
+Claude, throne's mod from `extensions/claude/`, which every Claude launch
+loads (`--plugin-dir`), starts a helper through `bin/throne-runtime`
+(`THRONE_DELIVERY_RUNTIME`, `THRONE_DELIVERY_HELPER`). No switch turns this
+on or off. The agent reads the composer's real text, waits while a draft or a
+turn is in it, submits the message, and answers on the same connection.
+Delivery falls back to typed keys, once, with one line naming the agent and
+the reason, in each of these cases:
+
+- the agent's `spawn.json` records no `delivery_socket` (it was launched
+  before the socket, or its Claude Code failed `claude plugin validate`;
+  `throne restart-harnesses` relaunches it onto one);
+- the socket cannot be connected to within 1000 ms, whatever file sits at
+  the path (a dead agent, a killed helper);
+- the agent answers `busy` after the sender's wait, or does not answer
+  within that wait plus 2000 ms;
+- the installed Claude Code fails `claude plugin validate extensions/claude`:
+  agents launch without the mod and one line says it does not fit that
+  version. `update-harnesses` runs the same validate on every Claude update
+  and says so when the new version breaks the mod.
+
+Codex and other harnesses are launched and messaged by typed keys as before.
+Claude Code shows the model a mod-delivered message as
+`The <mod name> plugin sent a message:` above the usual `<sender> said: <text>`
+body (measured on Claude Code 2.1.322).

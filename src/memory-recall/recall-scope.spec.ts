@@ -4,7 +4,6 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { runRecall } from './recall.command.ts';
 import {
-  HOOK_PAYLOAD,
   IN_OTHER_REPOSITORY,
   IN_PROJECT,
   PULL_REQUEST_TASK,
@@ -12,9 +11,6 @@ import {
   ledgerLines,
   sureNoBackend,
 } from './recall.command.test-support.ts';
-import { PROMPT_LOG_FILE_NAME } from './recall-records.ts';
-
-const HOOK_REPOSITORY = '/somewhere';
 
 function summaryLines(dataDirectory: string): Record<string, unknown>[] {
   return ledgerLines(dataDirectory).filter((line) => 'questionsAsked' in line);
@@ -99,57 +95,14 @@ test('the global memories are searched unless --no-global is passed', async () =
   );
 });
 
-test('the hook output states the repository, its memory directory and the global directories on their own line', async () => {
-  const fixture = harness({ hookEnabled: true }, { stdin: HOOK_PAYLOAD });
-  await runRecall(['--hook'], fixture.dependencies);
-  assert.equal(
-    scopeLineOf(fixture.stdout.join('')),
-    `Searched: repository ${HOOK_REPOSITORY} (memories in ${fixture.projectMemories}); global memories in ${fixture.globalMemories}.`,
-  );
-});
-
-test('the hook output tells the agent to run throne recall --directory for any other repository', async () => {
-  const fixture = harness({ hookEnabled: true }, { stdin: HOOK_PAYLOAD });
-  await runRecall(['--hook'], fixture.dependencies);
-  assert.ok(fixture.stdout.join('').includes('throne recall --directory <path> "<task>"'));
-});
-
 test('the verdict line names the scope it covers and is never an unqualified no relevant memory', async () => {
-  const nothingRelevant = harness({ hookEnabled: true, verdictLineThreshold: 0.9 }, { stdin: HOOK_PAYLOAD, backend: sureNoBackend(0.95) });
-  await runRecall(['--hook'], nothingRelevant.dependencies);
-  const relevant = harness({ hookEnabled: true }, { stdin: HOOK_PAYLOAD });
-  await runRecall(['--hook'], relevant.dependencies);
+  const nothingRelevant = harness({ verdictLineThreshold: 0.9 }, { backend: sureNoBackend(0.95) });
+  await runRecall([...IN_PROJECT, PULL_REQUEST_TASK], nothingRelevant.dependencies);
+  const relevant = harness();
+  await runRecall([...IN_PROJECT, PULL_REQUEST_TASK], relevant.dependencies);
   const printed = nothingRelevant.stdout.join('') + relevant.stdout.join('');
-  assert.match(printed, /Jev \(95% sure\): no relevant memory in project's memories and the global memories\.\n/);
+  assert.match(printed, /rules: no relevant memory in project's memories and the global memories\.\n/);
   assert.match(printed, /rules: a relevant memory likely exists in project's memories and the global memories\.\n/);
   assert.doesNotMatch(printed, /no relevant memory(?! in )/);
 });
 
-test('the shadow arm prints nothing but records the searched memory directories in the ledger', async () => {
-  const fixture = harness({ hookEnabled: true, hookMode: 'shadow' }, { stdin: HOOK_PAYLOAD });
-  await runRecall(['--hook'], fixture.dependencies);
-  assert.deepEqual(fixture.stdout, []);
-  assert.deepEqual(
-    summaryLines(fixture.dataDirectory).map((line) => [line.arm, line.searchedMemoryDirectories]),
-    [['shadow', [fixture.projectMemories, fixture.globalMemories]]],
-  );
-});
-
-test('the ledger summary and the prompt log record the searched memory directories', async () => {
-  const fixture = harness({ hookEnabled: true }, { stdin: HOOK_PAYLOAD });
-  await runRecall(['--hook'], fixture.dependencies);
-  await runRecall([...IN_PROJECT, ...IN_OTHER_REPOSITORY, PULL_REQUEST_TASK], fixture.dependencies);
-  const hookScope = [fixture.projectMemories, fixture.globalMemories];
-  assert.deepEqual(
-    summaryLines(fixture.dataDirectory).map((line) => [line.source, line.searchedMemoryDirectories]),
-    [
-      ['hook', hookScope],
-      ['command', [fixture.projectMemories, fixture.otherRepositoryMemories, fixture.globalMemories]],
-    ],
-  );
-  const promptLog = readFileSync(path.join(fixture.dataDirectory, PROMPT_LOG_FILE_NAME), 'utf8')
-    .trim()
-    .split('\n')
-    .map((line) => JSON.parse(line) as Record<string, unknown>);
-  assert.deepEqual(promptLog.map((line) => line.searchedMemoryDirectories), [hookScope]);
-});

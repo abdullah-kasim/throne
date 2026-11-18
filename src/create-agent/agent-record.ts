@@ -1,3 +1,4 @@
+import type { PiLaunch } from "./pi-launch.ts";
 import {
   composeCodexOpeningPrompt,
   composeOpeningPrompt,
@@ -27,7 +28,6 @@ export function createAgentIdentity(
   memory?: MemoryResolution,
 ): AgentIdentity {
   const policyOverride = [
-    request.capabilityOverrideNote,
     request.effortOverrideNote,
     request.harnessOverrideNote,
   ]
@@ -159,6 +159,7 @@ export async function persistNewAgentRecord(
   deps: CreateAgentDeps,
   identity: AgentIdentity,
   completeOpeningPrompt: string,
+  pi?: PiLaunch,
 ): Promise<boolean> {
   if (request.resuming) {
     return true;
@@ -183,9 +184,6 @@ export async function persistNewAgentRecord(
       ...(!request.durableRoutingNote
         ? {}
         : { routing_note: request.routingNote }),
-      ...(request.capabilityEvidence === undefined
-        ? {}
-        : { capability: request.capabilityEvidence }),
       ...(request.usageBypassAuthorization === undefined
         ? {}
         : {
@@ -211,6 +209,13 @@ export async function persistNewAgentRecord(
         ? {}
         : { forked_from: request.forkedFrom }),
       ...(request.account === undefined ? {} : { account: request.account }),
+      ...(pi === undefined
+        ? {}
+        : {
+            session_id: pi.piSession.sessionId,
+            pi_model_id: pi.piModelId,
+            ...(pi.displayName === null ? {} : { pi_model_display_name: pi.displayName }),
+          }),
       ...(request.accountRequirement === undefined
         ? {}
         : { account_requirement: request.accountRequirement }),

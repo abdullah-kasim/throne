@@ -10,7 +10,7 @@ import { checkoutUserConfigPath, homeUserConfigPath } from "../user-config-loade
 
 export const RETIRED_BROWSER_PROFILES_FOLDER_NAME = "agent-browser";
 
-const SETTINGS_FILE_NAMES = ["features.json", "private-refs.txt"] as const;
+const SETTINGS_FILE_NAMES = ["private-refs.txt"] as const;
 
 export const MIGRATION_ITEM_KINDS = {
   SETTING: "setting",

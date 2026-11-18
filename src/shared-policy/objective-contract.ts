@@ -153,9 +153,7 @@ export function objectiveContractFromAlphaEvidence(
   };
 }
 
-/** Only the Regent may supervise a new Alpha spawn. A Stager never spawns an
- *  Alpha itself — it relays a completed plan to the Regent and asks the
- *  Regent to launch it. */
+/** Only the Regent may supervise a new Alpha spawn. */
 export function isAlphaSpawnerSupervisorName(supervisor: string): boolean {
   return supervisor.trim().toLowerCase() === 'regent';
 }
@@ -204,7 +202,7 @@ export function newAgentObjectiveContract(opts: {
         reason:
           `new Alpha launches are admitted only for a "Regent" --supervisor; ` +
           `got "${opts.supervisor}". A Stager never spawns an Alpha itself — ` +
-          'relay the completed plan to the Regent and ask the Regent to launch it.',
+          'file the plan with add-to-queue and notify the Regent, who decides when to launch.',
       };
     }
     if (opts.nonCampaign) {

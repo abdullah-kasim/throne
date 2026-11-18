@@ -15,6 +15,6 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true
   },
-  "include": ["src/**/*.ts", "config.user.example.ts"],
+  "include": ["src/**/*.ts", "extensions/shared/**/*.ts", "extensions/claude/delivery-helper.ts", "config.user.example.ts"],
   "exclude": ["dist"]
 }

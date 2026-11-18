@@ -1,5 +1,6 @@
 import type { SupportedAgentScreenSnapshot } from "../codex-screen/composer/composer.types.ts";
 import { HARNESS_NAMES } from "../harness-routing/harness.ts";
+import { claudeModFallbackLine } from "../herdr/claude-mod-route.ts";
 import { isHerdrPaneGone } from "../herdr/herdr-client.ts";
 import { sameRecipientPaneIdentity } from "../herdr/herdr-identity.service.ts";
 import {
@@ -14,9 +15,10 @@ import {
   defaultSubmitToAgentDeps,
   submitToAgentWhileLocked,
 } from "../herdr/herdr-send.service.ts";
-import type {
-  SubmitToAgentDeps,
-  SubmitToAgentOptions,
+import {
+  EXTENSION_DELIVERY_TIMEOUT_MS,
+  type SubmitToAgentDeps,
+  type SubmitToAgentOptions,
 } from "../herdr/herdr-send.types.ts";
 import { errorText } from "../shared-policy/error-text.ts";
 
@@ -86,11 +88,53 @@ export async function typeHarnessCommandIntoIdleClaudePane(
   }
 }
 
+export async function claudeModTakesCommandsOf(
+  agent: HerdrAgent,
+  deps: SubmitToAgentDeps,
+): Promise<boolean> {
+  const claudeMod = deps.claudeMod;
+  if (claudeMod === undefined || !(await claudeMod.usesMod(recipientName(agent)))) return false;
+  const alive = await claudeMod.alive(await claudeMod.socketOf(recipientName(agent)), agent.paneId);
+  return alive?.commands === true;
+}
+
+function commandRequestOf(commandText: string): { command: string; args: string } {
+  const [command = "", ...words] = commandText.replace(/^\//u, "").split(" ");
+  return { command, args: words.join(" ") };
+}
+
+async function runCommandThroughTheClaudeMod(
+  agent: HerdrAgent,
+  commandText: string,
+  deps: SubmitToAgentDeps,
+): Promise<HarnessCommandTypingResult | undefined> {
+  const claudeMod = deps.claudeMod;
+  if (claudeMod === undefined || !(await claudeModTakesCommandsOf(agent, deps))) return undefined;
+  const socketPath = await claudeMod.socketOf(recipientName(agent));
+  const outcome = await deps.deliverThroughExtension(
+    commandRequestOf(commandText),
+    EXTENSION_DELIVERY_TIMEOUT_MS,
+    agent.paneId,
+    socketPath === undefined ? {} : { socketPath },
+  );
+  if (outcome.kind === "delivered") return APPLIED;
+  if (outcome.kind === "timed-out" && (await claudeMod.alive(socketPath, agent.paneId)) !== undefined) return SKIPPED_BUSY;
+  claudeMod.log(
+    claudeModFallbackLine(
+      recipientName(agent),
+      outcome.kind === "timed-out" ? `no answer after ${outcome.waitedMs}ms; the connection was closed` : outcome.detail,
+    ),
+  );
+  return undefined;
+}
+
 async function typeHarnessCommandWhileHoldingThePaneLock(
   agent: HerdrAgent,
   commandText: string,
   deps: SubmitToAgentDeps,
 ): Promise<HarnessCommandTypingResult> {
+  const throughTheMod = await runCommandThroughTheClaudeMod(agent, commandText, deps);
+  if (throughTheMod !== undefined) return throughTheMod;
   const liveAgent = await liveAgentSafeToTypeACommandInto(agent, deps);
   if (liveAgent === undefined) return SKIPPED_BUSY;
   try {
@@ -99,7 +143,7 @@ async function typeHarnessCommandWhileHoldingThePaneLock(
       NO_SENDER_NAME,
       commandText,
       RAW_COMMAND_INTO_AN_EMPTY_TEXTBOX_ONLY,
-      deps,
+      { ...deps, claudeMod: undefined },
     );
     return APPLIED;
   } catch (error) {

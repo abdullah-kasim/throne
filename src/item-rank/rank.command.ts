@@ -1,23 +1,12 @@
 import type { Command as CommanderCommand } from 'commander';
 import { Command, CommandRunner } from 'nest-commander';
 import { text as readStreamAsText } from 'node:stream/consumers';
-import { chooseClassifierBackend } from '../relevance-classifier/choose-backend.ts';
+import { chooseClassifierBackend, renderedBackendStatus } from '../relevance-classifier/choose-backend.ts';
 import type { ClassifierBackend } from '../relevance-classifier/classifier.types.ts';
 import {
-  readJevSwitch,
-  renderedJevStatus,
-  type JevSwitch,
-} from '../relevance-classifier/jev-switch.ts';
-import {
-  readJevSpendingOnThisMachine,
-  type JevSpending,
-} from '../relevance-classifier/jev-spending.ts';
-import {
   loadRecallConfig,
-  pathWithHomeExpanded,
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
-import { RULES_BACKEND } from '../relevance-classifier/rules-backend.ts';
 import {
   appendLinesToLedger,
   inputHash,
@@ -39,12 +28,7 @@ import {
 export interface RankDependencies {
   loadConfig(): Promise<RecallConfig>;
   chooseBackend(config: RecallConfig): Promise<ClassifierBackend>;
-  readJevSwitch(config: RecallConfig): Promise<JevSwitch>;
-  readJevSpending(config: RecallConfig): Promise<JevSpending>;
-  gatherFileItems(
-    pathsOrGlobs: readonly string[],
-    allowedRoots: readonly string[],
-  ): Promise<GatheredItems>;
+  gatherFileItems(pathsOrGlobs: readonly string[]): Promise<GatheredItems>;
   readStdin(): Promise<string>;
   dataDirectory: string;
   now(): Date;
@@ -54,22 +38,18 @@ export interface RankDependencies {
 
 export const USAGE =
   'Usage: ./bin/throne-cli rank "<yes/no question>" [--top N] [--min PROBABILITY] [--json] <files or globs...>\n' +
-  '       <items> | ./bin/throne-cli rank "<yes/no question>" [--allow-stdin-to-jev]\n' +
+  '       <items> | ./bin/throne-cli rank "<yes/no question>" [--top N] [--min PROBABILITY] [--json]\n' +
   '       ./bin/throne-cli rank --status (which backend would answer now, and why)\n' +
   'Ranks files, or stdin items, by how likely each is to answer yes to the question, so you open\n' +
   'the top few instead of all of them. Prints one line per item, most likely first: the\n' +
   'probability, then the path or id. Item contents are never printed. Stdin items are one per\n' +
   'line, or JSON lines of {"id": "...", "text": "..."}.\n' +
-  'With Jev off the ranking is word matching, not meaning. With Jev on, FILE CONTENTS are sent to\n' +
-  'TypeSafe, but only for files under recall.rankAllowedRoots, and stdin only with\n' +
-  '--allow-stdin-to-jev; everything else is ranked by word matching and named on stderr.\n' +
+  'The keyword rules rank by word matching against the question, not meaning.\n' +
   'If ranking fails, every item is printed unranked: a ranking is a hint, never proof of absence.\n';
 
 const PRODUCTION_DEPENDENCIES: RankDependencies = {
   loadConfig: () => loadRecallConfig(),
-  chooseBackend: (config) => chooseClassifierBackend(config, 'rank'),
-  readJevSwitch: (config) => readJevSwitch(config),
-  readJevSpending: (config) => readJevSpendingOnThisMachine(config),
+  chooseBackend: () => chooseClassifierBackend(),
   gatherFileItems,
   readStdin: () => readStreamAsText(process.stdin),
   dataDirectory: productionRecallDataDirectory(),
@@ -81,7 +61,6 @@ const PRODUCTION_DEPENDENCIES: RankDependencies = {
 interface ParsedArguments {
   readonly status: boolean;
   readonly json: boolean;
-  readonly allowStdinToJev: boolean;
   readonly top?: number;
   readonly minimumProbability?: number;
   readonly question: string;
@@ -104,7 +83,6 @@ function numberFlagValue(
 function parseArguments(commandArguments: readonly string[]): ParsedArguments {
   let status = false;
   let json = false;
-  let allowStdinToJev = false;
   let top: number | undefined;
   let minimumProbability: number | undefined;
   const positionals: string[] = [];
@@ -112,7 +90,6 @@ function parseArguments(commandArguments: readonly string[]): ParsedArguments {
     const argument = commandArguments[index] as string;
     if (argument === '--status') status = true;
     else if (argument === '--json') json = true;
-    else if (argument === '--allow-stdin-to-jev') allowStdinToJev = true;
     else if (argument === '--top') {
       top = numberFlagValue(
         argument,
@@ -138,7 +115,6 @@ function parseArguments(commandArguments: readonly string[]): ParsedArguments {
   return {
     status,
     json,
-    allowStdinToJev,
     ...(top === undefined ? {} : { top }),
     ...(minimumProbability === undefined ? {} : { minimumProbability }),
     question,
@@ -200,32 +176,14 @@ async function rankAndPrint(
 ): Promise<void> {
   const gathered =
     parsed.pathsOrGlobs.length > 0
-      ? await dependencies.gatherFileItems(
-          parsed.pathsOrGlobs,
-          config.rankAllowedRoots.map((root) => pathWithHomeExpanded(root)),
-        )
-      : gatherStdinItems(await dependencies.readStdin(), parsed.allowStdinToJev);
+      ? await dependencies.gatherFileItems(parsed.pathsOrGlobs)
+      : gatherStdinItems(await dependencies.readStdin());
   const unreadableIds = gathered.unreadable.map((item) => item.id);
   const backend = await dependencies.chooseBackend(config);
-  const sentItems =
-    backend.name === 'jev'
-      ? gathered.items.filter((item) => item.mayBeSentToJev)
-      : [];
-  const keptLocalItems = gathered.items.filter((item) => !sentItems.includes(item));
-  if (backend.name === 'jev' && keptLocalItems.length > 0) {
-    dependencies.writeStderr(
-      `rank: not sent to Jev, ranked by word matching instead (outside recall.rankAllowedRoots, or stdin without --allow-stdin-to-jev): ${keptLocalItems.map((item) => item.id).join(', ')}\n`,
-    );
-  }
-  if (backend.name === 'rules') {
-    dependencies.writeStderr(
-      'rank: Jev is off, so this ranking is word matching against the question, not meaning.\n',
-    );
-  }
-  const outcomes = await Promise.all([
-    rankItemsByQuestion(backend, parsed.question, sentItems),
-    rankItemsByQuestion(RULES_BACKEND, parsed.question, keptLocalItems),
-  ]);
+  dependencies.writeStderr(
+    'rank: the keyword rules rank by word matching against the question, not meaning.\n',
+  );
+  const outcomes = [await rankItemsByQuestion(backend, parsed.question, gathered.items)];
   if (outcomes.some((outcome) => outcome.failed)) {
     dependencies.writeStderr(
       'rank: ranking failed, so every item is listed unranked; open them as you would have without a ranking.\n',
@@ -263,17 +221,11 @@ export async function runRank(
     return 2;
   }
   try {
-    const config = await dependencies.loadConfig();
     if (parsed.status) {
-      dependencies.writeStdout(
-        renderedJevStatus(
-          await dependencies.readJevSwitch(config),
-          await dependencies.readJevSpending(config),
-        ),
-      );
+      dependencies.writeStdout(renderedBackendStatus());
       return 0;
     }
-    await rankAndPrint(parsed, config, dependencies);
+    await rankAndPrint(parsed, await dependencies.loadConfig(), dependencies);
   } catch (error) {
     dependencies.writeStderr(
       `rank: ranking failed before it began (${error instanceof Error ? error.message : String(error)}), so the items are listed as given, unranked.\n`,

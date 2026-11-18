@@ -6,7 +6,7 @@ import {
   sameLauncherFamily,
   type Harness,
 } from "../harness-routing/harness.ts";
-import { modelEffortRange } from "../harness-routing/policy/capabilities.ts";
+import { modelEffortRange } from "../harness-routing/policy/model-effort-and-equivalents.ts";
 import type {
   LaunchRecipe,
   SessionCandidate,

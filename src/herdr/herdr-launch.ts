@@ -15,10 +15,15 @@ import {
   shellQuote,
   hideFromBashHistory,
 } from "./herdr-launch-command.ts";
+import { CLAUDE_MOD_FOLDER, claudeModMisfitLine } from "./claude-mod-route.ts";
+import { chooseDeliverySocket, deliveryEnvironment } from "./delivery-socket-path.ts";
+import { HARNESS_NAMES } from "../harness-routing/harness.ts";
 import { renameAgent } from "./herdr-runtime.service.ts";
 import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+
+export const CLAUDE_CODE_MODE_ENVIRONMENT: Readonly<Record<string, string>> = { CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: "1" };
 
 export async function startInTab(
   name: string,
@@ -28,13 +33,32 @@ export async function startInTab(
 ): Promise<string> {
   const expectedKind = launcherHarnessKind(opts);
   const agentName = opts.tabLabel ?? name;
-  const launch = await translatedLaunchContext(opts, {
+  const claudeModLaunch =
+    expectedKind === HARNESS_NAMES.CLAUDE ? deps.claudeMod?.decide() : undefined;
+  const listensForDelivery = claudeModLaunch?.load === true || expectedKind === HARNESS_NAMES.PI;
+  const deliverySocket =
+    listensForDelivery && deps.deliverySocket !== undefined
+      ? await chooseDeliverySocket(agentName, deps.deliverySocket.throneHome, await deps.deliverySocket.recorded(agentName))
+      : undefined;
+  const configuredEnvironment = (await deps.readHarnessEnvironment?.(expectedKind)) ?? {};
+  const translated = await translatedLaunchContext(opts, {
+    ...(expectedKind === HARNESS_NAMES.CLAUDE ? CLAUDE_CODE_MODE_ENVIRONMENT : {}),
+    ...configuredEnvironment,
+    ...opts.env,
     THRONE_AGENT_NAME: agentName,
+    ...(deliverySocket === undefined ? {} : deliveryEnvironment(deliverySocket, expectedKind === HARNESS_NAMES.CLAUDE)),
     ...pinnedHarnessBinaryEnv(
       expectedKind,
       deps.vendoredHarnessBinaryDirectory ?? VENDORED_HARNESS_BINARY_DIRECTORY,
     ),
   });
+  const launch =
+    claudeModLaunch?.load === true
+      ? { ...translated, argv: [...translated.argv, "--plugin-dir", CLAUDE_MOD_FOLDER] }
+      : translated;
+  if (claudeModLaunch?.load === false) {
+    deps.claudeMod?.warn(claudeModMisfitLine(agentName, claudeModLaunch.misfit));
+  }
   let launchDir: string | undefined;
   const stagedArtifactPaths = [...(launch.stagedArtifactPaths ?? [])];
   let launchIssued = false;
@@ -60,6 +84,12 @@ export async function startInTab(
     await deps.runHerdr(["pane", "send-keys", paneId, "Enter"]);
     await waitForDetectedAgentInPane(paneId, expectedKind, deps);
     await renameAgent(paneId, agentName, { runHerdr: deps.runHerdr });
+    if (claudeModLaunch !== undefined) {
+      await deps.claudeMod?.record(agentName, claudeModLaunch.load);
+    }
+    if (deliverySocket !== undefined) {
+      await deps.deliverySocket?.record(agentName, deliverySocket);
+    }
     return paneId;
   } catch (error) {
     if (

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile, realpath } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -49,19 +49,6 @@ async function loadBenchmarkTasks(): Promise<readonly BenchmarkTask[]> {
   return JSON.parse(raw) as BenchmarkTask[];
 }
 
-function jevBenchmarkLegEnabled(): boolean {
-  return process.env.THRONE_LOCATE_BENCHMARK_JEV === '1';
-}
-
-async function recallConfigForBenchmark() {
-  if (!jevBenchmarkLegEnabled()) return DEFAULT_RECALL_CONFIG;
-  const keyFilePath = await realpath(
-    DEFAULT_RECALL_CONFIG.jevKeyFile.replace(/^~/, process.env.HOME ?? ''),
-  ).catch(() => undefined);
-  if (keyFilePath === undefined) return DEFAULT_RECALL_CONFIG;
-  return { ...DEFAULT_RECALL_CONFIG, jevEnabled: true };
-}
-
 test('judged re-ranking beats stage-1 ordering alone on recall@10', async () => {
   const tasks = await loadBenchmarkTasks();
   assert.ok(tasks.length >= 10, 'benchmark fixture must hold at least 10 tasks');
@@ -72,8 +59,6 @@ test('judged re-ranking beats stage-1 ordering alone on recall@10', async () => 
     );
   }
 
-  const recallConfig = await recallConfigForBenchmark();
-
   const perTaskMetrics = await Promise.all(
     tasks.map(async (task) => {
       const stageACandidates = await gatherCandidates(task.text, [REPO_ROOT]);
@@ -82,7 +67,7 @@ test('judged re-ranking beats stage-1 ordering alone on recall@10', async () => 
       const judgedCandidates = await judgeCandidates(
         stageACandidates,
         task.text,
-        recallConfig,
+        DEFAULT_RECALL_CONFIG,
         PRODUCTION_JUDGE_DEPENDENCIES,
       );
       const stageBPaths = [...judgedCandidates]

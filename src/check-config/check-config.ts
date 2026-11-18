@@ -7,10 +7,20 @@ import {
   type PlanRole,
 } from "../config.ts";
 import os from "node:os";
+import path from "node:path";
+import { readFile } from "node:fs/promises";
+import { throneConfigDirectory } from "../shared-policy/throne-home.ts";
 import { accountAdapterFor } from "../account/account-adapters.ts";
 import { accountsConfigPath, readAccountsConfig } from "../account/accounts-config.ts";
 import { configuredRegentLaunch } from "../regent-state/regent-launch-recipe.ts";
-import { resolveUserConfigPath } from "../user-config-loader.ts";
+import {
+  FEATURE_SWITCHES_OFF,
+  FEATURES_FIELD,
+  loadUserConfigFile,
+  resolveUserConfigPath,
+  type FeatureSwitches,
+  type FeatureSwitchKey,
+} from "../user-config-loader.ts";
 import { loadNtfyUserConfig } from "../application-config.service.ts";
 import { notifyConfigFrom, ntfyServerAnswers } from "../notify-lord/notification.service.ts";
 
@@ -52,6 +62,42 @@ export function renderResolvedSteering(configPath: string): string {
   return `${lines.join("\n")}\n`;
 }
 
+const RETIRED_FILE_SWITCH_NAMES: Readonly<Record<string, FeatureSwitchKey>> = {
+  "send-agent-file-backed-payloads": "sendAgentFileBackedPayloads",
+};
+
+export async function renderFeatureLines(configPath: string): Promise<string> {
+  const features: FeatureSwitches = (await loadUserConfigFile(configPath))?.features ?? FEATURE_SWITCHES_OFF;
+  return Object.entries(features)
+    .map(([key, value]) => `feature ${key}: ${value ? "on" : "off"} (default ${FEATURE_SWITCHES_OFF[key as FeatureSwitchKey] ? "on" : "off"}; set in ${configPath} ${FEATURES_FIELD}.${key})\n`)
+    .join("");
+}
+
+function switchesTurnedOnIn(source: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    return [];
+  }
+  if (typeof parsed !== "object" || parsed === null) return [];
+  return Object.entries(parsed as Record<string, unknown>)
+    .filter(([name, value]) => value === true && name in RETIRED_FILE_SWITCH_NAMES)
+    .map(([name]) => `${name} (now ${FEATURES_FIELD}.${RETIRED_FILE_SWITCH_NAMES[name]} in config.user.ts)`);
+}
+
+export async function renderLeftoverFeaturesFileLine(configDirectory: string = throneConfigDirectory()): Promise<string> {
+  const leftoverPath = path.join(configDirectory, "features.json");
+  let source: string;
+  try {
+    source = await readFile(leftoverPath, "utf8");
+  } catch {
+    return "";
+  }
+  const turnedOn = switchesTurnedOnIn(source);
+  return `${leftoverPath} is no longer read and may be deleted; it turns on ${turnedOn.length === 0 ? "no live switch" : turnedOn.join(", ")}\n`;
+}
+
 export async function renderAccountLines(
   configPath: string = accountsConfigPath(),
   userHome: string = os.homedir(),
@@ -65,6 +111,11 @@ export async function renderAccountLines(
     }),
   );
   return lines.join("");
+}
+
+export async function renderPiSettingsLine(configPath: string): Promise<string> {
+  const keys = Object.keys((await loadUserConfigFile(configPath))?.piSettings ?? {});
+  return `piSettings: ${keys.length === 0 ? "none" : keys.join(", ")}\n`;
 }
 
 export interface NtfyReport {
@@ -90,10 +141,23 @@ export async function renderNtfyLine(configPath: string): Promise<NtfyReport> {
   return { text: `ntfy: FAILED, the server at ${notifyConfig.serverUrl} did not answer its health check\n`, failed: true };
 }
 
+export async function renderHarnessEnvironmentLines(configPath: string): Promise<string> {
+  const harnessEnvironment = (await loadUserConfigFile(configPath))?.harnessEnvironment ?? {};
+  const harnesses = Object.keys(harnessEnvironment);
+  if (harnesses.length === 0) return "harness environment: none configured\n";
+  return harnesses
+    .map((harness) => `harness environment ${harness}: ${Object.keys(harnessEnvironment[harness]!).join(", ") || "none"}\n`)
+    .join("");
+}
+
 export async function run(): Promise<number> {
   const configPath = await resolveUserConfigPath();
   process.stdout.write(renderResolvedSteering(configPath));
+  process.stdout.write(await renderFeatureLines(configPath));
+  process.stdout.write(await renderLeftoverFeaturesFileLine());
   process.stdout.write(await renderAccountLines());
+  process.stdout.write(await renderPiSettingsLine(configPath));
+  process.stdout.write(await renderHarnessEnvironmentLines(configPath));
   const ntfyReport = await renderNtfyLine(configPath);
   process.stdout.write(ntfyReport.text);
   return ntfyReport.failed ? 1 : 0;

@@ -25,7 +25,6 @@ import type {
 import type { ObjectiveContract } from "../shared-policy/objective-contract.ts";
 import type { writeQueueLaunchLinkage } from "./queue-launch-writeback.ts";
 import type { readUsageLogRaw } from "./legacy-usage-log.ts";
-import type { CapabilityEvidence } from "./legacy-capabilities.ts";
 import type {
   CodexUsageReader,
   OpenCodeGoUsageReader,
@@ -210,8 +209,6 @@ export interface PolicyResolution extends RegistrationResolution {
   launchEffort: number;
   routingNote: string;
   durableRoutingNote: boolean;
-  capabilityEvidence?: CapabilityEvidence;
-  capabilityOverrideNote: string;
   effortOverrideNote: string;
   harnessOverrideNote: string;
   usageBypassAuthorization?: UsageBypassAuthorizationEvidence;

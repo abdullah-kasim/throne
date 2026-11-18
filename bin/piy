@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+launcher_source="${BASH_SOURCE[0]}"
+launcher_hops=0
+while [ -L "$launcher_source" ] && [ "$launcher_hops" -lt 32 ]; do
+    launcher_link=$(readlink "$launcher_source")
+    case "$launcher_link" in
+        /*) launcher_source="$launcher_link" ;;
+        *)  launcher_source="$(dirname "$launcher_source")/$launcher_link" ;;
+    esac
+    launcher_hops=$((launcher_hops + 1))
+done
+LAUNCHER_BIN_DIR=$(cd -P "$(dirname "$launcher_source")" && pwd -P)
+SELF_PATH="$LAUNCHER_BIN_DIR/$(basename "$launcher_source")"
+
+. "$LAUNCHER_BIN_DIR/launcher-bash-guard.sh" || exit 1
+throne_launcher_require_modern_bash "$SELF_PATH" "$@"
+
+. "$LAUNCHER_BIN_DIR/agent-launcher-lib.sh" || exit 1
+
+vendored_pi_entry="$LAUNCHER_BIN_DIR/../vendor/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
+pi_entry=""
+if [[ -n "${PI_BIN:-}" && -f "$PI_BIN" ]]; then
+    pi_entry="$PI_BIN"
+elif [[ -f "$vendored_pi_entry" ]]; then
+    pi_entry="$vendored_pi_entry"
+elif ! yolo_resolve_real_bin pi_entry pi "" "$SELF_PATH"; then
+    echo "piy: no pi found: set PI_BIN, install pi at $vendored_pi_entry, or put a real 'pi' on PATH" >&2
+    exit 127
+fi
+
+if [[ -z "${PI_CODING_AGENT_DIR:-}" ]]; then
+    previous_argument=""
+    for argument in "$@"; do
+        if [[ "$previous_argument" == "--session-dir" ]]; then
+            export PI_CODING_AGENT_DIR="$(dirname "$argument")/pi-agent"
+        fi
+        previous_argument="$argument"
+    done
+fi
+
+if [[ -n "${THRONE_PI_KEY_FILE:-}" ]]; then
+    if ! DEEPSEEK_API_KEY=$(tr -d '\r\n' < "$THRONE_PI_KEY_FILE"); then
+        echo "piy: cannot read the DeepSeek key file $THRONE_PI_KEY_FILE" >&2
+        exit 1
+    fi
+    export DEEPSEEK_API_KEY
+    unset THRONE_PI_KEY_FILE
+fi
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+backup_msg=""
+claudey_setup_backup backup_msg "$repo_root"
+
+if [[ "$pi_entry" == *.js ]]; then
+    exec "$LAUNCHER_BIN_DIR/throne-runtime" "$pi_entry" "$@"
+fi
+exec "$pi_entry" "$@"

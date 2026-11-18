@@ -1,0 +1,8045 @@
+{
+  "recorded_from": "3c7e0b52d9a14f68e2b7c1d05a9f3e46b8d2c710",
+  "answers": [
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "fable",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "opus",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "sonnet",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "haiku",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "gpt-5.6-sol",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "gpt-5.6-terra",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "gpt-5.5",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "gpt-5.6-luna",
+      "answer": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "gpt-5.4",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "gpt-5.4-mini",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "pro",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claude",
+      "model": "opencode-go/deepseek-v4-flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "fable",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "opus",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "sonnet",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "haiku",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "gpt-5.6-sol",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "gpt-5.6-terra",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "gpt-5.5",
+      "answer": {
+        "min": 1,
+        "max": 4
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "gpt-5.6-luna",
+      "answer": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "gpt-5.4",
+      "answer": {
+        "min": 1,
+        "max": 4
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "gpt-5.4-mini",
+      "answer": {
+        "min": 1,
+        "max": 4
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "pro",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codex",
+      "model": "opencode-go/deepseek-v4-flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "fable",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "opus",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "sonnet",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "haiku",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "gpt-5.6-sol",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "gpt-5.6-terra",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "gpt-5.5",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "gpt-5.6-luna",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "gpt-5.4",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "gpt-5.4-mini",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "pro",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "opencode",
+      "model": "opencode-go/deepseek-v4-flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "fable",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "opus",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "sonnet",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "haiku",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "gpt-5.6-sol",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "gpt-5.6-terra",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "gpt-5.5",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "gpt-5.6-luna",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "gpt-5.4",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "gpt-5.4-mini",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "flash",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "pro",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "pi",
+      "model": "opencode-go/deepseek-v4-flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "fable",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "opus",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "sonnet",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "haiku",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "gpt-5.6-sol",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "gpt-5.6-terra",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "gpt-5.5",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "gpt-5.6-luna",
+      "answer": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "gpt-5.4",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "gpt-5.4-mini",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "pro",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "claudey-all-omni",
+      "model": "opencode-go/deepseek-v4-flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "fable",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "opus",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "sonnet",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "haiku",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "gpt-5.6-sol",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "gpt-5.6-terra",
+      "answer": {
+        "min": 1,
+        "max": 6
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "gpt-5.5",
+      "answer": {
+        "min": 1,
+        "max": 4
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "gpt-5.6-luna",
+      "answer": {
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "gpt-5.4",
+      "answer": {
+        "min": 1,
+        "max": 4
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "gpt-5.4-mini",
+      "answer": {
+        "min": 1,
+        "max": 4
+      }
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "flash",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "pro",
+      "answer": null
+    },
+    {
+      "ask": "modelEffortRange",
+      "harness": "codexy-all-omni",
+      "model": "opencode-go/deepseek-v4-flash",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "fable"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "fable"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "fable"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "fable"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "fable"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": "fable"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "fable"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "fable"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "fable",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opus",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "sonnet",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "haiku",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "opus"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-sol"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-sol",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "gpt-5.6-terra"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.6-terra"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "gpt-5.6-terra"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "gpt-5.6-terra"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-terra"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-terra"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-terra",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "gpt-5.5"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.5"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "gpt-5.5"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "gpt-5.5"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.5"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.5"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.5",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "gpt-5.6-luna"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.6-luna"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "gpt-5.6-luna"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "gpt-5.6-luna"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-luna"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.6-luna"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.6-luna",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "sonnet"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "haiku"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "gpt-5.4-mini"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "gpt-5.4-mini",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "flash",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "pro"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "pro"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "pro"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "pro"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "pro"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "pro"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "pro",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "claude",
+      "pool": "none",
+      "answer": "opencode-go/deepseek-v4-flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claude",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "codex",
+      "pool": "none",
+      "answer": "opencode-go/deepseek-v4-flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codex",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "none",
+      "answer": "opencode-go/deepseek-v4-flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "opencode",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "pi",
+      "pool": "none",
+      "answer": "opencode-go/deepseek-v4-flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "pi",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": "opencode-go/deepseek-v4-flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "claudey-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "claude",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "codex",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "opencode",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "pi",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "none",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "claudey-all-omni",
+      "pool": "mixed",
+      "answer": null
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "none",
+      "answer": "opencode-go/deepseek-v4-flash"
+    },
+    {
+      "ask": "equivalentModel",
+      "model": "opencode-go/deepseek-v4-flash",
+      "from": "codexy-all-omni",
+      "to": "codexy-all-omni",
+      "pool": "mixed",
+      "answer": null
+    }
+  ]
+}

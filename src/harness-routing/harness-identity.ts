@@ -19,12 +19,22 @@ export const HARNESS_NAMES = {
   CLAUDE: 'claude',
   CODEX: 'codex',
   OPENCODE: 'opencode',
-  OMP: 'omp',
+  PI: 'pi',
   ...OMNI_HARNESS_NAMES,
 } as const;
 export type Harness = (typeof HARNESS_NAMES)[keyof typeof HARNESS_NAMES];
-export type RuntimeHarness = 'claude' | 'codex' | 'opencode' | 'omp';
+export type RuntimeHarness = 'claude' | 'codex' | 'opencode' | 'pi';
 export const HARNESSES = Object.values(HARNESS_NAMES);
+
+export const REMOVED_HARNESS_REPLACEMENTS: Readonly<Record<string, string>> = {
+  omp: 'pi',
+};
+
+export function removedHarnessMessage(harness: string): string | undefined {
+  const name = harness.trim();
+  if (!Object.hasOwn(REMOVED_HARNESS_REPLACEMENTS, name)) return undefined;
+  return `the ${name} harness was removed from the throne; use the ${REMOVED_HARNESS_REPLACEMENTS[name]} harness instead`;
+}
 
 export const MODEL_NAMES = {
   FABLE: 'fable',
@@ -38,4 +48,6 @@ export const MODEL_NAMES = {
   GPT_5_4: 'gpt-5.4',
   GPT_5_4_MINI: 'gpt-5.4-mini',
   DEEPSEEK_V4_FLASH: 'opencode-go/deepseek-v4-flash',
+  FLASH: 'flash',
+  PRO: 'pro',
 } as const;

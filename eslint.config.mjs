@@ -8,7 +8,7 @@ export default tseslint.config(
     ignores: ['dist/**', 'dist.build.*/**', '.dist-scratch.*/**', 'node_modules/**'],
   },
   {
-    files: ['src/**/*.ts', 'test/**/*.ts'],
+    files: ['src/**/*.ts', 'test/**/*.ts', 'extensions/shared/**/*.ts', 'extensions/claude/delivery-helper.ts'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {

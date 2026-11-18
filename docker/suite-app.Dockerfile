@@ -14,7 +14,6 @@ RUN git config --system --add safe.directory '*'
 
 ENV BUN_VERSION=1.4.4 \
     HERDR_VERSION=0.8.2 \
-    OMP_VERSION=18.0.4 \
     BUN_INSTALL=/usr/local/bun \
     PATH=/usr/local/bun/bin:${PATH}
 
@@ -33,7 +32,6 @@ RUN case "${TARGETARCH}" in \
     && echo "${herdr_sha256}  /usr/local/bin/herdr" | sha256sum --check \
     && chmod 0755 /usr/local/bin/herdr
 
-RUN bun install --global "@oh-my-pi/pi-coding-agent@${OMP_VERSION}"
 
 WORKDIR /throne
 

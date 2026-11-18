@@ -2,9 +2,14 @@ import { agentRegistrationExists } from "../agentdata/spawn-data-contracts.ts";
 import { TREE_BASE_DATA } from "../agentdata/tree-base-data.service.ts";
 import { sameAgentName } from "../herdr/herdr-identity-contracts.ts";
 import { listAgents } from "../herdr/herdr-runtime.service.ts";
-import { recordAgentLaunchOnQueueItem } from "../regent-queue/regent-queue-lifecycle.ts";
+import { isAlphaRole } from "../no-idling/idle-family.ts";
+import {
+  findInFlightQueueItemByAgentName,
+  recordAgentLaunchOnQueueItem,
+} from "../regent-queue/regent-queue-lifecycle.ts";
 import {
   openRegentQueueStore,
+  RegentQueueItemStatus,
   type RegentQueueStore,
 } from "../regent-queue/regent-queue.store.ts";
 import type { ObjectiveContract } from "../shared-policy/objective-contract.ts";
@@ -45,11 +50,11 @@ async function herdrNoLongerListsTheAgent(
 
 /**
  * `create-agent`'s side of the shared queue lifecycle write-back
- * (`regent-queue-lifecycle.ts`): a successful launch against a campaign
- * objective code transitions its matched queue item to `in-flight`,
+ * (`regent-queue-lifecycle.ts`): an Alpha tasked or launched against a
+ * campaign objective code transitions its matched queue item to `in-flight`,
  * recording the agent name, target repo, and base commit from the tree this
  * campaign was just prepared against. A non-campaign launch (no objective
- * code) is a no-op — there is nothing to look up. Never throws: any failure
+ * code) or any role other than Alpha is a no-op. Never throws: any failure
  * to match, open the store, or read the tree is logged to stdout and
  * swallowed, so the write-back can never fail the launch it rides along
  * with.
@@ -57,9 +62,14 @@ async function herdrNoLongerListsTheAgent(
 export async function writeQueueLaunchLinkage(
   name: string,
   objectiveContract: ObjectiveContract | undefined,
+  role: string,
   deps: QueueLaunchWritebackDeps = {},
 ): Promise<void> {
-  if (objectiveContract === undefined || objectiveContract.kind !== "campaign") {
+  if (
+    !isAlphaRole(role) ||
+    objectiveContract === undefined ||
+    objectiveContract.kind !== "campaign"
+  ) {
     return;
   }
   const openStore = deps.openStore ?? openRegentQueueStore;
@@ -76,6 +86,9 @@ export async function writeQueueLaunchLinkage(
     }
     const tree = await readTreeBase(name);
     store = openStore();
+    if (findInFlightQueueItemByAgentName(store, name) !== undefined) {
+      return;
+    }
     const outcome = recordAgentLaunchOnQueueItem(store, {
       objectiveCode: objectiveContract.objectiveCode,
       agentName: name,
@@ -90,6 +103,27 @@ export async function writeQueueLaunchLinkage(
   } catch (error) {
     writeStdout(
       `create-agent: queue linkage write-back failed for "${name}" (${error instanceof Error ? error.message : String(error)}) — launch proceeds unaffected.\n`,
+    );
+  } finally {
+    store?.close();
+  }
+}
+
+export async function giveBackRowOfFailedLaunch(
+  name: string,
+  deps: Pick<QueueLaunchWritebackDeps, "openStore" | "writeStdout"> = {},
+): Promise<void> {
+  const writeStdout = deps.writeStdout ?? ((text: string) => process.stdout.write(text));
+  let store: RegentQueueStore | undefined;
+  try {
+    store = (deps.openStore ?? openRegentQueueStore)();
+    const row = findInFlightQueueItemByAgentName(store, name);
+    if (row === undefined) return;
+    store.transitionStatus(row.id, RegentQueueItemStatus.Open, { agentName: null });
+    writeStdout(`create-agent: launch of "${name}" failed, so queue row "${row.id}" is open again.\n`);
+  } catch (error) {
+    writeStdout(
+      `create-agent: could not give back the queue row of failed launch "${name}" (${error instanceof Error ? error.message : String(error)}).\n`,
     );
   } finally {
     store?.close();

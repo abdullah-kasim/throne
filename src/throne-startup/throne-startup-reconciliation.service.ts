@@ -1,4 +1,6 @@
+import { piSessionDirectory, preparePiLaunch } from "../create-agent/pi-launch.ts";
 import { Injectable } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
@@ -72,11 +74,6 @@ export interface StartupReconciliationContract extends PinnedHarnessGuardContrac
   listRegisteredAgents: () => Promise<string[]>;
   listCompletedAgents: () => Promise<string[]>;
   hasResumableWork: (name: string) => Promise<boolean>;
-  /** A second, independent completion signal alongside REPORT.md: true when a
-   *  `Deliver <name>` commit (stamped by `mergeBack`, see
-   *  `git-lifecycle/merge.ts`) is reachable in the throne's own branch
-   *  history. A DEAD orphan with no REPORT.md but a landed delivery commit
-   *  died after finishing, not mid-work. */
   hasDeliveryCommit: (name: string) => Promise<boolean>;
   listLiveAgents: () => Promise<HerdrAgent[]>;
   readSpawnSpec: (name: string) => Promise<SpawnSpec | null>;
@@ -121,10 +118,7 @@ const DEFAULT_MODELS: Readonly<Record<Harness, string>> = {
   [HARNESS_NAMES.OPENCODE]: MODEL_NAMES.DEEPSEEK_V4_FLASH,
   [HARNESS_NAMES.CLAUDEY_ALL_OMNI]: MODEL_NAMES.GPT_5_6_SOL,
   [HARNESS_NAMES.CODEXY_ALL_OMNI]: MODEL_NAMES.GPT_5_6_SOL,
-  // Mechanical typecheck fix only: omp is not activated by any preset yet
-  // (00_overview.md), so this default is never reached by a live
-  // reconciliation today. Mirrors the claude row's default model.
-  [HARNESS_NAMES.OMP]: MODEL_NAMES.OPUS,
+  [HARNESS_NAMES.PI]: MODEL_NAMES.FLASH,
 };
 
 export interface StartupResumeContract {
@@ -138,6 +132,7 @@ export interface StartupResumeContract {
   exactResumePrompt?: (name: string, harness: string) => string;
   readAccountsConfig: ReadAccountsConfig;
   readAgentRole: ReadAgentRole;
+  preparePiLaunch?: typeof preparePiLaunch;
 }
 
 export function buildResumePrompt(name: string, throneRoot: string): string {
@@ -163,8 +158,8 @@ export function normalizeSpec(
   sessions = new SessionService(),
 ) {
   const harness: Harness =
-    spec?.harness === HARNESS_NAMES.CODEX
-      ? HARNESS_NAMES.CODEX
+    spec?.harness === HARNESS_NAMES.CODEX || spec?.harness === HARNESS_NAMES.PI
+      ? spec.harness
       : HARNESS_NAMES.CLAUDE;
   const effort =
     typeof spec?.effort === "number" &&
@@ -214,6 +209,13 @@ export const REAL_RESUME_CONTRACT: StartupResumeContract = {
   warn: (message) => process.stderr.write(message),
 };
 
+const HARNESS_DISPLAY_NAMES: Partial<Record<string, string>> = {
+  [HARNESS_NAMES.CLAUDE]: "Claude",
+  [HARNESS_NAMES.PI]: "pi",
+};
+
+export { piSessionDirectory };
+
 export async function resumeOrphan(
   name: string,
   contract: StartupResumeContract = REAL_RESUME_CONTRACT,
@@ -229,10 +231,24 @@ export async function resumeOrphan(
     cwd = contract.throneRoot;
     sessionId = undefined;
   }
+  const pi =
+    spec.harness === HARNESS_NAMES.PI && spec.custom === undefined
+      ? await (contract.preparePiLaunch ?? preparePiLaunch)(name, spec.model, recordedSpec)
+      : undefined;
+  if (pi !== undefined && !pi.ready) {
+    contract.warn(`throne-startup: resume "${name}" refused: ${pi.refusal}; nothing was launched\n`);
+    return;
+  }
   const recipe = {
     harness: spec.harness,
     model: spec.model,
     effort: spec.effort,
+    ...(pi === undefined
+      ? {}
+      : {
+          piSession: { sessionId: sessionId ?? randomUUID(), sessionDirectory: piSessionDirectory(name) },
+          piModelId: pi.launch.piModelId,
+        }),
   };
   const argv =
     spec.custom !== undefined
@@ -243,10 +259,12 @@ export async function resumeOrphan(
   const result = await contract.resumeRegisteredAgentInRestoredTab(name, {
     cwd,
     argv,
-    ...(await launchAccountOption(name, recordedSpec?.account, contract.readAccountsConfig, contract.readAgentRole)),
+    ...(pi === undefined
+      ? await launchAccountOption(name, recordedSpec?.account, contract.readAccountsConfig, contract.readAgentRole)
+      : { env: pi.launch.env }),
   });
   if (result.kind === "already-live") return;
-  const harness = spec.harness === HARNESS_NAMES.CLAUDE ? "Claude" : "Codex";
+  const harness = HARNESS_DISPLAY_NAMES[spec.harness] ?? "Codex";
   if (sessionId !== undefined) {
     contract.log(
       `throne-startup: resume "${name}" — relaunched into its exact native ${harness} session ${sessionId}; its own transcript is intact\n`,
@@ -339,7 +357,7 @@ function classify(
   return {
     action: "reap",
     reason: complete
-      ? "complete (REPORT.md landed or a Deliver commit proves it)"
+      ? "complete (REPORT.md landed or its delivery-evidence.json proves it)"
       : "inert (no bundle/assignment to resume)",
   };
 }

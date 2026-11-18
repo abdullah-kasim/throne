@@ -1,0 +1,6 @@
+{
+  "name": "throne-delivery",
+  "version": "1.0.0",
+  "author": { "name": "throne" },
+  "description": "Takes throne's messages addressed to this pane and submits each as a turn when the composer is empty and no turn runs."
+}

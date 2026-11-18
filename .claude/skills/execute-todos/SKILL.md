@@ -702,8 +702,8 @@ Every Shadow's `ASSIGNMENT.md` must explicitly direct it to read:
   - `NNz_critique`: `commit-messages.md`, `slice-work.md`, `rubric-critique-gates.md`.
   - `99a`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99a-conformance.md`.
   - `99b`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99b-verify.md`.
-  - `99bs`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99bs-spec.md`.
-  - `99c`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99c-deliver.md`, `gate-99bs-spec.md`.
+  - `99bs`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99bs-spec.md`, `agent_docs/spec-writing-steps.md`.
+  - `99c`: `commit-messages.md`, `slice-work.md`, `gate-chain.md`, `gate-99c-deliver.md`, `gate-99bs-spec.md`, `agent_docs/spec-writing-steps.md`.
   - `99d`: `commit-messages.md`, `gate-99d-record.md`.
 
   `shadow-spawning.md`, `scheduling.md`, `single-slice-mode.md` and `final-report.md` are the Alpha's alone; no assignment names them.
@@ -899,7 +899,7 @@ The patterns live in the supporting files below, one file per reader.
 - `gate-chain.md` — read before writing the first `99` assignment, and when running any `99a`, `99b`, `99bs` or `99c` gate.
 - `gate-99a-conformance.md` — read when writing the `99a` assignment, when running `99a`, and when the bundle has a `98_ticket_` todo.
 - `gate-99b-verify.md` — read when writing the `99b` assignment, when running `99b`, and when shaping a corrective refactor slice.
-- `gate-99bs-spec.md` — read when writing the `99bs` assignment, when running `99bs`, and when `99c` runs it again.
+- `gate-99bs-spec.md` — read when writing the `99bs` assignment, when running `99bs`, and when `99c` runs it again; its shared steps are in `agent_docs/spec-writing-steps.md`.
 - `gate-99c-deliver.md` — read when writing the `99c` assignment and when running `99c`.
 - `gate-99d-record.md` — read when writing the `99d` assignment and when running `99d`.
 - `rubric-critique-gates.md` — read when the bundle has an `NNz_critique` todo or a rubric threshold.

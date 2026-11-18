@@ -1,6 +1,7 @@
 import {
   HARNESS_NAMES,
   MODEL_NAMES,
+  removedHarnessMessage,
   type Harness,
 } from "./harness-identity.ts";
 import { claudeFamilyEntry } from "./registry-derivation.ts";
@@ -17,15 +18,6 @@ export interface ModelEffortPolicy {
   readonly min: number;
   readonly max: number;
   readonly ordinary: number;
-}
-
-/** Compatibility-only input shape for historical fixtures; live registry
- * entries no longer carry numerical model ratings. */
-export interface ModelCapabilities {
-  readonly coding: number;
-  readonly planning: number;
-  readonly validation: number;
-  readonly nonCoding: number;
 }
 
 export interface ModelOmniAdmission {
@@ -47,7 +39,6 @@ export interface ModelRegistryEntry {
   readonly aliases: readonly string[];
   readonly roles: readonly ModelRole[];
   readonly effort: ModelEffortPolicy;
-  readonly capabilities?: ModelCapabilities;
   readonly omni?: ModelOmniAdmission;
 }
 
@@ -60,7 +51,7 @@ const ALL_ROLES: readonly ModelRole[] = [
 const CODEX = HARNESS_NAMES.CODEX;
 const CLAUDE = HARNESS_NAMES.CLAUDE;
 const OPENCODE = HARNESS_NAMES.OPENCODE;
-const OMP = HARNESS_NAMES.OMP;
+const PI = HARNESS_NAMES.PI;
 
 function entry(
   model: string,
@@ -107,7 +98,7 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
   // for every spawn that does not name a harness explicitly.
   //
   // DO NOT REPOINT A PRIMARY AT A NON-NATIVE HARNESS. It was done once, on
-  // 2026-08-27, to make `--model fable` reach omp, and the blast radius was
+  // 2026-08-27, and the blast radius was
   // not obvious from the diff: `PRIMARY_CLAUDE_MODELS` in `harness.ts` derived
   // itself from `harness === CLAUDE`, so moving the primaries EMPTIED it,
   // which made `isGptModel("fable")` return true, which swallowed every
@@ -126,49 +117,40 @@ export const MODEL_REGISTRY: readonly ModelRegistryEntry[] = [
   // fix is to revert the row, not to relax the test.
   entry(MODEL_NAMES.FABLE, CLAUDE, undefined, {
     aliases: ["fable-5", "claude-fable-5", "fable-5.1", "claude-fable-5-1"],
-    harnessAliases: { [OMP]: "claude-fable-5" },
   }),
   entry(MODEL_NAMES.OPUS, CLAUDE, undefined, {
     aliases: ["opus-4.8", "opus4.8", "claude-opus-4-8", "claude-opus-5", "claude-opus-5-5", "opus-5.5", "opus-5-5"],
-    harnessAliases: { [OMP]: "claude-opus-5" },
   }),
   entry(MODEL_NAMES.SONNET, CLAUDE, undefined, {
     aliases: ["sonnet-5", "claude-sonnet-5"],
-    harnessAliases: { [OMP]: "claude-sonnet-5" },
   }),
   entry(MODEL_NAMES.HAIKU, CLAUDE, undefined, {
     aliases: ["haiku-4.5", "claude-haiku-4-5", "claude-haiku-4-5-20251001"],
-    harnessAliases: { [OMP]: "claude-haiku-4-5" },
   }),
   entry(MODEL_NAMES.GPT_5_6_SOL, CODEX, undefined, {
-    harnessAliases: { [CLAUDE]: "sol", [CODEX]: "sol", [OMP]: "gpt-5.6-sol" },
+    harnessAliases: { [CLAUDE]: "sol", [CODEX]: "sol" },
     omni: { name: "codex/gpt-5.6-sol", executor: "gpt-5.6-sol", default: true },
   }),
   entry(MODEL_NAMES.GPT_5_6_TERRA, CODEX, undefined, {
     harnessAliases: {
       [CLAUDE]: "terra",
       [CODEX]: "terra",
-      [OMP]: "gpt-5.6-terra",
     },
     omni: { name: "codex/gpt-5.6-terra", executor: "gpt-5.6-terra" },
   }),
-  entry(MODEL_NAMES.GPT_5_5, CODEX, { min: 1, max: 4, ordinary: 1 }, {
-    harnessAliases: { [OMP]: "gpt-5.5" },
-  }),
+  entry(MODEL_NAMES.GPT_5_5, CODEX, { min: 1, max: 4, ordinary: 1 }),
   entry(
     MODEL_NAMES.GPT_5_6_LUNA,
     CODEX,
     { min: 1, max: 1, ordinary: 1 },
     {
-      harnessAliases: { [CLAUDE]: "luna", [CODEX]: "luna", [OMP]: "gpt-5.6-luna" },
+      harnessAliases: { [CLAUDE]: "luna", [CODEX]: "luna" },
     },
   ),
-  entry(MODEL_NAMES.GPT_5_4, CODEX, { min: 1, max: 4, ordinary: 1 }, {
-    harnessAliases: { [OMP]: "gpt-5.4" },
-  }),
-  entry(MODEL_NAMES.GPT_5_4_MINI, CODEX, { min: 1, max: 4, ordinary: 1 }, {
-    harnessAliases: { [OMP]: "gpt-5.4-mini" },
-  }),
+  entry(MODEL_NAMES.GPT_5_4, CODEX, { min: 1, max: 4, ordinary: 1 }),
+  entry(MODEL_NAMES.GPT_5_4_MINI, CODEX, { min: 1, max: 4, ordinary: 1 }),
+  entry(MODEL_NAMES.FLASH, PI, { min: 1, max: 6, ordinary: 1 }),
+  entry(MODEL_NAMES.PRO, PI, { min: 1, max: 6, ordinary: 1 }),
   entry(
     MODEL_NAMES.DEEPSEEK_V4_FLASH,
     OPENCODE,
@@ -198,12 +180,21 @@ if (OMNI_DEFAULT_COUNT !== 1) {
   );
 }
 
+export const PI_PINNED_MODEL_IDS: Readonly<Record<string, string>> = {
+  [MODEL_NAMES.FLASH]: "deepseek-flash",
+  [MODEL_NAMES.PRO]: "deepseek-v4-pro",
+};
+
+export const PI_DEFAULT_MODEL = MODEL_NAMES.FLASH;
+
 const HARNESS_VALUES = new Set(Object.values(HARNESS_NAMES));
 const ROLE_VALUES = new Set(Object.values(MODEL_ROLES));
 
 export function parseHarness(value: unknown): Harness {
   if (typeof value === "string" && HARNESS_VALUES.has(value as Harness))
     return value as Harness;
+  const removed = typeof value === "string" ? removedHarnessMessage(value) : undefined;
+  if (removed !== undefined) throw new Error(removed);
   throw new Error(`unknown harness "${String(value)}"`);
 }
 
@@ -264,8 +255,26 @@ export function registryEntry(model: string): ModelRegistryEntry | undefined {
 }
 
 /** Resolve a caller model alias to its canonical registry entry. */
+const PI_MODEL_PREFIX = `${HARNESS_NAMES.PI}/`;
+
+function piRegistryModel(key: string): ModelRegistryEntry | undefined {
+  if (key !== HARNESS_NAMES.PI && !key.startsWith(PI_MODEL_PREFIX)) return undefined;
+  const requested = key === HARNESS_NAMES.PI ? PI_DEFAULT_MODEL : key.slice(PI_MODEL_PREFIX.length);
+  const found = MODEL_REGISTRY.find(
+    (candidate) => candidate.harness === HARNESS_NAMES.PI && candidate.model === requested,
+  );
+  if (found === undefined) {
+    throw new Error(
+      `only DeepSeek models run on pi: "${requested}" is not one; choose pi/${MODEL_NAMES.FLASH} or pi/${MODEL_NAMES.PRO}`,
+    );
+  }
+  return found;
+}
+
 export function resolveRegistryModel(model: string): ModelRegistryEntry {
   const key = model.trim().toLowerCase();
+  const piEntry = piRegistryModel(key);
+  if (piEntry !== undefined) return piEntry;
   const resolved =
     MODEL_REGISTRY.find(
       (candidate) =>

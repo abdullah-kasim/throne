@@ -22,7 +22,6 @@ export function createAgentIdentity(
   spawnedTabLabel?: string,
 ): AgentIdentity {
   const policyOverride = [
-    request.capabilityOverrideNote,
     request.effortOverrideNote,
     request.harnessOverrideNote,
   ]
@@ -123,9 +122,6 @@ export async function persistNewAgentRecord(
       ...(!request.durableRoutingNote
         ? {}
         : { routing_note: request.routingNote }),
-      ...(request.capabilityEvidence === undefined
-        ? {}
-        : { capability: request.capabilityEvidence }),
       ...(request.usageBypassAuthorization === undefined
         ? {}
         : {

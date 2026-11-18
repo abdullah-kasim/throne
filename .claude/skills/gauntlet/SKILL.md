@@ -107,7 +107,6 @@ and `frontend: true`. Every implementation slice `NN`, 01 included, gets a
 gate `NNz_critique_<screen>` with:
 
 - `threshold: 80` on a 0–100 scale, and `max_rounds: 3`;
-- `requires: non-coding>=4`;
 - a fresh, verdict-only critic that never grades its own fixes, runs the
   evidence tool itself, views the contact sheet in `agent-browser`, runs
   `/frontend-critic` on the same screens, and runs the functional parity
@@ -243,7 +242,8 @@ the pre-merge gate.
 ## 10. The checker campaign
 
 File a second row in the same sitting and defer it straight after filing,
-before an autoscaler tick can launch it as an open row:
+before an autoscaler tick can launch it as an open row. Both `<builder>` and
+`<checker>` must be at most 10 characters, or `add-to-queue` refuses the row:
 
 ```bash
 throne update-queue --objective-code <checker> --status deferred \
@@ -266,8 +266,8 @@ The checker body says:
   below 80 there are where it starts.
 - Every capture goes through `agent-browser`; no other browser tool
   substitutes.
-- One whole-product gate, `threshold: 80`, `max_rounds: 10`,
-  `requires: non-coding>=4`. A fresh critic per round runs every preset and
+- One whole-product gate, `threshold: 80`, `max_rounds: 10`.
+  A fresh critic per round runs every preset and
   scores every screen on the anchored scale and runs the functional parity
   check on every screen. The overall score is the mean of the per-screen
   visual scores. PASS is overall 80 or more AND no screen below 70 AND zero
@@ -293,8 +293,7 @@ The checker body says:
 ## 11. Blind final gate (checker only)
 
 After the whole-product gate passes and before delivery, a fresh judge
-Shadow (never a critic or fixer from this campaign; verdict-only,
-`requires: non-coding>=4`) receives each screen as `A.png` and `B.png`, one
+Shadow (never a critic or fixer from this campaign; verdict-only) receives each screen as `A.png` and `B.png`, one
 the reference and one the product, in an order from a seeded shuffle that the
 Alpha records in `STATUS.json` and does not reveal. For each pair the judge
 says which is better made and why, and which it believes is the reference.

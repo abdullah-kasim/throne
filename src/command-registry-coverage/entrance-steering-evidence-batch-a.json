@@ -191,7 +191,7 @@
       "[]"
     ],
     "reasonAssertionTokens": [
-      "requires model, name, and supervisor"
+      "requires name and supervisor"
     ],
     "bypassAssertionTokens": [
       "No bypass is available"

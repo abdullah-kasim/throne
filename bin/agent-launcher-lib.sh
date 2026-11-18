@@ -199,13 +199,26 @@ claudey_build_add_dir_args() {
     fi
 }
 
+throne_hook_scripts() {
+    local throne_root="$1"
+    local harness="${2:-}"
+    python3 -c '
+import json, sys
+seen = []
+for entry in json.load(open(sys.argv[1])):
+    if sys.argv[2] not in entry.get("notOn", []) and entry["script"] not in seen:
+        seen.append(entry["script"])
+print("\n".join(seen))
+' "$throne_root/claude-hooks/hooks.json" "$harness" 2>/dev/null
+}
+
 throne_harness_hook_gaps() {
     local -n hook_gaps_ref="$1"
     local throne_root="$2"
     local settings_path="$HOME/.claude/settings.json"
     hook_gaps_ref=()
     local hook_name hook_path
-    for hook_name in scratch-path-guard.py skill-write-guard.py memory-read-log.py jev-fence.py agent-exit-marker.py agent-state.py hidden-skill-pointer.py web-fetch-failure-pointer.py; do
+    for hook_name in $(throne_hook_scripts "$throne_root" claude); do
         hook_path="$throne_root/claude-hooks/$hook_name"
         if ! grep -qF "$hook_path" "$settings_path" 2>/dev/null; then
             hook_gaps_ref+=("$hook_name is not registered in $settings_path")
@@ -219,8 +232,14 @@ throne_harness_hook_gaps() {
 throne_launch_check() {
     local launcher_name="$1"
     local throne_root="$2"
-    local hook_name
-    for hook_name in scratch-path-guard.py skill-write-guard.py memory-read-log.py jev-fence.py agent-exit-marker.py agent-state.py hidden-skill-pointer.py web-fetch-failure-pointer.py; do
+    local hook_name hook_scripts
+    hook_scripts=$(throne_hook_scripts "$throne_root")
+    if [[ ! -f "$throne_root/claude-hooks/hooks.json" ]]; then
+        echo "$launcher_name: launch check: $throne_root/claude-hooks/hooks.json is missing from the throne checkout" >&2
+    elif [[ -z "$hook_scripts" ]]; then
+        echo "$launcher_name: launch check: $throne_root/claude-hooks/hooks.json could not be read; is python3 installed and the file valid JSON?" >&2
+    fi
+    for hook_name in $hook_scripts; do
         if [[ ! -f "$throne_root/claude-hooks/$hook_name" ]]; then
             echo "$launcher_name: launch check: $throne_root/claude-hooks/$hook_name is missing from the throne checkout" >&2
         fi

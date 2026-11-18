@@ -1,7 +1,7 @@
 [
   {
     "id": "cf14c84",
-    "text": "Add memory recall and log sift commands with a rules classifier and an optional Jev classifier off by default",
+    "text": "Add memory recall and log sift commands with a rules classifier",
     "truth": [
       "agent_docs/command-entry-steering-audit.md",
       "agent_docs/commands.md",
@@ -26,8 +26,6 @@
       "src/relevance-classifier/classifier.types.ts",
       "src/relevance-classifier/fail-open-classifier.spec.ts",
       "src/relevance-classifier/fail-open-classifier.ts",
-      "src/relevance-classifier/jev-backend.spec.ts",
-      "src/relevance-classifier/jev-backend.ts",
       "src/relevance-classifier/recall-user-config.spec.ts",
       "src/relevance-classifier/recall-user-config.ts",
       "src/relevance-classifier/rules-backend.spec.ts",
@@ -39,7 +37,7 @@
   },
   {
     "id": "49be307",
-    "text": "Add a Jev off switch and a rank command that orders files by a yes-or-no question",
+    "text": "Add a rank command that orders files by a yes-or-no question",
     "truth": [
       "agent_docs/command-entry-steering-audit.md",
       "agent_docs/commands.md",
@@ -59,10 +57,6 @@
       "src/relevance-classifier/choose-backend.ts",
       "src/relevance-classifier/classifier.types.ts",
       "src/relevance-classifier/fail-open-classifier.ts",
-      "src/relevance-classifier/jev-backend.spec.ts",
-      "src/relevance-classifier/jev-backend.ts",
-      "src/relevance-classifier/jev-switch.spec.ts",
-      "src/relevance-classifier/jev-switch.ts",
       "src/relevance-classifier/recall-user-config.ts",
       "src/relevance-classifier/rules-backend.ts",
       "src/shared-policy/command-registry-platform.ts",

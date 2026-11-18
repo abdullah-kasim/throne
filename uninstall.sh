@@ -422,11 +422,6 @@ else
             did "removed $path/"
         fi
     done
-    flags_file="${XDG_CONFIG_HOME:-$HOME/.config}/throne/features.json"
-    if [ -f "$flags_file" ]; then
-        rm -f "$flags_file"
-        did "removed $flags_file"
-    fi
 fi
 
 # --- done -----------------------------------------------------------------

@@ -20,7 +20,7 @@ export function createRepo(): { repo: string; base: string; delivery: string } {
   git(repo, "commit", "-m", "base");
   const base = git(repo, "rev-parse", "HEAD");
   execFileSync("sh", ["-c", "printf delivered > evidence.txt"], { cwd: repo });
-  git(repo, "commit", "-am", "Deliver alpha-rowdrift-fixture");
+  git(repo, "commit", "-am", "Change the evidence file");
   return { repo, base, delivery: git(repo, "rev-parse", "HEAD") };
 }
 

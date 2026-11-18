@@ -3,12 +3,8 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { NO, type ClassifierBackend } from '../relevance-classifier/classifier.types.ts';
-import { chooseClassifierBackend } from '../relevance-classifier/choose-backend.ts';
-import type { JevBackendDependencies } from '../relevance-classifier/jev-backend.ts';
-import { readJevSpending } from '../relevance-classifier/jev-spending.ts';
 import {
   DEFAULT_RECALL_CONFIG,
-  jevLimitsOf,
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
 import { RULES_BACKEND } from '../relevance-classifier/rules-backend.ts';
@@ -65,7 +61,6 @@ export interface Harness {
   readonly stdout: string[];
   readonly stderr: string[];
   readonly dataDirectory: string;
-  readonly jevDataHome: string;
   readonly projectMemories: string;
   readonly otherRepositoryMemories: string;
   readonly globalMemories: string;
@@ -79,9 +74,7 @@ export const IN_OTHER_REPOSITORY = ['--directory', OTHER_REPOSITORY_NAME] as con
 export function harness(
   configOverride: Partial<RecallConfig> = {},
   options: {
-    stdin?: string;
     backend?: ClassifierBackend;
-    jevBehindTheBudget?: JevBackendDependencies;
     seededRepositories?: readonly RegisteredRepository[];
   } = {},
 ): Harness {
@@ -90,7 +83,6 @@ export function harness(
   const otherRepositoryMemories = path.join(root, OTHER_REPOSITORY_SCOPE);
   const globalMemories = path.join(root, 'global-memories');
   const dataDirectory = path.join(root, 'data');
-  const jevDataHome = path.join(root, 'jev-home');
   const now = new Date('2026-09-21T00:00:00Z');
   mkdirSync(projectMemories);
   mkdirSync(otherRepositoryMemories);
@@ -109,7 +101,6 @@ export function harness(
     stdout,
     stderr,
     dataDirectory,
-    jevDataHome,
     projectMemories,
     otherRepositoryMemories,
     globalMemories,
@@ -122,16 +113,7 @@ export function harness(
           globalMemoryDirectories: [globalMemories],
           ...configOverride,
         }),
-      chooseBackend: (config, caller) => {
-        const jevBehindTheBudget = options.jevBehindTheBudget;
-        if (jevBehindTheBudget !== undefined) {
-          return chooseClassifierBackend(config, caller, {
-            jevSwitch: { environment: {}, statKeyFile: () => Promise.resolve({ isFile: () => true, size: 14 }) },
-            jevBackend: jevBehindTheBudget,
-            jevDataHome,
-            writeStderr: (text) => stderr.push(text),
-          });
-        }
+      chooseBackend: () => {
         return Promise.resolve<ClassifierBackend>({
           name: backend.name,
           answer: (state, questions) => {
@@ -140,16 +122,6 @@ export function harness(
           },
         });
       },
-      memoryDirectoriesForRepeats: () => Promise.resolve([projectMemories, globalMemories]),
-      readJevSwitch: () =>
-        Promise.resolve({
-          on: false,
-          enabledInConfig: false,
-          disabledByEnvironment: false,
-          keyFile: 'not-checked',
-          keyFilePath: '/keys/jev',
-        }),
-      readJevSpending: (config) => readJevSpending(jevDataHome, jevLimitsOf(config), now),
       resolveProjectMemoryDirectory: (directory) =>
         Promise.resolve(
           path.basename(directory) === OTHER_REPOSITORY_NAME
@@ -166,15 +138,11 @@ export function harness(
                 repositoryScopes: [PROJECT_SCOPE, 'project'],
               },
         ),
-      readStdin: () => Promise.resolve(options.stdin ?? ''),
       projectMemoryDirectoriesToLint: () =>
         Promise.resolve([{ path: projectMemories, repositoryName: 'project' }]),
       seedRepositories: () => Promise.resolve(options.seededRepositories ?? []),
       currentDirectory: () => root,
       dataDirectory,
-      agentLedgerDirectory: path.join(root, 'agents'),
-      tabAgentName: undefined,
-      jevDataHome,
       now: () => now,
       writeStdout: (text) => stdout.push(text),
       writeStderr: (text) => stderr.push(text),
@@ -215,16 +183,9 @@ export function assertEveryAnswerWasLogged(dataDirectory: string): void {
 
 export const PULL_REQUEST_TASK = 'rewrite the github pull request description for the fix';
 
-export const HOOK_PAYLOAD = JSON.stringify({
-  session_id: 'abc',
-  cwd: '/somewhere',
-  hook_event_name: 'UserPromptSubmit',
-  prompt: PULL_REQUEST_TASK,
-});
-
 export function sureNoBackend(probabilityOfNo: number): ClassifierBackend {
   return {
-    name: 'jev',
+    name: 'rules',
     answer: async (_state, questions) =>
       questions.map((question) => ({
         questionId: question.id,

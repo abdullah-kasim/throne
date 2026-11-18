@@ -5,7 +5,6 @@ import {
   DEFAULT_RECALL_CONFIG,
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
-import { SWITCHED_OFF_JEV_STATUS_READERS } from '../relevance-classifier/jev-status.test-support.ts';
 import { RULES_BACKEND } from '../relevance-classifier/rules-backend.ts';
 import { LINES_PER_CHUNK, overlappingChunks } from './chunks.ts';
 import { runSift, type SiftDependencies } from './sift.command.ts';
@@ -41,7 +40,6 @@ function harness(
     dependencies: {
       loadConfig,
       chooseBackend: () => Promise.resolve(backend),
-      ...SWITCHED_OFF_JEV_STATUS_READERS,
       readStdin: () => Promise.resolve(stdin),
       saveFullInput: (text) => {
         savedInputs.push(text);
@@ -105,7 +103,7 @@ const BROKEN_BACKENDS: readonly [string, ClassifierBackend['answer']][] = [
 
 for (const [situation, answer] of BROKEN_BACKENDS) {
   test(`a backend that ${situation} keeps every line`, async () => {
-    const fixture = harness(logOf(120, {}), { name: 'jev', answer });
+    const fixture = harness(logOf(120, {}), { name: 'rules', answer });
     assert.equal(await runSift(['anything'], fixture.dependencies), 0);
     assert.match(fixture.stdout.at(-1) ?? '', /^sift: dropped 0 of 120 lines/);
   });
@@ -146,7 +144,7 @@ test('when the full copy cannot be saved every line is printed, because a droppe
 test('after a whole group of chunks fails open the backend is not asked again', async () => {
   let callCount = 0;
   const fixture = harness(logOf(2000, {}), {
-    name: 'jev',
+    name: 'rules',
     answer: () => {
       callCount += 1;
       return Promise.reject(new Error('network down'));

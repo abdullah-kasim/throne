@@ -145,14 +145,7 @@ function composerWaitApplies(
   return (
     harness !== undefined &&
     options.skipText !== true &&
-    // omp owns its own draft wait, inside the extension, by reading the REAL
-    // composer buffer. This screen-based wait cannot serve it: omp panes are
-    // `screen_detection_skipped`, so the observation never resolves and the
-    // wait runs to its full ceiling before the submit is even attempted —
-    // measured as a hang, not a refusal. Skipping it here is not weaker
-    // protection, it is the same protection moved somewhere that can actually
-    // see the draft.
-    harness !== HARNESS_NAMES.OMP &&
+    harness !== HARNESS_NAMES.PI &&
     !(harness === HARNESS_NAMES.CODEX && options.waitForStartupQuiescence)
   );
 }
@@ -168,6 +161,14 @@ function composerWaitApplies(
  * yield, never to fail the delivery — a genuine failure still surfaces from
  * the real wait/write phases that run after this returns `true`.
  */
+async function deliversByClaudeMod(
+  agent: HerdrAgent,
+  harness: SupportedComposerHarness | undefined,
+  deps: SubmitToAgentDeps,
+): Promise<boolean> {
+  return harness === HARNESS_NAMES.CLAUDE && (await deps.claudeMod?.usesMod(recipientName(agent))) === true;
+}
+
 export async function probeComposerCleared(
   agent: HerdrAgent,
   options: SubmitToAgentOptions,
@@ -176,6 +177,7 @@ export async function probeComposerCleared(
   if (options.forceImmediate === true) return true;
   const harness = supportedComposerHarness(agent.agent);
   if (!composerWaitApplies(harness, options)) return true;
+  if (await deliversByClaudeMod(agent, harness, deps)) return true;
   try {
     const snapshot = await waitForRecognizedComposer(agent, harness, deps.now(), deps);
     return snapshot.activeComposer.state === "empty";
@@ -216,6 +218,7 @@ export async function submitToAgentUnkeyed(
     // nothing was overwritten. Enter-only delivery needs the draft, and the
     // Codex startup path settles under the lock, so both skip this wait.
     if (
+      !(await deliversByClaudeMod(agent, harness, deps)) &&
       composerWaitApplies(harness, options) &&
       !(await deps.isRecipientPaneLockHeld?.(agent.paneId))
     ) {
@@ -241,7 +244,13 @@ export async function submitToAgentUnkeyed(
           (options.forceSubmitResidentDraftOnTimeout ?? true),
       );
     }
-    await holdPaneLockTakingOverWithForcedEnter(agent, deps, async () => {
+    const answeringMod =
+      (await deliversByClaudeMod(agent, harness, deps)) &&
+      deps.claudeMod !== undefined &&
+      (await deps.claudeMod.alive(await deps.claudeMod.socketOf(recipientName(agent)), agent.paneId)) !== undefined;
+    const holdPane = <T>(action: () => Promise<T>): Promise<T> =>
+      answeringMod ? action() : holdPaneLockTakingOverWithForcedEnter(agent, deps, action);
+    await holdPane(async () => {
       // The owner rereads the tuple's latest payload immediately after
       // acquiring the recipient lock, and again immediately before the
       // actual submit call: either reread may surface a newer payload than
@@ -263,7 +272,7 @@ export async function submitToAgentUnkeyed(
       if (
         live.options.skipText !== true &&
         live.options.disableFileBackedDelivery !== true &&
-        deps.fileBackedPayloadsEnabled === true &&
+        (await deps.fileBackedPayloadsEnabled?.()) === true &&
         (live.options.forceFileBackedDelivery === true ||
           requiresFileBackedDelivery(
             submittedPayload(live.senderName, live.prompt, live.options),

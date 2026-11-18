@@ -7,7 +7,7 @@
 import { localBranchTip } from "./branch-authority.ts";
 import { readGitStatus, repoRoot, runGit } from "./git-command.service.ts";
 import { THRONE_PROJECT_DIR } from "./git-worktree.service.ts";
-import { advanceCandidateBranch } from "./delivery.ts";
+import { advanceCandidateBranch, writeDeliveryEvidence } from "./delivery.ts";
 import {
   createParentedCommit,
   mergedTree,
@@ -91,21 +91,23 @@ export async function absorbTargetIntoCandidate(
   }
 }
 
-/** True when `tip`'s own commit subject already IS the stamp for
- *  `shadowName` — the shape `absorbAndStamp` itself publishes. A local,
- *  single-commit check (not a repo-wide grep) so re-running the command
- *  after a successful stamp recognizes its own prior work without a second
- *  reader of `hasDeliveryCommit`'s convention. */
-export async function shadowTipIsStamped(
+export async function isContentEmptyCommitOn(
   root: string,
   tip: string,
-  shadowName: string,
+  parent: string,
 ): Promise<boolean> {
-  const subject = (
-    await readGitStatus(["log", "-1", "--format=%s", tip], root)
-  ).stdout.trim();
-  return subject === `Deliver ${shadowName}`;
+  const parents = (
+    await readGitStatus(["rev-list", "--parents", "-n", "1", tip], root)
+  ).stdout.trim().split(/\s+/).slice(1);
+  if (parents.length !== 1 || parents[0] !== parent) return false;
+  const [tipTree, parentTree] = await Promise.all([
+    runGit(["rev-parse", `${tip}^{tree}`], root),
+    runGit(["rev-parse", `${parent}^{tree}`], root),
+  ]);
+  return tipTree === parentTree;
 }
+
+export const MERGED_INTO_TARGET_SUBJECT = "Mark this branch as merged into its target";
 
 /** Confirm it is safe to repoint `shadowName`'s branch ref at
  *  `publishCommit` — reads the branch's CURRENT (not a stale, earlier-read)
@@ -148,63 +150,12 @@ export async function requireFastForwardableCandidate(
   );
 }
 
-/**
- * Perform the target-into-Alpha-branch absorb AND stamp the acting Shadow's
- * own branch as a single call — the atomic replacement for the manual
- * target synchronization and final-delivery roles currently use. Merges
- * `targetBranch`'s current tip into `alphaBranch` (three-way, same
- * `merge-tree`-based mechanics `deliver()` uses; a real content conflict
- * throws and publishes nothing), producing an `Absorb <target> into <alpha>`
- * commit. On success, in the same call, publishes a zero-diff
- * `Deliver <shadowName>` completion commit — same convention and mechanics
- * `stampNoopDelivery` uses — but published ONLY onto the Shadow's own
- * branch, never onto the Alpha branch. The Alpha branch's ref does not need
- * a second publish for anything: `reap-agent`'s own
- * `requireAdvancedSinceSpawn`/`requireReachableFromMergeTarget` preflight
- * only ever checks the SHADOW branch's own tip (against its spawn commit and
- * against its recorded merge target, the Alpha branch), so the stamp commit
- * only has to exist on the Shadow's branch to satisfy it — and
- * `hasDeliveryCommit`'s repo-wide (`--all`) scan finds it there just as well.
- * Advancing the Alpha branch's ref for this stamp used to drift its tip past
- * whatever was genuinely delivered to the campaign's actual target, which
- * could flip a correctly-delivered campaign to "not reachable" the moment
- * something asked whether the Alpha branch's real content had landed
- * upstream — the stamp commit is now a single-parent commit on `alphaTip`
- * with `alphaTip`'s own tree (a deliberately content-empty commit), created
- * directly and only fast-forwarded onto `shadowName`. `contentTip`
- * (`branch-authority.ts`) strips exactly this shape back to `alphaTip` when
- * a caller asks whether the Shadow's branch is reachable from `alphaBranch`,
- * so the unmoved Alpha branch still satisfies that check without ever
- * having to carry the stamp itself.
- *
- * The honest contract: git has no transaction spanning a merge and a later
- * commit. The absorb lands first; the stamp follows. If the stamp step
- * fails, this function throws naming the exact half-state — "absorb landed,
- * stamp missing" — after the absorb is already visible on `alphaBranch`; it
- * does not attempt to roll the absorb back, since a second mutation at the
- * exact moment the tool proved unhealthy is not a safe recovery. A second
- * invocation is idempotent: it detects an already-landed absorb (`targetBranch`
- * already an ancestor of `alphaBranch`) and an already-landed stamp
- * (the Shadow branch's own tip already carries the `Deliver <shadowName>`
- * commit) independently, and completes only whichever step is still
- * missing — so a re-run after a died-mid-stamp failure produces exactly one
- * absorb commit and one stamp commit, never a duplicate absorb.
- *
- * Repointing the Shadow's own ref is only ever done as a fast-forward:
- * before advancing it, the Shadow branch's CURRENT tip must be a git
- * ancestor of the commit being published. A gate Shadow ordinarily has no
- * commits of its own beyond its spawn point, so this is trivially true; if
- * it ever isn't (the branch carries commits the publish target doesn't
- * contain), this function refuses loudly, names the orphaned commit(s), and
- * changes nothing on that branch — repointing anyway would silently orphan
- * that work behind a reported success. A re-run that finds the Shadow's ref
- * already at the published commit is a clean no-op, not an error.
- */
 export async function absorbAndStamp(
   shadowName: string,
   projectDir: string = THRONE_PROJECT_DIR,
   targetBranch: string,
   alphaBranch: string,
+  dataDir?: string,
 ): Promise<AbsorbAndStampResult> {
   const root = await repoRoot(projectDir);
   const alphaTipBefore = await localBranchTip(root, alphaBranch);
@@ -232,10 +183,10 @@ export async function absorbAndStamp(
   const absorbCommit =
     absorb.status === "merged-content" ? absorb.candidateCommit : undefined;
 
-  const stampAlreadyLanded = await shadowTipIsStamped(
+  const stampAlreadyLanded = await isContentEmptyCommitOn(
     root,
     shadowTip,
-    shadowName,
+    alphaTip,
   );
   let stampCommit: string | undefined;
   if (!stampAlreadyLanded) {
@@ -260,7 +211,7 @@ export async function absorbAndStamp(
         root,
         alphaTree,
         [alphaTip],
-        `Deliver ${shadowName}`,
+        MERGED_INTO_TARGET_SUBJECT,
       );
       const liveShadowTip = await requireFastForwardableCandidate(
         root,
@@ -287,6 +238,13 @@ export async function absorbAndStamp(
     }
   }
 
+  await writeDeliveryEvidence(
+    shadowName,
+    root,
+    alphaBranch,
+    stampCommit ?? shadowTip,
+    dataDir,
+  );
   return {
     alphaBranch,
     shadowBranch: shadowName,

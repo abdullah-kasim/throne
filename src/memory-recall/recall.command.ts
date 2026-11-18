@@ -2,30 +2,11 @@ import type { Command as CommanderCommand } from 'commander';
 import { Command, CommandRunner } from 'nest-commander';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { text as readStreamAsText } from 'node:stream/consumers';
 import { resolveMemoryDir } from '../memory-dir/memory-dir-resolver.ts';
 import { PRODUCTION_MEMORY_RESOLVER_DEPS } from '../memory-dir/memory-dir-runtime.ts';
-import { chooseClassifierBackend } from '../relevance-classifier/choose-backend.ts';
-import {
-  readJevSwitch,
-  renderedJevStatus,
-  type JevSwitch,
-} from '../relevance-classifier/jev-switch.ts';
-import {
-  readJevSpendingOnThisMachine,
-  type JevSpending,
-} from '../relevance-classifier/jev-spending.ts';
-import {
-  SERVE_ARM,
-  loadRecallConfig,
-  type RecallConfig,
-} from '../relevance-classifier/recall-user-config.ts';
+import { chooseClassifierBackend, renderedBackendStatus } from '../relevance-classifier/choose-backend.ts';
+import { SERVE_ARM, loadRecallConfig, type RecallConfig } from '../relevance-classifier/recall-user-config.ts';
 import { renderEntranceRefusal } from '../shared-policy/entrance-refusal.ts';
-import { THRONE_DATA_DIR, throneHomeOfThisMachine } from '../shared-policy/throne-home.ts';
-import {
-  TAB_AGENT_NAME_VARIABLE,
-  refreshStagerTreeForPrompt,
-} from '../stager-tree-refresh/stager-tree-refresh.ts';
 import {
   parseRecallArguments,
   type AskLintRequest,
@@ -44,33 +25,12 @@ import {
   searchedMemoryDirectoriesOf,
   unresolvedRepositoriesOf,
   type ProjectMemoryDirectory,
+  type RecallRequest,
   type RecallScope,
   type RecallScopeDependencies,
 } from './recall-scope.ts';
-import { productionMemoryDirectoriesForRepeats } from './repeat-mistakes.ts';
 import { repositoriesOfProjectMemoryDirectories } from './repository-registry.ts';
-import { printRecallReport, type RecallReportDependencies } from './recall-report.ts';
-import { armForPrompt } from './recall-arm.ts';
-import {
-  HOOK_DISABLED,
-  HOOK_FAILED,
-  recordSkippedHookRun,
-} from './hook-outcome.ts';
-import {
-  isSkippedHookPayload,
-  recallRequestFromHookPayload,
-  type RecallRequest,
-  type SkippedHookPayload,
-} from './hook-payload.ts';
-import { promptKindOf, type PromptKind } from './prompt-kind.ts';
-import {
-  COMMAND_SOURCE,
-  HOOK_SOURCE,
-  appendPromptToPromptLog,
-  inputHash,
-  productionRecallDataDirectory,
-} from './recall-records.ts';
-import type { CorrectionVerdict } from './correction-question.ts';
+import { COMMAND_SOURCE, productionRecallDataDirectory } from './recall-records.ts';
 import { recallForPrompt, type RecallForPromptDependencies } from './recall-for-prompt.ts';
 import { percentOf } from './other-repositories-output.ts';
 import { JSON_OUTPUT, TEXT_OUTPUT } from './recall-output.ts';
@@ -79,23 +39,21 @@ import { gradedPromptsIn, printSpotCheck } from './spot-check.ts';
 import { appendSpotCheckVerdict, type SpotCheckVerdict } from './spot-check-verdicts.ts';
 
 export interface RecallDependencies
-  extends RecallReportDependencies,
-    RecallScopeDependencies,
+  extends RecallScopeDependencies,
     RecallForPromptDependencies {
-  readJevSwitch(config: RecallConfig): Promise<JevSwitch>;
-  readJevSpending(config: RecallConfig): Promise<JevSpending>;
-  readStdin(): Promise<string>;
-  readonly tabAgentName: string | undefined;
+  loadConfig(): Promise<RecallConfig>;
   projectMemoryDirectoriesToLint(): Promise<readonly LintedMemoryDirectory[]>;
 }
+
+export const REPORT_AFTER_THE_HOOK_WAS_REMOVED =
+  'The prompt-submit recall hook was removed, so there is nothing more to report.\n';
 
 const RECALL_DATA_DIRECTORY = productionRecallDataDirectory();
 
 export const USAGE =
   'Usage: ./bin/throne-cli recall [--session ID] (--directory DIR | --memory-dir MEMORY_DIR)... [--no-global] [--json] "<task text>"\n' +
-  '       ./bin/throne-cli recall --hook   (reads a prompt-submit hook JSON payload on stdin)\n' +
-  '       ./bin/throne-cli recall --status (which backend would answer now, and why, and the Jev tokens spent against both limits)\n' +
-  '       ./bin/throne-cli recall --report [--since DATE] (grade every memory dig and print how well Jev did)\n' +
+  '       ./bin/throne-cli recall --status (which backend would answer now: the rules)\n' +
+  '       ./bin/throne-cli recall --report [--since DATE] (the recall hook was removed: prints one line saying there is nothing more to report)\n' +
   '       ./bin/throne-cli recall --spot-check [--count N] (print N random graded prompts, 10 by default, with every grade)\n' +
   '       ./bin/throne-cli recall --agree ID | --disagree ID "<reason>" (record your verdict on the judge for a spot-checked prompt)\n' +
   '       ./bin/throne-cli recall --lint-asks [--directory DIR]... [--global] (print every memory ask that breaks an ask rule; never edits)\n' +
@@ -105,21 +63,15 @@ export const USAGE =
   'directory as given; both repeat. recall.globalMemoryDirectories in config.user.ts is searched too unless\n' +
   '--no-global is passed. The output names every directory it searched.\n' +
   '--session ID remembers what was printed for that session and never prints it twice.\n' +
-  `After the verdict line, each other repository Jev rates at least ${percentOf(LOWEST_PROBABILITY_WORTH_SERVING)} likely to hold a relevant memory\n` +
+  `After the verdict line, each other repository the rules rate at least ${percentOf(LOWEST_PROBABILITY_WORTH_SERVING)} likely to hold a relevant memory\n` +
   '(the serving floor; at most three, most likely first) is named with its probability and a recall command\n' +
   'carrying the task, to run before looking it up yourself; it is never searched here. Less likely\n' +
   'repositories are not printed. Every repository recall searches is remembered in\n' +
   `${RECALL_DATA_DIRECTORY}/repositories.json for this question.\n` +
   '--json prints { scope, verdict, memories, withheldMemories, otherRepositories } instead of the text.\n' +
-  '--hook first fast-forwards a registered Stager\'s own checkout to main when it is clean and behind, printing one\n' +
-  'line, or prints one WARNING line naming the commit counts when it is dirty or diverged; any other session is untouched.\n' +
-  '--hook prints no memories unless recall.hookEnabled is true, and never exits non-zero. It searches only the\n' +
-  'repository the session sits in plus the global memories, and says so whenever it prints. Each hook prompt is\n' +
-  `appended to ${RECALL_DATA_DIRECTORY}/prompts.jsonl; recall.hookMode picks serve, shadow (judge and record,\n` +
-  'print nothing) or split (a coin per prompt). A verdict line naming who answered (Jev with its confidence, or the rules) follows the memories.\n' +
+  'A verdict line naming who answered (the rules, with their confidence) follows the memories.\n' +
   `Decisions are appended to ${RECALL_DATA_DIRECTORY}/ledger.jsonl (confident no answers are only counted).\n` +
-  `--agree and --disagree append to ${RECALL_DATA_DIRECTORY}/spot-checks.jsonl; --report shows how often the judge\n` +
-  'agrees with you once there are 10 verdicts.\n';
+  `--agree and --disagree append to ${RECALL_DATA_DIRECTORY}/spot-checks.jsonl.\n`;
 
 export const MILLISECONDS_ALLOWED_FOR_FINDING_THE_PROJECT_MEMORY_DIRECTORY = 1500;
 
@@ -154,126 +106,16 @@ async function productionProjectMemoryDirectory(
 
 const PRODUCTION_DEPENDENCIES: RecallDependencies = {
   loadConfig: () => loadRecallConfig(),
-  chooseBackend: (config, caller) => chooseClassifierBackend(config, caller),
-  readJevSwitch: (config) => readJevSwitch(config),
-  readJevSpending: (config) => readJevSpendingOnThisMachine(config),
-  memoryDirectoriesForRepeats: (config) => productionMemoryDirectoriesForRepeats(config),
+  chooseBackend: () => chooseClassifierBackend(),
   resolveProjectMemoryDirectory: productionProjectMemoryDirectory,
-  readStdin: () => readStreamAsText(process.stdin),
   projectMemoryDirectoriesToLint: () => projectMemoryDirectoriesToLint(homedir()),
   seedRepositories: () => repositoriesOfProjectMemoryDirectories(homedir()),
   currentDirectory: () => process.cwd(),
   dataDirectory: productionRecallDataDirectory(),
-  agentLedgerDirectory: THRONE_DATA_DIR,
-  get tabAgentName() {
-    return process.env[TAB_AGENT_NAME_VARIABLE];
-  },
-  get jevDataHome() {
-    return throneHomeOfThisMachine();
-  },
   now: () => new Date(),
   writeStdout: (text) => process.stdout.write(text),
   writeStderr: (text) => process.stderr.write(text),
 };
-
-async function writePromptToPromptLog(
-  request: RecallRequest,
-  promptKind: PromptKind,
-  scope: RecallScope,
-  at: Date,
-  correction: CorrectionVerdict | undefined,
-  dependencies: RecallDependencies,
-): Promise<void> {
-  try {
-    await appendPromptToPromptLog(dependencies.dataDirectory, {
-      sessionId: request.sessionId,
-      taskText: request.taskText,
-      promptKind,
-      searchedMemoryDirectories: searchedMemoryDirectoriesOf(scope),
-      transcriptPath: request.transcriptPath,
-      correction,
-      at,
-    });
-  } catch (error) {
-    dependencies.writeStderr(
-      `recall: the prompt could not be written to the prompt log: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
-  }
-}
-
-async function printStagerTreeRefresh(
-  request: RecallRequest | SkippedHookPayload,
-  dependencies: RecallDependencies,
-): Promise<void> {
-  if (isSkippedHookPayload(request)) return;
-  const promptDirectory = request.directories[0];
-  if (promptDirectory === undefined) return;
-  try {
-    const line = await refreshStagerTreeForPrompt({
-      agentName: dependencies.tabAgentName,
-      agentLedgerDirectory: dependencies.agentLedgerDirectory,
-      promptDirectory,
-    });
-    if (line !== undefined) dependencies.writeStdout(`${line}\n`);
-  } catch (error) {
-    dependencies.writeStderr(
-      `recall: the Stager checkout could not be refreshed: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
-  }
-}
-
-async function runRecallForHook(
-  dependencies: RecallDependencies,
-): Promise<number> {
-  const startedAt = performance.now();
-  let sessionId: string | undefined;
-  try {
-    const request = recallRequestFromHookPayload(await dependencies.readStdin());
-    sessionId = request.sessionId;
-    await printStagerTreeRefresh(request, dependencies);
-    const config = await dependencies.loadConfig();
-    if (!config.hookEnabled) {
-      await recordSkippedHookRun(sessionId, HOOK_DISABLED, startedAt, dependencies);
-      return 0;
-    }
-    if (isSkippedHookPayload(request)) {
-      await recordSkippedHookRun(sessionId, request.skipReason, startedAt, dependencies);
-      return 0;
-    }
-    const promptKind = promptKindOf(request.taskText);
-    const decidedAt = dependencies.now();
-    const scope = await recallScopeOf(request, config, dependencies);
-    let correction: CorrectionVerdict | undefined;
-    try {
-      correction = await recallForPrompt(
-        request,
-        scope,
-        config,
-        config.hookTimeoutMilliseconds,
-        {
-          source: HOOK_SOURCE,
-          arm: armForPrompt(
-            config.hookMode,
-            request.sessionId,
-            inputHash(request.taskText),
-          ),
-          hookMode: config.hookMode,
-          decidedAt,
-          hookPrompt: { promptKind, startedAt },
-        },
-        dependencies,
-      );
-    } finally {
-      await writePromptToPromptLog(request, promptKind, scope, decidedAt, correction, dependencies);
-    }
-  } catch (error) {
-    dependencies.writeStderr(
-      `recall: the hook served nothing: ${error instanceof Error ? error.message : String(error)}\n`,
-    );
-    await recordSkippedHookRun(sessionId, HOOK_FAILED, startedAt, dependencies);
-  }
-  return 0;
-}
 
 function refuseEntrance(reason: string, dependencies: RecallDependencies): number {
   dependencies.writeStderr(USAGE);
@@ -350,13 +192,11 @@ export async function runRecall(
   try {
     parsed = parseRecallArguments(commandArguments, dependencies.currentDirectory());
   } catch (error) {
-    if (commandArguments.includes('--hook')) return 0;
     return refuseEntrance(error instanceof Error ? error.message : String(error), dependencies);
   }
-  if (parsed.hook) return runRecallForHook(dependencies);
   if (parsed.lintAsks !== undefined) return printAskLint(parsed.lintAsks, dependencies);
   if (parsed.report) {
-    await printRecallReport(parsed.since, dependencies);
+    dependencies.writeStdout(REPORT_AFTER_THE_HOOK_WAS_REMOVED);
     return 0;
   }
   if (parsed.spotCheckCount !== undefined) {
@@ -369,10 +209,7 @@ export async function runRecall(
   const config = await dependencies.loadConfig();
   if (parsed.status) {
     dependencies.writeStdout(
-      renderedJevStatus(
-        await dependencies.readJevSwitch(config),
-        await dependencies.readJevSpending(config),
-      ),
+      renderedBackendStatus(),
     );
     return 0;
   }
@@ -395,7 +232,6 @@ export async function runRecall(
     request,
     scope,
     config,
-    undefined,
     {
       source: COMMAND_SOURCE,
       arm: SERVE_ARM,

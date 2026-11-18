@@ -131,10 +131,10 @@ test('the legacy delivery shape opens its pull request through the forge seam on
   const legacyShape = pullRequestDelivery.slice(pullRequestDelivery.indexOf('**The legacy shape'));
   assert.match(legacyShape, /^\*\*The legacy shape/);
   assert.match(legacyShape, /On both\s+forges the PR then opens through `throne forge pr create` as in the normal\s+shape/);
-  assert.match(legacyShape, /the seam\s+takes the Forgejo base from `origin\/<default>`, never from the local default\s+branch that already holds the delivery merge/);
+  assert.match(legacyShape, /the seam\s+takes the Forgejo base from `origin\/<default>`, never from the local default\s+branch that already holds the delivery commit/);
   assert.doesNotMatch(legacyShape, /cannot open a readable PR|would show no changes|Refile under the normal shape\s+there/);
   assert.match(legacyShape, /Never push the default branch in this shape/);
-  assert.match(legacyShape, /the local\s+default branch is ahead of `origin` by the delivery merge/);
+  assert.match(legacyShape, /the local\s+default branch is ahead of `origin` by the delivery commit/);
   assert.match(legacyShape, /Prefer refiling under the\s+normal shape whenever the campaign is young enough/);
 });
 

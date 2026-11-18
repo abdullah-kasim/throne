@@ -14,9 +14,8 @@ import { fileNameAsWords, isMemoryFileName, physicalPath, readRepositoryFile } f
 import { probabilityOfYes } from './recall-records.ts';
 import { searchedMemoryDirectoriesOf, resolvedMemoryDirectoriesOf, type RecallScope } from './recall-scope.ts';
 import type { RegisteredRepository, RepositoryRegistry } from './repository-registry.ts';
-import { LOWEST_PROBABILITY_WORTH_SERVING, TASK_STATE_FIELD } from './select-memories.ts';
+import { TASK_STATE_FIELD } from './select-memories.ts';
 
-export const OTHER_REPOSITORIES_LISTED = 3;
 const OTHER_REPOSITORY_QUESTION_PREFIX = 'other repository: ';
 const SHARED_WORDS_FOR_CERTAINTY = 3;
 const NEVER_REWRITE_THE_ANSWER = 1;
@@ -42,7 +41,7 @@ export interface OtherRepositories {
 
 export const NO_OTHER_REPOSITORIES: OtherRepositories = {
   answers: [],
-  answeredBy: { backend: 'rules', jevFailure: undefined },
+  answeredBy: { backend: 'rules', failure: undefined },
 };
 
 async function modifiedAt(filePath: string): Promise<number> {
@@ -164,10 +163,6 @@ function rankedProbabilityOfYes(answer: ClassifierAnswer): number {
   return answer.failedOpen ? 0 : probabilityOfYes({ answer });
 }
 
-function isLikelyEnoughToShow(entry: { probabilityOfYes: number }): boolean {
-  return entry.probabilityOfYes >= LOWEST_PROBABILITY_WORTH_SERVING;
-}
-
 export function otherRepositoriesOf(
   candidates: readonly OtherRepositoryCandidate[],
   answersAlongside: readonly ClassifierAnswer[],
@@ -178,12 +173,11 @@ export function otherRepositoriesOf(
     return answer === undefined ? [] : [{ candidate, answer, probabilityOfYes: rankedProbabilityOfYes(answer) }];
   });
   const answeredBy = answeringBackendOf(answered.map((entry) => entry.answer));
-  const showsAnything = answeredBy.backend === 'jev';
   return {
     answers: answered.sort(mostLikelyFirst).map((entry, index) => ({
       ...entry,
       rank: index + 1,
-      listed: showsAnything && isLikelyEnoughToShow(entry) && index < OTHER_REPOSITORIES_LISTED,
+      listed: false,
     })),
     answeredBy,
   };

@@ -16,9 +16,14 @@
     "tools.tea pins the tea CLI release install-forgejo.sh installs, with the",
     "sha256 of each platform's binary from the release's checksums.txt;",
     "agent_docs/forgejo.md records where each sha256 came from.",
+    "tools.ripgrep and tools.fd pin the rg and fd releases scripts/install-search-tools.sh",
+    "unpacks into vendor/bin, with each platform's archive name and sha256; bin/rg",
+    "and bin/fd run them. agent_docs/search-tools.md records where each sha256 came from.",
     "harnesses.jscpd pins the duplicate-code checker both todo gates run. It is vendored",
     "with claude and codex and reached through bin/jscpd; npm records its integrity",
     "in vendor/package-lock.json.",
+    "harnesses.pi pins pi, which runs under the pinned bun through bin/piy;",
+    "its version is read from its package.json because its own bin starts node.",
     "To move a pin: edit the version here, run ./install.sh, verify, commit."
   ],
   "tools": {
@@ -47,23 +52,74 @@
           "sha256": "f7f70f57dac1616d17edc0d010469648222642bf3462e09c05bca26b38f3dfdb"
         }
       }
+    },
+    "ripgrep": {
+      "version": "15.2.0",
+      "binary": "rg",
+      "releaseUrl": "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0",
+      "artifacts": {
+        "linux-amd64": {
+          "archive": "ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz",
+          "sha256": "33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c"
+        },
+        "linux-arm64": {
+          "archive": "ripgrep-15.2.0-aarch64-unknown-linux-musl.tar.gz",
+          "sha256": "800b1e7206afe799dfb5a6901f23147cfaabe0e52210538100f61e86e1740915"
+        },
+        "darwin-amd64": {
+          "archive": "ripgrep-15.2.0-x86_64-apple-darwin.tar.gz",
+          "sha256": "af7825fcc69a2afc7a7aea55fc9af90e26421d8f20fe59df32e233c0b8a231c1"
+        },
+        "darwin-arm64": {
+          "archive": "ripgrep-15.2.0-aarch64-apple-darwin.tar.gz",
+          "sha256": "3750b2e93f37e0c692657da574d7019a101c0084da05a790c83fd335bad973e4"
+        }
+      }
+    },
+    "fd": {
+      "version": "10.5.2",
+      "binary": "fd",
+      "releaseUrl": "https://github.com/sharkdp/fd/releases/download/v10.5.2",
+      "artifacts": {
+        "linux-amd64": {
+          "archive": "fd-v10.5.2-x86_64-unknown-linux-musl.tar.gz",
+          "sha256": "7e2d07fa2b8807642aaec67b7e2972a9fbe4db26fcb340a7372392db42b26694"
+        },
+        "linux-arm64": {
+          "archive": "fd-v10.5.2-aarch64-unknown-linux-musl.tar.gz",
+          "sha256": "63ea52cb31586e6d98efa2f06d73d542f16c7d0c4af0f07b579aaf9714cf907a"
+        },
+        "darwin-amd64": {
+          "archive": "fd-v10.5.2-x86_64-apple-darwin.tar.gz",
+          "sha256": "0f02e6000a8c896cd254cf4dccc7da1e604e77a32c6783609eed5e4cb07785e3"
+        },
+        "darwin-arm64": {
+          "archive": "fd-v10.5.2-aarch64-apple-darwin.tar.gz",
+          "sha256": "81bf98a16d3d7230e4a9123fcede243d71ea31a577113476ed43f1cdf4773162"
+        }
+      }
     }
   },
   "harnesses": {
     "claude": {
       "package": "@anthropic-ai/claude-code",
-      "version": "2.1.322",
+      "version": "2.1.326",
       "bin": "claude"
     },
     "codex": {
       "package": "@openai/codex",
-      "version": "0.167.0",
+      "version": "0.169.0",
       "bin": "codex"
     },
     "jscpd": {
       "package": "jscpd",
       "version": "5.4.3",
       "bin": "jscpd"
+    },
+    "pi": {
+      "package": "@earendil-works/pi-coding-agent",
+      "version": "1.5.2",
+      "bin": "pi"
     }
   }
 }

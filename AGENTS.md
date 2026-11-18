@@ -461,7 +461,9 @@ was filed with.
   for teardown — a landed `REPORT.md`, a `Deliver <name>` commit, a durable
   verdict-only `deliverable_shape`, a proven delivery ancestry, and a
   `REPORT.md` recording a no-delivery completion. **All five are deleted**
-  (`a8e31939`). An artifact proves that WORK HAPPENED; it never proves the
+  (`a8e31939`). Delivery itself is proven by the agent's
+  `delivery-evidence.json`, written by `throne record-delivery` after the
+  one-commit delivery of `gate-99c-deliver.md`, never by a commit subject. An artifact proves that WORK HAPPENED; it never proves the
   agent is FINISHED with it, and conflating those is what made `--force`
   routine — a healthy delivery gate matched none of the artifact shapes and
   was refused, while a wedged agent holding a stale `REPORT.md` was waved
@@ -673,7 +675,7 @@ was filed with.
   Three things this does NOT license, because they are separate laws and remain
   in force: it does not permit *halting* when quota runs out (the never-full-stop
   rule above still binds — a Regent at zero quota stays live, supervises, and
-  recovers routes); it does not waive the role-pool, capability-floor,
+  recovers routes); it does not waive the role-pool,
   effort-range, or bypass-authorization gates, which are admission controls
   rather than budget controls; and it does not license *wasted* burn — a suite
   re-run to re-measure something four campaigns already persisted, or a gate
@@ -954,7 +956,7 @@ was filed with.
   authorizer plus evidence locator in `spawn.json`; a parent bypass does not
   silently authorize children. Exact registered resumes may retain only their
   already-recorded authorized recipe. This bypass never waives enabled-route,
-  capability-floor, effort-range, or zero-quota safety checks.
+  effort-range, or zero-quota safety checks.
 - **Every refusal a `--bypass-*` flag would waive MUST name that flag and its
   authorization chain (Lord, 2026-08-10).** A refusal that states the problem
   and hides the remedy is a dead end: the reader cannot tell whether the flag is
@@ -998,7 +1000,7 @@ was filed with.
   to the Regent's. When present and non-empty, it OVERRIDES the active plan
   preset's role pool for that Alpha's own spawns and its Shadows' spawns; when
   absent, empty, or malformed, the role pool remains the exact default it is
-  today. It never waives capability floors, effort ranges, enabled-route
+  today. It never waives effort ranges, enabled-route
   checks, or zero-quota safety — those gates evaluate the final selected route
   exactly as before, regardless of which pool admitted the pair. `spawn.json`
   records which allowlist admitted a route through its existing
@@ -1429,7 +1431,7 @@ throne keeps a file points here.
 | Path | What lives there |
 | --- | --- |
 | `~/.throne` | The throne home. `THRONE_DATA_HOME` (an absolute path) overrides it, and is the only override. |
-| `~/.throne/config/` | The operator's settings: `features.json`, `accounts.json` (the Claude account folders; see "Claude account folders" below) and `config.user.ts` (with a `package.json` marking the folder an ES module). A `config.user.ts` in the live checkout wins when present, for quick testing; when both exist the throne prints one line naming the copy it loaded, and `throne check-config` always names it. |
+| `~/.throne/config/` | The operator's settings: `accounts.json` (the Claude account folders; see "Claude account folders" below) and `config.user.ts` (with a `package.json` marking the folder an ES module). A `config.user.ts` in the live checkout wins when present, for quick testing; when both exist the throne prints one line naming the copy it loaded, and `throne check-config` always names it. |
 | `~/.throne/accounts/claude/` | Every Claude account folder but the primary (`secondary/` today), the `security` stand-in in `bin/`, and the per-account MCP server files in `mcp/`. Each folder holds its own login; nothing here is ever committed or printed. |
 | `~/.throne/browser-profiles/` | agent-browser sign-ins, one folder per host, named at runtime. |
 | `~/.throne/logs/` | Service logs from the macOS LaunchAgents (linux services log to the journal). Logs written before the move stay in their old folder. |
@@ -1739,15 +1741,6 @@ The automatic recall on each prompt covers only the session's repository and
 the global memories. Before working in another repository, run
 `throne recall --directory <that repo> "<task>"` instead of grepping its
 memory directory by hand.
-
-**Jev is reached only through `throne recall`, `throne rank` or `throne sift`,
-which spend from the machine's Jev budget.** Never call the `@typesafe-ai/sdk`
-directly, never copy or read the Jev key, and never raise `jevTokensPerDay` or
-`jevTokensPerHour` without the Lord's order through /modify-config. A task
-that needs more Jev than the budget allows stops and says so. `throne
-jev-probe` is the only way to test a Jev wording. The `claude-hooks/jev-fence.py`
-PreToolUse hook refuses every way around this, with no bypass (Lord,
-2026-09-29, after one audit spent 451 million Jev tokens).
 
 Learning mode is always on: when you get corrected, bust an assumption, or hit
 an unexpected dead end, write it to `"$(throne memory-dir <repo>)"` immediately — `.` when the lesson is about the repo you stand in, that repo's path when it is not —

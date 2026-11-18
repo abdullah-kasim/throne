@@ -24,9 +24,7 @@ import { THRONE_BACKEND_SERVICE_UNIT_NAME } from "../status/service-health.ts";
  * `onApplicationBootstrap` itself stays synchronous and never awaits a
  * worker's `start()`, so this wait never blocks Nest's own bootstrap on a
  * worker's entire (for a long-lived worker, infinite) lifetime — only on
- * each worker's own readiness step. This is separate from the recurring
- * `WatchdogSec=` liveness proof (see `KeepGoingHostedWorker`) and must
- * never be conflated with it: `createContext`/`notifyReady`/
+ * each worker's own readiness step. `createContext`/`notifyReady`/
  * `waitForWorkersReady` are overridable only so a test can exercise this
  * bootstrap path without booting the real module or a live
  * `NOTIFY_SOCKET`.
@@ -46,6 +44,22 @@ import { THRONE_BACKEND_SERVICE_UNIT_NAME } from "../status/service-health.ts";
  * else. That is a known, accepted limitation, not solved by this delay.
  */
 export const KNOWN_GOOD_STABILITY_DELAY_MS = 90_000;
+
+export const BACKEND_WATCHDOG_PING_INTERVAL_MS = 30_000;
+
+export type RepeatEvery = (fn: () => void, intervalMs: number) => void;
+
+function realRepeat(fn: () => void, intervalMs: number): void {
+  const timer = setInterval(fn, intervalMs);
+  timer.unref?.();
+}
+
+export function startWatchdogPing(
+  notify: (payload: SdNotifyPayload) => void = sendSdNotify,
+  repeat: RepeatEvery = realRepeat,
+): void {
+  repeat(() => notify("WATCHDOG=1"), BACKEND_WATCHDOG_PING_INTERVAL_MS);
+}
 
 /** Fires `schedule` from a real, unref'd timer -- never keeps the process alive on its own. */
 function realSchedule(fn: () => void, delayMs: number): void {
@@ -101,10 +115,12 @@ export async function createThroneBackendApp(
   // no generation and this is a silent no-op, matching every other marker
   // writer in this codebase.
   markGenerationReady: () => void = () => scheduleKnownGoodConfirmation(),
+  repeatWatchdogPing: RepeatEvery = realRepeat,
 ): Promise<INestApplicationContext> {
   const app = await createContext();
   await waitForWorkersReady(app);
   notifyReady("READY=1");
+  startWatchdogPing(notifyReady, repeatWatchdogPing);
   markGenerationReady();
   return app;
 }

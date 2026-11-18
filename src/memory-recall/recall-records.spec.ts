@@ -61,20 +61,6 @@ test('a ledger over its size limit is set aside before the next decisions are wr
   assert.doesNotMatch(current, /A\.md/);
 });
 
-test('in a serve-mode hook a confident no is counted in the summary line and gets no line of its own', async () => {
-  const dataDirectory = mkdtempSync(path.join(tmpdir(), 'recall-records-'));
-  await appendDecisionsToLedger(dataDirectory, {
-    ...judgement('task', [decision('SERVED.md', YES, 0.9, true), decision('NEAR_MISS.md', NO, 0.67, false), decision('UNRELATED.md', NO, 1, false)]),
-    source: HOOK_SOURCE,
-    hookMode: SERVE_ARM,
-  });
-  const ledger = readFileSync(path.join(dataDirectory, RECALL_LEDGER_FILE_NAME), 'utf8');
-  assert.match(ledger, /SERVED\.md/);
-  assert.match(ledger, /NEAR_MISS\.md/);
-  assert.doesNotMatch(ledger, /UNRELATED\.md/);
-  assert.match(ledger, /"questionsAsked":3,"served":1,"confidentNoAnswersLeftOut":1/);
-});
-
 test('served lists older than the limit are removed when a list is recorded', async () => {
   const dataDirectory = mkdtempSync(path.join(tmpdir(), 'recall-records-'));
   await recordWhenServedInSession(dataDirectory, 'old-session', new Map([['/memories/A.md', NOW.toISOString()]]), NOW);

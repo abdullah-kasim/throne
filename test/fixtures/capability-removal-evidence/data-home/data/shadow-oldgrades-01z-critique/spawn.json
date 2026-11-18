@@ -1,0 +1,25 @@
+{
+  "harness": "claude",
+  "model": "opus",
+  "effort": 1,
+  "cwd": "<worktrees>/throne/shadow-oldgrades-01z-critique",
+  "spawned_at": "2026-11-14T10:00:00.000Z",
+  "spawn_finished_at": "2026-11-14T10:01:02.000Z",
+  "objective_code": "oldgrades",
+  "tasked_at": "2026-11-14T10:01:04.000Z",
+  "capability": {
+    "requirements": [
+      {
+        "dimension": "non-coding",
+        "floor": 4
+      }
+    ],
+    "final_scores": [
+      {
+        "dimension": "non-coding",
+        "score": 4.2
+      }
+    ],
+    "verdict": "pass"
+  }
+}

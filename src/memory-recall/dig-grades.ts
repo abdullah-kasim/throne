@@ -144,7 +144,7 @@ async function memoryItemReadFrom(
   textPath: string,
 ): Promise<RankItem | undefined> {
   try {
-    return { id: memoryFile, text: await readFile(textPath, 'utf8'), mayBeSentToJev: true };
+    return { id: memoryFile, text: await readFile(textPath, 'utf8') };
   } catch {
     return undefined;
   }

@@ -1222,7 +1222,7 @@ Action-shaped titles, targets baked in: `Implement recipe page`, `Wire the relea
 - `ticket-todo-template.md` — read when the bundle is ticket-driven and you are writing the `98` file.
 - `conformance-todo-template.md` — read when writing the `99a` file.
 - `verify-todo-template.md` — read when writing the `99b` file.
-- `spec-todo-template.md` — read when writing the `99bs` file.
+- `spec-todo-template.md` — read when writing the `99bs` file; the steps it points at are in `agent_docs/spec-writing-steps.md`.
 - `delivery-todo-template.md` — read when writing the `99c` file.
 - `record-todo-template.md` — read when writing the `99d` file.
 - `front-end-bundles.md` — read when any slice's `touches:` includes a front-end path, or the queue row stamps `frontend_row:`.

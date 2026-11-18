@@ -61,7 +61,7 @@ test("a manifest entry marked shipped really ships, and one marked global does n
   const shipped = shippedSkills(SKILLS_DIRECTORY);
   for (const [name, kind] of readManifest()) {
     if (kind === "shipped") assert.ok(shipped.has(name), `${name} is marked shipped but .claude/skills/${name}/SKILL.md is missing`);
-    else assert.ok(!shipped.has(name), `${name} is marked ${kind} but throne ships it; mark it shipped`);
+    else if (kind !== "generated") assert.ok(!shipped.has(name), `${name} is marked ${kind} but throne ships it; mark it shipped`);
   }
 });
 

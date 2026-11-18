@@ -2,7 +2,7 @@ import { isSupportedComposerEmpty } from "../codex-screen/composer/composer.serv
 import { Injectable } from '@nestjs/common';
 import { HARNESS_NAMES } from "../harness-routing/harness.ts";
 import type { HerdrAgent } from "./herdr-inventory.service.ts";
-import type { SupportedAgentScreenSnapshot } from "../codex-screen/composer/composer.types.ts";
+import type { SupportedAgentScreenSnapshot, SupportedComposerHarness } from "../codex-screen/composer/composer.types.ts";
 import {
   isTransientComposerObservationFailure,
   observeSupportedScreen,
@@ -19,13 +19,14 @@ import {
 export async function waitForStableClaudeResidentRepresentation(
   agent: HerdrAgent,
   deps: SubmitToAgentDeps,
+  harness: SupportedComposerHarness = HARNESS_NAMES.CLAUDE,
 ): Promise<string | undefined> {
   let previousText: string | undefined;
   let stableText: string | undefined;
   const confirmed = await pollForVisibleEffect(
     async () => {
       const composer = (
-        await observeSupportedScreen(agent, HARNESS_NAMES.CLAUDE, deps)
+        await observeSupportedScreen(agent, harness, deps)
       ).activeComposer;
       if (composer.state !== "draft") {
         previousText = undefined;
@@ -90,7 +91,9 @@ export async function waitForSettledClaudeComposer(
   }
 }
 
-export function claudeTextboxClearance(): ComposerClearanceContract {
+export function claudeTextboxClearance(
+  harness: SupportedComposerHarness = HARNESS_NAMES.CLAUDE,
+): ComposerClearanceContract {
   return {
     unmetClearanceDescription:
       "the composer never reached a canonical empty state",
@@ -101,7 +104,7 @@ export function claudeTextboxClearance(): ComposerClearanceContract {
       try {
         reading = await observeSupportedScreenWithVisibleAnsi(
           target,
-          HARNESS_NAMES.CLAUDE,
+          harness,
           deps,
         );
       } catch (error) {
@@ -111,7 +114,7 @@ export function claudeTextboxClearance(): ComposerClearanceContract {
           observationError: error,
         };
       }
-      if (isSupportedComposerEmpty(HARNESS_NAMES.CLAUDE, reading.visibleAnsi)) {
+      if (isSupportedComposerEmpty(harness, reading.visibleAnsi)) {
         return { clearance: "confirmed" };
       }
       const composer = reading.snapshot.activeComposer;

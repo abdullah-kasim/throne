@@ -9,6 +9,7 @@ import { MessageQueueWorkItemState, openMessageQueueStore } from "../src/message
 import { MESSAGE_DELIVERY_WORK_ITEM_KIND } from "../src/send-agent/message-delivery-enqueue.ts";
 import { runDispatchTick } from "../src/throne-work/dispatch-loop.ts";
 import { SqliteQueueDrainHostedWorker } from "../src/throne-backend/sqlite-queue-drain.hosted-worker.ts";
+import { stubMessageDelivery } from "./stub-message-delivery-test-support.ts";
 
 const fixturePath = path.join(
   process.cwd(),
@@ -99,16 +100,10 @@ test("a blocked SQLite delivery does not retain the drain tick or write transact
 
     assert.deepEqual(
       runDispatchTick(store, new Set(), {
-        messageDelivery: {
+        messageDelivery: stubMessageDelivery({
           resolveAgent: async () => ({}) as never,
           submitToAgent: async () => blockedDelivery.promise,
-          clearBlockedState: async () => {},
-          readAgentRole: async () => ({ status: "absent" }) as never,
-          readAgentSupervisor: async () => ({ status: "absent" }) as never,
-          recordDeliveredEvent: async () => {},
-          sleep: async () => {},
-          maxNotSentAttempts: 1,
-        },
+        }),
       }).map((item) => item.id),
       [queued.id],
     );
@@ -130,61 +125,6 @@ test("a blocked SQLite delivery does not retain the drain tick or write transact
   }
 });
 
-test("the hosted SQLite drain keeps claiming while a pane delivery is blocked", async () => {
-  const { directory, databasePath } = createDatabasePath();
-  const store = openMessageQueueStore(databasePath);
-  const blockedDelivery = Promise.withResolvers<void>();
-  try {
-    const worker = new SqliteQueueDrainHostedWorker(store, {
-      messageDelivery: {
-        resolveAgent: async () => ({}) as never,
-        submitToAgent: async () => blockedDelivery.promise,
-        clearBlockedState: async () => {},
-        readAgentRole: async () => ({ status: "absent" }) as never,
-        readAgentSupervisor: async () => ({ status: "absent" }) as never,
-        recordDeliveredEvent: async () => {},
-        sleep: async () => {},
-        maxNotSentAttempts: 1,
-      },
-    });
-    const first = store.insertWorkItem({
-      kind: MESSAGE_DELIVERY_WORK_ITEM_KIND,
-      payload: {
-        recipientName: "recipient",
-        recipientPaneId: "pane",
-        senderName: "sender",
-        prompt: "first",
-        clearRecipientBlockedOnDelivery: false,
-      },
-    });
-
-    await worker.runOnce();
-    const second = store.insertWorkItem({
-      kind: MESSAGE_DELIVERY_WORK_ITEM_KIND,
-      payload: {
-        recipientName: "recipient",
-        recipientPaneId: "pane",
-        senderName: "sender",
-        prompt: "second",
-        clearRecipientBlockedOnDelivery: false,
-      },
-    });
-    await worker.runOnce();
-
-    assert.equal(store.readWorkItem(first.id)?.state, MessageQueueWorkItemState.InFlight);
-    assert.equal(store.readWorkItem(second.id)?.state, MessageQueueWorkItemState.InFlight);
-
-    blockedDelivery.resolve();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.notEqual(store.readWorkItem(first.id)?.state, MessageQueueWorkItemState.InFlight);
-    assert.notEqual(store.readWorkItem(second.id)?.state, MessageQueueWorkItemState.InFlight);
-  } finally {
-    store.close();
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
-
 test("a delivery that keeps yielding on an occupied composer neither starves other work kinds nor stales the heartbeat", async () => {
   const { directory, databasePath } = createDatabasePath();
   let now = 1_000;
@@ -194,16 +134,10 @@ test("a delivery that keeps yielding on an occupied composer neither starves oth
     const worker = new SqliteQueueDrainHostedWorker(
       store,
       {
-        messageDelivery: {
+        messageDelivery: stubMessageDelivery({
           resolveAgent: async () => ({ name: "recipient", paneId: "pane", agent: "claude" }) as never,
           submitToAgent: async () => {},
-          clearBlockedState: async () => {},
-          readAgentRole: async () => ({ status: "absent" }) as never,
-          readAgentSupervisor: async () => ({ status: "absent" }) as never,
-          recordDeliveredEvent: async () => {},
-          sleep: async () => {},
-          maxNotSentAttempts: 1,
-        },
+        }),
         regentResurrection: {
           resurrectRegent: async () => {
             resurrections.push(now);

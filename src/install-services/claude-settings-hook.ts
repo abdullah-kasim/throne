@@ -27,6 +27,17 @@ export interface ClaudeSettingsHook {
   event: ClaudeHookEvent;
   matcher?: string;
   hookFileName: string;
+  timeout?: number;
+  statusMessage?: string;
+}
+
+export function commandHook(hook: ClaudeSettingsHook, command: string): JsonObject {
+  return {
+    type: 'command',
+    command,
+    ...(hook.timeout === undefined ? {} : { timeout: hook.timeout }),
+    ...(hook.statusMessage === undefined ? {} : { statusMessage: hook.statusMessage }),
+  };
 }
 
 export function isJsonObject(value: unknown): value is JsonObject {
@@ -45,22 +56,30 @@ function isEntryForMatcher(
   return isJsonObject(entry) && entry.matcher === matcher && Array.isArray(entry.hooks);
 }
 
-export function withClaudeHookRegistered(
+export interface HookPlacement {
+  isSameHook: (hook: unknown, entry: JsonObject) => boolean;
+  entriesWithHookPlaced: (
+    entries: readonly unknown[],
+    registeredHook: JsonObject,
+  ) => { nextEntries: unknown[]; placed: boolean };
+}
+
+export function withHookPlaced(
   settings: JsonObject,
   hook: ClaudeSettingsHook,
   command: string,
+  placement: HookPlacement,
 ): SettingsWithHookRegistered {
   const hooks = isJsonObject(settings.hooks) ? settings.hooks : {};
   const eventEntries = hooks[hook.event];
   const entries = Array.isArray(eventEntries) ? eventEntries : [];
-  const commandHook = { type: 'command', command };
 
   let registeredCount = 0;
   let staleCount = 0;
   for (const entry of entries) {
-    if (!isEntryForMatcher(entry, hook.matcher)) continue;
+    if (!isJsonObject(entry) || !Array.isArray(entry.hooks)) continue;
     for (const existingHook of entry.hooks) {
-      if (!isHookRunningFile(existingHook, hook.hookFileName)) continue;
+      if (!placement.isSameHook(existingHook, entry)) continue;
       if (isJsonObject(existingHook) && existingHook.command === command) registeredCount += 1;
       else staleCount += 1;
     }
@@ -69,25 +88,13 @@ export function withClaudeHookRegistered(
     return { settings, change: 'unchanged' };
   }
 
-  let placed = false;
-  const nextEntries: unknown[] = [];
-  for (const entry of entries) {
-    if (!isEntryForMatcher(entry, hook.matcher)) {
-      nextEntries.push(entry);
-      continue;
-    }
-    const keptHooks: unknown[] = entry.hooks.filter(
-      (existingHook) => !isHookRunningFile(existingHook, hook.hookFileName),
-    );
-    keptHooks.push(commandHook);
-    placed = true;
-    nextEntries.push({ ...entry, hooks: keptHooks });
-  }
+  const registeredHook = commandHook(hook, command);
+  const { nextEntries, placed } = placement.entriesWithHookPlaced(entries, registeredHook);
   if (!placed) {
     nextEntries.push(
       hook.matcher === undefined
-        ? { hooks: [commandHook] }
-        : { matcher: hook.matcher, hooks: [commandHook] },
+        ? { hooks: [registeredHook] }
+        : { matcher: hook.matcher, hooks: [registeredHook] },
     );
   }
   return {
@@ -96,21 +103,32 @@ export function withClaudeHookRegistered(
   };
 }
 
-export function withClaudeHooksRegistered(
+export function withClaudeHookRegistered(
   settings: JsonObject,
-  hooks: readonly ClaudeSettingsHook[],
+  hook: ClaudeSettingsHook,
   command: string,
 ): SettingsWithHookRegistered {
-  return hooks.reduce<SettingsWithHookRegistered>(
-    (registered, hook) => {
-      const next = withClaudeHookRegistered(registered.settings, hook, command);
-      return {
-        settings: next.settings,
-        change: registered.change === 'unchanged' ? next.change : registered.change,
-      };
+  return withHookPlaced(settings, hook, command, {
+    isSameHook: (existingHook, entry) =>
+      isEntryForMatcher(entry, hook.matcher) && isHookRunningFile(existingHook, hook.hookFileName),
+    entriesWithHookPlaced: (entries, registeredHook) => {
+      let placed = false;
+      const nextEntries: unknown[] = [];
+      for (const entry of entries) {
+        if (!isEntryForMatcher(entry, hook.matcher)) {
+          nextEntries.push(entry);
+          continue;
+        }
+        const keptHooks: unknown[] = entry.hooks.filter(
+          (existingHook) => !isHookRunningFile(existingHook, hook.hookFileName),
+        );
+        keptHooks.push(registeredHook);
+        placed = true;
+        nextEntries.push({ ...entry, hooks: keptHooks });
+      }
+      return { nextEntries, placed };
     },
-    { settings, change: 'unchanged' },
-  );
+  });
 }
 
 export async function registerHookInClaudeSettings(

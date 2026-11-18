@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { modelEffortRange } from "./policy/capabilities.ts";
+import { modelEffortRange } from "./policy/model-effort-and-equivalents.ts";
 import { resolveFreshEffort, steerSpawn } from "./policy/steering.ts";
 import type { SteerInput, SteerResult } from "./policy/steering.types.ts";
 import type { Harness } from "./harness.ts";

@@ -20,6 +20,7 @@ import {
   type PolicyResolution,
   type SpawnTaskingOutcome,
 } from './create.types.ts';
+import { writeQueueLaunchLinkage } from './queue-launch-writeback.ts';
 import {
   currentIsoTime,
   stderrWriter,
@@ -56,6 +57,20 @@ async function recordAgentTaskedAtSpawn(
         `${error instanceof Error ? error.message : String(error)}\n`,
     );
   }
+}
+
+async function tieTheRowAtTasking(
+  request: PolicyResolution,
+  deps: CreateAgentDeps,
+): Promise<void> {
+  if (!requestCarriesGenuineTask(request)) {
+    return;
+  }
+  await (deps.writeQueueLaunchLinkage ?? writeQueueLaunchLinkage)(
+    request.name,
+    request.objectiveContract,
+    request.role,
+  );
 }
 
 function launchesClaudeCode(request: PolicyResolution): boolean {
@@ -225,6 +240,7 @@ export async function deliverAgentOpeningPrompt(
       openingPrompt,
     );
     await recordAgentTaskedAtSpawn(request, deps);
+    await tieTheRowAtTasking(request, deps);
     const confirmation = await confirmOpeningPromptTasking(request, deps);
     await correctSettingsAfterTheOpeningPrompt(agent, request, deps, promptWorkItemId);
     return {

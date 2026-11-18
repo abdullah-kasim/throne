@@ -25,6 +25,7 @@ export {
   WorkItemNotFoundError,
 };
 import { createMessageQueueSchema } from "./message-queue-schema.ts";
+import { selectNextDueWorkItemId } from "./next-due-work-item.ts";
 import {
   insertUnlessDedupeKeyIsStored,
   runInImmediateTransaction,
@@ -405,23 +406,20 @@ export class MessageQueueStore {
    * The claimed row is returned only after the transaction commits. Delivery
    * therefore occurs after SQLite's write lock has been released.
    */
-  claimNextDueWorkItem(kinds: readonly string[] = []): WorkItemRow | undefined {
+  claimNextDueWorkItem(
+    kinds: readonly string[] = [],
+    busyRecipients?: ReadonlySet<string>,
+  ): WorkItemRow | undefined {
     const timestamp = this.now();
-    const kindPredicate = kinds.length === 0
-      ? ""
-      : ` AND kind IN (${kinds.map(() => "?").join(", ")})`;
     return runInImmediateTransaction(this.db, () => {
-      const candidate = this.db.prepare(
-        `SELECT id FROM work_items
-         WHERE state = ? AND (due_at IS NULL OR due_at <= ?)${kindPredicate}
-         ORDER BY (due_at IS NOT NULL) ASC, due_at ASC, created_at ASC
-         LIMIT 1`,
-      ).get(
+      const candidateId = selectNextDueWorkItemId(
+        this.db,
         MessageQueueWorkItemState.Queued,
         timestamp,
-        ...kinds,
-      ) as unknown as { id: number } | undefined;
-      if (candidate === undefined) return undefined;
+        kinds,
+        busyRecipients,
+      );
+      if (candidateId === undefined) return undefined;
 
       const row = this.db.prepare(
         `UPDATE work_items SET state = ?, updated_at = ?, attempt_count = attempt_count + 1
@@ -430,7 +428,7 @@ export class MessageQueueStore {
       ).get(
         MessageQueueWorkItemState.InFlight,
         timestamp,
-        candidate.id,
+        candidateId,
         MessageQueueWorkItemState.Queued,
         timestamp,
       ) as unknown as WorkItemSqlRow | undefined;

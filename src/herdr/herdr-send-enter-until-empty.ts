@@ -1,6 +1,6 @@
-import { deliverToOmp } from "./omp-delivery-client.ts";
+import { deliverThroughExtension } from "./delivery-request-client.ts";
+import { readFeatureSwitch } from "../user-config-loader.ts";
 import { stagePayload } from "../send-agent/payload-transport.ts";
-import { shouldUseFileBackedAgentPayloads } from "../shared-policy/feature-flags.service.ts";
 import { RecipientPaneLockService } from "../shared-policy/recipient-pane-lock.service.ts";
 import { captureComposerTimeoutDiagnostic } from "./herdr-composer-diagnostic-capture.ts";
 import { REAL_KEYED_SUBMISSION_WINDOW_STORE } from "./keyed-submission-token.ts";
@@ -39,11 +39,16 @@ import {
   type SubmitToAgentDeps,
 } from "./herdr-send.types.ts";
 
+import { REAL_CLAUDE_MOD_DELIVERY_DEPS } from "./claude-mod-route.ts";
+
 const RECIPIENT_PANE_LOCK = new RecipientPaneLockService();
+
+const readFileBackedPayloadsSwitch = (): Promise<boolean> => readFeatureSwitch("sendAgentFileBackedPayloads");
 
 export const REAL_SUBMIT_TO_AGENT_DEPS: SubmitToAgentDeps = {
   sendText,
-  deliverToOmp,
+  deliverThroughExtension,
+  claudeMod: REAL_CLAUDE_MOD_DELIVERY_DEPS,
   pressEnter,
   pressPaneKey,
   getPaneProcessInfo,
@@ -59,7 +64,7 @@ export const REAL_SUBMIT_TO_AGENT_DEPS: SubmitToAgentDeps = {
     RECIPIENT_PANE_LOCK.withRecipientPaneLock.bind(RECIPIENT_PANE_LOCK),
   isRecipientPaneLockHeld: (paneId) => RECIPIENT_PANE_LOCK.isHeldByAnotherSender(paneId),
   stagePayload,
-  fileBackedPayloadsEnabled: shouldUseFileBackedAgentPayloads(),
+  fileBackedPayloadsEnabled: readFileBackedPayloadsSwitch,
   keyedSubmissionWindowStore: REAL_KEYED_SUBMISSION_WINDOW_STORE,
   captureComposerDiagnostic: captureComposerTimeoutDiagnostic,
 };
@@ -70,7 +75,8 @@ export function buildSubmitToAgentDeps(
 ): SubmitToAgentDeps {
   return {
     sendText: (target, text) => sendTextInSession(sessionName, target, text, processBoundary),
-    deliverToOmp,
+    deliverThroughExtension,
+    claudeMod: REAL_CLAUDE_MOD_DELIVERY_DEPS,
     pressEnter: (pane) => pressEnterInSession(sessionName, pane, processBoundary),
     pressPaneKey: (pane, key) => pressPaneKeyInSession(sessionName, pane, key, processBoundary),
     getPaneProcessInfo: (paneId) => getPaneProcessInfoInSession(sessionName, paneId, processBoundary),
@@ -90,7 +96,7 @@ export function buildSubmitToAgentDeps(
       RECIPIENT_PANE_LOCK.withRecipientPaneLock.bind(RECIPIENT_PANE_LOCK),
     isRecipientPaneLockHeld: (paneId) => RECIPIENT_PANE_LOCK.isHeldByAnotherSender(paneId),
     stagePayload,
-    fileBackedPayloadsEnabled: shouldUseFileBackedAgentPayloads(),
+    fileBackedPayloadsEnabled: readFileBackedPayloadsSwitch,
     keyedSubmissionWindowStore: REAL_KEYED_SUBMISSION_WINDOW_STORE,
     captureComposerDiagnostic: captureComposerTimeoutDiagnostic,
   };

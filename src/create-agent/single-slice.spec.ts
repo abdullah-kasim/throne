@@ -67,7 +67,6 @@ function policyResolution(name: string): PolicyResolution {
     objectiveContract: { kind: "campaign", objectiveCode: "one" },
     routingNote: "",
     durableRoutingNote: false,
-    capabilityOverrideNote: "",
     effortOverrideNote: "",
     harnessOverrideNote: "",
     bypassedObjectiveCode: false,

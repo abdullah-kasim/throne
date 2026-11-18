@@ -56,21 +56,16 @@ function renderedDirective(shown: readonly OtherRepositoryAnswer[], taskText: st
   return `${[directiveHeadingOf(shown), ...commands].join('\n')}\n`;
 }
 
-function isAnsweredByJev(otherRepositories: OtherRepositories): boolean {
-  return otherRepositories.answeredBy.backend === 'jev';
-}
-
 export function isAnyRepositoryShown(otherRepositories: OtherRepositories): boolean {
   return listedRepositoriesOf(otherRepositories).length > 0;
 }
 
 export function renderedOtherRepositoriesBlock(otherRepositories: OtherRepositories, taskText: string): string {
   if (otherRepositories.answers.length === 0) return '';
-  if (!isAnsweredByJev(otherRepositories)) {
-    const label = answeredByLabel(otherRepositories.answeredBy, { confidence: 0 });
-    return `${OTHER_REPOSITORIES_HEADING} none listed, because the ${label} answered instead of Jev.\n`;
+  if (!isAnyRepositoryShown(otherRepositories)) {
+    const label = answeredByLabel(otherRepositories.answeredBy);
+    return `${OTHER_REPOSITORIES_HEADING} none listed, because the ${label} answered.\n`;
   }
-  if (!isAnyRepositoryShown(otherRepositories)) return '';
   return renderedDirective(listedRepositoriesOf(otherRepositories), taskText);
 }
 

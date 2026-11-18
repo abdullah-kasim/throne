@@ -2,10 +2,6 @@ import {
   newAgentObjectiveContract,
   type ObjectiveContract,
 } from "../shared-policy/objective-contract.ts";
-import {
-  parseCapabilityRequirements,
-  type CapabilityRequirement,
-} from "./legacy-capabilities.ts";
 import { findQueueItemByObjectiveCode } from "../regent-queue/regent-queue-lifecycle.ts";
 import { openRegentQueueStore } from "../regent-queue/regent-queue.store.ts";
 import type {
@@ -13,7 +9,8 @@ import type {
   RegistrationResolution,
   StageResult,
 } from "./create.types.ts";
-import { stderrWriter } from "./command-context.ts";
+import { requiresIgnoredNotice } from "../create-agent/request.ts";
+import { stderrWriter, stdoutWriter } from "./command-context.ts";
 
 export async function resolveObjectiveContract(
   request: RegistrationResolution,
@@ -101,19 +98,12 @@ export async function resolveObjectiveCodeQueueGate(
   return { ok: false, code: 1 };
 }
 
-export function parseFreshCapabilityRequirements(
+export function noticeIgnoredRequiresArgument(
   request: RegistrationResolution,
   deps: CreateAgentDeps,
-): StageResult<CapabilityRequirement[]> {
-  if (request.resuming || request.flags.requires === undefined) {
-    return { ok: true, value: [] };
-  }
-  const parsed = parseCapabilityRequirements(request.flags.requires);
-  if (parsed.kind === "requirements") {
-    return { ok: true, value: parsed.requirements };
-  }
-  stderrWriter(deps)(
-    `create-agent-legacy: ${parsed.reason}. Nothing was registered, trusted, routed, or launched.\n`,
+): void {
+  if (request.flags.requires === undefined) return;
+  stdoutWriter(deps)(
+    requiresIgnoredNotice("create-agent-legacy"),
   );
-  return { ok: false, code: 1 };
 }

@@ -14,12 +14,13 @@
 // never the CLI binary.
 
 import assert from "node:assert/strict";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 
 import { git, initRepo, turnOffCommitSigningThatTheEnvironmentTurnedOn } from "./git-repo-test-fixture.ts";
-import { absorbAndStamp } from "../src/git-lifecycle/absorb-and-stamp.ts";
+import { absorbAndStamp, MERGED_INTO_TARGET_SUBJECT } from "../src/git-lifecycle/absorb-and-stamp.ts";
 
 turnOffCommitSigningThatTheEnvironmentTurnedOn();
 
@@ -87,31 +88,29 @@ async function assertBracketUnchanged(
   }
 }
 
-test("absorb-git-tree leaves a real absorb's ambient dirt in the checked-out shadow branch untouched", async () => {
-  const root = await newScratchRoot("throne-absorb-real-");
+async function divergeAlphaFromShadow(root: string): Promise<void> {
   await git(root, ["branch", "shadow"]);
-  // Alpha diverges from the Shadow's branch on `base.txt` — this is what
-  // makes the stamp's tree genuinely differ from what the Shadow checkout
-  // has on disk, so restoring the ambient dirt after the stamp's
-  // stash/reset actually has something to conflict with. A same-content
-  // reset makes even the buggy stash-pop restore trivially succeed and
-  // would hide the defect entirely.
   await git(root, ["checkout", "-b", "alpha"]);
   await writeFile(path.join(root, "base.txt"), "alpha version\n", "utf8");
   await git(root, ["commit", "--no-gpg-sign", "-am", "alpha diverges"]);
-  // Target ("main") gains a commit the alpha branch does not have yet, so
-  // the absorb is a genuine merge, not a no-op.
+}
+
+async function absorbOverAmbientDirtOnShadow(root: string) {
+  await git(root, ["checkout", "shadow"]);
+  const bracket = await plantAmbientDirtAndBracket(root);
+  const result = await absorbAndStamp("shadow", root, "main", "alpha", await mkdtemp(path.join(tmpdir(), "absorb-data-")));
+  return { bracket, result };
+}
+
+test("absorb-git-tree leaves a real absorb's ambient dirt in the checked-out shadow branch untouched", async () => {
+  const root = await newScratchRoot("throne-absorb-real-");
+  await divergeAlphaFromShadow(root);
   await git(root, ["checkout", "main"]);
   await writeFile(path.join(root, "target.txt"), "target work\n", "utf8");
   await git(root, ["add", "target.txt"]);
   await git(root, ["commit", "--no-gpg-sign", "-m", "target work"]);
-  // The gate rehearses the absorb with the Shadow's own branch checked out
-  // at `root` — the live/shared checkout, not a dedicated worktree.
-  await git(root, ["checkout", "shadow"]);
 
-  const bracket = await plantAmbientDirtAndBracket(root);
-
-  const result = await absorbAndStamp("shadow", root, "main", "alpha");
+  const { bracket, result } = await absorbOverAmbientDirtOnShadow(root);
   assert.equal(result.absorbAlreadyLanded, false);
   assert.ok(result.absorbCommit, "a real absorb must land a merge commit");
 
@@ -120,25 +119,9 @@ test("absorb-git-tree leaves a real absorb's ambient dirt in the checked-out sha
 
 test("absorb-git-tree leaves an already-landed no-op's ambient dirt in the checked-out shadow branch untouched", async () => {
   const root = await newScratchRoot("throne-absorb-noop-");
-  // Alpha already contains everything target ("main") has — the absorb
-  // itself is a no-op — but the Shadow's own branch has never been stamped,
-  // so the stamp step still runs. This is the exact "already landed" shape
-  // the incident reported: the corruption was on THIS path, not the
-  // real-absorb one.
-  await git(root, ["branch", "shadow"]);
-  // Alpha diverges from the Shadow's branch on `base.txt` while remaining a
-  // descendant of `main` (so target-into-alpha is still a genuine no-op) —
-  // same reasoning as the real-absorb test above: without a genuine content
-  // difference here, even the buggy restore path succeeds trivially and the
-  // test can't tell a correct restore from a lucky one.
-  await git(root, ["checkout", "-b", "alpha"]);
-  await writeFile(path.join(root, "base.txt"), "alpha version\n", "utf8");
-  await git(root, ["commit", "--no-gpg-sign", "-am", "alpha diverges"]);
-  await git(root, ["checkout", "shadow"]);
+  await divergeAlphaFromShadow(root);
 
-  const bracket = await plantAmbientDirtAndBracket(root);
-
-  const result = await absorbAndStamp("shadow", root, "main", "alpha");
+  const { bracket, result } = await absorbOverAmbientDirtOnShadow(root);
   assert.equal(result.absorbAlreadyLanded, true);
   assert.equal(result.absorbCommit, undefined);
   assert.equal(result.stampAlreadyLanded, false);
@@ -149,5 +132,5 @@ test("absorb-git-tree leaves an already-landed no-op's ambient dirt in the check
   // The stamp really did land on the Shadow's own branch, not just get
   // reported as if it had.
   const shadowLog = await git(root, ["log", "-1", "--format=%s", "shadow"]);
-  assert.equal(shadowLog, "Deliver shadow");
+  assert.equal(shadowLog, MERGED_INTO_TARGET_SUBJECT);
 });

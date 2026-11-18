@@ -55,12 +55,12 @@ function repositoryNameInQuestion(question: ClassifierQuestion): string | undefi
   return match?.[1];
 }
 
-export function jevBackendAnswering(
+export function backendAnswering(
   probabilityOfYesByRepository: Readonly<Record<string, number>>,
 ): RecordingBackend {
   const requests: (readonly ClassifierQuestion[])[] = [];
   return {
-    name: 'jev',
+    name: 'rules',
     requests,
     answer: async (_state, questions) => {
       requests.push(questions);

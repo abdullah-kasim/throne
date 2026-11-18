@@ -43,6 +43,7 @@ const HARNESS = {
     launcher: 'claudey',
     binaryEnvironment: 'CLAUDE_BIN',
     courtModelAliases: ['fable', 'opus', 'sonnet', 'haiku'],
+    modFolder: 'extensions/claude',
   },
   codex: {
     packageName: '@openai/codex',
@@ -198,13 +199,37 @@ function probeStagedHarness(config, binary, throneRoot) {
     env: { ...process.env, [config.binaryEnvironment]: binary },
   });
   results.push(`${config.launcher} --version with staged binary override`);
-  const launcherResolutionTest = 'test/ompy-launcher.test.ts';
+  const launcherResolutionTest = 'test/piy-launcher.test.ts';
   run(process.execPath, ['test', `./${launcherResolutionTest}`], {
     cwd: throneRoot,
   });
   results.push(`${launcherResolutionTest} proves the shared binary-override resolution that ${config.launcher} also uses`);
   results.push("create-agent spawn-acceptance of the staged binary is not probed: no existing test proves it without a live agent spawn, and a live spawn is LORD'S-ORDER-ONLY heavy territory");
   return results;
+}
+
+function validateErrorFrom(output) {
+  const lines = output.split('\n').map((line) => line.trim());
+  const errorHeader = lines.findIndex((line) => /^✘ Found \d+ errors?:$/.test(line));
+  if (errorHeader === -1) return lines.find((line) => line !== '');
+  const errorLine = lines.slice(errorHeader + 1).find((line) => line.startsWith('❯'));
+  return errorLine?.replace(/^❯\s*/, '');
+}
+
+function validateModAgainst(config, binary, throneRoot, version) {
+  if (!config.modFolder) return null;
+  const modFolder = path.join(throneRoot, config.modFolder);
+  if (!existsSync(modFolder)) return null;
+  try {
+    run(binary, ['plugin', 'validate', modFolder], { cwd: tmpdir() });
+    return { fits: true, line: `the Claude mod in ${config.modFolder} passes plugin validate on ${version}` };
+  } catch (error) {
+    const reason = validateErrorFrom(`${error.stdout ?? ''}\n${error.stderr ?? ''}`) || error.message;
+    return {
+      fits: false,
+      line: `the Claude mod in ${config.modFolder} fails plugin validate on ${version} (${reason}); every Claude agent launches without it and get messages as typed keys`,
+    };
+  }
 }
 
 export function modelIdsReportedFor(config, binary) {
@@ -363,28 +388,29 @@ function probeStagedPackage({ harness, throneRoot, managedRoot, metadata, regist
       assertRegistryResolvesReportedModels(config, staged.binary);
       probes.push(`${config.executable} model ids for ${config.courtModelAliases.join(', ')} all resolve in ${MODEL_REGISTRY_FILE}`);
     }
-    return probes;
+    const modValidation = validateModAgainst(config, staged.binary, throneRoot, metadata.version);
+    return { probes, ...(modValidation && { modValidation }) };
   } finally {
     rmSync(workRoot, { recursive: true, force: true });
   }
 }
 
 function installProbedHarness({ harness, throneRoot, managedRoot, metadata, registry, modelSessionCheck }) {
-  const probes = probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry, modelSessionCheck });
-  return { probes, ...applyHarnessVersion({ harness, throneRoot, version: metadata.version, registry }) };
+  const probed = probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry, modelSessionCheck });
+  return { ...probed, ...applyHarnessVersion({ harness, throneRoot, version: metadata.version, registry }) };
 }
 
 function installPinnedHarness({ harness, throneRoot, managedRoot, version, registry }) {
   const config = HARNESS[harness];
   const metadata = discoverPackage(config, registry, version);
-  const probes = probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry });
+  const probed = probeStagedPackage({ harness, throneRoot, managedRoot, metadata, registry });
   installVendoredHarness(throneRoot, config.packageName, version, registry);
   refreshVendorHarnessesStamp(throneRoot, readJsonFile(vendorPinsPath(throneRoot)));
   return {
     package: metadata.name,
     source: metadata.tarball,
     integrity: metadata.integrity,
-    probes,
+    ...probed,
     vendoredVersion: readVendoredVersion(throneRoot, config.executable),
   };
 }
@@ -417,7 +443,7 @@ export function runUpdate({ harness, throneRoot, managedRoot, registry, evidence
   assertCourtLivenessIsReadable();
   const oldVersion = readCommittedPinnedVersion(throneRoot, harness);
   const metadata = discoverPackage(config, registry);
-  const { probes, diff, vendoredVersion } = harnessIsCurrent(throneRoot, config, readPinnedVersion(throneRoot, harness), metadata.version)
+  const { probes, diff, vendoredVersion, modValidation } = harnessIsCurrent(throneRoot, config, readPinnedVersion(throneRoot, harness), metadata.version)
     ? readCurrentHarness(throneRoot, config)
     : installProbedHarness({ harness, throneRoot, managedRoot, metadata, registry, modelSessionCheck });
   const evidence = {
@@ -430,6 +456,7 @@ export function runUpdate({ harness, throneRoot, managedRoot, registry, evidence
     source: metadata.tarball,
     integrity: metadata.integrity,
     probes,
+    ...(modValidation && { modValidation }),
     diff,
     herdrTouchedOrRestarted: false,
     mutableServiceCaveat: MUTABLE_SERVICE_CAVEAT,
@@ -480,6 +507,11 @@ function renderPinnedOutcome({ harness, moved, oldVersion, newVersion }) {
     : `update-harness: ${harness} unchanged at ${newVersion}`;
 }
 
+function printModValidation(modValidation) {
+  if (!modValidation) return;
+  (modValidation.fits ? process.stdout : process.stderr).write(`update-harness: ${modValidation.line}\n`);
+}
+
 function printPinCommit({ pushRefused, detail }) {
   const output = pushRefused ? process.stderr : process.stdout;
   output.write(`update-harness: ${detail}\n`);
@@ -503,6 +535,7 @@ async function main() {
     if (options.action === 'pinned') {
       const evidence = runPinned({ ...options, evidencePath: options.evidence });
       process.stdout.write(`${renderPinnedOutcome(evidence)}\nevidence: ${options.evidence}\n`);
+      printModValidation(evidence.modValidation);
       return;
     }
     if (options.action === 'rollback') {
@@ -514,6 +547,7 @@ async function main() {
     }
     const evidence = runUpdate({ ...options, evidencePath: options.evidence });
     process.stdout.write(`${options.harness} pinned to ${evidence.newVersion}; evidence: ${options.evidence}\n${evidence.diff}\n`);
+    printModValidation(evidence.modValidation);
     printPinCommit(evidence.pinCommit);
   } finally {
     rmSync(transactionLock, { recursive: true, force: true });

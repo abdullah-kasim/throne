@@ -30,6 +30,8 @@ description: This throne-only skill changes the throne's machine-local config.us
     applies on the next tick with no restart.
   - `previews` is read fresh by the `tailnet-publishing` worker every minute
     and by the web listener on each request, so it needs no restart.
+  - `piSettings` is read at each pi launch, so it reaches a pi agent the next
+    time that agent starts; a running pi agent keeps its old settings.
   - Every other field is read once when a process starts. A new model or
     effort therefore applies at each agent's **next launch** (a fresh spawn,
     an autoscaler launch, a Regent resurrection). `/restart-harnesses`
@@ -42,7 +44,7 @@ description: This throne-only skill changes the throne's machine-local config.us
 ## What it CAN do
 
 Top-level sections: persona fields at the top level, `ntfy`, `steering`,
-`identity`, `recall`, `previews`. The `steering` section decides what every role runs:
+`identity`, `recall`, `previews`, `piSettings`, `harnessEnvironment`, `features`. The `steering` section decides what every role runs:
 
 | Field | Type and allowed values | Default | Read by |
 | --- | --- | --- | --- |
@@ -66,7 +68,10 @@ The other sections, each field listed in `docs/CONFIG.md`:
 | persona (top level) | `roleplayPreset`, `addressTitle`, `tierTitles`, `throneTitle`, `campaignTitle`, `queueDescription`, `roleplayPrompt` | every identity text and prompt |
 | `ntfy` | `serverUrl`, `topic` | phone notifications |
 | `identity` | `name`, `email`, `signingKey`, `signingFormat`, `identities`, `remotes` | every signed commit the court makes |
-| `recall` | `jevEnabled`, `jevKeyFile`, `hookEnabled`, `hookMode`, `verdictLineThreshold`, `hookTimeoutMilliseconds`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `repositoryMemoryNamesPerRepository`, `globalMemoryDirectories`, `rankAllowedRoots`, `jevTokensPerDay`, `jevTokensPerHour` | `throne recall`, `sift`, `rank` |
+| `piSettings` | any pi setting names, one object of JSON values, laid over each pi agent's `settings.json` after `pi-settings.json`; `defaultProvider` and `defaultModel` are refused. `defaultTools: ['+codemode']` turns on pi's codemode | every pi launch |
+| `recall` | `verdictLineThreshold`, `serveThreshold`, `serveThresholdWhenCostIsHigh`, `siftKeepThreshold`, `maximumInjectedCharacters`, `repositoryMemoryNamesPerRepository`, `globalMemoryDirectories` | `throne recall`, `sift`, `rank` |
+| `harnessEnvironment` | one map per harness name of variable name to string; names starting `THRONE_`, `GIT_` or `HERDR_`, `PATH`, `HOME` and the pinned harness binary variables are refused; throne's own values win | every agent launch on that harness, read fresh each launch |
+| `features` | `sendAgentFileBackedPayloads`, `true` or `false`, off when absent | `send-agent`, read fresh at each message |
 
 **Effort scale.** 1 to 6, clamped to each model's range. On claude: 1 low,
 2 medium, 3 high, 4 xhigh, 5 max. "High effort" means 3.
@@ -88,11 +93,11 @@ The other sections, each field listed in `docs/CONFIG.md`:
 - Put the Regent on a model: `regentRoute: { harness: 'claude', model: 'opus' }`.
 - Effort per role: `roleEfforts: { alpha: 3, shadow: 3, shadowSlice99: 3, stager: 3, regent: 3 }`.
   Every role left out uses `activeTargetEffort`.
+- Give every claude agent an extra variable: `harnessEnvironment: { claude: { EXAMPLE_TRACE_LEVEL: 'quiet' } }`.
+  New launches get it; `/restart-harnesses` gives it to running agents.
+  `throne check-config` prints the variable names, never the values, so the
+  name appearing there proves the edit loaded.
 - Pause the autoscaler: `autoscaleEnabled: false` (or the `/autoscaler` skill).
-- Cap what Jev may spend on this machine: `recall: { jevTokensPerDay: 3_000_000, jevTokensPerHour: 400_000 }`.
-  The hour is rolling (the last 60 minutes) and the day is the local calendar
-  day. Either limit at `0` switches Jev off; once a budget is used up the
-  keyword rules answer until it frees up.
 
 ## What it CANNOT do
 

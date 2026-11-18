@@ -13,33 +13,6 @@ import { run, resolveKeepGoingDependencies } from './keep-going-sweep.ts';
 
 /**
  * This command's registered name on the transport route dispatcher.
- *
- * ⚠️ DELIBERATELY DOES NOT FEED THE SYSTEMD WATCHDOG. `KeepGoingHostedWorker.runOnce()`
- * is the ONE call site in this codebase that pings `WATCHDOG=1`
- * (`throne-backend/keep-going.hosted-worker.ts`), and this route handler
- * calls `run()` directly instead of going through `runOnce()` -- it never
- * touches `notifyWatchdog` or the consecutive-failure counter. The watchdog's
- * question is "is the SCHEDULER (the cron tick) alive", not "did a sweep ever
- * run" -- if a human poking this debugging route also fed the watchdog, a
- * wedged/dead cron scheduler would stay hidden behind an operator's own
- * manual pokes, defeating the one mechanism built to catch that failure. A
- * manual trigger proves the SWEEP LOGIC works; it says nothing about whether
- * the SCHEDULER is still ticking on its own, so it must not be able to
- * satisfy the watchdog on the scheduler's behalf.
- *
- * ⚠️ RESIDUAL BLIND SPOT, stated plainly (Regent, 2026-08-13): because this
- * bypasses `runOnce()` entirely, a manual trigger ALSO never exercises
- * `runOnce()`'s own wrapper -- its consecutive-failure counter and the
- * WATCHDOG=1 ping logic that decides whether `WatchdogSec=` restarts a
- * wedged process (landed `ea38542`, threshold N=3, `WatchdogSec=4200`). If
- * THAT wrapper logic is itself broken, a manual trigger can never reveal it
- * -- it proves the sweep works, never that the scheduler's own
- * failure-tolerance machinery is intact. This is the accepted cost of not
- * masking a dead scheduler (see above), not an oversight -- but it means a
- * human debugging with this command cannot see everything the cron path
- * depends on. `KeepGoingCommand.run()` prints this same limitation to the
- * operator on every manual invocation so it is never buried in a doc
- * comment only the next agent reads.
  */
 export const KEEP_GOING_ROUTE_PATH = 'keep-going';
 
@@ -59,7 +32,7 @@ export const keepGoingExecutionGate = new AsyncSerialGate();
 /**
  * The transport route dispatcher's handler for `keep-going`: runs the exact
  * same `run()` the in-process command calls (which is also what
- * `KeepGoingHostedWorker.runOnce()` calls before it pings the watchdog),
+ * `KeepGoingHostedWorker.runOnce()` calls),
  * capturing what it would have written to stdout/stderr instead of writing
  * to `throne-backend`'s own process streams. Resolves dependencies through
  * `resolveKeepGoingDependencies` so a manual trigger observes the exact same

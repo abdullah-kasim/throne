@@ -87,6 +87,11 @@ const deps: RestartHarnessesDeps = {
   renameAgent: async () => undefined,
   acquireRegentRestartLock: async () => "lock-token",
   releaseRegentRestartLock: async () => undefined,
+  processIsAlive: () => false,
+  listClaudeSessions: async () =>
+    process.argv.includes("--dry-run")
+      ? [{ pid: 7777, sessionId: "other-session", kind: "background", hostPid: 7776 }]
+      : [],
 };
 
 process.exitCode = await run(process.argv.slice(3), deps);

@@ -52,6 +52,7 @@ import {
   resolveGitLaunchDefaults,
   type LaunchDefaults,
 } from "./launch-defaults.ts";
+import { objectiveCodeLengthRefusal } from "./objective-code-length.ts";
 
 const OBJECTIVE_CODE_FLAG = "--objective-code";
 const LAUNCH_FLAGS = new Set([
@@ -138,6 +139,8 @@ export function parseAddToQueueArgs(args: string[]): ParsedAddToQueueArgs {
         throw new Error(
           `add-to-queue: invalid objective code "${value ?? ""}"`,
         );
+      const lengthRefusal = objectiveCodeLengthRefusal(objectiveCode);
+      if (lengthRefusal !== undefined) throw new Error(lengthRefusal);
       i++;
       continue;
     }

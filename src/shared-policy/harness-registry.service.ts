@@ -25,7 +25,7 @@ import {
   MODEL_REGISTRY,
   registryEntry,
 } from "../harness-routing/model-registry.ts";
-import { modelEffortRange } from "../harness-routing/policy/capabilities.ts";
+import { modelEffortRange } from "../harness-routing/policy/model-effort-and-equivalents.ts";
 import { omniLauncherForHarness } from "../harness-routing/omni-routing.ts";
 
 function launcherFor(harness: Harness, model: string): string {
@@ -33,6 +33,7 @@ function launcherFor(harness: Harness, model: string): string {
   if (omni !== undefined) return omni;
   if (harness === HARNESS_NAMES.CODEX) return "codexy";
   if (harness === HARNESS_NAMES.OPENCODE) return "opencodey";
+  if (harness === HARNESS_NAMES.PI) return "piy";
   return isGptModel(model) ? "claudey-all" : "claudey";
 }
 

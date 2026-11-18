@@ -1,8 +1,5 @@
 import {
   CLASSIFIER_BACKEND_ERROR,
-  CLASSIFIER_BUDGET_LOCK_BUSY,
-  CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER,
-  CLASSIFIER_RATE_LIMITED,
   CLASSIFIER_TIMED_OUT,
   type BackendAnswer,
   type ClassifierAnswer,
@@ -11,8 +8,6 @@ import {
   type ClassifierState,
   type FailOpenQuestion,
 } from './classifier.types.ts';
-import { JevBudgetLockBusyError, JevBudgetUsedUpError, JevBuildWithoutLimiterError } from './jev-backend.ts';
-import { RULES_BACKEND } from './rules-backend.ts';
 
 export interface FailOpenDependencies {
   writeStderr(text: string): void;
@@ -80,18 +75,7 @@ class ClassifierTimedOutError extends Error {
 
 function failureOf(error: unknown): ClassifierFailure {
   if (error instanceof ClassifierTimedOutError) return CLASSIFIER_TIMED_OUT;
-  if (error instanceof JevBudgetUsedUpError) return CLASSIFIER_RATE_LIMITED;
-  if (error instanceof JevBudgetLockBusyError) return CLASSIFIER_BUDGET_LOCK_BUSY;
-  if (error instanceof JevBuildWithoutLimiterError) return CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER;
   return CLASSIFIER_BACKEND_ERROR;
-}
-
-function isJevBudgetFailure(failure: ClassifierFailure): boolean {
-  return (
-    failure === CLASSIFIER_RATE_LIMITED ||
-    failure === CLASSIFIER_BUDGET_LOCK_BUSY ||
-    failure === CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER
-  );
 }
 
 async function answerWithinTimeout(
@@ -141,7 +125,7 @@ export async function askFailingOpen(
     );
   } catch (error) {
     const failure = failureOf(error);
-    const nextBackend = isJevBudgetFailure(failure) ? RULES_BACKEND : options.backendWhenTheFirstFails;
+    const nextBackend = options.backendWhenTheFirstFails;
     dependencies.writeStderr(
       `relevance-classifier: the ${backend.name} backend failed with ${describeFailure(error)}; ${
         nextBackend === undefined

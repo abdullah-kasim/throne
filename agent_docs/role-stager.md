@@ -48,8 +48,9 @@ fork (`create-agent --fork-of`) get their own managed tree under
 at its spawn commit loads stale skills: stager-fifteenth sat 134 commits behind
 `main`, so its `/pr-address-feedback` had no "On Forgejo" section and missed
 the Lord's Forgejo review comment. So before each prompt in a Stager's pane,
-the throne end of the UserPromptSubmit hook (`throne recall --hook`, see
-`agent_docs/commands.md` "recall") fast-forwards that Stager's own tree to the
+the UserPromptSubmit hook `claude-hooks/stager-tree-refresh.py` (on Claude and
+on pi), through `throne refresh-stager-tree` (see `agent_docs/commands.md`
+"refresh-stager-tree"), fast-forwards that Stager's own tree to the
 local `main` when it is clean and strictly behind, and says so in one line. A
 dirty or diverged tree is never changed: the hook prints one `WARNING:` line
 naming how many commits it is behind, and until the tree is clean the Stager

@@ -1,4 +1,4 @@
-export const CLASSIFIER_BACKEND_NAMES = ['rules', 'jev'] as const;
+export const CLASSIFIER_BACKEND_NAMES = ['rules'] as const;
 export type ClassifierBackendName = (typeof CLASSIFIER_BACKEND_NAMES)[number];
 
 export const YES = 'yes';
@@ -41,15 +41,9 @@ export interface BackendAnswer {
 
 export const CLASSIFIER_TIMED_OUT = 'timed out';
 export const CLASSIFIER_BACKEND_ERROR = 'backend error';
-export const CLASSIFIER_RATE_LIMITED = 'rate-limited';
-export const CLASSIFIER_BUDGET_LOCK_BUSY = 'budget lock busy';
-export const CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER = 'build without Jev limiter';
 export type ClassifierFailure =
   | typeof CLASSIFIER_TIMED_OUT
-  | typeof CLASSIFIER_BACKEND_ERROR
-  | typeof CLASSIFIER_RATE_LIMITED
-  | typeof CLASSIFIER_BUDGET_LOCK_BUSY
-  | typeof CLASSIFIER_BUILD_WITHOUT_JEV_LIMITER;
+  | typeof CLASSIFIER_BACKEND_ERROR;
 
 export interface ClassifierAnswer extends BackendAnswer {
   readonly backend: ClassifierBackendName;

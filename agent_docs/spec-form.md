@@ -4,6 +4,8 @@ A repository's spec is a folder of Markdown files, one per feature or module, wi
 
 Where the folder and the index are, and what state each is in, is answered by `throne spec-location <repository>`; nothing works the path out by hand. The index is built and the set is checked by `throne feature-map <spec folder>`.
 
+The steps for writing one (where it lives, the lock, recording the place, rewriting, the map) are in `agent_docs/spec-writing-steps.md`.
+
 ## The folder
 
 ```

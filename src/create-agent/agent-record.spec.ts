@@ -37,7 +37,6 @@ function campaignRequest(overrides: Partial<PolicyResolution> = {}): PolicyResol
     objectiveContract,
     routingNote: "",
     durableRoutingNote: false,
-    capabilityOverrideNote: "",
     effortOverrideNote: "",
     harnessOverrideNote: "",
     bypassedObjectiveCode: false,

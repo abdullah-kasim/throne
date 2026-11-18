@@ -23,6 +23,7 @@ export const AGENT_ORCHESTRATION_COMMANDS: readonly CommandRegistryEntry[] = [
     visibility: "public",
     migrated: true,
     description: "Spawn a new herdr harness and seed its identity.",
+    ownHelp: true,
   },
   {
     name: "create-agent-legacy",

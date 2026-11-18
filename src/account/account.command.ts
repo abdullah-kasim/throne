@@ -14,8 +14,10 @@ import { realAccountPlaces } from "./account-places.ts";
 import { AccountSwitchRefusal, switchLongRunningAccount } from "./account-switch-long-running.ts";
 import { ACCOUNT_HARNESSES, AccountsConfigError } from "./accounts-config.ts";
 import { readRecordedAgentRole } from "./agent-account.ts";
+import { addProviderAccount, listProviderAccounts, ProviderAccountRefusal, realProviderAccountPlaces } from "./provider-accounts.ts";
 
-const USAGE = "usage: account list | account add <name> | account switch-long-running <name>";
+const USAGE =
+  "usage: account list | account add <name> | account add <name> --provider <provider> --key-file <file> | account switch-long-running <name>";
 const USAGE_EXIT_CODE = 2;
 const FAILURE_EXIT_CODE = 1;
 
@@ -25,7 +27,7 @@ function restartInPlace(names: readonly string[]) {
 }
 
 function isRefusal(error: unknown): boolean {
-  return error instanceof AccountAddRefusal || error instanceof AccountSwitchRefusal || error instanceof AccountsConfigError;
+  return error instanceof AccountAddRefusal || error instanceof AccountSwitchRefusal || error instanceof AccountsConfigError || error instanceof ProviderAccountRefusal;
 }
 
 @Command({
@@ -66,11 +68,25 @@ export class AccountCommand extends CommandRunner {
         listAgents: () => listAgents(),
         readSpawnSpec: (agentName) => readSpawnSpec(agentName),
       });
-      return this.print(lines, 0);
+      const providerLines = await listProviderAccounts({
+        configPath: places.configPath,
+        listAgents: () => listAgents(),
+        readSpawnSpec: (agentName) => readSpawnSpec(agentName),
+      });
+      return this.print([...lines, ...providerLines], 0);
     }
     if (subcommand === "add" && name !== undefined && extra.length === 0) {
       const claudeBinary = path.join(VENDORED_HARNESS_BINARY_DIRECTORY, ACCOUNT_HARNESSES.CLAUDE);
       return this.print(await addAccount(name, { places, claudeBinary }), 0);
+    }
+    if (subcommand === "add" && name !== undefined && extra.length === 4) {
+      const options = new Map([[extra[0], extra[1]], [extra[2], extra[3]]]);
+      const provider = options.get("--provider");
+      const sourceKeyFile = options.get("--key-file");
+      if (provider !== undefined && sourceKeyFile !== undefined) {
+        const request = { name, provider, sourceKeyFile: path.resolve(sourceKeyFile) };
+        return this.print(await addProviderAccount(request, realProviderAccountPlaces()), 0);
+      }
     }
     if (subcommand === "switch-long-running" && name !== undefined && extra.length === 0) {
       const result = await switchLongRunningAccount(name, {

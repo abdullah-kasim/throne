@@ -30,6 +30,11 @@ export interface RecallScopeRequest {
   readonly includeGlobal: boolean;
 }
 
+export interface RecallRequest extends RecallScopeRequest {
+  readonly taskText: string;
+  readonly sessionId?: string;
+}
+
 export interface RecallScopeDependencies {
   resolveProjectMemoryDirectory(directory: string): Promise<ProjectMemoryDirectory | undefined>;
   currentDirectory(): string;

@@ -4,7 +4,8 @@ import type { ReapabilityClaimStatus } from '../no-idling/idle-pane-tag-classifi
 const OWN_BACKGROUND_RUN = 'own-background-run';
 const BLOCKED_BY_MARKER = /(?<![A-Za-z0-9])(?:__)?BLOCKED_BY_([A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)(?:__)?(?![A-Za-z0-9_])/g;
 const OWN_BACKGROUND_RUN_DESCRIPTION = /BLOCKED_BY_own-background-run(?:__)?[ \t]*\(([^)\n]*)\)/;
-const BLOCKED_MARKER_ANYWHERE = /(?<![\w"])\{\s*"blocked"\s*:\s*true\s*\}(?![\w"])/;
+const BLOCKED_MARKER_ENDING_THE_MESSAGE =
+  /(?<![\w"])\{\s*"blocked"\s*:\s*true\s*\}`?(?:\s+(?:__)?BLOCKED_BY_[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*(?:__)?(?:[ \t]*\([^\n]*\))?)*[`.]*$/;
 const REAPABLE_CLAIM_ANYWHERE =
   /(?<![\w"])\{\s*"reapable"\s*:\s*"(completed|abandoned|cancelled|task_restart_required|fail)"\s*\}(?![\w"])/i;
 const REAPABLE_STATUSES: readonly ReapabilityClaimStatus[] = ['completed', 'abandoned', 'task_restart_required', 'fail'];
@@ -38,7 +39,7 @@ function readReapableStatus(text: string): ReapabilityClaimStatus | undefined {
 
 export function classifyLastMessageTags(message: string): TurnEndMarker {
   const trimmed = message.trim();
-  if (standaloneSingleKeyObject(trimmed)?.blocked === true || BLOCKED_MARKER_ANYWHERE.test(trimmed)) {
+  if (standaloneSingleKeyObject(trimmed)?.blocked === true || BLOCKED_MARKER_ENDING_THE_MESSAGE.test(trimmed)) {
     const names = [...trimmed.matchAll(BLOCKED_BY_MARKER)].map((match) => match[1]!);
     const ownRun = names.includes(OWN_BACKGROUND_RUN)
       ? OWN_BACKGROUND_RUN_DESCRIPTION.exec(trimmed)?.[1]?.trim() ?? ''

@@ -7,7 +7,7 @@ FAIL; only an explicit PASS from the latest fresh `99b` gate permits delivery.
 That PASS permits only the `99bs` spec gate and then the mandatory delivery-only `99c`; successful
 fresh-Shadow target inspection and delivered-feature smoke checks remain
 required before completion is reported. The `99c` report also carries the
-completed private-copy rehearsal's recorded absorbed target HEAD.
+`merged_ref` its one-commit delivery merged in and reset onto.
 The final report must surface the latest fresh gate's exact
 `**Verify outcome:** PASS` or `**Verify outcome:** FAIL` in both campaign
 status and the verification matrix. A completed failed gate remains a failed

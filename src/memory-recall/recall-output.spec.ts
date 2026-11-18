@@ -9,16 +9,14 @@ import {
   type BackendAnswer,
   type ClassifierBackend,
 } from '../relevance-classifier/classifier.types.ts';
-import { JevBudgetUsedUpError } from '../relevance-classifier/jev-backend.ts';
 import { SHADOW_ARM } from '../relevance-classifier/recall-user-config.ts';
 import {
   fakeRepositoriesUnder,
-  jevBackendAnswering,
+  backendAnswering,
   scratchRoot,
 } from './other-repositories.test-support.ts';
 import { runRecall } from './recall.command.ts';
 import {
-  HOOK_PAYLOAD,
   IN_PROJECT,
   PULL_REQUEST_TASK,
   harness,
@@ -33,10 +31,7 @@ const QUOTED_TASK = `'${PULL_REQUEST_TASK}'`;
 function outputWithRepositories(
   probabilityOfYesByRepository: Readonly<Record<string, number>>,
   options: {
-    readonly hook?: boolean;
-    readonly hookMode?: typeof SHADOW_ARM;
     readonly backend?: ClassifierBackend;
-    readonly hookPayload?: string;
     readonly task?: string;
   } = {},
 ) {
@@ -46,16 +41,16 @@ function outputWithRepositories(
     Object.keys(probabilityOfYesByRepository).map((name) => ({ name })),
   );
   const fixture = harness(
-    { hookEnabled: true, ...(options.hookMode === undefined ? {} : { hookMode: options.hookMode }) },
-    { seededRepositories, stdin: options.hookPayload ?? HOOK_PAYLOAD },
+    {},
+    { seededRepositories },
   );
-  const backend = options.backend ?? jevBackendAnswering(probabilityOfYesByRepository);
+  const backend = options.backend ?? backendAnswering(probabilityOfYesByRepository);
   return {
     root,
     fixture,
     checkoutOf: (name: string) => path.join(root, 'checkouts', name),
     run: () =>
-      runRecall(options.hook === true ? ['--hook'] : [...IN_PROJECT, options.task ?? PULL_REQUEST_TASK], {
+      runRecall([...IN_PROJECT, options.task ?? PULL_REQUEST_TASK], {
         ...fixture.dependencies,
         chooseBackend: () => Promise.resolve(backend),
       }),
@@ -66,159 +61,31 @@ function blockBeforeTheScopeLine(stdout: string): string {
   return stdout.slice(0, stdout.search(SEARCHED_LINE));
 }
 
-test('a repository Jev rates at or above the serving floor is printed as a directive whose command carries the task', async () => {
-  const scenario = outputWithRepositories({ bakery: 0.46 });
-  await scenario.run();
-  assert.equal(
-    blockBeforeTheScopeLine(scenario.fixture.stdout.join('')),
-    [
-      'bakery probably holds memories for this task (46%). Search it before looking it up yourself:',
-      `throne recall --directory ${scenario.checkoutOf('bakery')} ${QUOTED_TASK}`,
-      '',
-    ].join('\n'),
-  );
-});
-
-test('two repositories over the serving floor each get their own command, most likely first', async () => {
-  const scenario = outputWithRepositories({ bakery: 0.2, florist: 0.44, tailor: 0.58 });
-  await scenario.run();
-  assert.equal(
-    blockBeforeTheScopeLine(scenario.fixture.stdout.join('')),
-    [
-      'tailor (58%) and florist (44%) probably hold memories for this task. Search them before looking them up yourself:',
-      `throne recall --directory ${scenario.checkoutOf('tailor')} ${QUOTED_TASK}`,
-      `throne recall --directory ${scenario.checkoutOf('florist')} ${QUOTED_TASK}`,
-      '',
-    ].join('\n'),
-  );
-});
-
-test('no more than three repositories are ever shown, even when more clear the serving floor', async () => {
-  const scenario = outputWithRepositories({ bakery: 0.5, florist: 0.91, tailor: 0.55, cobbler: 0.4 });
-  await scenario.run();
-  assert.equal(
-    blockBeforeTheScopeLine(scenario.fixture.stdout.join('')),
-    [
-      'florist (91%), tailor (55%) and bakery (50%) probably hold memories for this task. Search them before looking them up yourself:',
-      `throne recall --directory ${scenario.checkoutOf('florist')} ${QUOTED_TASK}`,
-      `throne recall --directory ${scenario.checkoutOf('tailor')} ${QUOTED_TASK}`,
-      `throne recall --directory ${scenario.checkoutOf('bakery')} ${QUOTED_TASK}`,
-      '',
-    ].join('\n'),
-  );
-});
-
-test('repositories below the serving floor are never printed, and the not-searched-here sentence stays', async () => {
-  const scenario = outputWithRepositories({ bakery: 0.2, florist: 0.05 });
-  await scenario.run();
-  const stdout = scenario.fixture.stdout.join('');
-  assert.ok(!stdout.includes('Other repositories'), stdout);
-  assert.ok(!stdout.includes('probably hold'), stdout);
-  assert.ok(!stdout.includes(scenario.checkoutOf('bakery')) && !stdout.includes(scenario.checkoutOf('florist')), stdout);
-  assert.ok(stdout.includes(NOT_SEARCHED_HERE), stdout);
-});
-
-test('the not-searched-here sentence is left out when a directive was printed', async () => {
-  const scenario = outputWithRepositories({ bakery: 0.8 });
-  await scenario.run();
-  const stdout = scenario.fixture.stdout.join('');
-  assert.match(stdout, SEARCHED_LINE);
-  assert.ok(!stdout.includes(NOT_SEARCHED_HERE), stdout);
-});
-
-test('a repository at 0.39 is hidden and one at 0.40 is shown', async () => {
-  const scenario = outputWithRepositories({ bakery: 0.39, florist: 0.4 });
-  await scenario.run();
-  const stdout = scenario.fixture.stdout.join('');
-  assert.ok(stdout.startsWith('florist probably holds memories for this task (40%).'), stdout);
-  assert.ok(!stdout.includes(scenario.checkoutOf('bakery')), stdout);
-});
-
-test('a task with quotes, newlines and more than 120 characters is cut to its first line and quoted safely', async () => {
-  const firstLine = `fix the "oven" timer that says it's done; rm -rf $HOME \`echo nope\` ${'and keep going '.repeat(8)}`;
-  const scenario = outputWithRepositories({ bakery: 0.7 }, { task: `${firstLine}\nsecond line that must not appear` });
-  await scenario.run();
-  const commandLine = scenario.fixture.stdout.join('').split('\n')[1] ?? '';
-  const taskWord = commandLine.slice(`throne recall --directory ${scenario.checkoutOf('bakery')} `.length);
-  const taskAsTheShellReadsIt = execFileSync('sh', ['-c', `printf %s ${taskWord}`], { encoding: 'utf8' });
-  assert.equal(taskAsTheShellReadsIt, firstLine.trim().slice(0, 120));
-  assert.ok(!commandLine.includes('second line'), commandLine);
-});
-
 test('the literal <task> placeholder is used only when the task has no text', () => {
   assert.equal(recallCommandFor('/code/bakery', ''), 'throne recall --directory /code/bakery "<task>"');
   assert.equal(recallCommandFor('/code/bakery', ' \n\t\n '), 'throne recall --directory /code/bakery "<task>"');
   assert.equal(recallCommandFor('/code/bakery', '\n  bake bread  \n'), "throne recall --directory /code/bakery 'bake bread'");
 });
 
-test('the prompt hook prints the directive too, even when it serves no memory', async () => {
-  const scenario = outputWithRepositories({ bakery: 0.8 }, { hook: true });
-  await scenario.run();
-  const stdout = scenario.fixture.stdout.join('');
-  assert.ok(
-    stdout.startsWith(
-      `bakery probably holds memories for this task (80%). Search it before looking it up yourself:\nthrone recall --directory ${scenario.checkoutOf('bakery')} ${QUOTED_TASK}\nSearched: `,
-    ),
-    stdout,
-  );
-});
-
-test('the shadow arm of the hook prints nothing, yet still asks about the other repositories', async () => {
-  const backend = jevBackendAnswering({ bakery: 0.8 });
-  const scenario = outputWithRepositories({ bakery: 0.8 }, { hook: true, hookMode: SHADOW_ARM, backend });
-  await scenario.run();
-  assert.equal(scenario.fixture.stdout.join(''), '');
-  assert.ok((backend.requests[0] ?? []).some((question) => question.id.startsWith('other repository: ')));
-});
-
 test('when the rules answer, a hand recall lists no repository and says the rules answered', async () => {
-  const rulesBackend = { ...jevBackendAnswering({ bakery: 0.99 }), name: 'rules' as const };
+  const rulesBackend = { ...backendAnswering({ bakery: 0.99 }), name: 'rules' as const };
   const scenario = outputWithRepositories({ bakery: 0.99 }, { backend: rulesBackend });
   await scenario.run();
   const stdout = scenario.fixture.stdout.join('');
   assert.ok(
-    stdout.includes('Other repositories that may hold relevant memories: none listed, because the rules answered instead of Jev.\n'),
+    stdout.includes('Other repositories that may hold relevant memories: none listed, because the rules answered.\n'),
     stdout,
   );
   assert.ok(!stdout.includes(scenario.checkoutOf('bakery')), stdout);
-});
-
-test('when the Jev budget is used up, the note names it and nothing is listed, in a hand recall and in the hook alike', async () => {
-  const exhausted: ClassifierBackend = {
-    name: 'jev',
-    answer: () => Promise.reject(new JevBudgetUsedUpError('over the hourly limit')),
-  };
-  const hand = outputWithRepositories({ bakery: 0.99 }, { backend: exhausted });
-  await hand.run();
-  assert.ok(
-    hand.fixture.stdout
-      .join('')
-      .includes('Other repositories that may hold relevant memories: none listed, because the rules (Jev budget used up) answered instead of Jev.\n'),
-    hand.fixture.stdout.join(''),
-  );
-  const hook = outputWithRepositories(
-    { bakery: 0.99 },
-    { backend: exhausted, hook: true, hookPayload: JSON.stringify({ session_id: 'abc', cwd: '/somewhere', prompt: 'water the plants' }) },
-  );
-  await hook.run();
-  const hookOutput = hook.fixture.stdout.join('');
-  assert.ok(
-    hookOutput.startsWith(
-      "rules (Jev budget used up): no relevant memory in project's memories and the global memories.\n" +
-        'Other repositories that may hold relevant memories: none listed, because the rules (Jev budget used up) answered instead of Jev.\n',
-    ),
-    hookOutput,
-  );
-  assert.ok(!hookOutput.includes(hook.checkoutOf('bakery')), hookOutput);
 });
 
 function answeringByFileName(
   answers: Readonly<Record<string, Pick<BackendAnswer, 'pick' | 'probability'>>>,
   repositories: Readonly<Record<string, number>>,
 ): ClassifierBackend {
-  const repositoryAnswers = jevBackendAnswering(repositories);
+  const repositoryAnswers = backendAnswering(repositories);
   return {
-    name: 'jev',
+    name: 'rules',
     answer: async (state, questions) => {
       const repositoryReplies = await repositoryAnswers.answer(state, questions);
       return questions.map((question, index) => {
@@ -250,7 +117,7 @@ function withheldScenario() {
   return { fixture, bakery: bakery as RegisteredRepository, dependencies: { ...fixture.dependencies, chooseBackend: () => Promise.resolve(backend) } };
 }
 
-test('--json prints the scope, the verdict, the served memories, the withheld ones with their reason, and only the shown repositories with commands carrying the task', async () => {
+test('--json prints the scope, the verdict, the served memories, the withheld ones with their reason, and no other repository', async () => {
   const { fixture, bakery, dependencies } = withheldScenario();
   await runRecall([...IN_PROJECT, '--json', PULL_REQUEST_TASK], dependencies);
   const projectMemories = realpathSync(fixture.projectMemories);
@@ -259,7 +126,7 @@ test('--json prints the scope, the verdict, the served memories, the withheld on
       repositories: [path.join(fixture.currentDirectory, 'project')],
       globalMemoryDirectories: [fixture.globalMemories],
     },
-    verdict: { memoryLikelyExists: true, confidence: 0.9, backend: 'jev' },
+    verdict: { memoryLikelyExists: true, confidence: 0.9, backend: 'rules' },
     memories: [
       {
         file: path.join(projectMemories, 'NEVER_REPUBLISH.md'),
@@ -272,15 +139,7 @@ test('--json prints the scope, the verdict, the served memories, the withheld on
       { file: path.join(projectMemories, 'BIG_LESSON.md'), probability: 0.9, reason: 'over the size limit' },
       { file: path.join(realpathSync(fixture.globalMemories), 'NETWORK_SAFETY.md'), probability: 0.3, reason: 'below the serving floor' },
     ],
-    otherRepositories: [
-      {
-        repository: 'bakery',
-        checkout: bakery.checkout,
-        memoryDirectory: bakery.memoryDirectory,
-        probability: 0.7,
-        recall: `throne recall --directory ${bakery.checkout} ${QUOTED_TASK}`,
-      },
-    ],
+    otherRepositories: [],
   });
   assert.equal(fixture.stderr.join(''), '');
 });
@@ -300,9 +159,6 @@ test('--json is refused outside a hand recall', async () => {
     assert.equal(await runRecall([...mode, '--json'], fixture.dependencies), 2);
     assert.match(fixture.stderr.join(''), /--json only go with a hand recall/);
   }
-  const hook = harness({ hookEnabled: true }, { stdin: HOOK_PAYLOAD });
-  assert.equal(await runRecall(['--hook', '--json'], hook.dependencies), 0);
-  assert.equal(hook.stdout.join(''), '');
 });
 
 test('a memory answered no is neither served nor withheld', async () => {

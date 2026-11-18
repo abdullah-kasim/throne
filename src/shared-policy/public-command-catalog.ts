@@ -60,13 +60,10 @@ export function renderCommandHelp(name: string): string {
   ].join("\n");
 }
 
-export function renderPublicCommandUsage(featureFlags: string): string {
+export function renderPublicCommandUsage(): string {
   const width = Math.max(...Object.keys(PUBLIC_COMMANDS).map((name) => name.length));
   return [
     "Usage: ./bin/throne-cli <command> [args...]",
-    "",
-    `Feature flags: ${featureFlags}`,
-    '  Strict JSON object: {"send-agent-file-backed-payloads": true|false}; absent means false.',
     "",
     "Commands:",
     ...Object.entries(PUBLIC_COMMANDS).map(([name, description]) =>

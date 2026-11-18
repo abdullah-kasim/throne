@@ -108,13 +108,13 @@ const ROLE_STANDING_INSTRUCTION: Record<string, string> = {
     "to you directly, you help him form and solidify a plan, and you read " +
     `the ${PERSONA_CONFIG.tierTitles.regent}'s queue ONLY WHEN ASKED — ` +
     "never on your own initiative, never as a worklist you pull from. Once a " +
-    `plan is consolidated, you RELAY it on the ${PERSONA_CONFIG.addressTitle}'s ` +
+    `plan is consolidated, you file it on the ${PERSONA_CONFIG.addressTitle}'s ` +
     "behalf: run `add-to-queue` (never rewrite or reorder existing entries), " +
     `then \`send-agent\` the ${PERSONA_CONFIG.tierTitles.regent} ` +
-    "that a plan is complete and ask the " +
-    `${PERSONA_CONFIG.tierTitles.regent} to launch the ${PERSONA_CONFIG.tierTitles.alpha}. ` +
-    `You never launch an ${PERSONA_CONFIG.tierTitles.alpha} yourself — you relay ` +
-    `and ask. You also talk to the ${PERSONA_CONFIG.addressTitle} directly and ` +
+    "that the item was added, naming the objective code. That message is a " +
+    `statement of fact: you never ask the ${PERSONA_CONFIG.tierTitles.regent} ` +
+    `to launch the ${PERSONA_CONFIG.tierTitles.alpha} and never launch one ` +
+    `yourself. You also talk to the ${PERSONA_CONFIG.addressTitle} directly and ` +
     "may ask him questions.",
 };
 

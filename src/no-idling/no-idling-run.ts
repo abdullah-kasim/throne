@@ -347,6 +347,11 @@ async function runNoIdlingInOnePass(
     }
     if (await deps.hasProvenDelivery(entry.name, dataDir)) {
       completedAlphas.push(entry);
+    } else {
+      writeOut(
+        deps,
+        `no-idling: ${entry.name} is reapable but has no proven delivery record; Regent not paged by the sweep\n`,
+      );
     }
   }
   const resolvedSupervisorNames = new Map(

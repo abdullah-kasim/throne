@@ -3,7 +3,6 @@ import type {
   LaunchRecipe,
   SessionCandidate,
 } from "../../session/session.contracts.ts";
-import type { CapabilityEvidence } from "../../harness-routing/policy/capabilities.ts";
 import type { AgentStartEvidence } from "../../herdr/herdr-create.contracts.ts";
 import { errorText } from "../../shared-policy/error-text.ts";
 import { checkPreservedBytes, readBackSpawnEvidence } from "./persistence.ts";
@@ -25,7 +24,6 @@ export async function verifyAndPersistTarget(
   target: LaunchRecipe,
   sessionId: string,
   started: AgentStartEvidence,
-  targetCapability: CapabilityEvidence | undefined,
   candidates?: readonly SessionCandidate[],
 ): Promise<SwitchTransactionResult> {
   let verified: Verification;
@@ -100,7 +98,6 @@ export async function verifyAndPersistTarget(
     session_id: sessionId,
     switched_at: deps.now().toISOString(),
     switched_from_model: previous.model,
-    ...(targetCapability === undefined ? {} : { capability: targetCapability }),
   };
   try {
     await deps.persistSpawnSpec(updated);

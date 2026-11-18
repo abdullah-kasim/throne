@@ -1,6 +1,9 @@
+import { claudeModFallbackLine } from "./claude-mod-route.ts";
+import { ALIVE_TIMEOUT_MILLISECONDS, MESSAGE_ID_PREFIX } from "../../extensions/shared/agent-delivery-contract.ts";
 import { isSupportedComposerEmpty } from "../codex-screen/composer/composer.service.ts";
 import { HARNESS_NAMES } from "../harness-routing/harness.ts";
-import { OMP_DELIVERY_TIMEOUT_MS } from "./herdr-send.types.ts";
+import { EXTENSION_DELIVERY_TIMEOUT_MS } from "./herdr-send.types.ts";
+import { deliverToPi, piFallbackLine, rememberPiFallback } from "./pi-delivery-client.ts";
 import { PaneLockTakenOverError } from "../shared-policy/recipient-pane-lock.service.ts";
 import {
   dismissOpenCodeMessageActionsModal,
@@ -67,10 +70,10 @@ async function confirmPayloadWritten(
     harness === HARNESS_NAMES.OPENCODE
       ? waitForStableOpenCodeResidentRepresentation
       : waitForStableClaudeResidentRepresentation;
-  const residentRepresentation = await waitForStableResidentRepresentation(
-    agent,
-    deps,
-  );
+  const residentRepresentation =
+    harness === HARNESS_NAMES.PI
+      ? await waitForStableClaudeResidentRepresentation(agent, deps, harness)
+      : await waitForStableResidentRepresentation(agent, deps);
   if (residentRepresentation === undefined) {
     throw new SubmitAssumedFilledError(
       name,
@@ -147,11 +150,25 @@ function asAssumedFilled(
       );
 }
 
+export const SOCKET_STARTUP_WAIT_MS = 20_000;
+const writeToStandardError = (line: string) => {
+  process.stderr.write(line);
+};
+const SOCKET_STARTUP_POLL_MS = 500;
+
+async function waitForTheSocketToAnswer(answering: () => Promise<boolean>, deps: SubmitToAgentDeps): Promise<void> {
+  const deadline = deps.now() + SOCKET_STARTUP_WAIT_MS;
+  while (!(await answering()) && deps.now() < deadline) {
+    await deps.sleep(SOCKET_STARTUP_POLL_MS);
+  }
+}
+
 /**
  * The per-harness submit transaction, run under the held recipient lock:
  * flushes any text already resident in the composer, writes the payload,
  * then presses Enter through the bounded clearance transaction.
  */
+
 export async function submitToAgentWhileLocked(
   agent: HerdrAgent,
   senderName: string,
@@ -170,41 +187,82 @@ export async function submitToAgentWhileLocked(
     }
     return undefined;
   }
-  // omp does not go through the composer at all. Its panes are
-  // `screen_detection_skipped`, so the observation behind "never overwrite a
-  // resident draft" has nothing to read and the Claude-branch submit contract
-  // does not apply — measured 2026-08-26, the keystroke path wrote the payload
-  // and never submitted it. Delivery instead hands the payload to the throne's
-  // omp extension, which reads the ACTUAL composer buffer and enqueues a real
-  // user turn. Still under the recipient lock, still behind the durable queue:
-  // only this innermost submit changes.
-  if (harness === HARNESS_NAMES.OMP) {
-    const ompPayload = submittedPayload(senderName, prompt, options);
-    const outcome = await deps.deliverToOmp(
-      ompPayload,
-      options.composerWaitMilliseconds ?? OMP_DELIVERY_TIMEOUT_MS,
-      // ADDRESSED to this recipient's pane. Every live omp instance polls the
-      // same directory, so an unaddressed request is claimed by whichever one
-      // is idle first — see the defect note in omp-delivery-client.ts.
-      agent.paneId,
+  if (harness === HARNESS_NAMES.PI) {
+    const startupCheck = deps.claudeMod;
+    if (options.waitForStartupQuiescence && startupCheck !== undefined) {
+      const socketPath = await startupCheck.socketOf(name);
+      await waitForTheSocketToAnswer(async () => (await startupCheck.alive(socketPath, agent.paneId)) !== undefined, deps);
+    }
+    const piPayload = submittedPayload(senderName, prompt, options);
+    const outcome = await (deps.deliverToPi ?? deliverToPi)(
+      piPayload,
+      options.composerWaitMilliseconds ?? EXTENSION_DELIVERY_TIMEOUT_MS,
+      { paneId: agent.paneId, agentName: name },
+      options.messageId,
     );
-    if (outcome.kind === "delivered") return ompPayload;
+    if (outcome.kind === "delivered") return piPayload;
+    if (outcome.kind === "dropped") throw new SubmitAssumedFilledError(name, outcome.detail);
     if (outcome.kind === "refused") {
       throw new SubmitNotSentError(
         name,
-        new Error(`omp delivery refused: ${outcome.detail}`),
+        new Error(`${harness} delivery refused: ${outcome.detail}`),
       );
     }
-    // Timed out with the request already withdrawn: nothing was submitted and
-    // nothing was overwritten, which is precisely typed not-sent.
-    throw new SubmitNotSentError(
-      name,
-      new Error(
-        `omp delivery timed out after ${outcome.waitedMs}ms with no ack — the ` +
-          `extension holds a request while a resident draft is present, and ` +
-          `holds it equally while the composer is unreadable. The request was ` +
-          `withdrawn, so nothing will arrive late.`,
-      ),
+    if (outcome.kind === "timed-out") {
+      throw new SubmitNotSentError(
+        name,
+        new Error(
+          `${harness} delivery got no delivered answer within ${outcome.waitedMs}ms — the ` +
+            `extension holds a request while a resident draft is present, and ` +
+            `holds it equally while the composer is unreadable. The connection was ` +
+            `closed, so nothing will arrive late.`,
+        ),
+      );
+    }
+    if (rememberPiFallback(name, options.messageId)) {
+      (deps.claudeMod?.log ?? writeToStandardError)(piFallbackLine(name, outcome.detail));
+    }
+  }
+  const claudeMod = deps.claudeMod;
+  if (harness === HARNESS_NAMES.CLAUDE && claudeMod !== undefined && (await claudeMod.usesMod(name))) {
+    const socketPath = await claudeMod.socketOf(name);
+    const answering = async () => (await claudeMod.alive(socketPath, agent.paneId)) !== undefined;
+    if (options.waitForStartupQuiescence) await waitForTheSocketToAnswer(answering, deps);
+    if (!(await answering())) {
+      claudeMod.log(claudeModFallbackLine(name, `no answer on its delivery socket within ${ALIVE_TIMEOUT_MILLISECONDS}ms`));
+    } else {
+      const modPayload = submittedPayload(senderName, prompt, options);
+      const outcome = await deps.deliverThroughExtension(
+        modPayload,
+        options.composerWaitMilliseconds ?? EXTENSION_DELIVERY_TIMEOUT_MS,
+        agent.paneId,
+        {
+          ...(socketPath === undefined ? {} : { socketPath }),
+          ...(options.messageId === undefined ? {} : { requestId: `${MESSAGE_ID_PREFIX}${options.messageId}` }),
+        },
+      );
+      if (outcome.kind === "delivered") return modPayload;
+      if (outcome.kind === "dropped") throw new SubmitAssumedFilledError(name, outcome.detail);
+      if (outcome.kind === "timed-out" && (await answering())) {
+        throw new SubmitNotSentError(
+          name,
+          new Error(
+            `the Claude mod is answering but took no request within ${outcome.waitedMs}ms; it holds messages ` +
+              `while a draft is in the composer or a turn is running. The connection was closed and nothing was typed.`,
+          ),
+        );
+      }
+      claudeMod.log(
+        claudeModFallbackLine(
+          name,
+          outcome.kind === "timed-out"
+            ? `no answer after ${outcome.waitedMs}ms; the connection was closed`
+            : outcome.detail,
+        ),
+      );
+    }
+    return deps.withRecipientPaneLock(agent.paneId, () =>
+      submitToAgentWhileLocked(agent, senderName, prompt, options, { ...deps, claudeMod: undefined }),
     );
   }
   // Keep delivery on the proven send-text + bounded Enter transaction: the
@@ -274,7 +332,7 @@ export async function submitToAgentWhileLocked(
           "a resident draft occupies the composer; nothing was written",
         );
       }
-      if (guarded.activeComposer.state === "draft") {
+      if (guarded.activeComposer.state === "draft" && harness !== HARNESS_NAMES.PI) {
         // The held lock settles exclusive composer ownership: text found now
         // is flushed — submitted through the same bounded Enter transaction —
         // never overwritten, and never a release-and-retry condition.

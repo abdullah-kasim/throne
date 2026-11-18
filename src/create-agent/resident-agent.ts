@@ -33,6 +33,8 @@ import {
 } from "../memory-dir/memory-dir-resolver.ts";
 import { PRODUCTION_MEMORY_RESOLVER_DEPS } from "../memory-dir/memory-dir-runtime.ts";
 import { installHerdrOperatorSkill } from "../herdr/herdr-operator-skill.ts";
+import { HARNESS_NAMES } from "../harness-routing/harness.ts";
+import { preparePiLaunch, type PiLaunch } from "./pi-launch.ts";
 
 /**
  * Resolved once at spawn so the identity record states where memory lives
@@ -78,7 +80,7 @@ async function installOperatorSkill(
   }
 }
 
-function launchArgv(request: PolicyResolution): string[] {
+function launchArgv(request: PolicyResolution, pi: PiLaunch | undefined): string[] {
   return request.customExecutable !== undefined
     ? buildCustomLaunchArgv(request.customExecutable, request.customPassthrough)
     : buildLaunchArgv({
@@ -90,6 +92,7 @@ function launchArgv(request: PolicyResolution): string[] {
           request.role,
           request.launchHarness,
         ),
+        ...(pi === undefined ? {} : { piSession: pi.piSession, piModelId: pi.piModelId }),
       });
 }
 
@@ -97,13 +100,16 @@ async function startOrResumeAgent(
   request: PolicyResolution,
   deps: CreateAgentDeps,
   argv: string[],
-  spawnedTabLabel?: string,
+  spawnedTabLabel: string | undefined,
+  pi: PiLaunch | undefined,
 ): Promise<StageResult<boolean>> {
   const writeStderr = stderrWriter(deps);
   const launch = {
     cwd: request.cwd,
     argv,
-    ...(await launchAccountOption(request.name, request.account, deps.readAccountsConfig ?? readAccountsConfig)),
+    ...(pi === undefined
+      ? await launchAccountOption(request.name, request.account, deps.readAccountsConfig ?? readAccountsConfig)
+      : { env: pi.env }),
   };
   let harnessWasLaunched = true;
   try {
@@ -178,7 +184,6 @@ function reportResidentAgent(
   const routed =
     request.routingNote === "" ? "" : ` — routed: ${request.routingNote}`;
   const policyOverrideNote = [
-    request.capabilityOverrideNote,
     request.effortOverrideNote,
     request.harnessOverrideNote,
   ]
@@ -225,20 +230,45 @@ export async function runResidentAgent(
     deps.composeSituationBrief,
     deps.readForkBrief,
   );
-  const argv = launchArgv(request);
+  const pi = await piLaunchOf(request, deps);
+  if (pi === null) {
+    return 1;
+  }
+  const launchRequest =
+    pi === undefined ? request : { ...request, account: pi.account, accountReason: "the DeepSeek provider account" };
+  const argv = launchArgv(launchRequest, pi);
   if (!(await prepareCodexLaunchTrust(request, deps))) {
     return 1;
   }
   if (
-    !(await persistNewAgentRecord(request, deps, identity, prompts.complete))
+    !(await persistNewAgentRecord(launchRequest, deps, identity, prompts.complete, pi))
   ) {
     return 1;
   }
   try {
-    return await launchRegisteredAgent(request, deps, argv, spawnedTabLabel, prompts);
+    return await launchRegisteredAgent(launchRequest, deps, argv, spawnedTabLabel, prompts, pi);
   } finally {
     await recordSpawnFinished(request, deps);
   }
+}
+
+async function piLaunchOf(
+  request: PolicyResolution,
+  deps: CreateAgentDeps,
+): Promise<PiLaunch | undefined | null> {
+  if (request.launchHarness !== HARNESS_NAMES.PI || request.customExecutable !== undefined) {
+    return undefined;
+  }
+  const recorded = request.resuming ? await deps.readSpawnSpec(request.name) : null;
+  const preparation = await preparePiLaunch(request.name, request.launchModel, recorded, deps.piLaunchPlaces);
+  if (!preparation.ready) {
+    stderrWriter(deps)(`create-agent: pi launch of "${request.name}" refused: ${preparation.refusal}; nothing was launched\n`);
+    return null;
+  }
+  if (preparation.launch.note !== null) {
+    stdoutWriter(deps)(`create-agent: ${preparation.launch.note}.\n`);
+  }
+  return preparation.launch;
 }
 
 async function recordSpawnFinished(
@@ -262,9 +292,10 @@ async function launchRegisteredAgent(
   argv: string[],
   spawnedTabLabel: string | undefined,
   prompts: AgentOpeningPrompts,
+  pi: PiLaunch | undefined,
 ): Promise<number> {
   await installOperatorSkill(request, deps);
-  const start = await startOrResumeAgent(request, deps, argv, spawnedTabLabel);
+  const start = await startOrResumeAgent(request, deps, argv, spawnedTabLabel, pi);
   if (!start.ok) {
     return start.code;
   }

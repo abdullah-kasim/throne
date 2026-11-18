@@ -15,7 +15,7 @@ import {
   throneLauncherPath,
 } from "../harness-routing/harness.ts";
 import { parseHarness } from "../harness-routing/model-registry.ts";
-import { modelEffortRange } from "../harness-routing/policy/capabilities.ts";
+import { modelEffortRange } from "../harness-routing/policy/model-effort-and-equivalents.ts";
 import type { StartOptions } from "../herdr/herdr-create.contracts.ts";
 import {
   activeRegentRoute,

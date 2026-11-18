@@ -297,6 +297,17 @@ function moveHarnessToPin(context, say, harness) {
   return moved === null ? `report: ${harness.name} ${harness.pinned} unchanged` : `report: ${harness.name} ${moved[1]} -> ${moved[2]}`;
 }
 
+function vendorPinnedPi(context, say) {
+  const pin = JSON.parse(readFileSync(path.join(context.root, 'vendor-pins.json'), 'utf8')).harnesses?.pi;
+  if (pin === undefined) return undefined;
+  const vendor = path.join(context.root, 'vendor');
+  const manifest = path.join(vendor, 'node_modules', pin.package, 'package.json');
+  const installed = existsSync(manifest) ? JSON.parse(readFileSync(manifest, 'utf8')).version : UNKNOWN_VERSION;
+  if (installed === pin.version) return `report: pi ${pin.version} unchanged`;
+  runStep(context, say, `bun add pinned pi ${pin.version}`, BUN_ON_PATH, ['add', '--cwd', vendor, '--exact', `${pin.package}@${pin.version}`]);
+  return `report: pi ${installed} -> ${pin.version}`;
+}
+
 async function installServices(context, say) {
   const label = 'install-services';
   const result = runStepKeepingItsResult(context, say, label, path.join(context.root, THRONE_COMMAND), ['install-services']);
@@ -397,6 +408,7 @@ async function performUpdate(contextBeforePull, say, plan, answers) {
   installDependencies(context, say);
   buildWhenBehindSource(context, say);
   const harnesses = plan.harnesses.map((harness) => moveHarnessToPin(context, say, harness));
+  const pi = vendorPinnedPi(context, say);
   const changedServices = await installServices(context, say);
   const services = plan.herdrMoves
     ? await restartWhatHerdrLeaves(context)
@@ -406,7 +418,7 @@ async function performUpdate(contextBeforePull, say, plan, answers) {
     restarted: services.restarted,
     notRestarted: [...services.notRestarted, ...agents.notRestarted],
   };
-  for (const line of reportLines(context, plan, { madeMergeCommit, harnesses, restarts, agentsRestartNext: agents.restartsNext })) say(line);
+  for (const line of reportLines(context, plan, { madeMergeCommit, harnesses: pi === undefined ? harnesses : [...harnesses, pi], restarts, agentsRestartNext: agents.restartsNext })) say(line);
   if (agents.restartsNext) restartAgents(context, say);
   await finishThroughHerdrUpgrade(context, say, plan, answers);
   return EXIT_DONE;

@@ -175,14 +175,22 @@ def guarded_rewrite_of(command: str) -> str:
     return rewritten
 
 
-def refusal_reason(command: str):
-    scratch = os.path.expanduser("~/tmp")
+def removal_rule_reason(command: str):
     spelling = home_spelling_in(command)
     if spelling is not None:
         return GUIDANCE.format(spelling=spelling, home=os.path.expanduser("~"))
     variables = unguarded_variables_in(command)
     if variables:
         return UNGUARDED_VARIABLE_GUIDANCE.format(variables=", ".join(variables), rewrite=guarded_rewrite_of(command))
+    return None
+
+
+def refusal_reason(command: str, harness: str = "claude"):
+    scratch = os.path.expanduser("~/tmp")
+    if harness != "pi":
+        reason = removal_rule_reason(command)
+        if reason is not None:
+            return reason
     refusal = scratch_path_refusal(command)
     if refusal is not None:
         guidance, path = refusal
@@ -198,7 +206,7 @@ def main() -> int:
         return 0
     if not isinstance(command, str):
         return 0
-    reason = refusal_reason(command)
+    reason = refusal_reason(command, os.environ.get("THRONE_HOOK_HARNESS", "claude"))
     if reason is None:
         return 0
     json.dump(

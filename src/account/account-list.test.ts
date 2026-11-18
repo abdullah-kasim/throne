@@ -98,7 +98,7 @@ test("account list reports a folder whose login is not the company login", async
 test("account list without an accounts file says the throne runs on the primary folder", async () => {
   const homes = await makeAccountHomes({ writeAccountsFile: false });
   assert.deepEqual(await listWith(homes), [
-    `No accounts are configured (${homes.places.configPath} is absent); the throne runs every agent on ${homes.primaryFolder}.`,
+    `No Claude accounts are configured in ${homes.places.configPath}; the throne runs every Claude agent on ${homes.primaryFolder}.`,
   ]);
 });
 

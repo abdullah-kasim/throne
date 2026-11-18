@@ -32,6 +32,7 @@
 // field (e.g. a resolver callback) is a one-file change to this module's
 // `SteeringConfigOverride` type and its accessors, never a change at any call site.
 
+import { removedHarnessMessage } from "./harness-routing/harness-identity.ts";
 import {
   describeValue,
   isPlainObject,
@@ -106,7 +107,7 @@ export interface SteeringConfig {
    * pinning the model. The two decisions are independent and now say so.
    *
    * "I want terra for alpha, shadow and shadowSlice99" is a preset. "Run it
-   * all on omp" is this. Neither should require editing the other.
+   * all on pi" is this. Neither should require editing the other.
    *
    * The Stager is deliberately NOT affected: it stays pinned by
    * `rolePools()` in `src/config.ts` by standing order, independent of every
@@ -132,10 +133,6 @@ export interface SteeringConfig {
    * the Lord moves the court onto a new harness he must be able to move the
    * Stager too, deliberately, in one place, without editing `src/config.ts`.
    * This field is that place. It is read by NOTHING except the Stager pool.
-   *
-   * 2026-08-26: set to omp/opus on the Lord's direct order — the whole court
-   * had moved to omp while the Stager alone was still spawning on the native
-   * claude harness, which is exactly the divergence this field makes visible.
    */
   readonly stagerPool?: readonly CustomPlanPresetPair[];
   /** The durable operator disable setting for the token-balance load
@@ -247,6 +244,10 @@ function validatePresetPair(
       `${fieldPath}.harness`,
       `must be a non-empty string (got ${describeValue(harness)})`,
     );
+  }
+  const removedHarness = removedHarnessMessage(harness);
+  if (removedHarness !== undefined) {
+    throw invalidSteeringConfig(sourcePath, `${fieldPath}.harness`, `names a removed harness: ${removedHarness}`);
   }
   if (typeof model !== 'string' || model.length === 0) {
     throw invalidSteeringConfig(
@@ -408,6 +409,10 @@ export function validateSteeringOverride(
         'activeHarness',
         `must be a non-empty harness name (got ${describeValue(harness)})`,
       );
+    }
+    const removedHarness = removedHarnessMessage(harness);
+    if (removedHarness !== undefined) {
+      throw invalidSteeringConfig(sourcePath, 'activeHarness', `names a removed harness: ${removedHarness}`);
     }
     override.activeHarness = harness.trim();
   }

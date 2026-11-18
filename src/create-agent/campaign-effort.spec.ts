@@ -89,7 +89,6 @@ function alphaRequest(overrides: Partial<PolicyResolution> = {}): PolicyResoluti
     launchEffort: 1,
     routingNote: "",
     durableRoutingNote: false,
-    capabilityOverrideNote: "",
     effortOverrideNote: "",
     harnessOverrideNote: "",
     bypassedObjectiveCode: false,

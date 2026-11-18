@@ -78,6 +78,24 @@ test("the dotfiles rm-literal-home-guard registration is replaced in place so th
   assert.deepEqual((settings.hooks as { Stop: unknown }).Stop, [{ hooks: [] }]);
 });
 
+test("installing services removes the retired relevance fence hook from a settings file that has it", async () => {
+  const fenceEntry = {
+    matcher: "Bash|Read|Grep|Write|Edit|MultiEdit",
+    hooks: [{ type: "command", command: `python3 "${THRONE}/claude-hooks/relevance-fence.py"` }],
+  };
+  const registered = withGuardHookRegistered({}, COMMAND).settings;
+  const hooks = registered.hooks as { PreToolUse: unknown[] };
+  const deps = depsWithSettings(
+    JSON.stringify({ model: "opus", hooks: { PreToolUse: [WEB_FETCH_ENTRY, ...hooks.PreToolUse, fenceEntry] } }),
+  );
+
+  assert.equal(await installClaudeGuardHook(deps, OPTIONS), "replaced");
+
+  const settings = JSON.parse(deps.written[0]) as Record<string, unknown>;
+  assert.equal(settings.model, "opus");
+  assert.deepEqual(commandsIn(settings), ["python3 fetch-guard.py", COMMAND]);
+});
+
 test("a registration pointing at another throne checkout is repointed, and duplicates collapse to one", () => {
   const stale = guardHookCommand("/old/throne");
   const { settings, change } = withGuardHookRegistered(

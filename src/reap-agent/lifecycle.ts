@@ -404,7 +404,7 @@ export async function reapAgent(
   // NOTHING FURTHER GATES COMPLETION HERE (Lord, 2026-08-21: "remove all
   // other rule, the only rule we need is {"reapable":"completed"}").
   // `refuseUnprovenLiveAgent` used to run at this point and accept three
-  // artifact proofs -- a landed REPORT.md, a `Deliver <name>` commit, and a
+  // artifact proofs -- a landed REPORT.md, a delivery commit, and a
   // durable verdict-only shape -- any of which admitted a live agent that
   // had never said it was done. All three are deleted. An artifact proves
   // that WORK HAPPENED; it never proves the agent is FINISHED with it, and

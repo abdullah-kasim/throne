@@ -10,7 +10,7 @@ import {
   armHardKillTimer,
   pollAndYieldOrDeliver,
 } from "../message-queue/sqlite-delivery-sandbox.ts";
-import { openMessageQueueStore, type MessageQueueStore } from "../message-queue/message-queue.store.ts";
+import { openMessageQueueStore, type MessageQueueStore, type WorkItemRow } from "../message-queue/message-queue.store.ts";
 import { MESSAGE_DELIVERY_WORK_ITEM_KIND } from "../send-agent/message-delivery-enqueue.ts";
 import { probeComposerCleared, REAL_SUBMIT_TO_AGENT_DEPS } from "../herdr/herdr-send.service.ts";
 import {
@@ -28,6 +28,7 @@ import type { CronHostedWorker } from "./hosted-worker.types.ts";
 
 export const SQLITE_QUEUE_DRAIN_HOSTED_WORKER_NAME = "sqlite-queue-drain";
 const SQLITE_DELIVERY_POLL_INTERVAL_MS = 1_000;
+const MAXIMUM_CONCURRENT_MESSAGE_DELIVERIES = 4;
 
 @Injectable()
 export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
@@ -36,6 +37,7 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
   readonly cronExpression = CronExpression.EVERY_SECOND;
 
   private readonly dispatchingItemIds = new Set<number>();
+  private readonly recipientsWithDeliveryUnderWay = new Set<string>();
   private reclaimedOrphanedWork = false;
 
   constructor(
@@ -59,11 +61,6 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
     // draft sat there (measured on the mac, 2026-09-02: 7+ minutes and
     // counting, with the drain perfectly healthy).
     this.store.writeHeartbeat();
-    const item = this.store.claimNextDueWorkItem([MESSAGE_DELIVERY_WORK_ITEM_KIND]);
-    if (item === undefined) {
-      runDispatchTick(this.store, this.dispatchingItemIds, this.handlerDeps);
-      return;
-    }
     // The same yielding delivery starved every other work kind for the same
     // reason: a message claim returned early and the non-message tick never
     // ran, so a Regent resurrection enqueued behind an occupied composer
@@ -75,6 +72,23 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
       this.handlerDeps,
       listNonMessageDispatchWorkKinds(),
     );
+    this.fillDeliveryLanes();
+  }
+
+  private fillDeliveryLanes(): void {
+    while (this.recipientsWithDeliveryUnderWay.size < MAXIMUM_CONCURRENT_MESSAGE_DELIVERIES) {
+      const item = this.store.claimNextDueWorkItem(
+        [MESSAGE_DELIVERY_WORK_ITEM_KIND],
+        this.recipientsWithDeliveryUnderWay,
+      );
+      if (item === undefined) return;
+      this.startDelivery(item);
+    }
+  }
+
+  private startDelivery(item: WorkItemRow): void {
+    const recipient = String((item.payload as { recipientName?: unknown }).recipientName ?? "");
+    this.recipientsWithDeliveryUnderWay.add(recipient);
     this.dispatchingItemIds.add(item.id);
     const deliveryDeps = this.handlerDeps.messageDelivery ?? REAL_MESSAGE_DELIVERY_HANDLER_DEPS;
     const laneBoundMs = deriveLaneBoundMs();
@@ -152,6 +166,12 @@ export class SqliteQueueDrainHostedWorker implements CronHostedWorker {
       .finally(() => {
         timer.clear();
         this.dispatchingItemIds.delete(item.id);
+        this.recipientsWithDeliveryUnderWay.delete(recipient);
+        try {
+          this.fillDeliveryLanes();
+        } catch (claimError: unknown) {
+          console.error("[sqlite-queue-drain] could not start the next delivery:", claimError);
+        }
       });
   }
 }

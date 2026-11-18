@@ -11,15 +11,17 @@ user-invocable: true
 
 One pass over one repository: a spec file per user-facing feature or reusable module, in the form `agent_docs/spec-form.md` fixes, and the map `throne feature-map` generates from them. Campaigns keep the same files current area by area; this skill fills a repository at once, repairs one, and settles where the files live.
 
-Nothing here works a path out by hand. `throne spec-location <repository> --json` answers where the spec folder and the map are and what state each is in. Its states are exactly `none yet`, `in the throne data home`, `in the project, made with throne's tooling` and `in the project, made another way`.
+Every shared step (asking where the files are, the lock, recording the place, rewriting, the map) is in `agent_docs/spec-writing-steps.md`; this skill names the section to follow at each point.
 
 ## 1. Resolve
 
-Run `throne spec-location <repository> --json`. Read `owned`, `spec.state`, `spec.path`, `map.state`, `map.path` and `settingsFile`. If the settings file exists and records a place, use that place, ask nothing, and go to step 3.
+Follow `agent_docs/spec-writing-steps.md`, section "Ask where the spec lives". If the settings file exists and records a place, use that place, ask nothing, and go to step 3.
 
 ## 2. Ask where they stay, once
 
-Only when there are no settings. Ask one question with the harness's question tool, offering two answers:
+Only when there are no settings, and only for a repository that is ours (ownership comes from the extension). A repository that is not ours always stays under the data home, so ask nothing and go to step 3.
+
+Ask one question with the harness's question tool, offering two answers:
 
 - **In the repository (`specs/`)**: committed, shared with everyone who clones it, visible in pull requests, delivered like any other change.
 - **Under the throne data home**: private to this machine, never in the repository's history.
@@ -28,19 +30,19 @@ Mark the operator extension's default as the suggested answer. If the resolver f
 
 With nobody to answer (an unattended run), take the default the extension gives. With no extension and nobody to answer, stop: write nothing, and report that the place is undecided and why.
 
-Ownership comes only from the extension; the resolver never decides it. Pass it on every resolver call from here on as `--owned yes` or `--owned no`, and for a repository that is ours pass the chosen place as `--place repository` or `--place data-home`. A repository that is not ours is never written into: its answer is always the data home, whatever was found in it.
+Ownership comes only from the extension; pass it and the chosen place on every resolver call from here on.
 
 ## 3. Catalogue
 
-The place to write is `spec.path` from `throne spec-location <repository> --owned <yes|no> [--place <place>] --json`: `specs` inside the repository for one that is ours kept in the repository, a folder under the throne data home otherwise.
+The place to write is `spec.path` from the resolver. Follow `agent_docs/spec-writing-steps.md`, section "Act on the state", with every feature of the repository as the areas to write.
 
 Read the repository for its user-facing features and reusable modules: its command catalogue or route table, its README and agent docs, its top-level folders. Write one spec file per feature at that place, in the form `agent_docs/spec-form.md` fixes. Fan the reading out by area when the repository is large; give each reader its own area folder so no two write the same file.
 
-A write under the throne data home holds the external spec lock for the whole write, taken with `throne spec-lock --repository <repository>`. A refusal names the holder: wait for it, then resolve again before writing.
+A write under the throne data home, through the recording in step 4, follows `agent_docs/spec-writing-steps.md`, section "Hold the lock".
 
 ## 4. Generate the map
 
-Run `throne feature-map <spec folder>` (add `--registry throne` when the repository is throne, and `--repository <path>` when the spec folder is not inside it). Exit 1 means a fatal finding and no map: fix the files it names and run it again until it exits 0. Keep the reported, non-fatal findings for the report. Then run `throne spec-location <repository> --owned <yes|no> [--place <place>] --record spec` and the same with `--record map` so the settings say where both are.
+Follow `agent_docs/spec-writing-steps.md`, section "Regenerate and check the map", then section "Record the place".
 
 ## 5. Prove three
 
@@ -56,8 +58,8 @@ Pick three spec files from different areas. Follow each one's `## How to reach i
 
 ## Running again
 
-On a repository that already has a spec, change only what is missing or failing: add missing features, fix what the checks flag. A file with no reason to change stays byte-identical. Rewrite everything only when told to.
+On a repository that already has a spec, change only what is missing or failing: add missing features, fix what the checks flag. Rewrite everything only when told to; otherwise follow `agent_docs/spec-writing-steps.md`, section "Rewrite, never append".
 
 ## Moving into the repository
 
-When "in the repository" is chosen for a project whose spec is `in the throne data home`: under the lock, move every file from the data-home spec folder into `specs/`, regenerate the map there, record both with `throne spec-location <repository> --owned yes --place repository --record spec` and the same with `--record map`, and delete the data-home copies so nothing is left behind. Only for a repository that is ours.
+When "in the repository" is chosen for a project whose spec is `in the throne data home`, and only for a repository that is ours: holding the lock (`agent_docs/spec-writing-steps.md`, section "Hold the lock"), move every file from the data-home spec folder into `specs/`, regenerate the map there (section "Regenerate and check the map"), record both with `--place repository` (section "Record the place"), and delete the data-home copies so nothing is left behind.

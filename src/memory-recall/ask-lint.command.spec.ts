@@ -17,9 +17,6 @@ function withoutAnyClassifier(fixture: Harness): RecallDependencies {
     chooseBackend: () => {
       throw new Error('the lint asked for a classifier backend');
     },
-    readJevSwitch: () => {
-      throw new Error('the lint read the Jev switch');
-    },
   };
 }
 
@@ -125,9 +122,11 @@ test('the lint refuses task text and every recall flag but --directory and --glo
   }
 });
 
-test('the lint with --hook runs nothing and exits 0, because the hook never exits non-zero', async () => {
-  const fixture = harness();
-  assert.equal(await runRecall(['--lint-asks', '--hook'], withoutAnyClassifier(fixture)), 0);
-  assert.deepEqual(fixture.stdout, []);
-  assert.deepEqual(fixture.stderr, []);
+test('the removed --hook flag is refused with a non-zero exit and nothing on stdout', async () => {
+  for (const commandArguments of [['--hook'], ['--lint-asks', '--hook']]) {
+    const fixture = harness();
+    assert.equal(await runRecall(commandArguments, withoutAnyClassifier(fixture)), 2);
+    assert.deepEqual(fixture.stdout, []);
+    assert.match(fixture.stderr.join(''), /unknown flag "--hook"/);
+  }
 });

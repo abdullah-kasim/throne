@@ -1,3 +1,4 @@
+import { isAlphaRole } from "../no-idling/idle-family.ts";
 import { TREE_BASE_DATA } from "../agentdata/tree-base-data.service.ts";
 import { recordAgentLaunchOnQueueItem } from "../regent-queue/regent-queue-lifecycle.ts";
 import {
@@ -14,11 +15,11 @@ export interface QueueLaunchWritebackDeps {
 
 /**
  * `create-agent`'s side of the shared queue lifecycle write-back
- * (`regent-queue-lifecycle.ts`): a successful launch against a campaign
- * objective code transitions its matched queue item to `in-flight`,
+ * (`regent-queue-lifecycle.ts`): a successful Alpha launch against a
+ * campaign objective code transitions its matched queue item to `in-flight`,
  * recording the agent name, target repo, and base commit from the tree this
  * campaign was just prepared against. A non-campaign launch (no objective
- * code) is a no-op — there is nothing to look up. Never throws: any failure
+ * code) or any role other than Alpha is a no-op. Never throws: any failure
  * to match, open the store, or read the tree is logged to stdout and
  * swallowed, so the write-back can never fail the launch it rides along
  * with.
@@ -26,9 +27,11 @@ export interface QueueLaunchWritebackDeps {
 export async function writeQueueLaunchLinkage(
   name: string,
   objectiveContract: ObjectiveContract | undefined,
+  role: string,
   deps: QueueLaunchWritebackDeps = {},
 ): Promise<void> {
   if (
+    !isAlphaRole(role) ||
     objectiveContract === undefined ||
     objectiveContract.kind !== "campaign"
   ) {

@@ -135,12 +135,19 @@ A dry run stays in the foreground and changes nothing. It prints only the plan,
 with no header and no closing line, and writes no log. A `restarted` line here
 is a prediction: it says `would stop pane`. A `failed` line names an agent the
 real run would fail, yet the exit code stays 0, so read the lines rather than
-the code. A bad argument exits 2.
+the code. A bad argument exits 2. An agent whose Claude Code session runs in
+the background, with only a `claude attach` viewer in its pane, gets a
+`background session` line: the real run stops the session process and its
+`bg-pty-host`, waits until `claude agents --json` no longer lists the session,
+stops the viewer, and resumes the session in the pane in the foreground. A
+session that survives SIGKILL is a `failed` line and nothing is relaunched over
+it.
 
 ```text
 restart-harnesses: skipped   <name> — <reason>
 restart-harnesses: failed    <name> — <reason>
 restart-harnesses: restarted <name> — would stop pane <pane> and resume session <session> (dry run)
+restart-harnesses: restarted <name> — background session; would stop session process <pid> and its host, stop the viewer in pane <pane>, and resume session <session> in the foreground (dry run)
 ```
 
 ## After running it

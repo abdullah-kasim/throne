@@ -1,0 +1,99 @@
+{
+  "recorded_from": "3c7e0b52d9a14f68e2b7c1d05a9f3e46b8d2c710",
+  "answers": [
+    {
+      "harness": "claude",
+      "role": "Alpha",
+      "model": "opus",
+      "code": "the court stops at the launch",
+      "launch_arguments": [
+        [
+          "<throne-root>/bin/claudey",
+          "--model",
+          "opus",
+          "--effort",
+          "high",
+          "--name",
+          "alpha-launch-opus"
+        ]
+      ],
+      "spawn": {
+        "harness": "claude",
+        "model": "opus",
+        "effort": 3,
+        "cwd": "<scratch>/agent-cwd",
+        "spawned_at": "<time>",
+        "non_campaign": true,
+        "tasked_at": null
+      }
+    },
+    {
+      "harness": "claude",
+      "role": "Shadow",
+      "model": "opus",
+      "code": "the court stops at the launch",
+      "launch_arguments": [
+        [
+          "<throne-root>/bin/claudey",
+          "--model",
+          "opus",
+          "--effort",
+          "high",
+          "--name",
+          "shadow-launch-opus"
+        ]
+      ],
+      "spawn": {
+        "harness": "claude",
+        "model": "opus",
+        "effort": 3,
+        "cwd": "<scratch>/agent-cwd",
+        "spawned_at": "<time>",
+        "non_campaign": true,
+        "tasked_at": null
+      }
+    },
+    {
+      "harness": "claude",
+      "role": "Stager",
+      "model": "opus",
+      "code": "the court stops at the launch",
+      "launch_arguments": [
+        [
+          "<throne-root>/bin/claudey",
+          "--model",
+          "opus",
+          "--effort",
+          "high",
+          "--name",
+          "stager-launch-opus"
+        ]
+      ],
+      "spawn": {
+        "harness": "claude",
+        "model": "opus",
+        "effort": 3,
+        "cwd": "<scratch>/agent-cwd",
+        "spawned_at": "<time>"
+      }
+    },
+    {
+      "role": "Regent",
+      "model": "opus",
+      "harness": "claude",
+      "code": 0,
+      "launch_arguments": [
+        [
+          "<throne-root>/bin/claudey",
+          "--model",
+          "opus",
+          "--effort",
+          "high",
+          "--name",
+          "regent"
+        ]
+      ],
+      "spawn": null
+    }
+  ]
+}

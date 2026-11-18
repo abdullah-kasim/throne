@@ -10,13 +10,12 @@ import {
   buildReportFixture,
   copyOfFixtureData,
   promptTextOf,
-  reportOn,
   topicBackend,
   type FixturePrompt,
   type ReportFixture,
 } from './recall-report.test-support.ts';
 import { MEMORY_LIKELY_EXISTS, NO_RELEVANT_MEMORY } from './recall-verdict.ts';
-import { runRecall } from './recall.command.ts';
+import { REPORT_AFTER_THE_HOOK_WAS_REMOVED, runRecall } from './recall.command.ts';
 import { harness } from './recall.command.test-support.ts';
 import { SPOT_CHECKS_FILE_NAME } from './spot-check-verdicts.ts';
 
@@ -66,7 +65,7 @@ function gradeLine(prompt: FixturePrompt, memoryFile: string, pick: string, prob
     memoryFile,
     pick,
     probability,
-    backend: 'jev',
+    backend: 'rules',
     failedOpen: false,
   };
 }
@@ -115,11 +114,11 @@ test('a spot check prints the requested number of graded prompts with their grad
   assert.doesNotMatch(everyOne.stdout, /NEVER_GRADED/);
   assert.match(
     everyOne.stdout,
-    /\] 2026-10-01T10:10:00\.000Z serve arm, relayed prompt\n {2}prompt: "BLUE_DUG: fix the topic-blue problem"\n {2}Jev served: nothing\n {2}the dig found: BLUE\.md\n {2}the judge graded:\n {4}relevant-to-prompt BLUE\.md: yes \(probability 0\.80\)\n {4}relevant-to-prompt RED\.md: no \(probability 0\.70\)\n/,
+    /\] 2026-10-01T10:10:00\.000Z serve arm, relayed prompt\n {2}prompt: "BLUE_DUG: fix the topic-blue problem"\n {2}served: nothing\n {2}the dig found: BLUE\.md\n {2}the judge graded:\n {4}relevant-to-prompt BLUE\.md: yes \(probability 0\.80\)\n {4}relevant-to-prompt RED\.md: no \(probability 0\.70\)\n/,
   );
   assert.match(
     everyOne.stdout,
-    /\] 2026-10-01T10:20:00\.000Z shadow arm, typed prompt\n {2}prompt: "GREEN_SHADOW: fix the topic-green problem"\n {2}Jev would have served: GREEN\.md\n {2}the dig found: no dig\n {2}the judge graded:\n {4}relevant-to-prompt GREEN\.md: yes \(probability 0\.95\)\n/,
+    /\] 2026-10-01T10:20:00\.000Z shadow arm, typed prompt\n {2}prompt: "GREEN_SHADOW: fix the topic-green problem"\n {2}would have served: GREEN\.md\n {2}the dig found: no dig\n {2}the judge graded:\n {4}relevant-to-prompt GREEN\.md: yes \(probability 0\.95\)\n/,
   );
 });
 
@@ -151,19 +150,8 @@ test('a verdict on an id no graded prompt has is refused and nothing is recorded
   await assert.rejects(spotCheckLines(dataDirectory), { code: 'ENOENT' });
 });
 
-test("the report shows the judge's agreement with the Lord only once there are at least ten verdicts", async () => {
-  const { fixture, dataDirectory } = await gradedFixture();
-  const [id] = spotCheckIdsIn((await recall(['--spot-check', '--count', '1'], dataDirectory)).stdout);
-  await recall(['--disagree', id as string, 'not relevant'], dataDirectory);
-  for (let verdict = 1; verdict <= 8; verdict += 1) await recall(['--agree', id as string], dataDirectory);
-
-  const beforeTen = await reportOn(fixture, { backend: topicBackend(), dataDirectory });
-  assert.match(
-    beforeTen.output,
-    /\n {2}judge agreement with the Lord: 9 spot-check verdicts so far, 1 more needed before it is shown \(throne recall --spot-check\)\n/,
-  );
-
-  await recall(['--agree', id as string], dataDirectory);
-  const atTen = await reportOn(fixture, { backend: topicBackend(), dataDirectory });
-  assert.match(atTen.output, /\n {2}judge agreement with the Lord: 90\.0% \(9 of 10 spot-check verdicts\)\n/);
+test('the report over a ledger the removed hook wrote prints one line saying there is nothing more to report', async () => {
+  const { dataDirectory } = await gradedFixture();
+  const result = await recall(['--report'], dataDirectory);
+  assert.deepEqual(result, { exitCode: 0, stdout: REPORT_AFTER_THE_HOOK_WAS_REMOVED, stderr: '' });
 });

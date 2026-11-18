@@ -48,9 +48,19 @@ bun <skill-dir>/scripts/update-harness.mjs update \
   --throne-root <live-throne-root>
 ```
 
-Use `--harness codex` for Codex. The updater obtains `@anthropic-ai/claude-code` or `@openai/codex` metadata from the authoritative npm registry, requires matching package identity, registry-hosted tarball provenance, and SHA-512 integrity, then extracts outside active paths. It probes version, help, auth/login help, resume, remote/cloud help, the matching `claudey`/`codexy` launcher with a staged-binary override, and the throne launcher test `test/ompy-launcher.test.ts`. Create-agent is not probed, and the evidence's `probes` field says so. None of these probes may create a live agent, authenticate, mutate a remote session, touch Herdr, or mutate GitHub.
+Use `--harness codex` for Codex. The updater obtains `@anthropic-ai/claude-code` or `@openai/codex` metadata from the authoritative npm registry, requires matching package identity, registry-hosted tarball provenance, and SHA-512 integrity, then extracts outside active paths. It probes version, help, auth/login help, resume, remote/cloud help, the matching `claudey`/`codexy` launcher with a staged-binary override, and the throne launcher test `test/piy-launcher.test.ts`. Create-agent is not probed, and the evidence's `probes` field says so. None of these probes may create a live agent, authenticate, mutate a remote session, touch Herdr, or mutate GitHub.
 
 For Claude, `--model-session-check` on `update` or `check` asks the binary which model id each of fable, opus, sonnet and haiku runs as, and an id the registry cannot resolve fails `update` (or is reported by `check`) naming `src/harness-routing/model-registry.ts`. It is off by default because the binary lists no model ids, so each alias costs one paid one-line session.
+
+For Claude, `update` and `pinned` also run the staged binary's
+`plugin validate` on the throne's own Claude Code mod in `extensions/claude/`
+when that folder exists, and record the verdict as `modValidation` in the
+evidence. A pass prints `update-harness: the Claude mod in extensions/claude
+passes plugin validate on <version>`. A failure does not stop the update: it
+prints one `update-harness: ... fails plugin validate on <version> (<reason>)`
+line on stderr, and every Claude agent then launches
+without the mod and get their messages as typed keys. Put that line in the
+report.
 
 On a passing probe, `update` rewrites `vendor-pins.json` (preserving its
 `_comment` array byte-for-byte) and `vendor/package.json` to the new version,

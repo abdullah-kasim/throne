@@ -51,6 +51,7 @@ import { MakeSquashCommitCommand } from "./make-squash-commit/make-squash-commit
 import { LintSliceAssignmentCommand } from "./slice-assignment/lint-slice-assignment.command.ts";
 import { AbsorbGitTreeCommand } from "./absorb-git-tree/absorb-git-tree.command.ts";
 import { VerifyDeliveryCommand } from "./verify-delivery/verify-delivery.command.ts";
+import { RecordDeliveryCommand } from "./record-delivery/record-delivery.command.ts";
 import { ValidateDeliveryCommand } from "./validate-delivery/validate-delivery.command.ts";
 import { CheckMainIntegrityCommand } from "./check-main-integrity/check-main-integrity.command.ts";
 import { TrimQueueCommand } from "./trim-queue/trim-queue.command.ts";
@@ -85,10 +86,10 @@ import { SpecLockCommand } from "./spec-lock/spec-lock.command.ts";
 import { ScratchPaneCommand } from "./scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "./migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "./memory-recall/recall.command.ts";
+import { RefreshStagerTreeCommand } from "./stager-tree-refresh/refresh-stager-tree.command.ts";
 import { RankCommand } from "./item-rank/rank.command.ts";
 import { LocateCommand } from "./file-locate/locate.command.ts";
 import { SiftCommand } from "./log-sift/sift.command.ts";
-import { JevProbeCommand } from "./jev-probe/jev-probe.command.ts";
 import { GitIdentityCommand } from "./git-identity/git-identity.command.ts";
 import { ForgeCommand } from "./forge/forge.command.ts";
 import { ReclaimAgentScratchpadsCommand } from "./reclaim-agent-scratchpads/reclaim-agent-scratchpads.command.ts";
@@ -111,7 +112,6 @@ import {
   UsageLogService,
   WeeklyResetService,
 } from "./plan-usage-remaining/plan-usage-telemetry.service.ts";
-import { FeatureFlagsService } from "./shared-policy/feature-flags.service.ts";
 import { ApplicationConfigService } from "./application-config.service.ts";
 import { NotificationService } from "./notify-lord/notification.service.ts";
 import { ServiceUnitRenderer } from "./install-services/service-unit-renderer.service.ts";
@@ -300,6 +300,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     LintSliceAssignmentCommand,
     AbsorbGitTreeCommand,
     VerifyDeliveryCommand,
+    RecordDeliveryCommand,
     ValidateDeliveryCommand,
     CheckMainIntegrityCommand,
     TrimQueueCommand,
@@ -345,17 +346,16 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     ScratchPaneCommand,
     MigrateHomeCommand,
     RecallCommand,
+    RefreshStagerTreeCommand,
     RankCommand,
     LocateCommand,
     SiftCommand,
-    JevProbeCommand,
     GitIdentityCommand,
     ForgeCommand,
     ReclaimAgentScratchpadsCommand,
     SwitchPersonaCommand,
     DisableThroneCommand,
     EnableThroneCommand,
-    FeatureFlagsService,
     ApplicationConfigService,
     NotificationService,
     ServiceUnitRenderer,

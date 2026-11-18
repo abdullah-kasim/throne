@@ -37,7 +37,6 @@ import {
   renderCommandHelp,
   renderPublicCommandUsage,
 } from "./shared-policy/public-command-catalog.ts";
-import { featureFlagsPath } from "./shared-policy/feature-flags.service.ts";
 import { bootstrapRuntimeDataHome } from "./shared-policy/runtime-data-migration.ts";
 import {
   renderEntranceRefusal,
@@ -258,7 +257,7 @@ export async function runNestCommanderProduction(): Promise<number> {
 }
 
 export function renderCliUsage(): string {
-  return renderPublicCommandUsage(featureFlagsPath());
+  return renderPublicCommandUsage();
 }
 
 export async function executeCommand(

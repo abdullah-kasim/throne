@@ -8,15 +8,15 @@ import {
 import { resolveSpawnPolicy as resolveLegacySpawnPolicy } from "../src/create-agent-legacy/policy.ts";
 import { HARNESS_NAMES } from "../src/harness-routing/harness.ts";
 
-const OMP_OPUS = { harness: HARNESS_NAMES.OMP, model: "opus" } as const;
-const OMP_GPT = {
-  harness: HARNESS_NAMES.OMP,
+const PI_FLASH = { harness: HARNESS_NAMES.PI, model: "flash" } as const;
+const CLAUDE_GPT = {
+  harness: HARNESS_NAMES.CLAUDE,
   model: "gpt-5.6-sol",
 } as const;
 
 async function resolveSelectedPair(
   resolveSpawnPolicy: typeof resolvePrimarySpawnPolicy,
-  selectedPair: typeof OMP_OPUS | typeof OMP_GPT,
+  selectedPair: typeof PI_FLASH | typeof CLAUDE_GPT,
   requestedHarness: typeof HARNESS_NAMES.CLAUDE | typeof HARNESS_NAMES.CODEX,
 ) {
   return resolveSpawnPolicy(
@@ -35,7 +35,7 @@ async function resolveSelectedPair(
 test("a fresh primary create-agent spawn uses its selected role-pool harness", async () => {
   const resolution = await resolveSelectedPair(
     resolvePrimarySpawnPolicy,
-    OMP_OPUS,
+    PI_FLASH,
     HARNESS_NAMES.CLAUDE,
   );
 
@@ -47,14 +47,14 @@ test("a fresh primary create-agent spawn uses its selected role-pool harness", a
           model: resolution.value.launchModel,
         }
       : undefined,
-    OMP_OPUS,
+    PI_FLASH,
   );
 });
 
 test("a fresh legacy create-agent spawn uses its selected role-pool harness", async () => {
   const resolution = await resolveSelectedPair(
     resolveLegacySpawnPolicy,
-    OMP_OPUS,
+    PI_FLASH,
     HARNESS_NAMES.CLAUDE,
   );
 
@@ -66,7 +66,7 @@ test("a fresh legacy create-agent spawn uses its selected role-pool harness", as
           model: resolution.value.launchModel,
         }
       : undefined,
-    OMP_OPUS,
+    PI_FLASH,
   );
 });
 
@@ -77,7 +77,7 @@ test("fresh primary and legacy create-agent GPT spawns keep selected harnesses",
   ]) {
     const resolution = await resolveSelectedPair(
       resolveSpawnPolicy,
-      OMP_GPT,
+      CLAUDE_GPT,
       HARNESS_NAMES.CODEX,
     );
 
@@ -89,7 +89,7 @@ test("fresh primary and legacy create-agent GPT spawns keep selected harnesses",
             model: resolution.value.launchModel,
           }
         : undefined,
-      OMP_GPT,
+      CLAUDE_GPT,
     );
   }
 });
@@ -102,10 +102,10 @@ test("registered primary and legacy create-agent resumes keep their stored recip
     const resolution = await resolveSpawnPolicy(
       baseRequest({
         resuming: true,
-        harness: HARNESS_NAMES.OMP,
-        model: "opus",
-        launchHarness: HARNESS_NAMES.OMP,
-        launchModel: "opus",
+        harness: HARNESS_NAMES.PI,
+        model: "flash",
+        launchHarness: HARNESS_NAMES.PI,
+        launchModel: "flash",
         launchEffort: 1,
       }),
       baseDeps(),
@@ -120,7 +120,7 @@ test("registered primary and legacy create-agent resumes keep their stored recip
             effort: resolution.value.launchEffort,
           }
         : undefined,
-      { harness: HARNESS_NAMES.OMP, model: "opus", effort: 1 },
+      { harness: HARNESS_NAMES.PI, model: "flash", effort: 1 },
     );
   }
 });

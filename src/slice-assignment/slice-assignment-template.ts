@@ -33,9 +33,9 @@ Your wait has two ways to end, both finishing the same way:
    so if the confirmation is slow or lost you may independently check
    whether the merge already landed by calling \`hasDeliveryCommit\` (
    \`src/git-lifecycle/delivery-commit-proof.ts\`) against your own recorded
-   name and target branch. That check greps your branch history for a
-   commit titled exactly \`Deliver <your-name>\`, so it stays false until
-   your own merge lands and cannot be tripped by a sibling's unrelated
+   name and target branch. That check reads your \`delivery-evidence.json\`,
+   which is written only when your own merge lands, so it stays false until
+   then and cannot be tripped by a sibling's unrelated
    merge advancing the same branch. The instant it turns true, publish the
    same claim the same way.
 

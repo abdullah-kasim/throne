@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { Harness } from "../harness-routing/harness.ts";
 import { resolveRegistryModel } from "../harness-routing/model-registry.ts";
+import { removedHarnessMessage } from "../harness-routing/harness-identity.ts";
 import {
   treeNameFromPath,
   worktreesHome,
@@ -38,7 +39,7 @@ const USAGE =
   "Usage: ./bin/throne-cli create-agent-legacy --model <model> " +
   "[--effort <1-6>] --name <unique-name> " +
   "--supervisor <name> [--escalation <name>] [--role <role>] [--cwd <path>] " +
-  "[--prompt <text>] [--requires <capability-expression>] " +
+  "[--prompt <text>] [--requires <ignored: removed 2026-11-15>] " +
   "[--bypass-model (waives the role-pool pair-membership check only; requires " +
   "durable Regent-or-Lord authorization for an Alpha/Shadow recipient, or " +
   "Lord-only authorization for a Regent recipient)] [--bypass-zero-quota] " +
@@ -177,6 +178,11 @@ export async function prepareCreateAgentRequest(
   if (flags.help === true) {
     (deps.writeStdout ?? ((text) => process.stdout.write(text)))(USAGE);
     return { ok: false, code: 0 };
+  }
+  const removedHarness = typeof flags.harness === "string" ? removedHarnessMessage(flags.harness) : undefined;
+  if (removedHarness !== undefined) {
+    writeStderr(`create-agent-legacy: ${removedHarness}. Nothing was registered or launched.\n`);
+    return { ok: false, code: 1 };
   }
   if (flags.harness !== undefined) {
     writeStderr(

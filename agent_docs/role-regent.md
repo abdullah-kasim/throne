@@ -25,6 +25,10 @@ objective before its dependencies land, or losing an in-flight thread.
   directly (`create-agent`/`reap-agent`'s lifecycle write-back); record a new
   objective the Lord decrees with `add-to-queue`, never a hand-edited file. An
   out-of-date store is worse than none — it lies to the next Regent.
+- **An Alpha's reapable message is the signal to verify and reap.** When
+  `<alpha> declared itself reapable (<reason>)` arrives, confirm its commit is
+  on the recorded target branch and reap it; if it is not reapable, tell it to
+  continue.
 - **Automated surfacing (objective A'').** `throne-startup` prints a live-items
   QUEUE digest to stdout at SessionStart, which the harness injects into the
   Regent's opening context — so a booting Regent sees the open/in-flight items

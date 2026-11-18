@@ -29,10 +29,6 @@ export interface CompleteAgentDependencies {
   reap: (name: string, reason: ReapReason) => Promise<number>;
   writeStdout: (text: string) => void;
   writeStderr: (text: string) => void;
-  /** A second, independent completion signal: true when a `Deliver <name>`
-   *  commit (stamped by `mergeBack`, see `git-lifecycle/merge.ts`) is
-   *  reachable in its target repository's history. Falls back to refusing
-   *  on REPORT.md alone when omitted (e.g. in older/simplified callers). */
   hasDeliveryCommit?: (name: string) => Promise<boolean>;
   readSpawnSpec?: typeof readSpawnSpec;
   readAgentState?: (name: string) => Promise<AgentState>;
@@ -90,12 +86,6 @@ function isDoneButStuck(entry: AgentStatusesRosterEntry): boolean {
   );
 }
 
-/** A LIVE agent that finished working but never self-exited, and whose
- *  REPORT.md is (for whatever reason) not landed — e.g. the report lives
- *  only under a Shadow's directory the roster doesn't scan, or the herdr
- *  pane label doesn't exactly match the registered name. `reportLanded`
- *  proved nothing here, so `completeOne` falls back to asking git for the
- *  `Deliver <name>` commit `mergeBack` stamps on real completion. */
 function isLiveNotWorkingWithoutReport(entry: AgentStatusesRosterEntry): boolean {
   return (
     entry.lifecycle === AGENT_LIFECYCLE_STATES.LIVE &&
@@ -154,7 +144,7 @@ function readyMessage(
   if (provenByDeliveryCommit) {
     out(
       `complete-agent: "${entry.name}" is completion-proven (no REPORT.md, ` +
-        `but a "Deliver ${entry.name}" commit is in its target repository's history and ` +
+        `but its delivery-evidence.json records a delivered commit and ` +
         `LIVE status is ${entry.liveStatus ?? "unknown"}; it could not self-exit) ` +
         "— reaping.\n",
     );
@@ -230,8 +220,8 @@ async function completeOne(
     if (entry.liveStatus === "working") {
       if (await dependencies.hasDeliveryCommit?.(name)) {
         dependencies.writeStderr(
-          `complete-agent: "${name}" is completion-proven (a "Deliver ${name}" ` +
-            "commit is already in its target repository's history) but still reports LIVE " +
+          `complete-agent: "${name}" is completion-proven (its delivery-evidence.json ` +
+            "already records a delivered commit) but still reports LIVE " +
             "(status working) — it has not gone quiet yet. Wait and retry; this " +
             "is a transient, self-resolving state, not a stuck agent.\n",
         );
@@ -246,8 +236,8 @@ async function completeOne(
     }
     dependencies.writeStderr(
       `complete-agent: "${name}" is LIVE (status ${entry.liveStatus ?? "unknown"}) ` +
-        `with no REPORT.md landed and no "Deliver ${name}" commit found in ` +
-        "its target repository's history — not provably complete. This is often the correct, " +
+        `with no REPORT.md landed and no delivery-evidence.json recording a ` +
+        "delivered commit — not provably complete. This is often the correct, " +
         "expected state for a Shadow that has not merged its work back yet. " +
         "Refusing. (A genuinely stuck agent can still be torn down with " +
         "reap-agent <name> --force --reason force.)\n",
@@ -259,7 +249,7 @@ async function completeOne(
       return reapWithEvidenceGate(name, dependencies, () =>
         dependencies.writeStdout(
           `complete-agent: "${name}" is completion-proven (DEAD, no REPORT.md, ` +
-            `but a "Deliver ${name}" commit is in its target repository's history — it died ` +
+            `but its delivery-evidence.json records a delivered commit — it died ` +
             "after finishing, not mid-work) — reaping.\n",
         ),
       );

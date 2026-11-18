@@ -191,7 +191,9 @@ throne add-to-queue --objective-code <code> \
   hint was recorded (the command prints the line).
 - `<code>`: ASCII alphanumerics only (`OBJECTIVE_CODE_PATTERN`), short,
   memorable; it prefixes every agent name in the campaign
-  (`alpha-<code>-…`, `shadow-<code>-…`).
+  (`alpha-<code>-…`, `shadow-<code>-…`). At most 10 characters, so
+  `shadow-<code>-99a-conform-r2` fits Herdr's 32; `add-to-queue` refuses a
+  longer code.
 - **Prefer stacking (Lord, 2026-10-05): "Also, please prefer stacked PRs -
   update our skills in that case. Stacked PRs makes testing easier!"** When
   the objective builds on another open PR (it calls that PR's API, uses its

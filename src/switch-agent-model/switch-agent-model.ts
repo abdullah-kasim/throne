@@ -14,7 +14,6 @@ import {
   runtimeHarness,
   type Harness,
 } from "../harness-routing/harness.ts";
-import { evaluateFinalCapability } from "../harness-routing/policy/capabilities.ts";
 import type { AgentStartEvidence } from "../herdr/herdr-create.contracts.ts";
 import {
   type SwitchPhase,
@@ -145,20 +144,6 @@ export async function switchAgentModel(
     return refuse("validate-target", "unsupported-target", validated.message);
   }
   const target = validated.target;
-  const targetCapability =
-    spawn.capability === undefined
-      ? undefined
-      : evaluateFinalCapability({
-          harness: target.harness,
-          model: target.model,
-        });
-  if (targetCapability?.kind === "refuse") {
-    return refuse(
-      "validate-target",
-      "unsupported-target",
-      targetCapability.reason,
-    );
-  }
   log.ok("validate-target", `${target.model}@${target.effort}`);
 
   let inspection: SwitchRecipientInspection;
@@ -377,7 +362,6 @@ export async function switchAgentModel(
         target,
         sessionId,
         started,
-        targetCapability?.evidence,
         candidates,
       ),
     );

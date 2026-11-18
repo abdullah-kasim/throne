@@ -13,7 +13,6 @@ import {
 } from './branch-authority.ts';
 import { requireContentDeliveredToMergeTarget } from './path-wise-delivery.ts';
 import { canonicalPath, readGitStatus, runGit } from './git-command.service.ts';
-import { shadowTipIsStamped } from './absorb-and-stamp.ts';
 import { findCommitWithIdenticalTree, isAncestor } from './delivery.ts';
 
 export type BranchCleanupPlan =
@@ -226,29 +225,6 @@ async function requireUnchangedCleanupAuthority(
   return tip;
 }
 
-/** A branch about to be deleted may be carrying its own completion stamp as
- *  its tip commit — `absorbAndStamp` publishes `Deliver <branch>` only onto
- *  the branch it stamps, so that branch's own ref is the sole thing keeping
- *  the stamp reachable. Anchors it with a lightweight tag before the branch
- *  ref disappears, so `hasDeliveryCommit`'s `git log --all` still finds it
- *  afterward. A tag, not a second branch or a fast-forward onto some other
- *  branch, because reachability from any ref is all the completion proof
- *  requires, and a tag is the cheapest ref that provides it without moving
- *  or touching any other branch's history. Returns the tag name created, or
- *  `undefined` when `tip` was not itself a stamp — nothing to preserve. */
-async function preserveDeliveryStampBeforeDeletion(
-  root: string,
-  branch: string,
-  tip: string,
-): Promise<string | undefined> {
-  if (!(await shadowTipIsStamped(root, tip, branch))) {
-    return undefined;
-  }
-  const tagName = `preserved-deliver-stamp/${branch}`;
-  await runGit(['tag', '--force', '--no-sign', tagName, tip], root);
-  return tagName;
-}
-
 export async function deleteBranchCleanup(
   plan: ReadyBranchCleanupPlan,
 ): Promise<boolean> {
@@ -256,7 +232,6 @@ export async function deleteBranchCleanup(
   if (tip === undefined) {
     return false;
   }
-  await preserveDeliveryStampBeforeDeletion(plan.root, plan.branch, tip);
   const deleted = await readGitStatus(
     ['branch', '-D', '--', plan.branch],
     plan.root,

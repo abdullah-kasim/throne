@@ -74,7 +74,6 @@ function runAgainWithoutKeepingOldCopies(machine: ScratchMachine, backupSuffix: 
 }
 
 async function writeOldSettings(machine: ScratchMachine): Promise<void> {
-  await writeText(path.join(machine.oldSettings, "features.json"), '{"flags":{}}\n');
   await writeText(path.join(machine.oldSettings, "private-refs.txt"), "secret-host\n");
   await writeText(path.join(machine.oldProfiles, "forge-example", "Default", "Cookies"), "cookie\n");
 }
@@ -86,13 +85,11 @@ test("old settings are moved into the throne home and a MOVED.txt names the new 
   const report = await migrateThroneHome(machine.request);
 
   assert.equal(report.refused, false);
-  assert.equal(await readFile(path.join(machine.newConfig, "features.json"), "utf8"), '{"flags":{}}\n');
   assert.equal(await readFile(path.join(machine.newConfig, "private-refs.txt"), "utf8"), "secret-host\n");
   assert.equal(await readFile(path.join(machine.newProfiles, "forge-example", "Default", "Cookies"), "utf8"), "cookie\n");
-  assert.equal(await pathExists(path.join(machine.oldSettings, "features.json")), false);
+  assert.equal(await pathExists(path.join(machine.oldSettings, "private-refs.txt")), false);
   assert.equal(await pathExists(path.join(machine.oldProfiles, "forge-example")), false);
   const settingsNote = await readFile(path.join(machine.oldSettings, MOVED_NOTE_FILE_NAME), "utf8");
-  assert.match(settingsNote, new RegExp(`features\\.json -> ${path.join(machine.newConfig, "features.json")}`));
   assert.match(settingsNote, new RegExp(`private-refs\\.txt -> ${path.join(machine.newConfig, "private-refs.txt")}`));
   const profilesNote = await readFile(path.join(machine.oldProfiles, MOVED_NOTE_FILE_NAME), "utf8");
   assert.match(profilesNote, new RegExp(`forge-example -> ${path.join(machine.newProfiles, "forge-example")}`));
@@ -101,29 +98,28 @@ test("old settings are moved into the throne home and a MOVED.txt names the new 
 test("a setting already in the throne home with different content is refused, its difference printed, and nothing changes", async () => {
   const machine = await scratchMachine();
   await writeOldSettings(machine);
-  await writeText(path.join(machine.newConfig, "features.json"), '{"flags":{"other":true}}\n');
+  await writeText(path.join(machine.newConfig, "private-refs.txt"), "other-host\n");
 
   const report = await migrateThroneHome(machine.request);
 
   assert.equal(report.refused, true);
   const refusal = report.lines.find((line) => line.startsWith("refused"));
-  assert.match(refusal ?? "", /^-\{"flags":\{\}\}$/m);
-  assert.match(refusal ?? "", /^\+\{"flags":\{"other":true\}\}$/m);
-  assert.equal(await readFile(path.join(machine.oldSettings, "features.json"), "utf8"), '{"flags":{}}\n');
-  assert.equal(await readFile(path.join(machine.newConfig, "features.json"), "utf8"), '{"flags":{"other":true}}\n');
-  assert.equal(await pathExists(path.join(machine.newConfig, "private-refs.txt")), true);
+  assert.match(refusal ?? "", /^-secret-host$/m);
+  assert.match(refusal ?? "", /^\+other-host$/m);
+  assert.equal(await readFile(path.join(machine.oldSettings, "private-refs.txt"), "utf8"), "secret-host\n");
+  assert.equal(await readFile(path.join(machine.newConfig, "private-refs.txt"), "utf8"), "other-host\n");
 });
 
 test("a setting already in the throne home with the same content is left alone", async () => {
   const machine = await scratchMachine({ keepOldCopies: true });
-  await writeText(path.join(machine.oldSettings, "features.json"), "same\n");
-  await writeText(path.join(machine.newConfig, "features.json"), "same\n");
+  await writeText(path.join(machine.oldSettings, "private-refs.txt"), "same\n");
+  await writeText(path.join(machine.newConfig, "private-refs.txt"), "same\n");
 
   const report = await migrateThroneHome(machine.request);
 
   assert.equal(report.refused, false);
   assert.ok(report.lines.some((line) => line.startsWith("already in place:")), report.lines.join("\n"));
-  assert.equal(await readFile(path.join(machine.oldSettings, "features.json"), "utf8"), "same\n");
+  assert.equal(await readFile(path.join(machine.oldSettings, "private-refs.txt"), "utf8"), "same\n");
   assert.equal(report.backupDirectory, undefined);
 });
 
@@ -153,7 +149,6 @@ test("everything the migration will touch is copied to the backup folder before 
 
   const backup = machine.request.backupDirectory;
   assert.equal(report.backupDirectory, backup);
-  assert.equal(await readFile(path.join(backup, machine.oldSettings, "features.json"), "utf8"), '{"flags":{}}\n');
   assert.equal(await readFile(path.join(backup, machine.oldSettings, "private-refs.txt"), "utf8"), "secret-host\n");
   assert.equal(await readFile(path.join(backup, machine.newConfig, "private-refs.txt"), "utf8"), "secret-host\n");
   assert.equal(
@@ -215,7 +210,7 @@ test("browser profiles stay where they are when the migration is told to leave t
   assert.equal(await readFile(path.join(machine.oldProfiles, "forge-example", "Default", "Cookies"), "utf8"), "cookie\n");
   assert.equal(await pathExists(path.join(machine.newProfiles, "forge-example")), false);
   assert.equal(await pathExists(path.join(machine.oldProfiles, MOVED_NOTE_FILE_NAME)), false);
-  assert.equal(await pathExists(path.join(machine.newConfig, "features.json")), true);
+  assert.equal(await pathExists(path.join(machine.newConfig, "private-refs.txt")), true);
 });
 
 test("in keep-old mode settings are copied into the throne home and the old files stay readable", async () => {
@@ -225,8 +220,8 @@ test("in keep-old mode settings are copied into the throne home and the old file
   const report = await migrateThroneHome(machine.request);
 
   assert.equal(report.refused, false);
-  assert.equal(await readFile(path.join(machine.oldSettings, "features.json"), "utf8"), '{"flags":{}}\n');
-  assert.equal(await readFile(path.join(machine.newConfig, "features.json"), "utf8"), '{"flags":{}}\n');
+  assert.equal(await readFile(path.join(machine.oldSettings, "private-refs.txt"), "utf8"), "secret-host\n");
+  assert.equal(await readFile(path.join(machine.newConfig, "private-refs.txt"), "utf8"), "secret-host\n");
   assert.equal(await readFile(path.join(machine.oldProfiles, "forge-example", "Default", "Cookies"), "utf8"), "cookie\n");
   assert.equal(await readFile(path.join(machine.newProfiles, "forge-example", "Default", "Cookies"), "utf8"), "cookie\n");
   assert.equal(await pathExists(path.join(machine.oldSettings, MOVED_NOTE_FILE_NAME)), false);
@@ -240,10 +235,10 @@ test("a later run finishes a copied setting by removing the identical old file a
   const finishing = await runAgainWithoutKeepingOldCopies(machine, "finishing");
 
   assert.equal(finishing.refused, false);
-  assert.equal(await pathExists(path.join(machine.oldSettings, "features.json")), false);
+  assert.equal(await pathExists(path.join(machine.oldSettings, "private-refs.txt")), false);
   assert.equal(await pathExists(path.join(machine.oldProfiles, "forge-example")), false);
-  assert.equal(await readFile(path.join(machine.newConfig, "features.json"), "utf8"), '{"flags":{}}\n');
-  assert.match(await readFile(path.join(machine.oldSettings, MOVED_NOTE_FILE_NAME), "utf8"), /features\.json -> /);
+  assert.equal(await readFile(path.join(machine.newConfig, "private-refs.txt"), "utf8"), "secret-host\n");
+  assert.match(await readFile(path.join(machine.oldSettings, MOVED_NOTE_FILE_NAME), "utf8"), /private-refs\.txt -> /);
   const homeAfterFinishing = await listTree(machine.request.environment.THRONE_DATA_HOME as string);
 
   const third = await runAgainWithoutKeepingOldCopies(machine, "third");
@@ -278,14 +273,14 @@ test("the migration never touches logs, ledgers, queues, locks or worktrees", as
 
 test("an old settings folder that is a link to the throne home's config folder never loses the only copy", async () => {
   const machine = await scratchMachine();
-  await writeText(path.join(machine.newConfig, "features.json"), "only copy\n");
+  await writeText(path.join(machine.newConfig, "private-refs.txt"), "only copy\n");
   await mkdir(path.dirname(machine.oldSettings), { recursive: true });
   await symlink(machine.newConfig, machine.oldSettings);
 
   const report = await migrateThroneHome(machine.request);
 
   assert.equal(report.refused, false);
-  assert.equal(await readFile(path.join(machine.newConfig, "features.json"), "utf8"), "only copy\n");
+  assert.equal(await readFile(path.join(machine.newConfig, "private-refs.txt"), "utf8"), "only copy\n");
   assert.equal(await pathExists(path.join(machine.newConfig, MOVED_NOTE_FILE_NAME)), false);
 });
 

@@ -15,6 +15,11 @@ import {
 } from "../herdr/herdr-send-test-fixtures.ts";
 import type { SubmitToAgentDeps } from "../herdr/herdr-send.types.ts";
 import {
+  courtWith,
+  shadowWithTheWrongColour,
+} from "./agent-settings-tick.test-support.ts";
+import {
+  correctSettingsRightAfterSpawn,
   HARNESS_DID_NOT_REPORT_ITSELF_IDLE,
   HARNESS_READY_WAIT_AT_SPAWN_MILLISECONDS,
   waitUntilTheClaudePaneTakesACommand,
@@ -75,4 +80,19 @@ test("a new pane whose harness never reports itself idle stops being waited for 
   );
 
   assert.equal(pane.deps.now(), deadline);
+});
+
+test("the correction right after spawn does not wait on the pane of an agent whose mod takes commands", async () => {
+  const court = await courtWith({ liveAgents: [shadowWithTheWrongColour("shadow-one")] });
+  let paneWaits = 0;
+  await correctSettingsRightAfterSpawn(fakeClaudeAgent(), "shadow-one", {
+    check: court.deps,
+    waitUntilThePaneTakesACommand: async () => {
+      paneWaits += 1;
+    },
+    claudeModTakesCommands: async () => true,
+    now: () => 0,
+  });
+  assert.equal(paneWaits, 0);
+  assert.notDeepEqual(court.typed, []);
 });

@@ -55,9 +55,7 @@ const readScreen = async (paneId: string): Promise<string> => JSON.parse(await r
 const lock = new RecipientPaneLockService();
 const submitDeps: SubmitToAgentDeps = {
   sendText, pressEnter, pressPaneKey, getPaneProcessInfo,
-  // This fixture exercises the recipient MUTEX, not omp delivery; the omp
-  // branch never runs for its claude-harness agents.
-  deliverToOmp: async () => ({ kind: 'delivered' }) as const,
+  deliverThroughExtension: async () => ({ kind: 'delivered' }) as const,
   readVisibleAgentAnsi: readScreen, readRecentAgentAnsi: readScreen,
   readVisibleCodexAgentAnsi: readScreen, readRecentCodexAgentAnsi: readScreen,
   sleep: async (milliseconds) => {
@@ -67,7 +65,7 @@ const submitDeps: SubmitToAgentDeps = {
   now: () => fixtureStart + fixtureElapsed,
   refreshRecipientIdentity: resolveAgent,
   withRecipientPaneLock: lock.withRecipientPaneLock.bind(lock), stagePayload,
-  fileBackedPayloadsEnabled: false,
+  fileBackedPayloadsEnabled: async () => false,
 };
 const sendAgentDependencies: SendAgentCommandDependencies = {
   resolveAgent,

@@ -106,7 +106,7 @@ export const CONFIGURED_MODEL_PAIRS: ModelPairPool = VALID_MODEL_PAIRS.filter(
     (pair.harness === HARNESS_NAMES.CLAUDE ||
       pair.harness === HARNESS_NAMES.CODEX ||
       pair.harness === HARNESS_NAMES.OPENCODE ||
-      pair.harness === HARNESS_NAMES.OMP) &&
+      pair.harness === HARNESS_NAMES.PI) &&
     !modelPairInPool(LEGACY_RESUME_ONLY_MODEL_PAIRS, pair),
 );
 

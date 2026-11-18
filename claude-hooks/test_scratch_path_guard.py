@@ -174,6 +174,27 @@ class UnguardedRemovalVariableTest(unittest.TestCase):
             self.assertNotIn("${HOME:?}", reason, command)
 
 
+class PiHarnessTest(unittest.TestCase):
+    def test_on_pi_a_removal_under_home_tmp_is_not_blocked(self):
+        for command in ["rm -rf ~/tmp/x", 'rm -rf "$HOME/tmp/x"', "rm $D/$addr/body.md"]:
+            self.assertIsNone(guard.refusal_reason(command, "pi"), command)
+
+    def test_on_pi_a_write_under_tmp_is_still_blocked_with_the_home_tmp_wording(self):
+        reason = guard.refusal_reason("echo hi > /tmp/x", "pi")
+        self.assertTrue(reason.startswith("This command writes, moves or removes /tmp/x, under the shared /tmp"), reason)
+        self.assertIn(os.path.expanduser("~/tmp"), reason)
+
+    def test_under_claude_code_the_removal_rules_still_apply(self):
+        self.assertTrue(guard.refusal_reason("rm -rf ~/tmp/x").startswith("This command removes files and spells"))
+        self.assertIn("${D:?}", guard.refusal_reason("rm $D/x"))
+
+    def test_the_hook_process_reads_the_harness_from_the_environment(self):
+        payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": "rm -rf ~/tmp/x"}})
+        environment = dict(os.environ, THRONE_HOOK_HARNESS="pi")
+        result = subprocess.run([sys.executable, HOOK], input=payload, capture_output=True, text=True, env=environment)
+        self.assertEqual((result.returncode, result.stdout), (0, ""))
+
+
 class HookProcessTest(unittest.TestCase):
     def run_hook(self, command):
         payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})

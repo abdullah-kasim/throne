@@ -1,0 +1,165 @@
+{
+  "model": "opus",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 other.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/scratch-path-guard.py\"",
+            "timeout": 5,
+            "statusMessage": "scratch path guard"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/hidden-skill-pointer.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 read-log.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/hidden-skill-pointer.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/skill-write-guard.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Grep|Glob|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/memory-read-log.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/hidden-skill-pointer.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/web-fetch-failure-pointer.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/web-fetch-failure-pointer.py\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 prompt.py"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/agent-state.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/hidden-skill-pointer.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/stager-tree-refresh.py\""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/agent-exit-marker.py\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/agent-exit-marker.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/agent-state.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/web-fetch-failure-pointer.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/web-fetch-failure-pointer.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

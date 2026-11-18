@@ -21,9 +21,12 @@ import {
 import type { HerdrPaneProcessInfo } from "../herdr/herdr-inventory.service.ts";
 import { hasAgentName } from "../herdr/herdr-agent-name.ts";
 import {
+  isClaudeViewerArgv,
   isLiveHarnessProcess,
   paneHasLiveHarnessProcess,
 } from "../herdr/herdr-process-detection.ts";
+import { listClaudeSessions, type ClaudeSessionEntry } from "./claude-session-listing.ts";
+import { HARNESS_NAMES } from "../harness-routing/harness-identity.ts";
 import {
   getPaneProcessInfo,
   listAgents,
@@ -45,7 +48,7 @@ import {
 } from "../agentdata/identity-data.service.ts";
 import { resolveTargetEffort, targetEffortForAgent } from "../config.ts";
 import { parseHarness } from "../harness-routing/model-registry.ts";
-import { modelEffortRange } from "../harness-routing/policy/capabilities.ts";
+import { modelEffortRange } from "../harness-routing/policy/model-effort-and-equivalents.ts";
 import {
   REAL_RESUME_CONTRACT,
   resumeOrphan,
@@ -83,6 +86,8 @@ export interface RestartHarnessesDeps {
   renameAgent: (paneId: string, name: string) => Promise<void>;
   acquireRegentRestartLock: () => Promise<string | null>;
   releaseRegentRestartLock: (token: string) => Promise<void>;
+  listClaudeSessions: () => Promise<ClaudeSessionEntry[]>;
+  processIsAlive: (pid: number) => boolean;
   log: (message: string) => void;
   warn: (message: string) => void;
 }
@@ -149,6 +154,15 @@ export const REAL_DEPS: RestartHarnessesDeps = {
   renameAgent: (paneId, name) => renameAgent(paneId, name),
   acquireRegentRestartLock: () => acquireResurrectLock(REGENT_DIR),
   releaseRegentRestartLock: (token) => releaseResurrectLock(REGENT_DIR, token),
+  listClaudeSessions,
+  processIsAlive: (pid) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  },
   log: (message) => process.stdout.write(message),
   warn: (message) => process.stderr.write(message),
 };
@@ -256,17 +270,29 @@ function harnessProcessIds(processInfo: HerdrPaneProcessInfo): number[] {
     .filter((pid): pid is number => typeof pid === "number");
 }
 
-async function waitForPaneWithoutHarness(
-  paneId: string,
+async function waitUntil(
+  condition: () => Promise<boolean>,
   timeoutMilliseconds: number,
   deps: RestartHarnessesDeps,
 ): Promise<boolean> {
   const deadline = deps.now() + timeoutMilliseconds;
   for (;;) {
-    if (!paneHasLiveHarnessProcess(await deps.getPaneProcessInfo(paneId))) return true;
+    if (await condition()) return true;
     if (deps.now() >= deadline) return false;
     await deps.sleep(STOP_POLL_MS);
   }
+}
+
+function waitForPaneWithoutHarness(
+  paneId: string,
+  timeoutMilliseconds: number,
+  deps: RestartHarnessesDeps,
+): Promise<boolean> {
+  return waitUntil(
+    async () => !paneHasLiveHarnessProcess(await deps.getPaneProcessInfo(paneId)),
+    timeoutMilliseconds,
+    deps,
+  );
 }
 
 export async function stopHarnessInPane(
@@ -284,11 +310,72 @@ export async function stopHarnessInPane(
   throw new Error(`harness in pane "${paneId}" survived SIGTERM and SIGKILL`);
 }
 
+export async function findBackgroundSession(
+  agent: HerdrAgent,
+  deps: RestartHarnessesDeps,
+): Promise<ClaudeSessionEntry | undefined> {
+  if (agent.agent !== HARNESS_NAMES.CLAUDE || agent.sessionId === undefined) return undefined;
+  const sessionId = agent.sessionId.toLowerCase();
+  const paneProcesses = (await deps.getPaneProcessInfo(agent.paneId)).foregroundProcesses;
+  const paneShowsViewer = paneProcesses.some((process) => isClaudeViewerArgv(process.argv));
+  let sessions: ClaudeSessionEntry[];
+  try {
+    sessions = await deps.listClaudeSessions();
+  } catch (error) {
+    if (!paneShowsViewer) return undefined;
+    throw new Error(
+      `pane ${agent.paneId} shows a claude attach viewer but the Claude session list could not be read (${errorText(error)}); nothing was stopped`,
+    );
+  }
+  const session = sessions.find((entry) => entry.sessionId.toLowerCase() === sessionId);
+  if (session === undefined) return undefined;
+  if (paneProcesses.some((process) => process.pid === session.pid)) return undefined;
+  return session.kind === "background" || paneShowsViewer ? session : undefined;
+}
+
+function signalIfAlive(pid: number, signal: NodeJS.Signals, deps: RestartHarnessesDeps): void {
+  try {
+    deps.signalProcess(pid, signal);
+  } catch {
+    return;
+  }
+}
+
+async function stopBackgroundSession(
+  agent: HerdrAgent,
+  session: ClaudeSessionEntry,
+  deps: RestartHarnessesDeps,
+): Promise<void> {
+  const sessionId = session.sessionId.toLowerCase();
+  const pids = session.hostPid === undefined ? [session.pid] : [session.pid, session.hostPid];
+  const sessionIsGone = async () =>
+    !pids.some((pid) => deps.processIsAlive(pid)) &&
+    !(await deps.listClaudeSessions()).some((entry) => entry.sessionId.toLowerCase() === sessionId);
+  for (const pid of pids) signalIfAlive(pid, "SIGTERM", deps);
+  if (!(await waitUntil(sessionIsGone, GRACEFUL_STOP_TIMEOUT_MS, deps))) {
+    for (const pid of pids) signalIfAlive(pid, "SIGKILL", deps);
+    if (!(await waitUntil(sessionIsGone, FORCED_STOP_TIMEOUT_MS, deps))) {
+      throw new Error(
+        `background session ${session.sessionId} (process ${session.pid}) survived SIGTERM and SIGKILL; nothing was relaunched over it`,
+      );
+    }
+  }
+  if (paneHasLiveHarnessProcess(await deps.getPaneProcessInfo(agent.paneId))) {
+    await stopHarnessInPane(agent.paneId, deps);
+  }
+}
+
+async function stopRunningHarness(agent: HerdrAgent, deps: RestartHarnessesDeps): Promise<void> {
+  const session = await findBackgroundSession(agent, deps);
+  if (session === undefined) return stopHarnessInPane(agent.paneId, deps);
+  return stopBackgroundSession(agent, session, deps);
+}
+
 function restartAgentInPlace(
   agent: HerdrAgent,
   deps: RestartHarnessesDeps,
 ): Promise<RestartOutcome> {
-  return relaunchAgent(agent, deps, () => stopHarnessInPane(agent.paneId, deps));
+  return relaunchAgent(agent, deps, () => stopRunningHarness(agent, deps));
 }
 
 async function restartRegentUnderLock(
@@ -344,11 +431,26 @@ export async function restartHarnesses(
     for (const agent of targets) {
       const spec = await deps.readSpawnSpec(agent.name!);
       const classification = classifyRestartVerdict(agent, spec);
+      let background: ClaudeSessionEntry | undefined;
+      let listingProblem: string | undefined;
+      try {
+        background = classification.verdict === "restarted" ? await findBackgroundSession(agent, deps) : undefined;
+      } catch (error) {
+        listingProblem = errorText(error);
+      }
       const detail =
-        classification.verdict === "restarted"
+        listingProblem !== undefined
+          ? listingProblem
+          : background !== undefined
+          ? `background session; would stop session process ${background.pid}${background.hostPid === undefined ? "" : " and its host"}, stop the viewer in pane ${agent.paneId}, and resume session ${agent.sessionId} in the foreground (dry run)`
+          : classification.verdict === "restarted"
           ? `would stop pane ${agent.paneId} and resume session ${agent.sessionId} (dry run)${spec === null ? "; a spawn record would be created first" : ""}`
           : classification.detail;
-      const outcome: RestartOutcome = { name: agent.name!, verdict: classification.verdict, detail };
+      const outcome: RestartOutcome = {
+        name: agent.name!,
+        verdict: listingProblem === undefined ? classification.verdict : "failed",
+        detail,
+      };
       (outcome.verdict === "failed" ? deps.warn : deps.log)(renderOutcome(outcome));
     }
     return skipped;

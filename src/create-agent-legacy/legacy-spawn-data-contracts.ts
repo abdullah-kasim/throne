@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
-import { isDeepStrictEqual } from "node:util";
 import { access } from "node:fs/promises";
 export const DEFAULT_DATA_DIR = THRONE_DATA_DIR;
 export async function fileExists(filePath: string): Promise<boolean> {
@@ -12,13 +11,6 @@ export async function fileExists(filePath: string): Promise<boolean> {
     return false;
   }
 }
-import { HARNESSES, type Harness } from "../harness-routing/harness.ts";
-import {
-  evaluateFinalCapability,
-  parseCapabilityRequirements,
-  type CapabilityDimension,
-  type CapabilityEvidence,
-} from "./legacy-capabilities.ts";
 
 export interface UsageBypassAuthorizationEvidence {
   authorizer: "Lord" | "Regent";
@@ -50,7 +42,6 @@ export interface SpawnSpec {
   session_id?: string;
   switched_at?: string;
   switched_from_model?: string;
-  capability?: CapabilityEvidence;
   usage_bypass_authorization?: UsageBypassAuthorizationEvidence;
   stager_route_authorization?: StagerRouteAuthorizationEvidence;
   // Spawn+task atomicity tracking. Present (as `null` or an ISO timestamp)
@@ -84,46 +75,6 @@ export interface SpawnSpec {
 }
 
 const SPAWN_SPEC_BASENAME = "spawn.json";
-
-const HISTORICAL_CAPABILITY_SCORES: Partial<
-  Record<
-    Harness,
-    Readonly<Record<string, Partial<Record<CapabilityDimension, number>>>>
-  >
-> = {
-  claude: {
-    "gpt-5.6-sol": {
-      coding: 4,
-      planning: 4,
-      validation: 4.1,
-      "non-coding": 3.5,
-    },
-  },
-  "claudey-all-omni": {
-    "gpt-5.6-sol": {
-      coding: 4,
-      planning: 4,
-      validation: 4.1,
-      "non-coding": 3.5,
-    },
-  },
-  codex: {
-    "gpt-5.6-sol": {
-      coding: 4,
-      planning: 3.9,
-      validation: 4.1,
-      "non-coding": 3.5,
-    },
-  },
-  "codexy-all-omni": {
-    "gpt-5.6-sol": {
-      coding: 4,
-      planning: 3.9,
-      validation: 4.1,
-      "non-coding": 3.5,
-    },
-  },
-};
 
 export async function agentRegistrationExists(
   name: string,
@@ -189,67 +140,6 @@ function isStagerRouteAuthorizationEvidence(
   );
 }
 
-export function spawnCapabilityEvidenceIsValid(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
-  const record = value as Record<string, unknown>;
-  if (
-    typeof record.harness !== "string" ||
-    !HARNESSES.includes(record.harness as Harness) ||
-    typeof record.model !== "string" ||
-    typeof record.capability !== "object" ||
-    record.capability === null
-  )
-    return false;
-  const capability = record.capability as Record<string, unknown>;
-  if (
-    capability.verdict !== "pass" ||
-    !Array.isArray(capability.requirements) ||
-    capability.requirements.length === 0 ||
-    !Array.isArray(capability.final_scores)
-  )
-    return false;
-  const expressionParts: string[] = [];
-  for (const requirement of capability.requirements) {
-    if (typeof requirement !== "object" || requirement === null) return false;
-    const row = requirement as Record<string, unknown>;
-    if (typeof row.dimension !== "string" || typeof row.floor !== "number")
-      return false;
-    expressionParts.push(`${row.dimension}>=${row.floor}`);
-  }
-  const parsed = parseCapabilityRequirements(expressionParts.join(","));
-  if (parsed.kind === "refuse") return false;
-  const currentVerdict = evaluateFinalCapability({
-    requirements: parsed.requirements,
-    harness: record.harness as Harness,
-    model: record.model,
-  });
-  if (
-    currentVerdict.kind === "pass" &&
-    isDeepStrictEqual(capability, currentVerdict.evidence)
-  )
-    return true;
-  const historicalScores =
-    HISTORICAL_CAPABILITY_SCORES[record.harness as Harness]?.[record.model];
-  if (historicalScores === undefined) return false;
-  const finalScores = parsed.requirements.map(({ dimension }) => ({
-    dimension,
-    score: historicalScores[dimension],
-  }));
-  if (
-    finalScores.some(({ score }) => score === undefined) ||
-    finalScores.some(
-      ({ score }, index) =>
-        (score as number) < parsed.requirements[index]!.floor,
-    )
-  )
-    return false;
-  return isDeepStrictEqual(capability, {
-    requirements: parsed.requirements,
-    final_scores: finalScores,
-    verdict: "pass",
-  });
-}
-
 function isSpawnSpec(value: unknown): value is SpawnSpec {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -273,8 +163,6 @@ function isSpawnSpec(value: unknown): value is SpawnSpec {
       isUsageBypassAuthorizationEvidence(record.usage_bypass_authorization)) &&
     (record.stager_route_authorization === undefined ||
       isStagerRouteAuthorizationEvidence(record.stager_route_authorization)) &&
-    (record.capability === undefined ||
-      spawnCapabilityEvidenceIsValid(record)) &&
     (record.tasked_at === undefined ||
       record.tasked_at === null ||
       typeof record.tasked_at === "string") &&

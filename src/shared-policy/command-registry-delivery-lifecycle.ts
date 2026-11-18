@@ -6,6 +6,7 @@ import { MakeSquashCommitCommand } from "../make-squash-commit/make-squash-commi
 import { LintSliceAssignmentCommand } from "../slice-assignment/lint-slice-assignment.command.ts";
 import { AbsorbGitTreeCommand } from "../absorb-git-tree/absorb-git-tree.command.ts";
 import { VerifyDeliveryCommand } from "../verify-delivery/verify-delivery.command.ts";
+import { RecordDeliveryCommand } from "../record-delivery/record-delivery.command.ts";
 import { ValidateDeliveryCommand } from "../validate-delivery/validate-delivery.command.ts";
 import { CheckMainIntegrityCommand } from "../check-main-integrity/check-main-integrity.command.ts";
 import { TrimQueueCommand } from "../trim-queue/trim-queue.command.ts";
@@ -65,6 +66,14 @@ export const DELIVERY_LIFECYCLE_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Absorb a target branch into an Alpha branch and stamp the acting Shadow's own branch, atomically.",
+  },
+  {
+    name: "record-delivery",
+    provider: RecordDeliveryCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Record a commit on an agent's target branch as that agent's delivered commit.",
   },
   {
     name: "verify-delivery",

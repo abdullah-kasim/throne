@@ -116,7 +116,7 @@ async function describeAccount(
 }
 
 export function noAccountsLine(places: AccountPlaces): string {
-  return `No accounts are configured (${places.configPath} is absent); the throne runs every agent on ${primaryClaudeFolder(places.userHome)}.`;
+  return `No Claude accounts are configured in ${places.configPath}; the throne runs every Claude agent on ${primaryClaudeFolder(places.userHome)}.`;
 }
 
 export async function listAccounts(dependencies: AccountListDependencies): Promise<string[]> {

@@ -1,6 +1,6 @@
 ---
 name: write-and-execute-todos
-description: This skill should be used when a throne campaign Alpha plans an objective into a todo bundle AND immediately runs it end-to-end in one shot — fully async, no human checkpoint between planning and execution. Invoked by /write-and-execute-todos (aliases: /plan-and-run-todos, /do-all-todos), or when the tasking says "plan and execute", "write todos and run them", "plan this then do it", "full auto todos", or "plan and ship it". Runs ONLY inside the throne orchestrator and refuses elsewhere. Chains /write-todos then /execute-todos on the just-created folder, deferring every question to the bundle's errata file instead of blocking.
+description: 'This skill should be used when a throne campaign Alpha plans an objective into a todo bundle AND immediately runs it end-to-end in one shot — fully async, no human checkpoint between planning and execution. Invoked by /write-and-execute-todos (aliases: /plan-and-run-todos, /do-all-todos), or when the tasking says "plan and execute", "write todos and run them", "plan this then do it", "full auto todos", or "plan and ship it". Runs ONLY inside the throne orchestrator and refuses elsewhere. Chains /write-todos then /execute-todos on the just-created folder, deferring every question to the bundle''s errata file instead of blocking.'
 version: 0.14.0
 user-invocable: true
 ---
@@ -347,14 +347,14 @@ recorded descendants. Exact registered resumes keep their stored effort because
 they are not re-choosing it. The full admission contract lives once in
 `execute-todos/SKILL.md`; do not reimplement it here.
 
-The existing `--bypass-alpha-guardrail` remains a loud one-spawn Alpha capability
+The existing `--bypass-alpha-guardrail` remains a loud one-spawn Alpha guardrail
 override. Honor it only when the current Alpha inspects its own durable
 `~/.throne/data/<agent-name>/identity.md` and finds the target-named
 `Policy override for <agent-name>:` line naming the flag. Never infer it from
 the current model, caller stdout, or caller logs. It does not bypass VALIDATE or admit a pair absent from `rolePools.Alpha`.
 Fresh GPT defaults follow the configured forward GPT policy; an explicit alternate fresh GPT request may use `--bypass-harness`, which changes only harness selection. `--bypass-model` and `--bypass-effort` each bypass exactly their own steer; usage steering is mandatory.
 `--bypass-preset-agent` retains its narrow role-gate meaning. None bypasses a role pool.
-Ordinary slices, non-coding floors, the one-fresh-worker rule, and the
+Ordinary slices, the one-fresh-worker rule, and the
 real-Shadow worker mandate are otherwise unchanged.
 
 ## Todo-run personality — the three-way boundary this chain carries
@@ -611,9 +611,9 @@ a witness for the correction.
 
 YYY is the compact cautionary example. The suite swept usage and routing
 combinations while keeping the protected requested-model axis fixed at the
-already-capable `fable`, so a broken capability correction
+already-capable `fable`, so a broken routing correction
 remained green. A valid witness instead varies the protected model axis with a
-below-floor value such as `sonnet` and observes the corrected outcome produced
+value outside the role pool such as `sonnet` and observes the corrected outcome produced
 by the guard.
 
 ## Discretionary-sidequest handoff — explicit-perfectionist parent only

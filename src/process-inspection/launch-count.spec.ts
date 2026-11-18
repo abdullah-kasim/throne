@@ -16,8 +16,8 @@ test("the backend's minute line counts every child process launched in that minu
 
 test("the backend's minute line reports resident memory and event-loop delay", async () => {
   const readMinuteLine = startBackendVitals();
-  const blockUntil = Date.now() + 120;
   await new Promise((resolve) => setTimeout(resolve, 50));
+  const blockUntil = Date.now() + 120;
   while (Date.now() < blockUntil) {}
   await new Promise((resolve) => setTimeout(resolve, 50));
   const match = /rss_mb=(\d+) loop_delay_ms mean=([\d.]+) p99=([\d.]+) max=([\d.]+)$/.exec(readMinuteLine());

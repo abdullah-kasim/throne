@@ -141,6 +141,103 @@ case "$subcommand" in
         ;;
 esac
 
+process_name() {
+    local name
+    read -r name <"/proc/$1/comm" || return 1
+    printf '%s\n' "$name"
+}
+
+parent_process_id() {
+    local status parent_id
+    read -r status <"/proc/$1/stat" || return 1
+    read -r _ parent_id _ <<<"${status##*) }"
+    printf '%s\n' "$parent_id"
+}
+
+is_a_harness() {
+    case "$1" in
+        claude|codex|opencode) return 0 ;;
+    esac
+    return 1
+}
+
+is_a_shell() {
+    case "$1" in
+        bash|sh|zsh|dash) return 0 ;;
+    esac
+    return 1
+}
+
+shell_ran_git_in_place() {
+    local entry command_path
+    while IFS= read -r -d '' entry; do
+        case "$entry" in
+            _=*)
+                command_path=${entry#_=}
+                [ "${command_path##*/}" = git ]
+                return
+                ;;
+        esac
+    done 2>/dev/null <"/proc/$$/environ"
+    return 1
+}
+
+call_was_typed_by_an_agent() {
+    local parent_name grandparent_id grandparent_name
+    parent_name=$(process_name "$PPID" 2>/dev/null) || return 1
+    if is_a_harness "$parent_name"; then
+        shell_ran_git_in_place
+        return
+    fi
+    is_a_shell "$parent_name" || return 1
+    grandparent_id=$(parent_process_id "$PPID" 2>/dev/null) || return 1
+    grandparent_name=$(process_name "$grandparent_id" 2>/dev/null) || return 1
+    is_a_harness "$grandparent_name"
+}
+
+ceremony_word_pattern='(^|[^[:alnum:]])((alpha|shadow)-[[:alnum:]_.-]+|todo([[:space:]]+skills?)?|Herdr|terminal[[:space:]]+tabs|agents?|Alpha|Shadow|Regent|throne|assignment[[:space:]]+files?|execution[[:space:]]+logs?|slice|gate([[:space:]]+ceremony)?|supervisor|merge[[:space:]]+choreography|campaign|objective|checkpoint|delivery|validator|reap|no-idling|Codex|OpenCode|workflow|99[a-e]|conformance|verdicts?|grade[[:space:]]+the|candidates?)([^[:alnum:]]|$)'
+
+merge_writes_its_own_message() {
+    local argument
+    for argument in "${@:subcommand_index+1}"; do
+        case "$argument" in
+            --ff-only|--abort|--quit|--continue) return 1 ;;
+        esac
+    done
+    return 0
+}
+
+merged_branch_names() {
+    local position argument
+    for ((position = subcommand_index + 1; position <= $#; position++)); do
+        argument="${!position}"
+        case "$argument" in
+            -s|--strategy|-X|--strategy-option|--into-name) ((position++)) ;;
+            -*) ;;
+            *) printf '%s\n' "$argument" ;;
+        esac
+    done
+    "$real_git" "${@:1:subcommand_index-1}" symbolic-ref --short -q HEAD 2>/dev/null || true
+}
+
+if { [ "$subcommand" = commit ] || [ "$subcommand" = merge ]; } && call_was_typed_by_an_agent; then
+    checked_text="$fenced_text"
+    if [ "$subcommand" = merge ] && [ -z "${fenced_text//[[:space:]]/}" ] && merge_writes_its_own_message "$@"; then
+        checked_text+="$(merged_branch_names "$@")"$'\n'
+    fi
+    if [ "$bypass_requested" = true ]; then
+        echo "throne git guard: the ceremony word check was bypassed for this $subcommand message" >&2
+    else
+        shopt -s nocasematch
+        if [[ "$checked_text" =~ $ceremony_word_pattern ]]; then
+            echo "throne git guard: this $subcommand message names '${BASH_REMATCH[2]}', which is orchestration machinery, not the repository change" >&2
+            echo "Say what changed in the repository instead. When the commit really is about that thing, you may add --bypass on your own judgment: git --bypass $subcommand ..." >&2
+            exit 65
+        fi
+        shopt -u nocasematch
+    fi
+fi
+
 # Identity guard — before any command that CREATES commits. The court signs
 # every commit with the Lord's identity from the live throne config.user.ts
 # (`identity.name` / `identity.email`, read through `throne-cli git-identity`
@@ -406,60 +503,6 @@ if { [ "$subcommand" = diff ] || [ "$subcommand" = show ]; } && [ "$bypass_reque
         return 1
     }
 
-    process_name() {
-        local name
-        read -r name <"/proc/$1/comm" || return 1
-        printf '%s\n' "$name"
-    }
-
-    parent_process_id() {
-        local status parent_id
-        read -r status <"/proc/$1/stat" || return 1
-        read -r _ parent_id _ <<<"${status##*) }"
-        printf '%s\n' "$parent_id"
-    }
-
-    is_a_harness() {
-        case "$1" in
-            claude|codex|opencode) return 0 ;;
-        esac
-        return 1
-    }
-
-    is_a_shell() {
-        case "$1" in
-            bash|sh|zsh|dash) return 0 ;;
-        esac
-        return 1
-    }
-
-    shell_ran_git_in_place() {
-        local entry command_path
-        while IFS= read -r -d '' entry; do
-            case "$entry" in
-                _=*)
-                    command_path=${entry#_=}
-                    [ "${command_path##*/}" = git ]
-                    return
-                    ;;
-            esac
-        done 2>/dev/null <"/proc/$$/environ"
-        return 1
-    }
-
-    call_was_typed_by_an_agent() {
-        local parent_name grandparent_id grandparent_name
-        parent_name=$(process_name "$PPID" 2>/dev/null) || return 1
-        if is_a_harness "$parent_name"; then
-            shell_ran_git_in_place
-            return
-        fi
-        is_a_shell "$parent_name" || return 1
-        grandparent_id=$(parent_process_id "$PPID" 2>/dev/null) || return 1
-        grandparent_name=$(process_name "$grandparent_id" 2>/dev/null) || return 1
-        is_a_harness "$grandparent_name"
-    }
-
     named_objects=()
     for argument in ${arguments_before_paths[@]+"${arguments_before_paths[@]}"}; do
         case "$argument" in
@@ -523,33 +566,6 @@ if { [ "$subcommand" = diff ] || [ "$subcommand" = show ]; } && [ "$bypass_reque
             refuse_large_diff "$changed_lines"
         fi
     fi
-fi
-
-if [ "$subcommand" != commit ]; then
-    exec "$real_git" ${real_git_prefix[@]+"${real_git_prefix[@]}"} "$@"
-fi
-
-message=""
-args=("$@")
-for ((i = 1; i < ${#args[@]}; i++)); do
-    case "${args[i]}" in
-        -m|--message)
-            ((i++))
-            message+="${args[i]}\n"
-            ;;
-        --message=*) message+="${args[i]#*=}\n" ;;
-        -F|--file)
-            ((i++))
-            message+="$(<"${args[i]}")\n"
-            ;;
-        --file=*) message+="$(<"${args[i]#*=}")\n" ;;
-    esac
-done
-
-if [[ "$message" =~ (^|[^[:alnum:]])(todo([[:space:]]+skills?)?|Herdr|terminal[[:space:]]+tabs|agents?|Alpha|Shadow|Regent|throne|assignment[[:space:]]+files?|execution[[:space:]]+logs?|slice|gate([[:space:]]+ceremony)?|supervisor|merge[[:space:]]+choreography|campaign|objective|checkpoint|delivery|validator|reap|no-idling|Codex|OpenCode|workflow)[^[:alnum:]] ]]; then
-    echo "throne git guard: commit message describes the repository change, not orchestration machinery" >&2
-    echo "Use a concise imperative subject with task-domain behavior; remove todo, agent, campaign, gate, or checkpoint provenance." >&2
-    exit 65
 fi
 
 exec "$real_git" ${real_git_prefix[@]+"${real_git_prefix[@]}"} "$@"

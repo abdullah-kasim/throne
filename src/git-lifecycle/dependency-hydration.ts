@@ -87,6 +87,24 @@ const ECOSYSTEM_MANIFESTS: Readonly<
   maven: ["pom.xml"],
 };
 
+const BUILD_CACHE_ECOSYSTEMS: ReadonlySet<DependencyEcosystem> = new Set([
+  "rust",
+  "maven",
+  "gradle",
+  "swift",
+  "dart",
+]);
+
+export function isBuildCachePath(relativePath: string): boolean {
+  const namingEcosystems = (
+    Object.keys(DEFAULT_PATHS) as DependencyEcosystem[]
+  ).filter((ecosystem) => DEFAULT_PATHS[ecosystem].includes(relativePath));
+  return (
+    namingEcosystems.length > 0 &&
+    namingEcosystems.every((ecosystem) => BUILD_CACHE_ECOSYSTEMS.has(ecosystem))
+  );
+}
+
 const OVERRIDE_FILE = "data/gittree.dependency-hydration.json";
 const LEGACY_OVERRIDE_FILE = "data/gittree.reflink-dirs.json";
 const REFUSED_SEGMENTS = new Set([
@@ -296,13 +314,15 @@ export async function hydrateDependencies(
         destinationProjectDir,
         plan.paths,
         DEFAULT_PATHS.npm[0],
+        isBuildCachePath,
       );
 
   let mode: DependencyHydrationMode = "skipped";
   let node: NodeChoice | undefined;
 
   for (const relativePath of hydrationPaths) {
-    if (reflinkTrustworthy) {
+    const buildCache = isBuildCachePath(relativePath);
+    if (reflinkTrustworthy || buildCache) {
       const source = path.join(sourceProjectDir, relativePath);
       try {
         await access(source);
@@ -322,6 +342,7 @@ export async function hydrateDependencies(
       // propagated further.
       const sourceMarker = await readHydrationMarker(source);
       if (
+        !buildCache &&
         sourceMarker !== undefined &&
         sourceFingerprint !== undefined &&
         sourceMarker.fingerprint !== sourceFingerprint
@@ -342,12 +363,18 @@ export async function hydrateDependencies(
       } catch {
         // The fresh worktree normally has no ignored destination yet.
       }
+      if (!reflinkTrustworthy) {
+        process.stderr.write(
+          `dependency hydration: copying the "${relativePath}" build cache from a tree ` +
+            "with different manifests; its build tool will rebuild what changed.\n",
+        );
+      }
       await platform.copy(source, destination);
       if (destinationFingerprint !== undefined) {
         await writeHydrationMarker(destination, destinationFingerprint);
       }
       await writeHydrationProvenance(destinationProjectDir, relativePath);
-      mode = "reflink";
+      if (mode !== "install") mode = "reflink";
       continue;
     }
 
@@ -409,6 +436,7 @@ export async function validateHydratedDependencies(
     // is trusted rather than flagged.
     const marker = await readHydrationMarker(hydratedPath);
     if (
+      !isBuildCachePath(relativePath) &&
       marker !== undefined &&
       currentFingerprint !== undefined &&
       marker.fingerprint !== currentFingerprint

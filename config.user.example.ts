@@ -37,6 +37,7 @@ import type { PersonaConfigOverride } from './src/application-config.service.ts'
 import type { PreviewEntry } from './src/previews/preview-entries.ts';
 import type { RecallConfig } from './src/relevance-classifier/recall-user-config.ts';
 import type { SteeringConfigOverride } from './src/steering-user-config.ts';
+import type { FeatureSwitches } from './src/user-config-loader.ts';
 
 interface UserConfigFileOverride extends PersonaConfigOverride {
   readonly steering?: SteeringConfigOverride;
@@ -55,6 +56,8 @@ interface UserConfigFileOverride extends PersonaConfigOverride {
   readonly agentSettings?: AgentSettingsConfigOverride;
   readonly editor?: string;
   readonly previews?: readonly PreviewEntry[];
+  readonly harnessEnvironment?: Record<string, Record<string, string>>;
+  readonly features?: Partial<FeatureSwitches>;
 }
 
 const userConfig: UserConfigFileOverride = {
@@ -125,7 +128,7 @@ const userConfig: UserConfigFileOverride = {
     // against the configured pair table at load — a typo refuses the whole
     // config rather than spawning a different Stager than you asked for.
     //
-    // stagerPool: [{ harness: 'omp', model: 'opus' }],
+    // stagerPool: [{ harness: 'pi', model: 'pro' }],
 
     // Per-role effort, 1 to 6 (claude: 1 low, 2 medium, 3 high, 4 xhigh,
     // 5 max). A role left out uses activeTargetEffort. A queue row's own
@@ -163,16 +166,14 @@ const userConfig: UserConfigFileOverride = {
     // pair that isn't one of the committed built-in presets above. EXAMPLE
     // ONLY — commented out, and not referenced by `activePlanPresetName`
     // above, so it changes nothing until you uncomment BOTH this block AND
-    // flip `activePlanPresetName` to its name by hand. `omp` (oh-my-pi) is
-    // registered as a fourth runtime harness but ships inactive; switching
-    // to it is a deliberate operator choice, never a side effect of copying
-    // this file.
+    // flip `activePlanPresetName` to its name by hand. Switching harness is a
+    // deliberate operator choice, never a side effect of copying this file.
     //
     // customPlanPresets: {
-    //   OmpTrial: {
-    //     alpha: [{ harness: 'omp', model: 'sonnet' }],
-    //     shadow: [{ harness: 'omp', model: 'sonnet' }],
-    //     shadowSlice99: [{ harness: 'omp', model: 'sonnet' }],
+    //   PiTrial: {
+    //     alpha: [{ harness: 'pi', model: 'flash' }],
+    //     shadow: [{ harness: 'pi', model: 'flash' }],
+    //     shadowSlice99: [{ harness: 'pi', model: 'flash' }],
     //   },
     // },
   },
@@ -198,50 +199,17 @@ const userConfig: UserConfigFileOverride = {
   // --- Memory recall and log sift (docs/CONFIG.md, "recall") ---
   // `throne recall` picks which recorded memories apply to a task and prints
   // their bodies; `throne sift` prints only the chunks of a long command
-  // output that matter. Both decide with plain keyword rules unless Jev is on.
+  // output that matter. Both decide with plain keyword rules.
   recall: {
-    // PRIVACY: with jevEnabled true, the task text (your prompt), every
-    // candidate memory's `ask` line and, for sift, the RAW LOG TEXT piped in
-    // are sent to TypeSafe (api.typesafe.ai). Memory bodies are never sent.
-    // With jevEnabled false the TypeSafe SDK is never called and the key
-    // file is never read. Default false.
-    jevEnabled: false,
-    // TO SWITCH JEV OFF AGAIN: set this back to false (or delete it). The very
-    // next `throne recall` / `sift` / `rank` run obeys; nothing to rebuild,
-    // restart or clear. For one process or shell, THRONE_JEV_DISABLED=1 wins
-    // over this file; it can only switch Jev off, never on. A missing,
-    // unreadable or empty key file also means off, with one stderr line.
-    // `throne recall --status` (also on sift and rank) says which backend would
-    // answer right now and why, without ever printing the key.
-    // Read only at call time, only when jevEnabled is true. Keep it mode 600.
-    jevKeyFile: '~/.jev-key',
-
-    jevTokensPerDay: 15_000_000,
-    jevTokensPerHour: 1_250_000,
-
-    // `throne rank` sends FILE CONTENTS to TypeSafe when Jev is on, but only
-    // for files under one of these directories. Anything else is ranked by
-    // word matching on this machine and named on stderr as not sent. Stdin
-    // items are sent only with --allow-stdin-to-jev. Empty by default, so
-    // nothing leaves until you list a root here. `~/` expands.
-    rankAllowedRoots: [],
-
-    // The prompt-submit hook asks `throne recall --hook` on every prompt of
-    // every session on this machine. While false that call prints nothing.
-    hookEnabled: false,
-    // How long the hook may wait for the classifier before the rules answer.
-    hookTimeoutMilliseconds: 2500,
-
     // A memory is served when the probability that it applies is at least
-    // this. Jev's confidence is uncalibrated, so these are knobs, not facts.
+    // this. These are knobs, not facts.
     serveThreshold: 0.5,
     // The lower bar for a memory marked `cost_if_missed: high`.
     serveThresholdWhenCostIsHigh: 0.3,
     // A log chunk is kept when the probability that it matters is at least this.
     siftKeepThreshold: 0.5,
 
-    // Total characters of memory text one recall may print. Claude Code
-    // spills hook output over 10,000 characters to a file, so stay under it.
+    // Total characters of memory text one recall may print.
     maximumInjectedCharacters: 8000,
     repositoryMemoryNamesPerRepository: 40,
 
@@ -261,6 +229,33 @@ const userConfig: UserConfigFileOverride = {
   },
 
   previews: [],
+
+  // pi settings laid over every pi agent's pi-agent/settings.json at its next
+  // launch, after ~/.throne/config/pi-settings.json, so a key here wins.
+  // defaultProvider and defaultModel are throne's and are refused.
+  // Throne turns pi's codemode tool on with defaultTools ['+codemode'].
+  // Turn it off by naming the tools without it:
+  // piSettings: {
+  //   defaultTools: ['read', 'bash', 'edit', 'write'],
+  // },
+
+  features: {
+    sendAgentFileBackedPayloads: false,
+  },
+
+  // --- Extra environment per harness (docs/CONFIG.md, "harnessEnvironment") ---
+  // Variables added to every agent throne launches on that harness, keyed by
+  // harness name. Throne's own values win over these. Names starting THRONE_,
+  // GIT_ or HERDR_, PATH, HOME and the pinned harness binary variables are
+  // refused. Read fresh at each launch; restart a running agent with
+  // /restart-harnesses to pick up a change. `throne check-config` prints the
+  // names, never the values.
+  //
+  // Throne sets CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 for Claude beneath this
+  // section; turn Claude Code's code mode off with:
+  // harnessEnvironment: {
+  //   claude: { CLAUDE_CODE_EXPERIMENTAL_CODE_MODE: '0' },
+  // },
 };
 
 export default userConfig;

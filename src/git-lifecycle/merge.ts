@@ -140,7 +140,7 @@ export async function mergedTree(
  *  stripped by `contentTip` like any other trailing no-op commit. Shared by
  *  `buildSquashPreview`/delivery's single-parent squash commit (`delivery.ts`)
  *  and `absorbAndStamp` (the `Absorb <target> into <alpha>` convention, and
- *  its own `Deliver <shadowName>` stamp) so every convention publishes
+ *  its own stamp) so every convention publishes
  *  through identical commit-tree mechanics. */
 export async function createParentedCommit(
   root: string,

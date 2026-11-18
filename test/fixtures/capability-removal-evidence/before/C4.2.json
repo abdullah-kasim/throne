@@ -1,0 +1,33 @@
+{
+  "recorded_from": "3c7e0b52d9a14f68e2b7c1d05a9f3e46b8d2c710",
+  "answers": [
+    {
+      "configuration": "committed default",
+      "command": "list-harnesses-and-models",
+      "code": 0,
+      "stdout": "Harnesses and models — static registry (no live usage; see plan-usage-remaining for quota)\n\nActive plan:\n  preset: OpusOnly\n  Alpha: claude/opus\n  Shadow: claude/opus\n  ShadowSlice99: claude/opus\n  Stager: claude/opus\n\nForward launch policy:\n  GPT path: codex/codexy\n\nclaude:\n  fable  claudey  new-and-registered\n  opus  claudey  new-and-registered\n  sonnet  claudey  new-and-registered\n  haiku  claudey  new-and-registered\n  gpt-5.6-sol  claudey-all  new-with-bypass-or-registered\n  gpt-5.6-terra  claudey-all  new-with-bypass-or-registered\n  gpt-5.6-luna  claudey-all  new-with-bypass-or-registered\n\ncodex:\n  gpt-5.6-sol  codexy  new-and-registered\n  gpt-5.6-terra  codexy  new-and-registered\n  gpt-5.5  codexy  new-and-registered\n  gpt-5.6-luna  codexy  new-and-registered\n  gpt-5.4  codexy  new-and-registered\n  gpt-5.4-mini  codexy  new-and-registered\n\nopencode:\n  opencode-go/deepseek-v4-flash  opencodey  registered-resume-only\n\nomp:\n  fable  claudey  new-and-registered\n  opus  claudey  new-and-registered\n  sonnet  claudey  new-and-registered\n  haiku  claudey  new-and-registered\n  gpt-5.6-sol  claudey-all  new-with-bypass-or-registered\n  gpt-5.6-terra  claudey-all  new-with-bypass-or-registered\n  gpt-5.5  claudey  new-and-registered\n  gpt-5.6-luna  claudey-all  new-with-bypass-or-registered\n  gpt-5.4  claudey  new-and-registered\n  gpt-5.4-mini  claudey  new-and-registered\n\npi:\n  flash  piy  new-and-registered\n  pro  piy  new-and-registered\n\nclaudey-all-omni:\n  gpt-5.6-sol  claudey-all-omni  new-with-bypass-or-registered\n  gpt-5.6-terra  claudey-all-omni  new-with-bypass-or-registered\n  opencode-go/deepseek-v4-flash  claudey-all-omni  registered-resume-only\n\ncodexy-all-omni:\n  gpt-5.6-sol  codexy-all-omni  new-with-bypass-or-registered\n  gpt-5.6-terra  codexy-all-omni  new-with-bypass-or-registered\n  opencode-go/deepseek-v4-flash  codexy-all-omni  registered-resume-only\n",
+      "stderr": ""
+    },
+    {
+      "configuration": "committed default",
+      "command": "check-config",
+      "code": "<follows the ntfy health check>",
+      "stdout": "check-config: <scratch>/throne-home/config/config.user.ts loaded and validated.\nplan preset: OpusOnly\nAlpha: claude/opus at effort 3 (high on claude)\nShadow: claude/opus at effort 3 (high on claude)\nShadowSlice99: claude/opus at effort 3 (high on claude)\nStager: claude/opus at effort 3 (high on claude)\nRegent: claude/opus at effort 3 (high on claude)\nntfy: <health>\n",
+      "stderr": ""
+    },
+    {
+      "configuration": "live config.user.ts (read-only copy)",
+      "command": "list-harnesses-and-models",
+      "code": 0,
+      "stdout": "Harnesses and models — static registry (no live usage; see plan-usage-remaining for quota)\n\nActive plan:\n  preset: CurrentPlan\n  Alpha: claude/opus\n  Shadow: claude/opus\n  ShadowSlice99: claude/opus\n  Stager: claude/fable\n\nForward launch policy:\n  GPT path: codex/codexy\n\nclaude:\n  fable  claudey  new-and-registered\n  opus  claudey  new-and-registered\n  sonnet  claudey  new-and-registered\n  haiku  claudey  new-and-registered\n  gpt-5.6-sol  claudey-all  new-with-bypass-or-registered\n  gpt-5.6-terra  claudey-all  new-with-bypass-or-registered\n  gpt-5.6-luna  claudey-all  new-with-bypass-or-registered\n\ncodex:\n  gpt-5.6-sol  codexy  new-and-registered\n  gpt-5.6-terra  codexy  new-and-registered\n  gpt-5.5  codexy  new-and-registered\n  gpt-5.6-luna  codexy  new-and-registered\n  gpt-5.4  codexy  new-and-registered\n  gpt-5.4-mini  codexy  new-and-registered\n\nopencode:\n  opencode-go/deepseek-v4-flash  opencodey  registered-resume-only\n\nomp:\n  fable  claudey  new-and-registered\n  opus  claudey  new-and-registered\n  sonnet  claudey  new-and-registered\n  haiku  claudey  new-and-registered\n  gpt-5.6-sol  claudey-all  new-with-bypass-or-registered\n  gpt-5.6-terra  claudey-all  new-with-bypass-or-registered\n  gpt-5.5  claudey  new-and-registered\n  gpt-5.6-luna  claudey-all  new-with-bypass-or-registered\n  gpt-5.4  claudey  new-and-registered\n  gpt-5.4-mini  claudey  new-and-registered\n\npi:\n  flash  piy  new-and-registered\n  pro  piy  new-and-registered\n\nclaudey-all-omni:\n  gpt-5.6-sol  claudey-all-omni  new-with-bypass-or-registered\n  gpt-5.6-terra  claudey-all-omni  new-with-bypass-or-registered\n  opencode-go/deepseek-v4-flash  claudey-all-omni  registered-resume-only\n\ncodexy-all-omni:\n  gpt-5.6-sol  codexy-all-omni  new-with-bypass-or-registered\n  gpt-5.6-terra  codexy-all-omni  new-with-bypass-or-registered\n  opencode-go/deepseek-v4-flash  codexy-all-omni  registered-resume-only\n",
+      "stderr": ""
+    },
+    {
+      "configuration": "live config.user.ts (read-only copy)",
+      "command": "check-config",
+      "code": "<follows the ntfy health check>",
+      "stdout": "check-config: <scratch>/throne-home/config/config.user.ts loaded and validated.\nplan preset: CurrentPlan\nAlpha: claude/opus at effort 1 (low on claude)\nShadow: claude/opus at effort 1 (low on claude)\nShadowSlice99: claude/opus at effort 1 (low on claude)\nStager: claude/fable at effort 1 (low on claude)\nRegent: claude/opus at effort 1 (low on claude)\nntfy: <health>\n",
+      "stderr": ""
+    }
+  ]
+}

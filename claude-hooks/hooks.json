@@ -1,0 +1,18 @@
+[
+  { "script": "scratch-path-guard.py", "event": "PreToolUse", "matcher": "Bash", "timeout": 5, "statusMessage": "scratch path guard", "replaces": ["rm-literal-home-guard\\.py", "claude-hooks/[^/\"]+-fence\\.py"] },
+  { "script": "skill-write-guard.py", "event": "PostToolUse", "matcher": "Edit|Write" },
+  { "script": "memory-read-log.py", "event": "PostToolUse", "matcher": "Read|Grep|Glob|Bash", "withGlobalMemoryDirectories": true },
+  { "script": "agent-exit-marker.py", "event": "SessionEnd", "matcher": "*", "notOn": ["pi"] },
+  { "script": "agent-exit-marker.py", "event": "SessionStart", "matcher": "*", "notOn": ["pi"] },
+  { "script": "agent-state.py", "event": "UserPromptSubmit", "notOn": ["pi"] },
+  { "script": "agent-state.py", "event": "Stop", "notOn": ["pi"] },
+  { "script": "hidden-skill-pointer.py", "event": "UserPromptSubmit", "notOn": ["pi"] },
+  { "script": "stager-tree-refresh.py", "event": "UserPromptSubmit" },
+  { "script": "hidden-skill-pointer.py", "event": "PreToolUse", "matcher": "Skill", "notOn": ["pi"] },
+  { "script": "hidden-skill-pointer.py", "event": "PostToolUse", "matcher": "Skill", "notOn": ["pi"] },
+  { "script": "hidden-skill-pointer.py", "event": "PostToolUse", "matcher": "Read", "notOn": ["pi"] },
+  { "script": "web-fetch-failure-pointer.py", "event": "PostToolUse", "matcher": "WebFetch" },
+  { "script": "web-fetch-failure-pointer.py", "event": "PostToolUse", "matcher": "Bash" },
+  { "script": "web-fetch-failure-pointer.py", "event": "PostToolUseFailure", "matcher": "WebFetch" },
+  { "script": "web-fetch-failure-pointer.py", "event": "PostToolUseFailure", "matcher": "Bash" }
+]

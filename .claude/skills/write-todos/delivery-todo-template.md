@@ -50,18 +50,23 @@ When the merge changed code beyond a clean merge, run the spec gate's steps
 delivering. A merge is beyond clean when `git merge` stopped on a conflict or
 you committed anything to the campaign branch after the merge commit.
 
-Only when the campaign branch is current with a target whose HEAD is unchanged
-since that final check, deliver it with plain git — check out the target branch
-and `git merge` the campaign branch, one integration round. No throne merge
-tooling. Inspect the resulting target diff and content, then run named smoke
+Then deliver as ONE commit by the four steps of `gate-99c-deliver.md`: merge
+the target into the campaign branch (above); `git reset --soft` onto exactly
+the target commit that merge took in; commit once with a subject naming the
+shipped change and a body written from `git diff --cached --stat` and the
+diff; `git merge --ff-only` the campaign branch on the target, and push it in
+a yolo repository, never forced. A refused fast-forward or push goes back to
+the merge. Every slice Shadow is merged and reaped before the reset. Equal
+`HEAD^{tree}` before the reset and after the commit keeps the earlier check
+results. Then run `throne record-delivery` with `--commit <sha>` for the Alpha
+and for yourself. Inspect the target diff and content, then run named smoke
 checks that exercise the delivered feature on the target.
 
-Prove delivery with plain git, do not assert it. Show the campaign's commits
-reachable from the target tip (`git log`) and an empty `git diff` between the
-delivered paths on the two branches, and paste that exact output into the
-report.
+Prove delivery with plain git, do not assert it. Show the one commit at the
+target tip (`git log`) and an empty `git diff` between the delivered paths on
+the two branches, and paste that exact output into the report.
 
-Bracket the live merge: record a path-qualified working-tree inventory and
+Bracket the live fast-forward: record a path-qualified working-tree inventory and
 content manifest — tracked, staged, and untracked alike — before you touch the
 target, compare it afterwards, and restore anything that changed. Plain git
 carries no stash-and-restore of its own, so this bracket is the only protection
@@ -73,9 +78,8 @@ warning block, put that block verbatim at the very bottom of the PR body, after
 When it reads `no warning needed`, the body has no `## Ticket Status` section
 at all.
 
-Never leave the live target in a conflicted merge state. An unexpected conflict
-during real integration is abandoned and the target is returned to its pre-merge
-baseline before any further attempt.
+The live target only ever takes a fast-forward, so it is never left in a
+conflicted merge state.
 
 ## Deliverable
 

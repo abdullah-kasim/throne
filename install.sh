@@ -199,9 +199,11 @@ install_ntfy() {
 # into ./vendor gives an exact, reproducible, self-contained harness that no
 # global install can shadow.
 
-step "Harnesses (claude, codex, jscpd)"
+step "Harnesses (claude, codex, jscpd, pi)"
 
 vendor_bin() { printf '%s/node_modules/.bin/%s' "$VENDOR_DIR" "$1"; }
+
+vendored_pi_manifest() { printf '%s/node_modules/%s/package.json' "$VENDOR_DIR" "$(pin_field pi package)"; }
 
 installed_version() {
     local binary="$1"
@@ -210,7 +212,7 @@ installed_version() {
 }
 
 harness_specs=()
-for harness in claude codex jscpd; do
+for harness in claude codex jscpd pi; do
     package=$(pin_field "$harness" package)
     version=$(pin_field "$harness" version)
     harness_specs+=("${package}@${version}")
@@ -219,7 +221,7 @@ done
 pins_hash=$(printf '%s\n' "${harness_specs[@]}" | sha256 | cut -d' ' -f1)
 if stamp_is_current harnesses "$pins_hash" &&
    [ -x "$(vendor_bin claude)" ] && [ -x "$(vendor_bin codex)" ] &&
-   [ -x "$(vendor_bin jscpd)" ]; then
+   [ -x "$(vendor_bin jscpd)" ] && [ -f "$(vendored_pi_manifest)" ]; then
     ok "vendored harnesses match vendor-pins.json"
 else
     # A minimal private manifest keeps bun from walking up into the throne's
@@ -242,6 +244,12 @@ for harness in claude codex jscpd; do
     ok "$harness $got → ${binary#"$THRONE_ROOT"/}"
 done
 
+pi_want=$(pin_field pi version)
+pi_got=$(grep -oE '"version": *"[^"]+"' "$(vendored_pi_manifest)" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+[ "$pi_got" = "$pi_want" ] ||
+    die "vendored pi reports \"${pi_got:-nothing}\", expected $pi_want"
+ok "pi $pi_got → ${VENDOR_DIR#"$THRONE_ROOT"/}/node_modules/$(pin_field pi package), run by bun through bin/piy"
+
 if [ "$HARNESSES_ONLY" -eq 1 ]; then
     ok "--harnesses-only: stopping after the vendored harnesses"
     exit 0
@@ -260,7 +268,7 @@ else
     did "installed dependencies"
 fi
 
-step "agent-browser (pr-media captures)"
+step "agent-browser (pr-media captures and pi web search)"
 
 if command -v agent-browser >/dev/null 2>&1; then
     ok "agent-browser $(agent-browser --version 2>/dev/null | head -n1) on PATH"
@@ -281,6 +289,7 @@ if command -v ffmpeg >/dev/null 2>&1; then
 else
     warn "ffmpeg not on PATH: pr-media screenshots work, recordings do not (brew install ffmpeg / apt install ffmpeg)"
 fi
+"$THRONE_ROOT/scripts/install-search-tools.sh" || warn "pinned ripgrep and fd not installed into vendor/bin: bin/rg and bin/fd use the next rg and fd on PATH"
 
 # --- compile --------------------------------------------------------------
 # Production runs compiled JavaScript from dist/. Running TypeScript directly

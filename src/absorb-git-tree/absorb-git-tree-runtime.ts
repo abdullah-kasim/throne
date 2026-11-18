@@ -1,19 +1,3 @@
-// Performs the target-into-Alpha-branch absorb an `99a`/`99e`-shaped gate
-// Shadow needs AND stamps the acting Shadow's own branch as a single call —
-// replacing the manual `git merge` step the absorb ceremony currently uses,
-// not a follow-up step someone must remember to run after it. Uses the
-// shared Git lifecycle `absorbAndStamp`: merge the target's tip into the
-// Alpha branch, then stamp the Shadow's own branch with a `Deliver <name>`
-// commit over the just-landed tree, reusing the same commit-creation
-// primitive `merge-git-tree`'s no-op stamp uses.
-//
-// The honest contract: there is no transaction spanning a merge and a later
-// commit. The absorb lands first, the stamp follows; a stamp failure exits
-// nonzero naming the exact half-state ("absorb landed, stamp missing") and
-// changes nothing further. Re-running this command is safe and idempotent —
-// it detects an already-landed absorb and an already-landed stamp
-// independently, and completes only whichever is still missing, so history
-// never gains a duplicate absorb commit.
 
 import { absorbAndStamp } from "../git-lifecycle/absorb-and-stamp.ts";
 import type { AbsorbAndStampResult } from "../git-lifecycle/absorb-and-stamp.ts";

@@ -1,0 +1,26 @@
+{
+  "recorded_from": "3c7e0b52d9a14f68e2b7c1d05a9f3e46b8d2c710",
+  "answers": [
+    {
+      "role": "Stager",
+      "ask": "Stager sonnet",
+      "code": 1,
+      "stderr": "create-agent: refusing new claude/sonnet registration for \"stager-pool-sonnet\" — active plan preset OpusOnly excludes the requested pair claude/sonnet for Stager agent \"stager-pool-sonnet\"; that role's allowed pool is: claude/opus. The requested pair will not be silently substituted. To use this pair anyway, pass --bypass-model with a durable authorization for this exact objective code and recipient in <throne data home>/regent/bypass-model-authorizations.json. Authorization comes from the Lord and is relayed by the Regent (a Regent recipient requires the Lord; an Alpha or Shadow recipient accepts the Lord or the Regent), and no agent may self-authorize. A Lord instruction naming a model for this campaign — for example \"fable low end to end\" — IS that authorization for its whole scope, so record it and proceed rather than asking again per spawn. A Shadow spawn that clears this gate typically still needs a SECOND, independent authorization — pass --bypass-usage with a durable authorization in <throne data home>/regent/bypass-usage-authorizations.json, a separate registry from the model one above. NEVER answer this refusal by silently accepting the pool default: that betrays an explicit model order without telling anyone Nothing was registered or launched.\n",
+      "launched": false
+    },
+    {
+      "role": "Alpha",
+      "ask": "Alpha sonnet",
+      "code": 1,
+      "stderr": "create-agent: refusing new claude/sonnet registration for \"alpha-pool-sonnet\" — active plan preset OpusOnly excludes the requested pair claude/sonnet for Alpha agent \"alpha-pool-sonnet\"; that role's allowed pool is: claude/opus. The requested pair will not be silently substituted. To use this pair anyway, pass --bypass-model with a durable authorization for this exact objective code and recipient in <throne data home>/regent/bypass-model-authorizations.json. Authorization comes from the Lord and is relayed by the Regent (a Regent recipient requires the Lord; an Alpha or Shadow recipient accepts the Lord or the Regent), and no agent may self-authorize. A Lord instruction naming a model for this campaign — for example \"fable low end to end\" — IS that authorization for its whole scope, so record it and proceed rather than asking again per spawn. A Shadow spawn that clears this gate typically still needs a SECOND, independent authorization — pass --bypass-usage with a durable authorization in <throne data home>/regent/bypass-usage-authorizations.json, a separate registry from the model one above. NEVER answer this refusal by silently accepting the pool default: that betrays an explicit model order without telling anyone Nothing was registered or launched.\n",
+      "launched": false
+    },
+    {
+      "role": "Shadow",
+      "ask": "Shadow sonnet",
+      "code": 1,
+      "stderr": "create-agent: refusing new claude/sonnet registration for \"shadow-pool-sonnet\" — active plan preset OpusOnly excludes the requested pair claude/sonnet for Shadow agent \"shadow-pool-sonnet\"; that role's allowed pool is: claude/opus. The requested pair will not be silently substituted. To use this pair anyway, pass --bypass-model with a durable authorization for this exact objective code and recipient in <throne data home>/regent/bypass-model-authorizations.json. Authorization comes from the Lord and is relayed by the Regent (a Regent recipient requires the Lord; an Alpha or Shadow recipient accepts the Lord or the Regent), and no agent may self-authorize. A Lord instruction naming a model for this campaign — for example \"fable low end to end\" — IS that authorization for its whole scope, so record it and proceed rather than asking again per spawn. A Shadow spawn that clears this gate typically still needs a SECOND, independent authorization — pass --bypass-usage with a durable authorization in <throne data home>/regent/bypass-usage-authorizations.json, a separate registry from the model one above. NEVER answer this refusal by silently accepting the pool default: that betrays an explicit model order without telling anyone Nothing was registered or launched.\n",
+      "launched": false
+    }
+  ]
+}

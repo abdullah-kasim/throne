@@ -30,7 +30,7 @@ throne/
 │   ├── src/shared-policy/recipient-pane-lock.service.ts  # per-pane kernel exclusion across submit processes
 │   ├── harness.ts            # (harness, model, effort) → launch argv mapping
 │   ├── config.ts             # declarative active-plan presets + role pools
-│   ├── harnessrouting/        # usage, capability, admission, and steering policy
+│   ├── harnessrouting/        # usage, admission, and steering policy
 │   ├── src/create-agent/native-availability.ts # exact Fable/Opus quota interpretation
 │   ├── gittree/              # git runner, placement, worktree, and branch lifecycle helpers
 │   ├── src/agentdata/  # Nest-owned durable agent-data services
@@ -260,7 +260,7 @@ anything launches.
 ### Declarative active plan (`config.ts`)
 
 `config.ts` owns the forward-launch `(harness, model)` pairs and five role-pool
-presets. Capability and usage metrics select among the rows admitted by the
+presets. Usage metrics select among the rows admitted by the
 active pool; harness routing remains an independent execution concern. Inspect
 bare `throne-cli list-harnesses-and-models --json` for the live court's active preset and
 its current role pools. Legacy Claude/GPT rows are deliberately absent from
@@ -271,7 +271,7 @@ After argument/model/name validation and durable registration reconciliation,
 `ShadowSlice99`. For a campaign Shadow, the classifier uses its validated
 objective evidence to locate the slice token; an objective code of `99` therefore
 does not make an ordinary `shadow-99-01-...` worker look like slice 99. Its exact
-requested pair must be in that role's immutable pool before capability or usage
+requested pair must be in that role's immutable pool before usage
 filters run.
 Every router candidate and remapped pair is selected from that same pool, and a
 final defense checks the exact resolved pair again. An excluded explicit pair
@@ -290,11 +290,11 @@ returns a launch (pair, effort, note, plus structured `desperation` and
 `effortOverrideNote` markers, and durable exceptional routing evidence) or a refusal naming the steer, the compliant
 spawn, and its bypass flag. `create-agent` is a thin caller holding no steer
 logic of its own; the four steer families it composes (Alpha allowed-set +
-capability balance + usage redirect, the metric-selected `99` gate,
+usage redirect, the `99` gate,
 the execution-shadow reserve + usage balance, and the all-pairs fresh-effort
 default via `resolveFreshEffort`) are documented as the routing law in
-`agent_docs/MODEL_POLICY.md`. Floors (`thinkingRoleCapabilityGuard`) and pool
-admission stay OUTSIDE the engine, as gates the caller runs regardless of any
+`agent_docs/MODEL_POLICY.md`. Pool
+admission stays OUTSIDE the engine, as a gate the caller runs regardless of any
 steer bypass. The retired `fableBalanceSpawnGuard` and its edge constant were
 deleted when the engine absorbed the routing law; usage-driven preference is now
 a steer with a bypass, not a standalone refusal guard.
@@ -353,7 +353,7 @@ mutation. A non-campaign Alpha's Shadow infrastructure must also pass
 ### Exact native target and hard quota gate
 
 An explicit request already admitted by the Alpha steer is exact for an Alpha;
-the capability and usage metrics select the final model. Inspect
+the usage metrics select the final model. Inspect
 `list-harnesses-and-models` for the current pairs and never remaps across companies. For an
 ordinary Shadow it is not: the usage steer may route the spawn to the other
 company and remap the requested model to the equivalent coding tier there, with
@@ -383,7 +383,7 @@ current remaining is the fallback only when the forecast is insufficient or
 unreadable. In other words, the route is sensor -> bounded history -> forecast
 inside `create-agent` -> injected harness usage -> unified steering.
 
-Usage steering, bounded-history forecasting, and history reads are mandatory for fresh spawns. Pools, floors, availability, native quota, effort, and stored-resume contracts remain separate gates.
+Usage steering, bounded-history forecasting, and history reads are mandatory for fresh spawns. Pools, availability, native quota, effort, and stored-resume contracts remain separate gates.
 
 When `~/.throne/config/accounts.json` lists Claude accounts, a fresh Claude
 spawn is also placed on one account folder, read from each folder's own login.
@@ -425,20 +425,12 @@ first-in-`PATH` `herdr`, and fake native launchers reached through
 reset evidence and without registration, herdr mutation, real network, or
 harness execution; `finally` cleanup covers failed assertions.
 
-## Thinking-role capability and legacy resume policy
+## Thinking-role admission and legacy resume policy
 
-`harnessrouting/capabilities.ts` owns runtime planning, non-coding, and validation scores.
-The stable planning and validation floors are checked on the FINAL pair the
-steering engine resolved, not the requested one. Inspect
-`list-harnesses-and-models` for current scores, floors, and qualifying pairs. A
-below-floor Alpha needs the loud one-spawn `--bypass-alpha-guardrail`, while a
-recognized Shadow `99` has no validation bypass. The one automatic exception is a
-launch the engine marked as the Alpha desperation redirect: it clears the
-planning floor without a flag, because the routing law names Sol as that
-redirect's target, and the exception is recorded loudly as a policy override.
-Override evidence is rendered target-named into both
-`~/.throne/data/<agent-name>/identity.md` and the complete durable
-`~/.throne/data/<agent-name>/opening-prompt.md` record. There is no validation bypass.
+Which model may fill a thinking role is decided only by that role's pool;
+there are no model grades or floors. Policy override evidence is rendered
+target-named into both `~/.throne/data/<agent-name>/identity.md` and the
+complete durable `~/.throne/data/<agent-name>/opening-prompt.md` record.
 
 `create-agent` reconciles registration before applying forward policy. A
 genuinely new GPT request follows configured routing, then any final native
@@ -448,7 +440,7 @@ explicit reap plus fresh Omni registration.
 
 A registered-but-absent agent first conflict-checks the supplied launch flags,
 then uses the stored harness/model/effort/cwd exactly. It skips current
-active-plan membership, capability admission, usage routing/remapping,
+active-plan membership, usage routing/remapping,
 final pool defense, and identity/spec writes. Existing override evidence
 therefore survives a state change. A stored native Fable/Opus pair alone still
 uses the common final native quota gate; all other resumes skip Claude quota
@@ -847,9 +839,12 @@ and keeps each agent's pane matching its record. One tick
 the shared status roster once and, per agent, joins four parts that know
 nothing of each other: the decision of what colour and session name an agent
 should carry (`agent-settings-decision.ts`), the read of what it carries now
-from its Claude Code transcript (`claude-session-settings.ts`), the typing of
-one raw `/color` or `/rename` into an idle, empty textbox under the recipient
-pane lock (`harness-command-typing.ts`), and the revival of a harness whose tab
+from its Claude Code transcript (`claude-session-settings.ts`), the running of
+one `/color` or `/rename` under the recipient pane lock
+(`harness-command-typing.ts`): through throne's Claude mod as a command
+request over its delivery socket when its `GET /alive` answer says
+`commands: true`, otherwise typed raw into
+an idle, empty textbox, and the revival of a harness whose tab
 outlived it (`agent-revival.ts`). The herdr tab name is the truth and is never
 changed. The Regent and the Stager stay with `court-liveness`; this worker
 reports them and leaves them. Ticks run one at a time, whether the timer or

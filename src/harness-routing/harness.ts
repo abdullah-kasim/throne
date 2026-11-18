@@ -23,7 +23,11 @@ import {
   omniProviderModel,
   omniRuntimeHarness,
 } from './omni-harness.ts';
-import { MODEL_REGISTRY, registryEntry } from './model-registry.ts';
+import {
+  MODEL_REGISTRY,
+  PI_PINNED_MODEL_IDS,
+  registryEntry,
+} from './model-registry.ts';
 import {
   deriveHarnessAvailability,
   resolveModelAlias,
@@ -49,13 +53,7 @@ export const HARNESS_EXECUTABLE_NAMES: Readonly<
   ],
   [HARNESS_NAMES.CODEX]: ['codex', 'codexy'],
   [HARNESS_NAMES.OPENCODE]: ['opencode', 'opencodey'],
-  // The installed `omp` binary is a bun-run script (`~/.bun/bin/omp` →
-  // `.../pi-coding-agent/dist/cli.js`); its OWN OS process reports as `bun`,
-  // not `omp` — confirmed by inspecting a live launch's `/proc/<pid>/comm`.
-  // `bun` is too generic/shared with unrelated processes to serve as an
-  // exclusive pane-executable match, so it is deliberately left off this
-  // list; slice 05 (composer/screen observation) inherits this finding.
-  [HARNESS_NAMES.OMP]: ['omp', 'ompy'],
+  [HARNESS_NAMES.PI]: ['pi', 'piy'],
   [HARNESS_NAMES.CLAUDEY_ALL_OMNI]: ['claudey-all-omni'],
   [HARNESS_NAMES.CODEXY_ALL_OMNI]: ['codexy-all-omni'],
 };
@@ -90,6 +88,16 @@ function argvZeroIsCodexNpmWrapper(argv: readonly string[]): boolean {
   return executableBaseName(argv[0] ?? '') === CODEX_NPM_WRAPPER_EXECUTABLE;
 }
 
+const PI_PACKAGE_PATH_PART = '@earendil-works/pi-coding-agent/';
+
+export function isPiCodingAgentProcess(
+  process: HarnessProcessEvidence,
+): boolean {
+  return process.argv.some((argument) =>
+    argument.replaceAll('\\', '/').includes(PI_PACKAGE_PATH_PART),
+  );
+}
+
 export function isCodexNpmWrapperProcess(
   process: HarnessProcessEvidence,
 ): boolean {
@@ -104,7 +112,7 @@ export function isCodexNpmWrapperProcess(
  * one of them: it is legacy CLIProxyAPI compatibility that the stow package
  * still provides, so it stays a bare PATH-resolved name.
  */
-export type ThroneLauncher = 'claudey' | 'codexy' | 'opencodey' | 'ompy';
+export type ThroneLauncher = 'claudey' | 'codexy' | 'opencodey' | 'piy';
 
 /** `<throne>/bin` — the `bin/` sibling of this file's `src/` directory. */
 const DEFAULT_LAUNCHER_DIR = path.join(RUNTIME_THRONE_ROOT, 'bin');
@@ -133,6 +141,13 @@ export interface HarnessRequest {
   /** Portable effort score, 1–6 (MODEL_POLICY's scale). */
   effort: number;
   sessionName?: string;
+  piSession?: PiSessionPlacement;
+  piModelId?: string;
+}
+
+export interface PiSessionPlacement {
+  sessionId: string;
+  sessionDirectory: string;
 }
 
 /**
@@ -146,18 +161,7 @@ const EFFORT_TOKENS: Readonly<Record<RuntimeHarness, readonly string[]>> = {
   // opencode has no native effort flag: the row exists only to satisfy the
   // table contract, and no launch path emits a token from it.
   opencode: ['', '', '', '', '', '', ''],
-  // omp's `--thinking` tokens (confirmed via `omp --help`): off, minimal,
-  // low, medium, high, xhigh, max, auto. The portable scale never emits
-  // 'off'/'minimal'/'auto' — index 1 starts at 'low', mirroring the
-  // claude/codex rows above. omp has no ultracode/ultra analogue for
-  // effort-6, so it clamps to omp's own top rung, 'max'. Per-model caps
-  // (claude-opus-5 has no 'minimal' rung; gpt-5.4/gpt-5.4-mini/gpt-5.5 cap at
-  // 'xhigh' with no 'max') need no separate clamp here: the portable scale
-  // never requests 'minimal', and those three GPT models' own registered
-  // `effort.max: 4` (model-registry.ts) already stops a caller from reaching
-  // level 5/6 — `effortToken` is only ever called with an effort inside the
-  // model's registered range.
-  omp: ['', 'low', 'medium', 'high', 'xhigh', 'max', 'max'],
+  pi: ['', 'low', 'low', 'high', 'high', 'max', 'max'],
 };
 
 const MIN_EFFORT = 1;
@@ -180,19 +184,6 @@ export function effortToken(harness: Harness, effort: number): string {
 }
 
 const REGISTRY_HARNESS_AVAILABILITY = deriveHarnessAvailability(MODEL_REGISTRY);
-// THE ANTHROPIC-NATIVE MODELS, and deliberately NOT derived from a `claude`
-// primary harness. Since 2026-08-27 fable/opus/sonnet/haiku carry an `omp`
-// primary so they infer omp by default, which emptied this set when it was
-// `harness === CLAUDE` — and an empty set made `isGptModel("fable")` return
-// TRUE, which swallowed every claude/Anthropic pair into
-// `LEGACY_RESUME_ONLY_MODEL_PAIRS`, removed them from
-// `CONFIGURED_MODEL_PAIRS`, and killed config load for any preset naming one
-// (measured: `Invalid config.user.ts steering entry "SonnetLow"`). It also
-// mis-routed a claude resume of fable to `claudey-all` instead of `claudey`.
-//
-// The discriminator that survives a primary move: a model available under
-// `claude` but NOT under `codex`. Every GPT row is codex-available by
-// construction (sol/terra/luna are codex-primary), and no Anthropic model is.
 const PRIMARY_CLAUDE_MODELS = new Set(
   REGISTRY_HARNESS_AVAILABILITY[HARNESS_NAMES.CLAUDE].filter(
     (model) =>
@@ -285,6 +276,11 @@ export function modelsForHarness(harness: Harness): readonly string[] {
  */
 export function resolveModel(harness: Harness, model: string): string {
   const key = model.trim().toLowerCase();
+  if (harness === HARNESS_NAMES.PI && !modelsForHarness(harness).includes(key)) {
+    throw new Error(
+      `only DeepSeek models run on pi: "${model}" is not one; choose ${modelsForHarness(harness).join(' or ')}`,
+    );
+  }
   const valid = modelsForHarness(harness);
   const canonical = valid.find((m) => m === key);
   if (canonical !== undefined) {
@@ -313,7 +309,7 @@ export const LAUNCHER_FAMILIES = {
   CLAUDEY_ALL: 'claudey-all',
   CODEXY: 'codexy',
   OPENCODEY: 'opencodey',
-  OMPY: 'ompy',
+  PIY: 'piy',
   CLAUDEY_ALL_OMNI: 'claudey-all-omni',
   CODEXY_ALL_OMNI: 'codexy-all-omni',
 } as const;
@@ -344,8 +340,8 @@ export function launcherFamily(harness: Harness, model: string): LauncherFamily 
       return LAUNCHER_FAMILIES.CODEXY;
     case HARNESS_NAMES.OPENCODE:
       return LAUNCHER_FAMILIES.OPENCODEY;
-    case HARNESS_NAMES.OMP:
-      return LAUNCHER_FAMILIES.OMPY;
+    case HARNESS_NAMES.PI:
+      return LAUNCHER_FAMILIES.PIY;
     case HARNESS_NAMES.CLAUDE:
       return isGptModel(canonical)
         ? LAUNCHER_FAMILIES.CLAUDEY_ALL
@@ -411,19 +407,10 @@ export function buildLaunchArgv(request: HarnessRequest): string[] {
   if (runtimeHarness(request.harness) === HARNESS_NAMES.OPENCODE) {
     return [launcher, '-m', launchModel];
   }
-  if (runtimeHarness(request.harness) === HARNESS_NAMES.OMP) {
-    // Unlike claudey/codexy, bin/ompy (slice 04) passes args through
-    // verbatim with no baked-in yolo flags of its own, so the throne's
-    // always-yolo launch posture is emitted here.
+  if (runtimeHarness(request.harness) === HARNESS_NAMES.PI) {
     return [
-      launcher,
-      '--model',
-      launchModel,
-      '--thinking',
-      effortToken(request.harness, request.effort),
-      '--auto-approve',
-      '--approval-mode',
-      'yolo',
+      ...piArgvWithoutSession(launcher, request.piModelId ?? launchModel, request.effort),
+      ...piSessionArguments(request.piSession, '--session-id'),
     ];
   }
   return [
@@ -436,6 +423,32 @@ export function buildLaunchArgv(request: HarnessRequest): string[] {
   ];
 }
 
+function piArgvWithoutSession(
+  launcher: string,
+  model: string,
+  effort: number,
+): string[] {
+  return [
+    launcher,
+    '--provider',
+    'deepseek',
+    '--model',
+    PI_PINNED_MODEL_IDS[model] ?? model,
+    '--thinking',
+    effortToken(HARNESS_NAMES.PI, effort),
+  ];
+}
+
+function piSessionArguments(
+  placement: PiSessionPlacement | undefined,
+  sessionFlag: '--session-id' | '--session',
+): string[] {
+  if (placement === undefined) {
+    throw new Error('a pi launch needs a session id and a session folder chosen before launch');
+  }
+  return [sessionFlag, placement.sessionId, '--session-dir', placement.sessionDirectory];
+}
+
 export function buildResumeArgv(
   request: HarnessRequest,
   sessionId: string,
@@ -443,6 +456,23 @@ export function buildResumeArgv(
   const id = sessionId.trim();
   if (id === '') {
     throw new Error('exact resume requires a native session id');
+  }
+  if (runtimeHarness(request.harness) === HARNESS_NAMES.PI) {
+    const model = resolveModel(request.harness, request.model);
+    return [
+      ...piArgvWithoutSession(
+        launcherExecutable(launcherFamily(request.harness, model)),
+        request.piModelId ?? model,
+        request.effort,
+      ),
+      ...piSessionArguments(
+        {
+          sessionId: id,
+          sessionDirectory: request.piSession?.sessionDirectory ?? '',
+        },
+        '--session',
+      ),
+    ];
   }
   const argv = buildLaunchArgv(request);
   const runtime = runtimeHarness(request.harness);
@@ -452,8 +482,6 @@ export function buildResumeArgv(
   if (runtime === HARNESS_NAMES.OPENCODE) {
     return [...argv, '-s', id];
   }
-  // claude and omp (confirmed via `omp --help`: `-r, --resume=<value>`) both
-  // resume with `--resume <id>`.
   return [...argv, '--resume', id];
 }
 

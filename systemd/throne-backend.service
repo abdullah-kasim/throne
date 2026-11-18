@@ -136,26 +136,23 @@ ExecStart={{THRONE_ROOT}}/bin/throne-runtime {{THRONE_ROOT}}/node_modules/@nestj
 TimeoutStartSec=45
 Restart=always
 RestartSec=3
-# The keep-going hosted worker (the only sender of `WATCHDOG=1`, see
-# keep-going.hosted-worker.ts) ticks every 30 minutes
-# (throne-keep-going.timer's own OnUnitActiveSec= cadence, mirrored
-# in-process) and tolerates up to 2 consecutive failed ticks before
-# withholding the ping on the 3rd (CONSECUTIVE_FAILURE_THRESHOLD = 3 in
-# keep-going.hosted-worker.ts). That means two separate deadlines share this
-# one number, and it has to clear both:
-#   - One missed/delayed tick must survive: the gap between two successful
-#     pings can stretch to ~2 cadences (3600s) before the next ping lands, so
-#     WatchdogSec= must sit comfortably above 3600s or a single slow tick
-#     kills the service outright (2400s's old bug).
-#   - A genuinely persistent failure must still be caught well inside its
-#     N x cadence = 3 x 1800s = 5400s theoretical worst case (pings continue
-#     through the first 2 failures, so systemd only starts timing out after
-#     the last of those), so WatchdogSec= must sit meaningfully below 5400s
-#     rather than just being "some number bigger than 1800".
-# 4200s (70 minutes) splits that gap: 600s (10 minutes) of margin above the
-# one-missed-tick floor, 1200s (20 minutes) below the persistent-failure
-# ceiling.
-WatchdogSec=4200
+# The backend app process (the child of `nest start --watch`) is the only
+# sender of `WATCHDOG=1`: once it has sent READY=1 it pings every 30s
+# (BACKEND_WATCHDOG_PING_INTERVAL_MS in src/throne-backend/throne-backend-app.ts).
+# The keep-going worker no longer feeds the watchdog; it only logs its failed
+# ticks. If the app child dies or its event loop wedges while the watcher
+# parent lives on, the pings stop and systemd restarts the whole unit after
+# WatchdogSec= of silence. 120s is four ping intervals, so up to three missed
+# pings in a row are survived, and it stays far above a watcher recompile
+# gap (about 3s measured on 2026-11-18: change seen 12:37:45, new child
+# started 12:37:48).
+#
+# Start-limit arithmetic: a build that never reaches READY=1 crash-loops in
+# the child and never pings, so systemd restarts the unit once per 120s of
+# silence. A restart at most every 120s puts at most two starts inside
+# StartLimitIntervalSec=120, below StartLimitBurst=5, so that state never
+# exhausts the start limit.
+WatchdogSec=120
 SyslogIdentifier=throne-backend
 # No ExecStart output redirection needed: systemd captures stdout/stderr to
 # the journal by default (journalctl --user -u throne-backend.service).

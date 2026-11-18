@@ -54,7 +54,7 @@ export function makeThroneRoot(root, { pinnedVersion = '2.1.226' } = {}) {
   execFileSync('ln', ['-s', path.join(THRONE_ROOT, 'node_modules'), path.join(throneRoot, 'node_modules')]);
   writeExecutable(path.join(throneRoot, 'bin', 'claudey'), '#!/usr/bin/env bash\nexec "${CLAUDE_BIN}" --version\n');
   writeFileSync(
-    path.join(throneRoot, 'test', 'ompy-launcher.test.ts'),
+    path.join(throneRoot, 'test', 'piy-launcher.test.ts'),
     "import test from 'node:test';\n\ntest('fixture stand-in for the real launcher-resolution proof', () => {});\n",
   );
 
@@ -87,7 +87,7 @@ export function npmCallLog(root) {
   return path.join(root, 'npm-calls.log');
 }
 
-export function fakeNpmDir(root, { latestVersion = '2.1.267', failingProbe = false, vendoredVersionOverride = null, dyingVendorInstall = false, packedIntegrity = 'sha512-AAAAAAAAAAAAAAAA', reportedModelId = 'claude-opus-5-5' } = {}) {
+export function fakeNpmDir(root, { latestVersion = '2.1.267', failingProbe = false, vendoredVersionOverride = null, dyingVendorInstall = false, packedIntegrity = 'sha512-AAAAAAAAAAAAAAAA', reportedModelId = 'claude-opus-5-5', modValidateError = null } = {}) {
   const dir = path.join(root, 'fake-npm-bin');
   mkdirSync(dir, { recursive: true });
   writeExecutable(path.join(dir, 'npm'), `#!/usr/bin/env bun
@@ -102,6 +102,7 @@ const latest = ${JSON.stringify(latestVersion)};
 const failingProbe = ${JSON.stringify(failingProbe)};
 const vendoredVersionOverride = ${JSON.stringify(vendoredVersionOverride)};
 const dyingVendorInstall = ${JSON.stringify(dyingVendorInstall)};
+const modValidateError = ${JSON.stringify(modValidateError)};
 const sessionOutput = ${JSON.stringify(JSON.stringify({ modelUsage: { [reportedModelId]: {} } }))};
 
 function versionAskedFor(spec) {
@@ -140,6 +141,7 @@ if (argv[0] === 'view') {
   writeFileSync(path.join(fixture, 'package', 'cli.js'), \`#!/usr/bin/env bun
 if (\${JSON.stringify(failingProbe)} && process.argv.slice(2).join(' ') === 'auth --help') process.exit(23);
 if (process.argv.includes('-p')) { process.stdout.write(\${JSON.stringify(sessionOutput)}); process.exit(0); }
+if (\${JSON.stringify(modValidateError)} && process.argv[2] === 'plugin' && process.argv[3] === 'validate') { process.stdout.write('Validating plugin manifest: /mod/.claude-plugin/plugin.json\\\\n\\\\nValidating hooks: /mod/hooks/hooks.json\\\\n\\\\n✘ Found 1 error:\\\\n\\\\n  ❯ ' + \${JSON.stringify(modValidateError)} + '\\\\n\\\\n✘ Validation failed\\\\n'); process.exit(1); }
 process.stdout.write(\${JSON.stringify(versionAskedFor(spec))} + '\\\\n');
 \`);
   chmodSync(path.join(fixture, 'package', 'cli.js'), 0o755);

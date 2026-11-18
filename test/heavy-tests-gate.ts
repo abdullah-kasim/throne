@@ -85,7 +85,7 @@ export function listEnabledGroupTestFiles(
 
 export const DEFAULT_TEST_TIMEOUT_MS = 180000;
 export const HEAVY_TEST_TIMEOUT_MS = 600000;
-const SUITE_TEST_FILES = "{test,src,scripts}/**/*.{test,spec}.ts";
+const SUITE_TEST_FILES = "{test,src,scripts,extensions/shared,extensions/pi}/**/*.{test,spec}.ts";
 const HEAVY_TEST_FILE = /(\.canary\.test\.ts|^src\/throne-backend\/rollback-guard-real-systemd\.spec\.ts)$/;
 
 export type SuiteTestSelection = {

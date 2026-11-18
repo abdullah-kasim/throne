@@ -6,10 +6,11 @@ import {
   ACCOUNT_HARNESSES,
   parseAccountsConfig,
   primaryClaudeFolder,
-  readAccountsConfig,
+  readAccountsFile,
   writeAccountsConfig,
   type Account,
   type AccountsConfig,
+  type ProviderAccount,
 } from "./accounts-config.ts";
 import { findAccount } from "./agent-account.ts";
 
@@ -62,13 +63,22 @@ async function refuseForeignFolder(folder: string): Promise<void> {
   }
 }
 
-function withAccountAdded(config: AccountsConfig | null, account: Account, places: AccountPlaces): AccountsConfig {
+function withAccountAdded(
+  config: AccountsConfig | null,
+  providerAccounts: readonly ProviderAccount[],
+  account: Account,
+  places: AccountPlaces,
+): AccountsConfig {
   const primary: Account = {
     name: PRIMARY_ACCOUNT_NAME,
     harness: ACCOUNT_HARNESSES.CLAUDE,
     folder: primaryClaudeFolder(places.userHome),
   };
-  const current = config ?? { accounts: [primary], mcpServersAllowedOnEveryAccount: [] };
+  const current = config ?? {
+    accounts: [primary],
+    mcpServersAllowedOnEveryAccount: [],
+    ...(providerAccounts.length > 0 ? { providerAccounts } : {}),
+  };
   const registered = findAccount(current, account.name);
   if (registered !== undefined) {
     if (registered.folder !== account.folder) {
@@ -124,7 +134,8 @@ export function loginCommandLines(account: Account, places: AccountPlaces, claud
 export async function addAccount(name: string, dependencies: AccountAddDependencies): Promise<string[]> {
   const { places } = dependencies;
   const account: Account = { name, harness: ACCOUNT_HARNESSES.CLAUDE, folder: accountFolderPath(places, name) };
-  const config = withAccountAdded(readAccountsConfig(places.configPath), account, places);
+  const file = readAccountsFile(places.configPath);
+  const config = withAccountAdded(file?.config ?? null, file?.providerAccounts ?? [], account, places);
   await refuseForeignFolder(account.folder);
   await mkdir(account.folder, { recursive: true, mode: PRIVATE_FOLDER_MODE });
   await chmod(account.folder, PRIVATE_FOLDER_MODE);

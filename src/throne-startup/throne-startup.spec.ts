@@ -44,7 +44,6 @@ function regentSessionStartWith(extraDeps: Record<string, unknown>): RegentSessi
     listTabs: async () => [],
     renameWorkspace: async () => {},
     throneRoot: THRONE_ROOT,
-    installOmpExtension: async () => ({ kind: "already-installed" as const, target: "/x" }),
     readQueue: async () => ({ state: "positively-empty" as const }),
     resolveDigestReader: async () => ({ kind: "whole-queue" as const }),
     readDesiredState: async () => DESIRED_STATES.RUNNING,
@@ -210,8 +209,8 @@ async function makeOldInstall(): Promise<OldInstall> {
 test("a refused migration never stops throne startup", async () => {
   const { userHome, environment } = await makeOldInstall();
   await mkdir(throneConfigDirectory(environment), { recursive: true });
-  await writeFile(path.join(retiredSettingsDirectory(userHome), "features.json"), "old\n");
-  await writeFile(path.join(throneConfigDirectory(environment), "features.json"), "new\n");
+  await writeFile(path.join(retiredSettingsDirectory(userHome), "private-refs.txt"), "old\n");
+  await writeFile(path.join(throneConfigDirectory(environment), "private-refs.txt"), "new\n");
   const startup = regentSessionStartThatMigrates(() => copyOldInstallIntoThroneHome(environment, userHome));
 
   const exitCode = await run([], startup.deps);
@@ -235,12 +234,12 @@ function hasMovedNote(oldFolder: string): Promise<boolean> {
 
 test("throne startup copies an old install's settings into the throne home and leaves the old files in place", async () => {
   const install = await makeOldInstall();
-  const oldSettings = path.join(retiredSettingsDirectory(install.userHome), "features.json");
+  const oldSettings = path.join(retiredSettingsDirectory(install.userHome), "private-refs.txt");
   await writeFile(oldSettings, "old install\n");
 
   await startRegentSessionCopyingFrom(install);
 
-  assert.equal(await readFile(path.join(throneConfigDirectory(install.environment), "features.json"), "utf8"), "old install\n");
+  assert.equal(await readFile(path.join(throneConfigDirectory(install.environment), "private-refs.txt"), "utf8"), "old install\n");
   assert.equal(await readFile(oldSettings, "utf8"), "old install\n");
   assert.equal(await hasMovedNote(retiredSettingsDirectory(install.userHome)), false);
 });

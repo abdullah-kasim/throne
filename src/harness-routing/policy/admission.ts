@@ -2,14 +2,25 @@ import { HARNESSES, type Harness } from "../harness.ts";
 import {
   canonicalForwardModelPair,
   isShadowSlice99Name,
+  modelPairInPool,
   type ModelPair,
   type ModelPairPool,
   type PlanPresetName,
   type PlanRole,
 } from "../../config.ts";
-import { isModelPairAllowed } from "./capabilities.ts";
 import { pickShadowHarness, type HarnessUsage } from "./usage.ts";
 import { planRolePoolRefusal } from "../../shared-policy/plan-role-policy.ts";
+
+export function isModelPairAllowed(
+  harness: Harness,
+  model: string,
+  allowedPairs?: ModelPairPool,
+): boolean {
+  return (
+    allowedPairs === undefined ||
+    modelPairInPool(allowedPairs, { harness, model })
+  );
+}
 
 export const PRESET_ROLES: readonly string[] = ["alpha", "shadow", "stager"];
 

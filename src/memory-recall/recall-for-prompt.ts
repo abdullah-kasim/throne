@@ -1,23 +1,8 @@
-import type { JevCallerKind } from '../relevance-classifier/jev-usage-log.ts';
-import {
-  SERVE_ARM,
-  type HookMode,
-  type RecallArm,
-  type RecallConfig,
-} from '../relevance-classifier/recall-user-config.ts';
-import {
-  CORRECTION_QUESTION,
-  correctionVerdictOf,
-  isAskedWhetherItCorrects,
-  type CorrectionVerdict,
-} from './correction-question.ts';
-import { hookRunRecordOf } from './hook-outcome.ts';
-import type { RecallRequest } from './hook-payload.ts';
+import { SERVE_ARM, type RecallArm, type RecallConfig } from '../relevance-classifier/recall-user-config.ts';
+import type { ClassifierBackend } from '../relevance-classifier/classifier.types.ts';
 import { readMemoriesInEachDirectoryOnce } from './memory-files.ts';
 import { keepMemoryVersions } from './memory-versions.ts';
-import type { PromptKind } from './prompt-kind.ts';
 import {
-  HOOK_SOURCE,
   appendDecisionsToLedger,
   isWorthALedgerLine,
   readWhenServedInSession,
@@ -25,11 +10,11 @@ import {
   type PromptJudgement,
   type WhenServedInSession,
 } from './recall-records.ts';
-import type { RecallReportDependencies } from './recall-report.ts';
 import {
   repositoryNameOf,
   repositoryScopesOf,
   searchedMemoryDirectoriesOf,
+  type RecallRequest,
   type RecallScope,
 } from './recall-scope.ts';
 import { verdictOf, type RecallVerdict } from './recall-verdict.ts';
@@ -58,34 +43,25 @@ import {
 } from './repository-registry.ts';
 
 export interface RecallForPromptDependencies
-  extends Pick<RecallReportDependencies, 'chooseBackend' | 'dataDirectory' | 'now' | 'writeStdout'>,
-    RepositoryRegistryDependencies {
+  extends RepositoryRegistryDependencies {
+  chooseBackend(): Promise<ClassifierBackend>;
+  dataDirectory: string;
+  now(): Date;
+  writeStdout(text: string): void;
   writeStderr(text: string): void;
 }
 
 export interface PromptOccasion {
   readonly source: PromptJudgement['source'];
   readonly arm: RecallArm;
-  readonly hookMode?: HookMode;
   readonly decidedAt: Date;
-  readonly hookPrompt?: HookPrompt;
   readonly outputFormat?: RecallOutputFormat;
-}
-
-interface HookPrompt {
-  readonly promptKind: PromptKind;
-  readonly startedAt: number;
 }
 
 interface DecidedMemories {
   readonly decisions: readonly MemoryDecision[];
   readonly otherRepositories: OtherRepositories;
   readonly whenServedInSession: WhenServedInSession;
-  readonly correction: CorrectionVerdict | undefined;
-}
-
-function jevCallerOf(source: PromptJudgement['source']): JevCallerKind {
-  return source === HOOK_SOURCE ? 'hook' : 'hand recall';
 }
 
 async function rememberScopedRepositories(
@@ -109,11 +85,9 @@ async function decideMemories(
   request: RecallRequest,
   scope: RecallScope,
   config: RecallConfig,
-  timeoutMilliseconds: number | undefined,
   occasion: PromptOccasion,
   dependencies: RecallForPromptDependencies,
 ): Promise<DecidedMemories> {
-  const promptKind = occasion.hookPrompt?.promptKind;
   const memories = await readMemoriesInEachDirectoryOnce(searchedMemoryDirectoriesOf(scope));
   const repositoryName = repositoryNameOf(scope);
   const otherRepositoryCandidates = await otherRepositoryCandidatesOf(
@@ -132,13 +106,9 @@ async function decideMemories(
       memories,
       repositoryScopes: repositoryScopesOf(scope),
       alreadyServedFilePaths: new Set(whenServedInSession.keys()),
-      backend: await dependencies.chooseBackend(config, jevCallerOf(occasion.source)),
+      backend: await dependencies.chooseBackend(),
       config,
-      timeoutMilliseconds,
-      questionsAskedAlongside: [
-        ...(isAskedWhetherItCorrects(promptKind) ? [CORRECTION_QUESTION] : []),
-        ...otherRepositoryCandidates.map(otherRepositoryQuestionOf),
-      ],
+      questionsAskedAlongside: otherRepositoryCandidates.map(otherRepositoryQuestionOf),
     },
     { writeStderr: dependencies.writeStderr },
   );
@@ -146,7 +116,6 @@ async function decideMemories(
     decisions,
     otherRepositories: otherRepositoriesOf(otherRepositoryCandidates, answersAlongside),
     whenServedInSession,
-    correction: correctionVerdictOf(answersAlongside),
   };
 }
 
@@ -154,15 +123,13 @@ export async function recallForPrompt(
   request: RecallRequest,
   scope: RecallScope,
   config: RecallConfig,
-  timeoutMilliseconds: number | undefined,
   occasion: PromptOccasion,
   dependencies: RecallForPromptDependencies,
-): Promise<CorrectionVerdict | undefined> {
-  const { decisions, otherRepositories, whenServedInSession, correction } = await decideMemories(
+): Promise<void> {
+  const { decisions, otherRepositories, whenServedInSession } = await decideMemories(
     request,
     scope,
     config,
-    timeoutMilliseconds,
     occasion,
     dependencies,
   );
@@ -174,7 +141,6 @@ export async function recallForPrompt(
     { request, scope, answer, whenServedInSession, occasion },
     dependencies,
   );
-  return correction;
 }
 
 function printRecallAnswer(
@@ -243,14 +209,9 @@ async function recordWhatWasDecided(
       dependencies.dataDirectory,
       decisions.filter(isWorthALedgerLine).map((decision) => decision.memory.fileText),
     );
-    const { hookPrompt, outputFormat, ...judgementOccasion } = occasion;
+    const { outputFormat, ...judgementOccasion } = occasion;
     await appendDecisionsToLedger(dependencies.dataDirectory, {
       ...judgementOccasion,
-      ...(hookPrompt === undefined
-        ? {}
-        : {
-            hookRun: hookRunRecordOf(hookPrompt.promptKind, decisions, hookPrompt.startedAt),
-          }),
       taskText: request.taskText,
       decisions,
       otherRepositories,

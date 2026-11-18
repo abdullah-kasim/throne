@@ -38,6 +38,28 @@ refusal to the Regent for a human route decision. Automatic escalation and
 retry ladders are permanently forbidden. Preserve documented migration routes
 until their deliberate retirement criteria have been met.
 
+
+## The pi harness (DeepSeek)
+
+`pi` (`@earendil-works/pi-coding-agent`, pinned in `vendor-pins.json`) is a
+fresh-spawn harness admitted wherever the claude harness is admitted, in every
+role. It runs only DeepSeek models, under two names: `pi/flash` (the default
+for a bare `pi`) and `pi/pro`. Each resolves at launch to the newest model of
+its family that DeepSeek lists, falling back to the day cache and then to a
+pinned id; the id chosen is recorded in `spawn.json` and a resume reuses it,
+never re-resolving. No other model runs under pi and flash and pro run under
+no other harness.
+`pi/opus` and any other non-DeepSeek pair are refused.
+
+pi runs under the pinned Bun through `bin/piy`; nothing launches Node. Its
+key comes from the DeepSeek provider account (see `docs/CONFIG.md`
+"`accounts.json`") and reaches pi only as `DEEPSEEK_API_KEY` in the pane's
+environment, never in argv, `spawn.json` or a logged command line. Each agent
+gets its own pi folder under its ledger: `pi-agent/` (pi's settings,
+extensions and `models.json`) and `pi-sessions/` (its transcript). A restart
+relaunches it with `--session <recorded id> --session-dir <ledger>/pi-sessions`,
+so its history is kept.
+
 ## Workflow responsibilities
 
 `write-todos`, `create-agent`, `switch-agent-model`, and

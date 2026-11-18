@@ -51,7 +51,7 @@ test("a Claude model id of an unknown family still does not resolve", () => {
 });
 
 test("a Claude family version is not resolved under a non-Claude harness", () => {
-  assert.equal(resolveModelAlias(MODEL_REGISTRY, "omp", "claude-fable-5-2"), undefined);
+  assert.equal(resolveModelAlias(MODEL_REGISTRY, "pi", "claude-fable-5-2"), undefined);
 });
 
 test("a seat requested as fable whose transcript reports a new fable version is accepted by the runtime model check", () => {

@@ -3,21 +3,18 @@ import {
   yesOrNoQuestion,
   type FailOpenQuestion,
 } from '../relevance-classifier/classifier.types.ts';
-import {
-  JEV_REQUEST_TOKEN_LIMIT,
-  JEV_STATE_AND_LONGEST_QUESTION_TOKEN_LIMIT,
-  estimatedTokens,
-} from '../relevance-classifier/jev-backend.ts';
 import { meaningfulWords } from '../relevance-classifier/rules-backend.ts';
 import type { RankItem } from './rank-items.ts';
 
 const SHARE_OF_EACH_LIMIT_WE_FILL = 0.8;
 const CHARACTERS_PER_ESTIMATED_TOKEN = 3;
 const ESTIMATED_TOKENS_OF_OVERHEAD_PER_ITEM = 40;
-const STATE_TOKEN_BUDGET = Math.floor(
-  Math.min(JEV_STATE_AND_LONGEST_QUESTION_TOKEN_LIMIT, JEV_REQUEST_TOKEN_LIMIT / 2) *
-    SHARE_OF_EACH_LIMIT_WE_FILL,
-);
+const STATE_TOKEN_LIMIT = 32_000;
+const STATE_TOKEN_BUDGET = Math.floor(STATE_TOKEN_LIMIT * SHARE_OF_EACH_LIMIT_WE_FILL);
+function estimatedTokens(text: string): number {
+  return Math.ceil(text.length / CHARACTERS_PER_ESTIMATED_TOKEN);
+}
+
 export const CHARACTERS_IN_THE_LARGEST_PIECE =
   STATE_TOKEN_BUDGET * CHARACTERS_PER_ESTIMATED_TOKEN;
 

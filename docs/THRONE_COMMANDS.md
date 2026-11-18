@@ -59,6 +59,7 @@ and each table keeps its family's own order.
 | `spawn-git-tree` | Create a git worktree for a coding slice. |
 | `accept-slice` | Accept a no-merge (verdict-only) Shadow's slice without touching git: record the acceptance and send the Shadow its go-ahead to publish its reapability claim. The Shadow's supervisor only. |
 | `merge-git-tree` | Merge a coding worktree's branch back into its target. |
+| `record-delivery` | Record an agent's delivered commit in its `delivery-evidence.json`; refused unless the commit is on the agent's target branch. |
 | `make-squash-commit` | Preview, on a scratch ref, the one-commit squash a delivery would land; never touches the candidate or target branch. |
 | `lint-slice-assignment` | Exit 1 with a reason when a slice's `ASSIGNMENT.md` is missing its mandatory completion section. |
 | `absorb-git-tree` | Absorb a target branch into an Alpha branch and stamp the acting Shadow's own branch, in one atomic step. |
@@ -114,11 +115,11 @@ and each table keeps its family's own order.
 | `feature-map` | Build `FEATURE_MAP.md` in a spec folder from its spec files' headers and run the set checks (duplicate names and sub-feature IDs, missing paths, the size limit, missing sections are fatal; overlapping code paths and, with `--registry throne`, unclaimed commands are reported); `--check` exits non-zero when the map on disk is out of date. |
 | `spec-lock` | Hold the edit lock on a repository's spec folder under the throne data home (`--repository <path>`, `--ttl <seconds>s\|<minutes>m`, default 5m, at most 15m) until the process is stopped with TERM or INT or the ttl ends; edit the external spec and feature map only while it prints `locked by`. A second writer is refused with exit 1, naming the holder. |
 | `scratch-pane` | Register an unnamed herdr pane a live agent opened on purpose, with its owner and a time it may stay until, so the unnamed-agent sweep stays silent about it until the time passes or the owner is gone. |
-| `recall` | Print the recorded memories that apply to a task, most relevant first and capped in size, from the named repositories or memory directories plus the global memories; also serves the prompt-submit hook. |
+| `recall` | Print the recorded memories that apply to a task, most relevant first and capped in size, from the named repositories or memory directories plus the global memories. |
+| `refresh-stager-tree` | Before each prompt, fast-forward a registered Stager's own clean tree to main when it is only behind, and print one line; a dirty or diverged tree gets a warning line and is left unchanged. |
 | `rank` | Rank files or input items by how likely each answers yes to a question, most likely first, so only the top few get opened; never prints item contents. |
 | `locate` | Print the files most likely to matter for a stated task, each ranked with a probability and a one-line reason. |
 | `sift` | Read command output on standard input, save the full copy under `~/tmp`, and print only the chunks that matter to what you are looking for, with line numbers. |
-| `jev-probe` | Ask Jev one yes/no question about one state within the machine's Jev budget, printing the estimated cost first; the only sanctioned way to test a Jev wording. |
 | `reclaim-agent-scratchpads` | Reclaim the temporary session scratchpads of dead agents, only those positively attributed to them; a dry run by default. |
 | `disable-throne` | Stop the throne's systemd units; messages no agent. |
 | `enable-throne` | Start the throne's systemd units; messages no agent. |

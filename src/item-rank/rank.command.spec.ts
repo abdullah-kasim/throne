@@ -12,9 +12,9 @@ import {
   type RecallConfig,
 } from '../relevance-classifier/recall-user-config.ts';
 import { RECALL_LEDGER_FILE_NAME } from '../memory-recall/recall-records.ts';
-import { SWITCHED_OFF_JEV_STATUS_READERS } from '../relevance-classifier/jev-status.test-support.ts';
 import { gatherFileItems } from './rank-items.ts';
 import { CHARACTERS_IN_THE_LARGEST_PIECE } from './rank-requests.ts';
+import { runSift, type SiftDependencies } from '../log-sift/sift.command.ts';
 import { runRank, type RankDependencies } from './rank.command.ts';
 
 const SECRET_CONTENT = 'CONTENT-THAT-MUST-NEVER-BE-PRINTED';
@@ -27,12 +27,12 @@ interface Fixture {
   readonly allowedDirectory: string;
   readonly outsideDirectory: string;
   readonly dataDirectory: string;
-  readonly statesSentToJev: ClassifierState[];
+  readonly statesAsked: ClassifierState[];
 }
 
-function fakeJevScoringBy(probabilityOfText: (text: string) => number, sent: ClassifierState[]): ClassifierBackend {
+function fakeBackendScoringBy(probabilityOfText: (text: string) => number, sent: ClassifierState[]): ClassifierBackend {
   return {
-    name: 'jev',
+    name: 'rules',
     answer: (state, questions) => {
       sent.push(state);
       return Promise.resolve(
@@ -65,8 +65,8 @@ function fixture(options: {
   writeFileSync(path.join(outsideDirectory, 'private.txt'), `${SECRET_CONTENT} customer billing export`);
   const stdout: string[] = [];
   const stderr: string[] = [];
-  const statesSentToJev: ClassifierState[] = [];
-  const backend = options.backend?.(statesSentToJev);
+  const statesAsked: ClassifierState[] = [];
+  const backend = options.backend?.(statesAsked);
   return {
     stdout,
     stderr,
@@ -74,14 +74,12 @@ function fixture(options: {
     allowedDirectory,
     outsideDirectory,
     dataDirectory,
-    statesSentToJev,
+    statesAsked,
     dependencies: {
       loadConfig:
-        options.loadConfig ??
-        (() => Promise.resolve({ ...DEFAULT_RECALL_CONFIG, rankAllowedRoots: [allowedDirectory] })),
+        options.loadConfig ?? (() => Promise.resolve(DEFAULT_RECALL_CONFIG)),
       chooseBackend: async () =>
         backend ?? (await import('../relevance-classifier/rules-backend.ts')).RULES_BACKEND,
-      ...SWITCHED_OFF_JEV_STATUS_READERS,
       gatherFileItems,
       readStdin: () => Promise.resolve(options.stdin ?? ''),
       dataDirectory,
@@ -96,7 +94,7 @@ const scoreByBillingWords = (text: string): number =>
   text.includes('invoices') ? 0.9 : text.includes('billing') ? 0.6 : 0.1;
 
 test('items are printed most likely first, with probability and path, and never their contents', async () => {
-  const ranking = fixture({ backend: (sent) => fakeJevScoringBy(scoreByBillingWords, sent) });
+  const ranking = fixture({ backend: (sent) => fakeBackendScoringBy(scoreByBillingWords, sent) });
   const glob = path.join(ranking.allowedDirectory, '*.txt');
   assert.equal(await runRank(['Is this about billing?', glob], ranking.dependencies), 0);
   assert.deepEqual(ranking.stdout.join('').trim().split('\n'), [
@@ -108,47 +106,22 @@ test('items are printed most likely first, with probability and path, and never 
 });
 
 test('small items share one request as named fields', async () => {
-  const ranking = fixture({ backend: (sent) => fakeJevScoringBy(scoreByBillingWords, sent) });
+  const ranking = fixture({ backend: (sent) => fakeBackendScoringBy(scoreByBillingWords, sent) });
   await runRank(['Is this about billing?', path.join(ranking.allowedDirectory, '*.txt')], ranking.dependencies);
-  assert.equal(ranking.statesSentToJev.length, 1);
-  assert.deepEqual(Object.keys(ranking.statesSentToJev[0] as object), ['item_0', 'item_1', 'item_2']);
+  assert.equal(ranking.statesAsked.length, 1);
+  assert.deepEqual(Object.keys(ranking.statesAsked[0] as object), ['item_0', 'item_1', 'item_2']);
 });
 
 test('--top and --min trim the list, and --json is machine readable', async () => {
-  const ranking = fixture({ backend: (sent) => fakeJevScoringBy(scoreByBillingWords, sent) });
+  const ranking = fixture({ backend: (sent) => fakeBackendScoringBy(scoreByBillingWords, sent) });
   const glob = path.join(ranking.allowedDirectory, '*.txt');
   await runRank(['Is this about billing?', '--min', '0.5', '--top', '1', '--json', glob], ranking.dependencies);
   assert.deepEqual(JSON.parse(ranking.stdout.join('')), [
-    { id: path.join(ranking.allowedDirectory, 'billing.txt'), probability: 0.9, backend: 'jev' },
+    { id: path.join(ranking.allowedDirectory, 'billing.txt'), probability: 0.9, backend: 'rules' },
   ]);
 });
 
-test('a file outside the allowed roots is never sent even with Jev on, and is named as not sent', async () => {
-  const ranking = fixture({ backend: (sent) => fakeJevScoringBy(scoreByBillingWords, sent) });
-  const outsideFile = path.join(ranking.outsideDirectory, 'private.txt');
-  await runRank(
-    ['Is this about billing?', path.join(ranking.allowedDirectory, 'billing.txt'), outsideFile],
-    ranking.dependencies,
-  );
-  assert.doesNotMatch(JSON.stringify(ranking.statesSentToJev), /customer billing export/);
-  assert.match(JSON.stringify(ranking.statesSentToJev), /invoices/);
-  assert.match(ranking.stderr.join(''), new RegExp(`not sent to Jev.*${outsideFile}`));
-  assert.match(ranking.stdout.join(''), new RegExp(outsideFile));
-});
-
-test('stdin items are never sent without the flag, and are sent with it', async () => {
-  const stdin = '{"id":"TICKET-1","text":"billing retries fail"}\nplain line about wifi\n';
-  const withoutFlag = fixture({ stdin, backend: (sent) => fakeJevScoringBy(scoreByBillingWords, sent) });
-  await runRank(['Is this about billing?'], withoutFlag.dependencies);
-  assert.deepEqual(withoutFlag.statesSentToJev, []);
-  assert.match(withoutFlag.stdout.join(''), /TICKET-1\n/);
-  assert.match(withoutFlag.stdout.join(''), /line 2\n/);
-  const withFlag = fixture({ stdin, backend: (sent) => fakeJevScoringBy(scoreByBillingWords, sent) });
-  await runRank(['Is this about billing?', '--allow-stdin-to-jev'], withFlag.dependencies);
-  assert.equal(withFlag.statesSentToJev.length, 1);
-});
-
-test('with Jev off the rules rank by the question words each item contains, and say so', async () => {
+test('the rules rank by the question words each item contains, and say so', async () => {
   const ranking = fixture();
   await runRank(['Is this about billing invoices?', path.join(ranking.allowedDirectory, '*.txt')], ranking.dependencies);
   assert.deepEqual(
@@ -156,12 +129,11 @@ test('with Jev off the rules rank by the question words each item contains, and 
     ['billing.txt', 'mixed.txt', 'wifi.txt'],
   );
   assert.match(ranking.stderr.join(''), /word matching against the question, not meaning/);
-  assert.deepEqual(ranking.statesSentToJev, []);
 });
 
 test('a failing backend prints every item unranked, with one line saying ranking failed', async () => {
   const ranking = fixture({
-    backend: () => ({ name: 'jev', answer: () => Promise.reject(Object.assign(new Error('slow'), { status: 429 })) }),
+    backend: () => ({ name: 'rules', answer: () => Promise.reject(Object.assign(new Error('slow'), { status: 429 })) }),
   });
   const missingFile = path.join(ranking.allowedDirectory, 'missing.txt');
   await runRank(
@@ -181,21 +153,21 @@ test('an unloadable config lists the items as given rather than losing them', as
 });
 
 test('a file too large for one request is split and scores as its best piece', async () => {
-  const ranking = fixture({ backend: (sent) => fakeJevScoringBy(scoreByBillingWords, sent) });
+  const ranking = fixture({ backend: (sent) => fakeBackendScoringBy(scoreByBillingWords, sent) });
   const largeFile = path.join(ranking.allowedDirectory, 'large.log');
   writeFileSync(largeFile, `${'x'.repeat(CHARACTERS_IN_THE_LARGEST_PIECE + 10)} invoices at the very end`);
   await runRank(['Is this about billing?', largeFile], ranking.dependencies);
   assert.equal(ranking.stdout.join(''), `0.90  ${largeFile}\n`);
-  assert.ok(ranking.statesSentToJev.length >= 2);
+  assert.ok(ranking.statesAsked.length >= 2);
 });
 
 test('the ledger records ids, hashes and probabilities, never contents or the question', async () => {
-  const ranking = fixture({ backend: (sent) => fakeJevScoringBy(scoreByBillingWords, sent) });
+  const ranking = fixture({ backend: (sent) => fakeBackendScoringBy(scoreByBillingWords, sent) });
   await runRank(['Is this about billing?', path.join(ranking.allowedDirectory, '*.txt')], ranking.dependencies);
   const ledger = readFileSync(path.join(ranking.dataDirectory, RECALL_LEDGER_FILE_NAME), 'utf8');
   assert.match(ledger, /"command":"rank"/);
   assert.match(ledger, /billing\.txt/);
-  assert.match(ledger, /"backend":"jev"/);
+  assert.match(ledger, /"backend":"rules"/);
   assert.doesNotMatch(ledger, new RegExp(SECRET_CONTENT));
   assert.doesNotMatch(ledger, /Is this about billing/);
 });
@@ -209,4 +181,25 @@ test('rank without a question, or with an unknown flag, is a steered exit 2', as
   assert.match(unknownFlag.stderr.join(''), /unknown flag "--contents"/);
   const badTop = fixture();
   assert.equal(await runRank(['Is it?', '--top', 'many'], badTop.dependencies), 2);
+});
+
+test('rank orders items read from stdin with no flag allowing it', async () => {
+  const ranking = fixture({
+    backend: (sent) => fakeBackendScoringBy(scoreByBillingWords, sent),
+    stdin: 'router channel settings\n{"id": "invoice-run", "text": "invoices and billing retries"}\n',
+  });
+  assert.equal(await runRank(['Is this about billing?', '--top', '1'], ranking.dependencies), 0);
+  assert.equal(ranking.stdout.join(''), '0.90  invoice-run\n');
+});
+
+test('rank and sift status say the rules answer and name no key or budget', async () => {
+  const ranking = fixture();
+  assert.equal(await runRank(['--status'], ranking.dependencies), 0);
+  const siftOutput: string[] = [];
+  const siftDependencies = { writeStdout: (text: string) => siftOutput.push(text) } as unknown as SiftDependencies;
+  assert.equal(await runSift(['--status'], siftDependencies), 0);
+  for (const status of [ranking.stdout.join(''), siftOutput.join('')]) {
+    assert.match(status, /answer now: rules/);
+    assert.doesNotMatch(status, /\bkey\b|budget|token/i);
+  }
 });

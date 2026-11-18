@@ -3,7 +3,6 @@ import path from "node:path";
 import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { isDeepStrictEqual } from "node:util";
 import { access } from "node:fs/promises";
-import type { CapabilityEvidence } from "../harness-routing/policy/capabilities.ts";
 import type { ModelPair } from "../config.ts";
 import { COMPANY_ACCOUNT_WORD } from "../account/accounts-config.ts";
 export const DEFAULT_DATA_DIR = THRONE_DATA_DIR;
@@ -45,10 +44,10 @@ export interface SpawnSpec {
   harness_executable?: string;
   passthrough_argv?: string[];
   session_id?: string;
+  pi_model_id?: string;
+  pi_model_display_name?: string;
   switched_at?: string;
   switched_from_model?: string;
-  /** Historical-only score evidence; fresh records never write this field. */
-  capability?: CapabilityEvidence;
   usage_bypass_authorization?: UsageBypassAuthorizationEvidence;
   stager_route_authorization?: StagerRouteAuthorizationEvidence;
   // Spawn+task atomicity tracking. Present (as `null` or an ISO timestamp)
@@ -97,12 +96,9 @@ export interface SpawnSpec {
   campaign_effort?: number;
   forked_from?: string;
   account?: string;
+  claude_mod?: boolean;
+  delivery_socket?: string;
   account_requirement?: typeof COMPANY_ACCOUNT_WORD;
-}
-
-/** Historical records remain readable while score evidence is retired. */
-export function spawnCapabilityEvidenceIsValid(_value: unknown): boolean {
-  return true;
 }
 
 const SPAWN_SPEC_BASENAME = "spawn.json";
@@ -218,6 +214,9 @@ function isSpawnSpec(value: unknown): value is SpawnSpec {
       (typeof record.forked_from === "string" && record.forked_from !== "")) &&
     (record.account === undefined ||
       (typeof record.account === "string" && record.account !== "")) &&
+    (record.claude_mod === undefined || typeof record.claude_mod === "boolean") &&
+    (record.delivery_socket === undefined ||
+      (typeof record.delivery_socket === "string" && record.delivery_socket !== "")) &&
     (record.account_requirement === undefined ||
       record.account_requirement === COMPANY_ACCOUNT_WORD) &&
     (record.token_balance_lane === undefined ||

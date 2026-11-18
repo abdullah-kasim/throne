@@ -1,0 +1,54 @@
+{
+    "model": "opus",
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Write",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 \"/old/claude-hooks/jev-fence.py\""
+                    }
+                ]
+            },
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 other.py"
+                    },
+                    {
+                        "type": "command",
+                        "command": "python3 \"/old/claude-hooks/rm-literal-home-guard.py\""
+                    }
+                ]
+            }
+        ],
+        "PostToolUse": [
+            {
+                "matcher": "Read",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 read-log.py"
+                    },
+                    {
+                        "type": "command",
+                        "command": "python3 \"/old/claude-hooks/hidden-skill-pointer.py\""
+                    }
+                ]
+            }
+        ],
+        "UserPromptSubmit": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 prompt.py"
+                    }
+                ]
+            }
+        ]
+    }
+}

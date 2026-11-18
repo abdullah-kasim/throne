@@ -21,11 +21,7 @@ import {
   resolveCodexHookTargetPath,
   type ThroneCommandOutcome,
 } from './hook-and-command.ts';
-import { installClaudeGuardHook } from './claude-guard-hook.ts';
-import type { SettingsHookOutcome } from './claude-settings-hook.ts';
-import { installSkillWriteGuardHook } from './skill-write-guard-hook.ts';
-import { installHiddenSkillPointerHook } from './hidden-skill-pointer-hook.ts';
-import { installWebFetchFailurePointerHook } from './web-fetch-failure-pointer-hook.ts';
+import { claudeHookInstallers } from './claude-hooks.ts';
 import { prepareOwnedHerdr } from './herdr-installation.ts';
 import { installPinnedHarnessOnRestore } from './pinned-harness-on-restore.ts';
 import { writeInstallServicesLine } from './output.ts';
@@ -141,49 +137,18 @@ export async function installServices(
   }
 
   const hookOutcome = await installCodexHookRegistration(deps, options);
-  let guardHookOutcome: SettingsHookOutcome;
-  try {
-    guardHookOutcome = await installClaudeGuardHook(deps, options);
-  } catch (error) {
-    process.stderr.write(
-      `install-services: claude guard hook registration failed: ${
-        error instanceof Error ? error.message : String(error)
-      }\n`,
-    );
-    guardHookOutcome = 'error';
-  }
-  let skillWriteGuardHookOutcome: SettingsHookOutcome;
-  try {
-    skillWriteGuardHookOutcome = await installSkillWriteGuardHook(deps, options);
-  } catch (error) {
-    process.stderr.write(
-      `install-services: skill write guard hook registration failed: ${
-        error instanceof Error ? error.message : String(error)
-      }\n`,
-    );
-    skillWriteGuardHookOutcome = 'error';
-  }
-  let hiddenSkillPointerHookOutcome: SettingsHookOutcome;
-  try {
-    hiddenSkillPointerHookOutcome = await installHiddenSkillPointerHook(deps, options);
-  } catch (error) {
-    process.stderr.write(
-      `install-services: hidden skill pointer hook registration failed: ${
-        error instanceof Error ? error.message : String(error)
-      }\n`,
-    );
-    hiddenSkillPointerHookOutcome = 'error';
-  }
-  let webFetchFailurePointerHookOutcome: SettingsHookOutcome;
-  try {
-    webFetchFailurePointerHookOutcome = await installWebFetchFailurePointerHook(deps, options);
-  } catch (error) {
-    process.stderr.write(
-      `install-services: web fetch failure pointer hook registration failed: ${
-        error instanceof Error ? error.message : String(error)
-      }\n`,
-    );
-    webFetchFailurePointerHookOutcome = 'error';
+  let claudeHookFailed = false;
+  for (const installer of claudeHookInstallers()) {
+    try {
+      if ((await installer.install(deps, options)) === 'error') claudeHookFailed = true;
+    } catch (error) {
+      process.stderr.write(
+        `install-services: ${installer.name} hook registration failed: ${
+          error instanceof Error ? error.message : String(error)
+        }\n`,
+      );
+      claudeHookFailed = true;
+    }
   }
   try {
     await ensurePathSymlinks(options, deps);
@@ -240,16 +205,7 @@ export async function installServices(
   ) {
     return { ...result, code: 1, status: 'error' };
   }
-  if (guardHookOutcome === 'error' && result.code === 0) {
-    return { ...result, code: 1, status: 'error' };
-  }
-  if (skillWriteGuardHookOutcome === 'error' && result.code === 0) {
-    return { ...result, code: 1, status: 'error' };
-  }
-  if (hiddenSkillPointerHookOutcome === 'error' && result.code === 0) {
-    return { ...result, code: 1, status: 'error' };
-  }
-  if (webFetchFailurePointerHookOutcome === 'error' && result.code === 0) {
+  if (claudeHookFailed && result.code === 0) {
     return { ...result, code: 1, status: 'error' };
   }
   if (throneCommandOutcome === 'collision' && result.code === 0) {

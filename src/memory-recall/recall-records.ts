@@ -12,18 +12,10 @@ import {
 import path from 'node:path';
 import { THRONE_DATA_DIR } from '../shared-policy/throne-home.ts';
 import { YES, type BackendAnswer } from '../relevance-classifier/classifier.types.ts';
-import {
-  SHADOW_ARM,
-  SPLIT_HOOK_MODE,
-  type HookMode,
-  type RecallArm,
-} from '../relevance-classifier/recall-user-config.ts';
-import type { CorrectionVerdict } from './correction-question.ts';
-import type { HookRunRecord, SkippedHookRunRecord } from './hook-outcome.ts';
+import type { RecallArm } from '../relevance-classifier/recall-user-config.ts';
 import { contentHashOf } from './memory-versions.ts';
 import type { OtherRepositories } from './other-repositories.ts';
 import { otherRepositoryLedgerLinesOf } from './other-repositories-records.ts';
-import type { PromptKind } from './prompt-kind.ts';
 import type { RecallVerdict } from './recall-verdict.ts';
 import { isWorthServing, type MemoryDecision } from './select-memories.ts';
 
@@ -186,21 +178,13 @@ export interface PromptJudgement {
   readonly source: typeof HOOK_SOURCE | typeof COMMAND_SOURCE;
   readonly sessionId: string | undefined;
   readonly arm: RecallArm;
-  readonly hookMode?: HookMode;
   readonly verdict: RecallVerdict;
   readonly searchedMemoryDirectories: readonly string[];
-  readonly hookRun?: HookRunRecord;
   readonly whenServedInSession: WhenServedInSession;
 }
 
-const HOOK_MODES_THAT_LOG_EVERY_ANSWER: readonly HookMode[] = [SPLIT_HOOK_MODE, SHADOW_ARM];
-
-function logsEveryAnswer(judgement: Pick<PromptJudgement, 'source' | 'hookMode'>): boolean {
-  return (
-    judgement.source === COMMAND_SOURCE ||
-    (judgement.hookMode !== undefined &&
-      HOOK_MODES_THAT_LOG_EVERY_ANSWER.includes(judgement.hookMode))
-  );
+function logsEveryAnswer(judgement: Pick<PromptJudgement, 'source'>): boolean {
+  return judgement.source === COMMAND_SOURCE;
 }
 
 function fullDecisionLineOf(
@@ -258,11 +242,9 @@ export async function appendDecisionsToLedger(
     source: judgement.source,
     sessionId: judgement.sessionId ?? null,
     arm,
-    ...(judgement.hookMode === undefined ? {} : { hookMode: judgement.hookMode }),
     verdict: judgement.verdict.verdict,
     verdictConfidence: judgement.verdict.confidence,
     searchedMemoryDirectories: judgement.searchedMemoryDirectories,
-    ...judgement.hookRun,
     questionsAsked: decisions.length,
     served: decisions.filter((decision) => decision.served).length,
     confidentNoAnswersLeftOut: decisions.length - decisionLines.length,
@@ -284,47 +266,4 @@ export async function appendDecisionsToLedger(
   );
 }
 
-export async function appendSkippedHookRunToLedger(
-  dataDirectory: string,
-  sessionId: string | undefined,
-  skippedRun: SkippedHookRunRecord,
-  at: Date,
-): Promise<void> {
-  await appendLinesToLedger(dataDirectory, [
-    { at: at.toISOString(), source: HOOK_SOURCE, sessionId: sessionId ?? null, ...skippedRun },
-  ]);
-}
-
 export const PROMPT_LOG_FILE_NAME = 'prompts.jsonl';
-export const PROMPT_CHARACTERS_KEPT = 2000;
-
-export interface PromptLogEntry {
-  readonly sessionId: string | undefined;
-  readonly taskText: string;
-  readonly promptKind: PromptKind;
-  readonly searchedMemoryDirectories: readonly string[];
-  readonly transcriptPath: string | undefined;
-  readonly correction: CorrectionVerdict | undefined;
-  readonly at: Date;
-}
-
-export async function appendPromptToPromptLog(
-  dataDirectory: string,
-  entry: PromptLogEntry,
-): Promise<void> {
-  await mkdir(dataDirectory, { recursive: true });
-  const promptLine = {
-    at: entry.at.toISOString(),
-    sessionId: entry.sessionId ?? null,
-    inputHash: inputHash(entry.taskText),
-    prompt: entry.taskText.slice(0, PROMPT_CHARACTERS_KEPT),
-    promptKind: entry.promptKind,
-    searchedMemoryDirectories: entry.searchedMemoryDirectories,
-    transcriptPath: entry.transcriptPath ?? null,
-    ...(entry.correction === undefined ? {} : { correction: entry.correction }),
-  };
-  await appendFile(
-    path.join(dataDirectory, PROMPT_LOG_FILE_NAME),
-    `${JSON.stringify(promptLine)}\n`,
-  );
-}

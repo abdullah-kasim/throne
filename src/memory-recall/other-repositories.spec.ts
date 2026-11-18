@@ -3,19 +3,17 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { test } from 'node:test';
-import { estimatedRequestTokens } from '../relevance-classifier/jev-backend.ts';
 import { RULES_BACKEND } from '../relevance-classifier/rules-backend.ts';
 import { lintAsks } from './ask-lint.ts';
 import { readMemoriesIn } from './memory-files.ts';
 import { memoryFileNamesMostRecentFirst } from './other-repositories.ts';
 import {
   fakeRepositoriesUnder,
-  jevBackendAnswering,
+  backendAnswering,
   scratchRoot,
 } from './other-repositories.test-support.ts';
 import { runRecall } from './recall.command.ts';
 import {
-  HOOK_PAYLOAD,
   IN_PROJECT,
   PULL_REQUEST_TASK,
   harness,
@@ -47,15 +45,6 @@ test('a hand recall records the repository it searched, with its checkout, name,
       lastSeenAt: '2026-09-21T00:00:00.000Z',
     },
   ]);
-});
-
-test('the prompt hook records the session repository too', async () => {
-  const fixture = harness({ hookEnabled: true }, { stdin: HOOK_PAYLOAD });
-  await runRecall(['--hook'], fixture.dependencies);
-  assert.deepEqual(
-    savedRegistry(fixture.dataDirectory).map((repository) => repository.repositoryName),
-    ['project'],
-  );
 });
 
 test('the registry is seeded once from the project memory directories whose slug spells an existing checkout', async () => {
@@ -119,7 +108,7 @@ test('a hand recall seeds the registry and keeps the seeded repositories beside 
 test('repositories already in the scope and repositories with no memory are never asked about', async () => {
   const root = scratchRoot();
   const fixture = harness();
-  const backend = jevBackendAnswering({});
+  const backend = backendAnswering({});
   await runRecall([...IN_PROJECT, PULL_REQUEST_TASK], {
     ...fixture.dependencies,
     seedRepositories: () =>
@@ -133,7 +122,7 @@ test('repositories already in the scope and repositories with no memory are neve
 
 test('a repository whose memory directory the lookup already searches is not asked about even under another checkout', async () => {
   const fixture = harness();
-  const backend = jevBackendAnswering({});
+  const backend = backendAnswering({});
   const mirror = { checkout: '/elsewhere/project-mirror', repositoryName: 'project-mirror', memoryDirectory: fixture.projectMemories, lastSeenAt: null };
   await runRecall([...IN_PROJECT, PULL_REQUEST_TASK], {
     ...fixture.dependencies,
@@ -153,7 +142,7 @@ test('the repository question rides in the same request as the memory questions 
     },
   ]);
   const fixture = harness({ repositoryMemoryNamesPerRepository: 2 }, { seededRepositories });
-  const backend = jevBackendAnswering({ bakery: 0.7 });
+  const backend = backendAnswering({ bakery: 0.7 });
   await runRecall([...IN_PROJECT, PULL_REQUEST_TASK], { ...fixture.dependencies, chooseBackend: () => Promise.resolve(backend) });
   assert.equal(backend.requests.length, 1);
   const questions = backend.requests[0] ?? [];
@@ -186,12 +175,11 @@ test('the cap keeps the repository question of a 258-memory repository near 40 n
   const root = scratchRoot();
   const manyNames = Array.from({ length: 258 }, (_, index) => `A_FAIRLY_LONG_LESSON_TITLE_NUMBER_${index}_ABOUT_SOMETHING.md`);
   const seededRepositories = fakeRepositoriesUnder(root, [{ name: 'big', memoryFileNames: manyNames }]);
-  const backend = jevBackendAnswering({});
+  const backend = backendAnswering({});
   const fixture = harness({}, { seededRepositories });
   await runRecall([...IN_PROJECT, PULL_REQUEST_TASK], { ...fixture.dependencies, chooseBackend: () => Promise.resolve(backend) });
   const repositoryQuestion = (backend.requests[0] ?? []).find((question) => question.id.startsWith('other repository: '));
   assert.equal(repositoryQuestion?.instructions.split('; ').length, 40);
-  assert.ok(estimatedRequestTokens('', repositoryQuestion === undefined ? [] : [repositoryQuestion]) < 1000);
 });
 
 test('--lint-asks checks the ask in a repository file too', async () => {
@@ -208,7 +196,7 @@ test('--lint-asks checks the ask in a repository file too', async () => {
   );
 });
 
-test('the ledger still records every scored repository, marking only the shown ones as listed', async () => {
+test('the ledger still records every scored repository, listing none of them', async () => {
   const root = scratchRoot();
   const seededRepositories = fakeRepositoriesUnder(root, [
     { name: 'bakery' },
@@ -217,7 +205,7 @@ test('the ledger still records every scored repository, marking only the shown o
     { name: 'cobbler' },
   ]);
   const fixture = harness({}, { seededRepositories });
-  const backend = jevBackendAnswering({ bakery: 0.2, florist: 0.9, tailor: 0.6, cobbler: 0.39 });
+  const backend = backendAnswering({ bakery: 0.2, florist: 0.9, tailor: 0.6, cobbler: 0.39 });
   await runRecall([...IN_PROJECT, PULL_REQUEST_TASK], { ...fixture.dependencies, chooseBackend: () => Promise.resolve(backend) });
   const repositoryLines = ledgerLines(fixture.dataDirectory).filter((line) => 'otherRepository' in line);
   assert.deepEqual(
@@ -230,10 +218,10 @@ test('the ledger still records every scored repository, marking only the shown o
       listed,
     })),
     [
-      { repositoryName: 'florist', pick: 'yes', probability: 0.9, answeredBy: 'jev', rank: 1, listed: true },
-      { repositoryName: 'tailor', pick: 'yes', probability: 0.6, answeredBy: 'jev', rank: 2, listed: true },
-      { repositoryName: 'cobbler', pick: 'yes', probability: 0.39, answeredBy: 'jev', rank: 3, listed: false },
-      { repositoryName: 'bakery', pick: 'yes', probability: 0.2, answeredBy: 'jev', rank: 4, listed: false },
+      { repositoryName: 'florist', pick: 'yes', probability: 0.9, answeredBy: 'rules', rank: 1, listed: false },
+      { repositoryName: 'tailor', pick: 'yes', probability: 0.6, answeredBy: 'rules', rank: 2, listed: false },
+      { repositoryName: 'cobbler', pick: 'yes', probability: 0.39, answeredBy: 'rules', rank: 3, listed: false },
+      { repositoryName: 'bakery', pick: 'yes', probability: 0.2, answeredBy: 'rules', rank: 4, listed: false },
     ],
   );
   const [summary] = ledgerLines(fixture.dataDirectory);

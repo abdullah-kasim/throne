@@ -232,7 +232,6 @@ function forkPolicyResolution(): PolicyResolution {
     objectiveContract: { kind: "non-campaign" },
     routingNote: "",
     durableRoutingNote: false,
-    capabilityOverrideNote: "",
     effortOverrideNote: "",
     harnessOverrideNote: "",
     bypassedObjectiveCode: false,

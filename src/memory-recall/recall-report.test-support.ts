@@ -9,7 +9,6 @@ import {
 import {
   SERVE_ARM,
   SHADOW_ARM,
-  SPLIT_HOOK_MODE,
   type RecallArm,
 } from '../relevance-classifier/recall-user-config.ts';
 import {
@@ -23,13 +22,9 @@ import {
   MEMORY_READ_FAILURE_LOG_FILE_NAME,
   MEMORY_READ_LOG_FILE_NAME,
 } from './recall-report-logs.ts';
-import type { HookOutcome } from './hook-outcome.ts';
 import type { PromptKind } from './prompt-kind.ts';
 import { MEMORY_LIKELY_EXISTS, NO_RELEVANT_MEMORY } from './recall-verdict.ts';
-import { runRecall } from './recall.command.ts';
-import { harness } from './recall.command.test-support.ts';
 
-export const REPORT_TIME = new Date('2026-10-02T09:00:00Z');
 const OLD_MEMORY_TIME = new Date('2026-09-01T00:00:00Z');
 const NEW_MEMORY_TIME = new Date('2026-10-01T12:00:00Z');
 
@@ -59,7 +54,6 @@ export interface FixturePrompt {
   readonly confidence: number;
   readonly reads: readonly FixtureRead[];
   readonly promptKind?: PromptKind;
-  readonly hookOutcome?: HookOutcome;
   readonly suppressed?: readonly string[];
   readonly correction?: boolean;
   readonly transcriptPath?: string;
@@ -187,12 +181,10 @@ function ledgerLinesOf(
       source: HOOK_SOURCE,
       sessionId: prompt.sessionId,
       arm: prompt.arm,
-      hookMode: SPLIT_HOOK_MODE,
       verdict: prompt.verdict,
       verdictConfidence: prompt.confidence,
       searchedMemoryDirectories: [memoriesDirectory],
       promptKind: prompt.promptKind,
-      hookOutcome: prompt.hookOutcome,
       questionsAsked: 3,
       served: prompt.served.length,
       confidentNoAnswersLeftOut: 2,
@@ -204,7 +196,7 @@ function ledgerLinesOf(
       inputHash: hash,
       pick: prompt.served.includes(fileName) ? YES : NO,
       probability: 0.8,
-      backend: 'jev',
+      backend: 'rules',
       failedOpen: false,
       served: prompt.served.includes(fileName),
       ...(suppressed.includes(fileName) ? { suppressed: true, servedEarlierAt: null } : {}),
@@ -258,7 +250,7 @@ function unattributedReadLines(memoryPath: (fileName: string) => string): object
 function correctionVerdictLineOf(prompt: FixturePrompt): object {
   if (prompt.correction === undefined) return {};
   return {
-    correction: { pick: prompt.correction ? YES : NO, probability: 0.9, backend: 'jev', failedOpen: false },
+    correction: { pick: prompt.correction ? YES : NO, probability: 0.9, backend: 'rules', failedOpen: false },
   };
 }
 
@@ -286,7 +278,7 @@ export function buildReportFixture(
   writeMemories(memoriesDirectory, extraMemoryTexts);
   const memoryPath = (fileName: string): string => path.join(memoriesDirectory, fileName);
   const commandSummary = { at: '2026-10-01T10:40:00.000Z', inputHash: 'command', source: COMMAND_SOURCE, sessionId: null, arm: SERVE_ARM, verdict: NO_RELEVANT_MEMORY, verdictConfidence: 1, questionsAsked: 3, served: 0, confidentNoAnswersLeftOut: 3 };
-  const rankLine = { at: '2026-10-01T10:41:00.000Z', command: 'rank', questionId: memoryPath('RED.md'), inputHash: 'rank', probability: 0.5, backend: 'jev' };
+  const rankLine = { at: '2026-10-01T10:41:00.000Z', command: 'rank', questionId: memoryPath('RED.md'), inputHash: 'rank', probability: 0.5, backend: 'rules' };
   writeFileSync(
     path.join(dataDirectory, RECALL_LEDGER_FILE_NAME),
     jsonLines([...prompts.flatMap((prompt) => ledgerLinesOf(prompt, memoriesDirectory, memoryPath)), commandSummary, rankLine]),
@@ -342,7 +334,7 @@ export interface TopicBackend extends ClassifierBackend {
 export function topicBackend(): TopicBackend {
   let judgeQuestions = 0;
   return {
-    name: 'jev',
+    name: 'rules',
     judgeQuestionCount: () => judgeQuestions,
     answer: (state, questions) => {
       const fields = typeof state === 'string' ? { task: state } : state;
@@ -364,48 +356,8 @@ export function topicBackend(): TopicBackend {
   };
 }
 
-export const FAILING_JEV_BACKEND: ClassifierBackend = {
-  name: 'jev',
-  answer: () => Promise.reject(new Error('Jev is down')),
-};
-
-export interface ReportRun {
-  readonly exitCode: number;
-  readonly output: string;
-  readonly dataDirectory: string;
-}
-
 export function copyOfFixtureData(fixture: ReportFixture): string {
   const dataDirectory = mkdtempSync(path.join(tmpdir(), 'recall-report-data-'));
   cpSync(fixture.dataDirectory, dataDirectory, { recursive: true });
   return dataDirectory;
-}
-
-export async function reportOn(
-  fixture: ReportFixture,
-  options: {
-    readonly backend: ClassifierBackend;
-    readonly flags?: readonly string[];
-    readonly dataDirectory?: string;
-    readonly rankAllowedRoots?: readonly string[];
-    readonly agentLedgerDirectory?: string;
-    readonly everyMemoryDirectory?: readonly string[];
-    readonly jevDataHome?: string;
-  },
-): Promise<ReportRun> {
-  const dataDirectory = options.dataDirectory ?? copyOfFixtureData(fixture);
-  const run = harness({ rankAllowedRoots: options.rankAllowedRoots ?? [] });
-  const exitCode = await runRecall(['--report', ...(options.flags ?? [])], {
-    ...run.dependencies,
-    dataDirectory,
-    chooseBackend: () => Promise.resolve(options.backend),
-    memoryDirectoriesForRepeats: () =>
-      Promise.resolve(options.everyMemoryDirectory ?? [fixture.memoriesDirectory]),
-    now: () => REPORT_TIME,
-    ...(options.agentLedgerDirectory === undefined
-      ? {}
-      : { agentLedgerDirectory: options.agentLedgerDirectory }),
-    ...(options.jevDataHome === undefined ? {} : { jevDataHome: options.jevDataHome }),
-  });
-  return { exitCode, output: run.stdout.join(''), dataDirectory };
 }

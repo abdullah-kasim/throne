@@ -1,4 +1,4 @@
-import { readdir } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { findScratchDirHolders } from '../tmp-scratch-lifecycle/scratch-dir-holders.ts';
@@ -89,4 +89,12 @@ export function stillHeldScratchDirs(
       (result) => result.outcome === SCRATCH_DIR_REMOVAL_OUTCOMES.SKIPPED_LIVE,
     )
     .map((result) => result.dirPath);
+}
+
+export function webSearchProfileCopy(agentName: string, homeDirectory = os.homedir()): string {
+  return path.join(homeDirectory, '.agent-browser', 'profiles', `web-search-${agentName}`);
+}
+
+export async function removeWebSearchProfileCopy(agentName: string, homeDirectory = os.homedir()): Promise<void> {
+  await rm(webSearchProfileCopy(agentName, homeDirectory), { recursive: true, force: true });
 }

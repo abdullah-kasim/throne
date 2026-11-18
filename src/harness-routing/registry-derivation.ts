@@ -5,7 +5,7 @@ const RUNTIME_HARNESSES: readonly RuntimeHarness[] = [
   HARNESS_NAMES.CLAUDE,
   HARNESS_NAMES.CODEX,
   HARNESS_NAMES.OPENCODE,
-  HARNESS_NAMES.OMP,
+  HARNESS_NAMES.PI,
 ];
 
 /** A model's registry entry is available under a runtime harness `h` when `h`
@@ -34,16 +34,6 @@ export function deriveHarnessAvailability(
         .map((entry) => entry.model),
     ]),
   ) as unknown as Record<RuntimeHarness, readonly string[]>;
-}
-
-/** Compatibility-only fixture helper; score tables are no longer derived for
- * runtime routing. */
-export function deriveCapabilityTables(
-  _registry: readonly ModelRegistryEntry[],
-): {
-  coding: Record<RuntimeHarness, readonly { model: string; coding: number }[]>;
-} {
-  throw new Error("capability tables were retired");
 }
 
 /** Per-runtime-harness short-alias → canonical-slug rows sourced from each

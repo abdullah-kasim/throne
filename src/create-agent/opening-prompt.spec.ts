@@ -140,6 +140,7 @@ async function withSpawnOf(
         readinessWaits += 1;
         await options.waitUntilThePaneTakesACommand?.(agent, deadline);
       },
+      claudeModTakesCommands: async () => false,
       now: () => 0,
     };
     const pane = await registeredPaneOf(court);

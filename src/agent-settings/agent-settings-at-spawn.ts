@@ -5,6 +5,7 @@ import {
 } from "../herdr/herdr-inventory.service.ts";
 import { recipientName } from "../herdr/herdr-send.helpers.ts";
 import { defaultSubmitToAgentDeps } from "../herdr/herdr-send.service.ts";
+import { claudeModTakesCommandsOf } from "./harness-command-typing.ts";
 import {
   RESIDENT_COMPOSER_POLL_MS,
   type SubmitToAgentDeps,
@@ -25,6 +26,7 @@ export interface SettingsAtSpawnDeps {
     agent: HerdrAgent,
     deadline: number,
   ) => Promise<void>;
+  readonly claudeModTakesCommands: (agent: HerdrAgent) => Promise<boolean>;
   readonly now: () => number;
 }
 
@@ -36,6 +38,8 @@ export const REAL_SETTINGS_AT_SPAWN_DEPS: SettingsAtSpawnDeps = {
       deadline,
       defaultSubmitToAgentDeps(agent),
     ),
+  claudeModTakesCommands: (agent) =>
+    claudeModTakesCommandsOf(agent, defaultSubmitToAgentDeps(agent)),
   now: () => Date.now(),
 };
 
@@ -44,10 +48,12 @@ export async function correctSettingsRightAfterSpawn(
   agentName: string,
   deps: SettingsAtSpawnDeps = REAL_SETTINGS_AT_SPAWN_DEPS,
 ): Promise<string> {
-  await deps.waitUntilThePaneTakesACommand(
-    agent,
-    deps.now() + HARNESS_READY_WAIT_AT_SPAWN_MILLISECONDS,
-  );
+  if (!(await deps.claudeModTakesCommands(agent))) {
+    await deps.waitUntilThePaneTakesACommand(
+      agent,
+      deps.now() + HARNESS_READY_WAIT_AT_SPAWN_MILLISECONDS,
+    );
+  }
   return correctSettingsOfOneJustLaunchedAgent(agentName, deps.check);
 }
 

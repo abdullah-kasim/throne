@@ -20,6 +20,10 @@ import {
   fakeClaudeAgent,
   fakeVirtualClock,
 } from "../herdr/herdr-send-test-fixtures.ts";
+import type {
+  ExtensionDeliveryOutcome,
+  HarnessCommandRequest,
+} from "../herdr/delivery-request-client.ts";
 import type { SubmitToAgentDeps } from "../herdr/herdr-send.types.ts";
 import {
   HARNESS_COMMAND_TYPING_OUTCOMES,
@@ -291,4 +295,105 @@ test("a pane that closes while a command waits for an empty textbox ends the wai
   });
   assert.ok(pane.deps.now() - startedAt <= 2_000);
   assert.deepEqual(pressedKeys(pane), [ENTER_KEY]);
+});
+
+interface ClaudeModOptions {
+  readonly takesCommands: boolean;
+  readonly outcome?: ExtensionDeliveryOutcome;
+  readonly stillAnswering?: boolean;
+}
+
+interface PaneWithClaudeMod extends FakeClaudePane {
+  requests: (string | HarnessCommandRequest)[];
+  screenReads: number;
+  fallbackLines: string[];
+}
+
+function claudePaneWithMod(options: ClaudeModOptions): PaneWithClaudeMod {
+  const base = fakeClaudePane({ screen: EMPTY_TEXTBOX_SCREEN });
+  const pane: PaneWithClaudeMod = {
+    ...base,
+    requests: [],
+    screenReads: 0,
+    fallbackLines: [],
+  };
+  const readScreen = base.deps.readVisibleAgentAnsi;
+  let answeringChecks = 0;
+  pane.deps = {
+    ...base.deps,
+    readVisibleAgentAnsi: async (target: string) => {
+      pane.screenReads += 1;
+      return readScreen(target);
+    },
+    deliverThroughExtension: async (content) => {
+      pane.requests.push(content);
+      return options.outcome ?? { kind: "delivered" };
+    },
+    claudeMod: {
+      usesMod: async () => true,
+      socketOf: async () => "/socket",
+      alive: async (_socket, paneId) =>
+        (answeringChecks += 1) === 1 || options.stillAnswering !== false
+          ? { pane: paneId, harness: "claude", commands: options.takesCommands }
+          : undefined,
+      log: (line) => pane.fallbackLines.push(line),
+    },
+  };
+  return pane;
+}
+
+test("a colour correction for an agent whose mod takes commands is applied through the mod without reading the pane", async () => {
+  const pane = claudePaneWithMod({ takesCommands: true });
+  const result = await typeHarnessCommandIntoIdleClaudePane(
+    fakeClaudeAgent(),
+    COLOUR_COMMAND,
+    pane.deps,
+  );
+  assert.deepEqual(result, { outcome: HARNESS_COMMAND_TYPING_OUTCOMES.APPLIED });
+  assert.deepEqual(pane.requests, [{ command: "color", args: "red" }]);
+  assert.equal(pane.screenReads, 0);
+  assert.deepEqual(pane.inputs, []);
+});
+
+test("a colour correction the mod does not take while it still answers is skipped as busy for the next tick", async () => {
+  const pane = claudePaneWithMod({
+    takesCommands: true,
+    outcome: { kind: "timed-out", waitedMs: 1 },
+  });
+  const result = await typeHarnessCommandIntoIdleClaudePane(
+    fakeClaudeAgent(),
+    COLOUR_COMMAND,
+    pane.deps,
+  );
+  assert.deepEqual(result, { outcome: HARNESS_COMMAND_TYPING_OUTCOMES.SKIPPED_BUSY });
+  assert.equal(pane.screenReads, 0);
+  assert.deepEqual(pane.inputs, []);
+});
+
+test("a colour correction the mod refuses is typed once", async () => {
+  const pane = claudePaneWithMod({
+    takesCommands: true,
+    outcome: { kind: "refused", detail: "unknown command" },
+  });
+  const result = await typeHarnessCommandIntoIdleClaudePane(
+    fakeClaudeAgent(),
+    COLOUR_COMMAND,
+    pane.deps,
+  );
+  assert.deepEqual(result, { outcome: HARNESS_COMMAND_TYPING_OUTCOMES.APPLIED });
+  assert.equal(pane.requests.length, 1);
+  assert.deepEqual(typedTexts(pane), [COLOUR_COMMAND]);
+  assert.equal(pane.fallbackLines.length, 1);
+});
+
+test("an agent whose mod predates commands gets its colour typed as before", async () => {
+  const pane = claudePaneWithMod({ takesCommands: false });
+  const result = await typeHarnessCommandIntoIdleClaudePane(
+    fakeClaudeAgent(),
+    COLOUR_COMMAND,
+    pane.deps,
+  );
+  assert.deepEqual(result, { outcome: HARNESS_COMMAND_TYPING_OUTCOMES.APPLIED });
+  assert.deepEqual(pane.requests, []);
+  assert.deepEqual(typedTexts(pane), [COLOUR_COMMAND]);
 });

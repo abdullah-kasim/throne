@@ -11,7 +11,15 @@ import {
   readSpawnSpec,
   writeSpawnSpec,
 } from "../src/agentdata/spawn-data-contracts.ts";
-import { writeQueueLaunchLinkage } from "../src/create-agent/queue-launch-writeback.ts";
+import type { PolicyResolution } from "../src/create-agent/create.types.ts";
+import { deliverAgentOpeningPrompt } from "../src/create-agent/opening-prompt.ts";
+import { baseDeps, baseRequest } from "../src/create-agent/policy-test-fixtures.ts";
+import {
+  giveBackRowOfFailedLaunch,
+  writeQueueLaunchLinkage,
+} from "../src/create-agent/queue-launch-writeback.ts";
+import { HARNESS_NAMES } from "../src/harness-routing/harness.ts";
+import { openMessageQueueStore } from "../src/message-queue/message-queue.store.ts";
 import type { HerdrAgent } from "../src/herdr/herdr-identity-contracts.ts";
 import { reapAgent } from "../src/reap-agent/lifecycle.ts";
 import {
@@ -103,15 +111,19 @@ async function registerCampaignAgent(
   );
 }
 
-function rowStatus(court: Court): string {
+function rowOf(court: Court): { status: string; agentName: string | null } {
   const store = openRegentQueueStore(court.databasePath);
   try {
     const row = store.readItem(court.itemId);
     assert.ok(row);
-    return row.status;
+    return { status: row.status, agentName: row.agentName };
   } finally {
     store.close();
   }
+}
+
+function rowStatus(court: Court): string {
+  return rowOf(court).status;
 }
 
 interface ReapResult {
@@ -189,11 +201,14 @@ function herdrPane(name: string): HerdrAgent {
 async function launchWriteBack(
   court: Court,
   listHerdrAgents: () => Promise<HerdrAgent[]>,
+  name: string = ALPHA_NAME,
+  role: string = "Alpha",
 ): Promise<string> {
   let printed = "";
   await writeQueueLaunchLinkage(
-    ALPHA_NAME,
+    name,
     { kind: "campaign", objectiveCode: OBJECTIVE_CODE },
+    role,
     {
       openStore: () => openRegentQueueStore(court.databasePath),
       readTreeBase: async () => null,
@@ -281,4 +296,109 @@ test("a launch write-back for a live agent still marks the row in flight when he
 
   assert.doesNotMatch(printed, /write-back failed/);
   assert.equal(rowStatus(court), RegentQueueItemStatus.InFlight);
+});
+
+async function taskAtSpawn(court: Court, name: string, role: "Alpha" | "Shadow"): Promise<void> {
+  const messageQueuePath = path.join(scratchRoot, `messages-${name}-${nextCourtNumber}.sqlite3`);
+  const delivery = await deliverAgentOpeningPrompt(
+    {
+      ...baseRequest({
+        name,
+        role,
+        launchHarness: HARNESS_NAMES.CODEX,
+        flags: { supervisor: ALPHA_NAME, prompt: "Read your assignment." },
+      }),
+      objectiveContract: { kind: "campaign", objectiveCode: OBJECTIVE_CODE },
+    } as PolicyResolution,
+    baseDeps({
+      resolveAgent: async () => herdrPane(name),
+      openMessageQueueStore: () => openMessageQueueStore(messageQueuePath),
+      markAgentTasked: async () => {},
+      sleep: async () => {},
+      writeStderr: () => {},
+      writeQueueLaunchLinkage: (agentName, objectiveContract, agentRole) =>
+        writeQueueLaunchLinkage(agentName, objectiveContract, agentRole, {
+          openStore: () => openRegentQueueStore(court.databasePath),
+          readTreeBase: async () => null,
+          listAgents: async () => [herdrPane(name)],
+          ledgerBaseDir: court.ledgerBaseDir,
+          writeStdout: () => {},
+        }),
+    }),
+    "Read your assignment.",
+    true,
+  );
+  assert.equal(delivery.delivered, true);
+}
+
+test("a Shadow launched with a campaign objective leaves an open row open, with no agent name", async () => {
+  const court = await courtWithRow(RegentQueueItemStatus.Open);
+  await registerCampaignAgent(court, SHADOW_NAME, "Shadow");
+
+  await taskAtSpawn(court, SHADOW_NAME, "Shadow");
+  await launchWriteBack(court, async () => [herdrPane(SHADOW_NAME)], SHADOW_NAME, "Shadow");
+
+  assert.deepEqual(rowOf(court), { status: RegentQueueItemStatus.Open, agentName: null });
+});
+
+test("an Alpha's row is in-flight under the Alpha's name as soon as it is tasked, before its launch returns", async () => {
+  const court = await courtWithRow(RegentQueueItemStatus.Open);
+  await registerCampaignAgent(court, ALPHA_NAME, "Alpha");
+
+  await taskAtSpawn(court, ALPHA_NAME, "Alpha");
+  const tiedAtTasking = rowOf(court);
+  await launchWriteBack(court, async () => [herdrPane(ALPHA_NAME)]);
+
+  assert.deepEqual(tiedAtTasking, { status: RegentQueueItemStatus.InFlight, agentName: ALPHA_NAME });
+  assert.deepEqual(rowOf(court), tiedAtTasking);
+});
+
+test("the launch write-back after an Alpha was tasked reports nothing amiss", async () => {
+  const court = await courtWithRow(RegentQueueItemStatus.Open);
+  await registerCampaignAgent(court, ALPHA_NAME, "Alpha");
+
+  await taskAtSpawn(court, ALPHA_NAME, "Alpha");
+  const printed = await launchWriteBack(court, async () => [herdrPane(ALPHA_NAME)]);
+
+  assert.equal(printed, "");
+});
+
+test("a Shadow whose launch finishes before its Alpha's launch does not change the row", async () => {
+  const court = await courtWithRow(RegentQueueItemStatus.Open);
+  await registerCampaignAgent(court, ALPHA_NAME, "Alpha");
+  await registerCampaignAgent(court, SHADOW_NAME, "Shadow");
+
+  await taskAtSpawn(court, ALPHA_NAME, "Alpha");
+  await taskAtSpawn(court, SHADOW_NAME, "Shadow");
+  await launchWriteBack(court, async () => [herdrPane(SHADOW_NAME)], SHADOW_NAME, "Shadow");
+  const afterTheShadow = rowOf(court);
+  await launchWriteBack(court, async () => [herdrPane(ALPHA_NAME)]);
+
+  assert.deepEqual(afterTheShadow, { status: RegentQueueItemStatus.InFlight, agentName: ALPHA_NAME });
+  assert.deepEqual(rowOf(court), afterTheShadow);
+});
+
+test("reaping a Shadow never changes the row's status", async () => {
+  for (const status of [RegentQueueItemStatus.Open, RegentQueueItemStatus.InFlight] as const) {
+    const court = await courtWithRow(status);
+    await registerCampaignAgent(court, SHADOW_NAME, "Shadow");
+
+    const reap = await reapAbandoned(court, SHADOW_NAME);
+
+    assert.equal(reap.exitCode, 0);
+    assert.equal(rowStatus(court), status);
+  }
+});
+
+test("a launch that fails after tasking leaves the row launchable again", async () => {
+  const court = await courtWithRow(RegentQueueItemStatus.Open);
+  await registerCampaignAgent(court, ALPHA_NAME, "Alpha");
+
+  await taskAtSpawn(court, ALPHA_NAME, "Alpha");
+  await giveBackRowOfFailedLaunch(ALPHA_NAME, {
+    openStore: () => openRegentQueueStore(court.databasePath),
+    writeStdout: () => {},
+  });
+
+  assert.deepEqual(rowOf(court), { status: RegentQueueItemStatus.Open, agentName: null });
 });

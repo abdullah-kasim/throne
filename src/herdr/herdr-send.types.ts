@@ -1,4 +1,5 @@
-import type { OmpDeliveryOutcome } from "./omp-delivery-client.ts";
+import type { ExtensionDeliveryDeps, ExtensionDeliveryOutcome, HarnessCommandRequest } from "./delivery-request-client.ts";
+import type { deliverToPi } from "./pi-delivery-client.ts";
 import type { stagePayload } from '../send-agent/payload-transport.ts';
 import type { RecipientPaneLockService } from '../shared-policy/recipient-pane-lock.service.ts';
 import type { HerdrAgent } from './herdr-inventory.service.ts';
@@ -43,11 +44,7 @@ export const COMPOSER_RECOGNITION_TIMEOUT_MS = 45_000;
  */
 export const RESIDENT_DRAFT_FORCE_SUBMIT_WAIT_MS = 15 * 60 * 1_000;
 
-/** How long the throne waits for the omp extension to ack a delivery. Matched
- *  to the resident-draft wait every other harness gets: the extension holds a
- *  request exactly as long as a human keeps a draft open, so anything shorter
- *  would report not-sent on a recipient who is merely mid-sentence. */
-export const OMP_DELIVERY_TIMEOUT_MS = RESIDENT_DRAFT_FORCE_SUBMIT_WAIT_MS;
+export const EXTENSION_DELIVERY_TIMEOUT_MS = RESIDENT_DRAFT_FORCE_SUBMIT_WAIT_MS;
 
 export class SubmitNotSentError extends Error {
   readonly name = 'SubmitNotSentError';
@@ -129,17 +126,14 @@ export interface SubmitToAgentOptions {
 
 export interface SubmitToAgentDeps {
   sendText: typeof sendText;
-  /** Hands a payload to the throne's omp extension and waits for its ack.
-   *  Injected so tests never touch a real ~/.omp or a real filesystem
-   *  handshake. */
-  /** `recipientPaneId` is required: every omp instance polls one shared
-   *  directory, so an unaddressed request is claimed by whichever instance is
-   *  idle first rather than by the intended recipient. */
-  deliverToOmp: (
-    text: string,
+  deliverThroughExtension: (
+    content: string | HarnessCommandRequest,
     timeoutMs: number,
     recipientPaneId: string,
-  ) => Promise<OmpDeliveryOutcome>;
+    deliveryDeps?: ExtensionDeliveryDeps,
+  ) => Promise<ExtensionDeliveryOutcome>;
+  claudeMod?: import("./claude-mod-route.ts").ClaudeModDeliveryDeps;
+  deliverToPi?: typeof deliverToPi;
   pressEnter: typeof pressEnter;
   pressPaneKey: typeof pressPaneKey;
   getPaneProcessInfo: typeof getPaneProcessInfo;
@@ -157,7 +151,7 @@ export interface SubmitToAgentDeps {
   isRecipientPaneLockHeld?: (paneId: string) => Promise<boolean>;
   forceEnter?: (agent: HerdrAgent) => Promise<void>;
   stagePayload: typeof stagePayload;
-  fileBackedPayloadsEnabled?: boolean;
+  fileBackedPayloadsEnabled?: () => Promise<boolean>;
   keyedSubmissionWindowStore?: KeyedSubmissionWindowStore;
   /**
    * Best-effort forensic capture, called with the last screen observed right

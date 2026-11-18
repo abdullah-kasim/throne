@@ -39,20 +39,6 @@ function fixture(): Fixture {
   const judgeCalls: Fixture['judgeCalls'] = [];
   const dependencies: LocateDependencies = {
     loadConfig: () => Promise.resolve(DEFAULT_RECALL_CONFIG as RecallConfig),
-    readJevSwitch: () =>
-      Promise.resolve({
-        on: false,
-        enabledInConfig: false,
-        disabledByEnvironment: false,
-        keyFile: 'not-checked',
-        keyFilePath: '~/.jev-key',
-      }),
-    readJevSpending: () =>
-      Promise.resolve({
-        spend: { todayTokens: 0, lastHourTokens: 0 },
-        limits: { tokensPerDay: 1, tokensPerHour: 1 },
-        lockBusyRequestsToday: 0,
-      }),
     gatherCandidates: (task, roots, opts) => {
       gatherCalls.push({ task, roots, opts });
       return Promise.resolve(STAGE_ONE_CANDIDATES.map((candidate) => ({ ...candidate })));

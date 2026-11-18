@@ -10,6 +10,10 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { HARNESS_NAMES, runtimeHarness } from "../harness-routing/harness.ts";
+import { realClaudeModLaunchDeps } from "./claude-mod-route.ts";
+import { REAL_DELIVERY_SOCKET_DEPS } from "./delivery-socket-path.ts";
+import { PINNED_BINARY_OVERRIDE_VARIABLES } from "../harness-environment.ts";
+import { readConfiguredHarnessEnvironment } from "./herdr-tab.service.ts";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 import {
   argvExecutableCandidates,
@@ -270,13 +274,6 @@ export function vendoredHarnessBinaryDirectory(throneRoot: string): string {
 export const VENDORED_HARNESS_BINARY_DIRECTORY =
   vendoredHarnessBinaryDirectory(RUNTIME_THRONE_ROOT);
 
-const PINNED_BINARY_OVERRIDE_VARIABLES: Readonly<
-  Partial<Record<SupportedComposerHarness, "CLAUDE_BIN" | "CODEX_BIN">>
-> = {
-  [HARNESS_NAMES.CLAUDE]: "CLAUDE_BIN",
-  [HARNESS_NAMES.CODEX]: "CODEX_BIN",
-};
-
 export class PinnedHarnessBinaryMissingError extends Error {
   readonly name = "PinnedHarnessBinaryMissingError";
   readonly binaryPath: string;
@@ -441,6 +438,9 @@ export const REAL_START_IN_TAB_DEPS: StartInTabDeps = {
   now: Date.now,
   sleep,
   vendoredHarnessBinaryDirectory: VENDORED_HARNESS_BINARY_DIRECTORY,
+  claudeMod: realClaudeModLaunchDeps(VENDORED_HARNESS_BINARY_DIRECTORY),
+  readHarnessEnvironment: readConfiguredHarnessEnvironment,
+  deliverySocket: REAL_DELIVERY_SOCKET_DEPS,
 };
 
 export function isIndeterminateAgentStartError(error: unknown): boolean {

@@ -142,6 +142,12 @@ export function enterUntilEmptyTransactionFor(harness: string): {
       bounds: PRESS_ENTER_UNTIL_EMPTY_BOUNDS,
     };
   }
+  if (harness === HARNESS_NAMES.PI) {
+    return {
+      clearance: claudeTextboxClearance(HARNESS_NAMES.PI),
+      bounds: PRESS_ENTER_UNTIL_EMPTY_BOUNDS,
+    };
+  }
   if (harness === HARNESS_NAMES.OPENCODE) {
     return {
       clearance: opencodeTextboxClearance(),

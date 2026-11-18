@@ -14,6 +14,7 @@ Search words: complete-agent, reap-agent, accept-slice, lint-slice-assignment, r
 - CO-REASON: reap-agent refuses without a reason.
 - CO-ACCEPT: Only the supervisor accepts a no-merge slice.
 - CO-LINT: A missing completion section fails the assignment lint.
+- CO-PROFILE: Reaping an agent removes its own `~/.agent-browser/profiles/web-search-<name>` copy and never the base `web-search` profile (`test/reap-removes-web-search-profile-copy.test.ts`).
 
 ## How to reach it and prove it works
 

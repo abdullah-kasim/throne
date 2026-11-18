@@ -92,7 +92,7 @@ function restartedCourt(
       renamed.push({ paneId, name });
       relaunchedPanes.find((pane) => pane.paneId === paneId)!.name = name;
     },
-    harnessProvenance: async () => ({ state: HARNESS_PROVENANCE_STATES.PINNED, executablePath: VENDORED_BINARY }),
+    harnessProvenance: async () => ({ state: HARNESS_PROVENANCE_STATES.PINNED, executablePath: VENDORED_BINARY, argv: [VENDORED_BINARY, '--resume', 'x'] }),
     acquireRegentRestartLock: () => acquireResurrectLock(lockDirectory),
     releaseRegentRestartLock: (token: string) => releaseResurrectLock(lockDirectory, token),
     refreshRegentRestartLock: (token: string) => refreshResurrectLock(lockDirectory, token),

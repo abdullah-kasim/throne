@@ -426,8 +426,6 @@ export class LedgerDataService {
   ): Promise<SpawnSpec | null> => this.spawnData.readSpawnSpec(name, baseDir);
   readonly writeSpawnSpec = (name: string, spec: SpawnSpec, baseDir?: string) =>
     this.spawnData.writeSpawnSpec(name, spec, baseDir);
-  readonly spawnCapabilityEvidenceIsValid = (spec: SpawnSpec) =>
-    this.spawnData.spawnCapabilityEvidenceIsValid(spec);
   readonly hasResumableWork = async (
     name: string,
     baseDir = DEFAULT_DATA_DIR,

@@ -82,7 +82,6 @@ test("throne-startup exports the shim before it gives up on a session outside he
     listTabs: async () => [],
     renameWorkspace: async () => {},
     throneRoot: LIVE_ROOT,
-    installOmpExtension: async () => ({ kind: "already-installed" as const, target: "/x" }),
     renderQueueDigest: async () => "",
     readDesiredState: async () => ({ desired: "running" as const }),
     exportSessionEnv: async () => {

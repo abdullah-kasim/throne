@@ -4,12 +4,6 @@ import {
   resolveSpawnAdmission,
 } from "../harness-routing/policy/admission.ts";
 import {
-  evaluateFinalCapability,
-  modelPlanningScore,
-  PLANNING_FLOOR,
-  thinkingRoleCapabilityGuard,
-} from "./legacy-capabilities.ts";
-import {
   describeUnusableHarnessUsage,
   isHarnessUsageUsable,
 } from "../harness-routing/policy/usage.ts";
@@ -50,7 +44,7 @@ import {
   modelAllowlistOwner,
 } from "./model-allowlist.ts";
 import {
-  parseFreshCapabilityRequirements,
+  noticeIgnoredRequiresArgument,
   resolveObjectiveCodeQueueGate,
   resolveObjectiveContract,
 } from "./policy-objective.ts";
@@ -60,9 +54,7 @@ export async function resolveSpawnPolicy(
   deps: CreateAgentDeps,
 ): Promise<StageResult<PolicyResolution>> {
   const writeStderr = stderrWriter(deps);
-  const requirementsResult = parseFreshCapabilityRequirements(request, deps);
-  if (!requirementsResult.ok) return requirementsResult;
-  const capabilityRequirements = requirementsResult.value;
+  noticeIgnoredRequiresArgument(request, deps);
   const objectiveResult = await resolveObjectiveContract(request, deps);
   if (!objectiveResult.ok) return objectiveResult;
   const objectiveContract = objectiveResult.value;
@@ -196,8 +188,6 @@ export async function resolveSpawnPolicy(
   let routingNote = "";
   let durableRoutingNote = false;
   let effortOverrideNote = "";
-  let capabilityOverrideNote = "";
-  let desperationLaunch = false;
   let harnessOverrideNote = "";
   let zeroQuotaOverrideNote = "";
   const normalizedRole = request.role.trim().toLowerCase();
@@ -301,7 +291,6 @@ export async function resolveSpawnPolicy(
     routingNote = steer.note;
     durableRoutingNote = steer.durableRoutingNote === true;
     effortOverrideNote = steer.effortOverrideNote ?? "";
-    desperationLaunch = steer.desperation === true;
   } else if (!request.resuming) {
     const effortSteer = resolveFreshEffort({
       harness: requestedPair.harness,
@@ -328,45 +317,6 @@ export async function resolveSpawnPolicy(
         `launched.\n`,
     );
     return { ok: false, code: 1 };
-  }
-  let capabilityEvidence;
-  if (!request.resuming && capabilityRequirements.length > 0) {
-    const verdict = evaluateFinalCapability({
-      requirements: capabilityRequirements,
-      harness: launchHarness,
-      model: launchModel,
-    });
-    if (verdict.kind === "refuse") {
-      writeStderr(
-        `create-agent-legacy: refusing final selected route — ${verdict.reason}. ` +
-          `Nothing was registered, trusted, or launched.\n`,
-      );
-      return { ok: false, code: 1 };
-    }
-    capabilityEvidence = verdict.evidence;
-  }
-  if (!request.resuming) {
-    const capabilityGuard = thinkingRoleCapabilityGuard({
-      role: request.role,
-      isValidateGate,
-      harness: launchHarness,
-      model: launchModel,
-      bypassAlphaGuardrail: request.flags["bypass-alpha-guardrail"] === true,
-    });
-    if (capabilityGuard.refuse && desperationLaunch) {
-      capabilityOverrideNote =
-        `the desperation steer's redirect to ${launchHarness}/${launchModel} ` +
-        `carries the Alpha planning-floor exception automatically for this one ` +
-        `spawn (planning ` +
-        `${modelPlanningScore(launchHarness, launchModel) ?? "unscored"} < ` +
-        `floor ${PLANNING_FLOOR}; no --bypass-alpha-guardrail needed on the ` +
-        `automatic desperation path)`;
-    } else if (capabilityGuard.refuse) {
-      writeStderr(`create-agent-legacy: ${capabilityGuard.reason}\n`);
-      return { ok: false, code: 1 };
-    } else {
-      capabilityOverrideNote = capabilityGuard.overrideNote ?? "";
-    }
   }
   if (
     !request.resuming &&
@@ -436,8 +386,6 @@ export async function resolveSpawnPolicy(
       launchEffort,
       routingNote,
       durableRoutingNote,
-      capabilityEvidence,
-      capabilityOverrideNote,
       effortOverrideNote,
       harnessOverrideNote,
       usageBypassAuthorization,

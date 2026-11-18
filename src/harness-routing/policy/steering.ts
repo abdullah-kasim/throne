@@ -3,7 +3,7 @@ import {
   activeTargetEffort,
   resolveTargetEffort,
 } from '../../config.ts';
-import { modelEffortRange } from './capabilities.ts';
+import { modelEffortRange } from './model-effort-and-equivalents.ts';
 import { resolveModelSteer } from './model-steering.ts';
 import type {
   SteerInput,

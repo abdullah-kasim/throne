@@ -1,6 +1,7 @@
 import {
   HARNESS_EXECUTABLE_NAMES,
   isCodexNpmWrapperProcess,
+  isPiCodingAgentProcess,
   runtimeHarness,
   type Harness,
 } from '../harness-routing/harness.ts';
@@ -35,6 +36,7 @@ export function isHarnessExecutableName(name: string): boolean {
 
 export function isLiveHarnessProcess(processInfo: HerdrForegroundProcess): boolean {
   if (isCodexNpmWrapperProcess(processInfo)) return true;
+  if (isPiCodingAgentProcess(processInfo)) return true;
   if (isHarnessExecutableName(executableName(processInfo.name))) return true;
   return argvExecutableCandidates(processInfo.argv).some(isHarnessExecutableName);
 }
@@ -51,6 +53,7 @@ export function isRegisteredHarnessProcess(registeredHarness: Harness, processIn
   return [registeredHarness, runtimeHarness(registeredHarness)].some((harness) => {
     const executableNames = new Set(HARNESS_EXECUTABLE_NAMES[harness]);
     return (harness === 'codex' && isCodexNpmWrapperProcess(processInfo)) ||
+      (harness === 'pi' && isPiCodingAgentProcess(processInfo)) ||
       executableNames.has(executableName(processInfo.name)) ||
       argvExecutableCandidates(processInfo.argv).some((name) => executableNames.has(name));
   });
@@ -61,6 +64,7 @@ export function paneHasRegisteredHarnessProcessChain(registeredHarness: Harness,
     const names = new Set(HARNESS_EXECUTABLE_NAMES[harness]);
     return processInfo.foregroundProcesses.some((process) =>
       (harness === 'codex' && isCodexNpmWrapperProcess(process)) ||
+      (harness === 'pi' && isPiCodingAgentProcess(process)) ||
       names.has(executableName(process.name)) ||
       argvExecutableCandidates(process.argv).some((name) => names.has(name)));
   };
@@ -75,4 +79,9 @@ export function paneHasExternalInteractiveProcess(processInfo: HerdrPaneProcessI
   return processInfo.foregroundProcesses.some((process) =>
     [process.name, process.argv[0] ?? ''].map(executableName)
       .some((name) => EXTERNAL_INTERACTIVE_EXECUTABLES.has(name)));
+}
+
+export function isClaudeViewerArgv(argv: readonly string[]): boolean {
+  const candidates = argvExecutableCandidates(argv);
+  return candidates.includes('claude') && argv.includes('attach');
 }

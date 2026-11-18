@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { Harness } from "../harness-routing/harness.ts";
 import { resolveRegistryModel } from "../harness-routing/model-registry.ts";
+import { removedHarnessMessage } from "../harness-routing/harness-identity.ts";
 import {
   treeNameFromPath,
   worktreesHome,
@@ -11,6 +12,11 @@ import {
   presetRoleGate,
 } from "../harness-routing/policy/admission.ts";
 import { roleNameFor } from "../agentdata/identity-data.service.ts";
+import {
+  activePlanPresetName,
+  classifyPlanRole,
+  planRolePool,
+} from "../config.ts";
 import {
   type CreateAgentDeps,
   type CreateAgentRequest,
@@ -41,11 +47,11 @@ export {
 
 const DEFAULT_ROLE = "Agent";
 
-const USAGE =
-  "Usage: ./bin/throne-cli create-agent --model <model> " +
+export const CREATE_AGENT_USAGE =
+  "Usage: ./bin/throne-cli create-agent [--model <model> (without it, the first model of the role's active pool)] " +
   "[--effort <1-6>] --name <unique-name> " +
   "--supervisor <name> [--escalation <name>] [--role <role>] [--cwd <path>] " +
-  "[--prompt <text>] [--requires <capability-expression>] " +
+  "[--prompt <text>] [--requires <anything> (accepted and ignored: capability requirements were removed on 2026-11-15)] " +
   "[--bypass-model (waives the role-pool pair-membership check only; requires " +
   "durable Regent-or-Lord authorization for an Alpha/Shadow recipient, or " +
   "Lord-only authorization for a Regent recipient)] [--bypass-zero-quota] " +
@@ -65,6 +71,10 @@ const USAGE =
   "[--run-custom-harness-to-exit --bypass-run-custom-harness-to-exit --clear-environment --env KEY=VALUE… " +
   "--stdout-path <path> --stderr-path <path> --exit-status-path <path> " +
   "--wall-time-path <path> --launcher-evidence-path <path> --timeout-ms <ms>]\n";
+
+export function requiresIgnoredNotice(commandName: string): string {
+  return `${commandName}: --requires ignored: capability requirements were removed on 2026-11-15.\n`;
+}
 
 export function treeNameMismatch(
   resolvedCwd: string,
@@ -187,8 +197,18 @@ export async function prepareCreateAgentRequest(
     return { ok: false, code: 1 };
   }
   if (flags.help === true) {
-    (deps.writeStdout ?? ((text) => process.stdout.write(text)))(USAGE);
+    (deps.writeStdout ?? ((text) => process.stdout.write(text)))(CREATE_AGENT_USAGE);
     return { ok: false, code: 0 };
+  }
+  if (flags.requires !== undefined) {
+    (deps.writeStdout ?? ((text) => process.stdout.write(text)))(
+      requiresIgnoredNotice("create-agent"),
+    );
+  }
+  const removedHarness = typeof flags.harness === "string" ? removedHarnessMessage(flags.harness) : undefined;
+  if (removedHarness !== undefined) {
+    writeStderr(`create-agent: ${removedHarness}. Nothing was registered or launched.\n`);
+    return { ok: false, code: 1 };
   }
   if (flags.harness !== undefined) {
     writeStderr(
@@ -196,10 +216,7 @@ export async function prepareCreateAgentRequest(
     );
     return { ok: false, code: 1 };
   }
-  const required =
-    flags["fork-of"] === undefined
-      ? (["model", "name", "supervisor"] as const)
-      : (["name", "supervisor"] as const);
+  const required = ["name", "supervisor"] as const;
   const missing = required.filter((key) => flags[key] === undefined);
   if (missing.length > 0) {
     writeStderr(
@@ -207,11 +224,11 @@ export async function prepareCreateAgentRequest(
         .map((key) => `--${key}`)
         .join(", ")}\n${renderEntranceRefusal({
         reason:
-          "create-agent entrance validation requires model, name, and supervisor flags (--fork-of resolves the model from the parent).",
+          "create-agent entrance validation requires name and supervisor flags.",
         bypass: undefined,
         supervisorRoute:
           "Ask your supervisor for an allowed alternative invocation.",
-      })}\n${USAGE}`,
+      })}\n${CREATE_AGENT_USAGE}`,
     );
     return { ok: false, code: 1 };
   }
@@ -402,12 +419,33 @@ export async function prepareCreateAgentRequest(
     );
   }
 
+  let namedModel = forkOrigin?.model ?? flags.model;
+  if (namedModel === undefined) {
+    const planRole = classifyPlanRole(
+      role,
+      canonicalName,
+      flags["objective-code"],
+    );
+    const poolModel =
+      planRole === undefined
+        ? undefined
+        : planRolePool(planRole, deps.planPresetName ?? activePlanPresetName())[0]
+            ?.model;
+    if (poolModel === undefined) {
+      writeStderr(
+        `create-agent: --model is required for role "${role}" because it has no role pool to take a model from. Nothing was registered or launched.\n${CREATE_AGENT_USAGE}`,
+      );
+      return { ok: false, code: 1 };
+    }
+    writeStderr(
+      `create-agent: no --model given; using "${poolModel}", the first model of the ${planRole} pool.\n`,
+    );
+    namedModel = poolModel;
+  }
   let harness: Harness;
   let model: string;
   try {
-    const entry = resolveRegistryModel(
-      (forkOrigin?.model ?? flags.model) as string,
-    );
+    const entry = resolveRegistryModel(namedModel);
     harness = entry.harness;
     model = entry.model;
   } catch (error) {

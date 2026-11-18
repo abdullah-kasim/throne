@@ -78,11 +78,6 @@ export interface ReapDeps {
   /** Whether `ancestor` is a git ancestor of `descendant` inside the repo at
    *  `root` — reused from `git-lifecycle/delivery.ts`'s own ancestor check. */
   isAncestor?: typeof isAncestor;
-  /** A second, independent completion signal alongside REPORT.md: true when a
-   *  `Deliver <name>` commit (stamped by `mergeBack`, see
-   *  `git-lifecycle/merge.ts`) is reachable in the throne's own branch
-   *  history. A Shadow reports DONE via send-agent and never writes
-   *  REPORT.md, so this is its only durable completion proof. */
   hasDeliveryCommit?: (name: string) => Promise<boolean>;
   /** A stated-evidence gate: `ok: true` when the agent's own ASSIGNMENT.md
    *  states no `Evidence required:` line, or its REPORT.md satisfies the one

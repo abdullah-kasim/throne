@@ -120,6 +120,8 @@ function fakeDeps(
     releaseRegentRestartLock: async (token) => {
       recorder.lockReleased.push(token);
     },
+    listClaudeSessions: async () => [],
+    processIsAlive: () => false,
     log: (message) => recorder.log.push(message),
     warn: (message) => recorder.warn.push(message),
   };

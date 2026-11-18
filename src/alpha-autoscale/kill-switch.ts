@@ -9,11 +9,6 @@ import { loadUserConfigFile } from '../user-config-loader.ts';
  * set nowhere and the worker had never spawned an Alpha on any host. The
  * operator's pause is the OTHER half, `readAutoscaleEnabledInUserConfig`
  * below; both must be on for a tick to act.
- * An env var (not a feature-flags.json entry) because this module cannot
- * touch `feature-flags.service.ts` -- outside this slice's declared
- * `src/alpha-autoscale/` footprint -- and env vars are already the
- * established convention for other single binary switches read at the call
- * site (e.g. `THRONE_FULL_SUITE_LOCK_DIR`).
  */
 export const AUTOSCALE_KILL_SWITCH_ENV_VAR = 'THRONE_ALPHA_AUTOSCALE_ENABLED';
 

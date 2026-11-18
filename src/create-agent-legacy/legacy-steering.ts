@@ -3,7 +3,7 @@ import {
   activeTargetEffort,
   resolveTargetEffort,
 } from '../config.ts';
-import { modelEffortRange } from './legacy-capabilities.ts';
+import { modelEffortRange } from '../harness-routing/policy/model-effort-and-equivalents.ts';
 import { resolveModelSteer } from './legacy-model-steering.ts';
 import type {
   SteerInput,

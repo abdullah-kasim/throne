@@ -5,7 +5,6 @@ are implemented directly under the Nest owner.
 
 | Responsibility | Nest owner | Platform/config/transport seam |
 | --- | --- | --- |
-| Feature-flag reads | `FeatureFlagsService` | `loadFeatureFlags` / injected reader |
 | Persona configuration | `ApplicationConfigService` | `PERSONA_CONFIG` / injected config |
 | Lord notifications | `NotificationService` | `postNtfyMessage` / injected transport |
 | Unit rendering | `ServiceUnitRenderer` | `renderUnitSource` / injected consumers |

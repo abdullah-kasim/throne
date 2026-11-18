@@ -43,15 +43,5 @@ export class KeepGoingCommand extends CommandRunner {
       mode === 'rest'
         ? await runKeepGoingOverTransport(this.transportClient, remainingArgs)
         : await run(remainingArgs);
-    // Printed on every manual invocation (both --local and --transport rest)
-    // -- see KEEP_GOING_ROUTE_PATH's doc comment (keep-going-route.ts) for
-    // the full reasoning. This command deliberately never touches
-    // runOnce()'s watchdog wrapper, so it cannot prove that wrapper's own
-    // failure-tolerance logic works, only that the underlying sweep does.
-    process.stdout.write(
-      'keep-going: NOTE — this manual trigger bypasses runOnce()\'s watchdog/' +
-        'consecutive-failure wrapper; it proves the SWEEP works, not that the ' +
-        "scheduler's own failure-tolerance logic is intact. Only the scheduled cron tick exercises that.\n",
-    );
   }
 }

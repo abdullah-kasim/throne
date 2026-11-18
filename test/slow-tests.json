@@ -25,11 +25,6 @@
     "reason": "the first test carries the file's one-time staging host and push-branch setup"
   },
   {
-    "file": "src/relevance-classifier/jev-budget-processes.spec.ts",
-    "seconds": 5.6,
-    "reason": "one test races real node processes for the budget lock after killing its holder; slowest test 5.6 seconds in the suite container alone, 10.9 seconds with two other suites running"
-  },
-  {
     "file": "test/autoscale-now-two-processes-share-one-sweep-lock.test.ts",
     "seconds": 6.6,
     "reason": "each test starts two real autoscale-now node processes at once and waits for both to finish; slowest test 6.6 seconds in the suite container alone, 11.9 seconds with two other suites running"
@@ -138,11 +133,6 @@
     "file": "test/locate-benchmark.test.ts",
     "seconds": 12.7,
     "reason": "one test runs both locate stages over every task in the benchmark fixture against the whole repository"
-  },
-  {
-    "file": "test/omp-delivery-harness.test.ts",
-    "seconds": 10.4,
-    "reason": "one test launches a real herdr session and runs the tab leak guard against it as child processes; slowest test 10.4 seconds in the suite container alone, 24.4 seconds with two other suites running"
   },
   {
     "file": "test/pr-media-forgejo.test.ts",

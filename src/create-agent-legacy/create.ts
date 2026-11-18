@@ -388,6 +388,7 @@ export async function runCreateAgent(
     await (dependencies.writeQueueLaunchLinkage ?? writeQueueLaunchLinkage)(
       policy.value.name,
       policy.value.objectiveContract,
+      policy.value.role,
     );
   }
   return launchCode;

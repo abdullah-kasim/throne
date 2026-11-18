@@ -60,7 +60,7 @@ async function withFakePane(run: (pane: FakePane) => Promise<void>): Promise<voi
         ...fakeSubmitToAgentDeps(typedTexts),
         stagePayload: (recipient, body) =>
           stagePayload(recipient, body, realDepsRootedAt(payloadRoot)),
-        fileBackedPayloadsEnabled: true,
+        fileBackedPayloadsEnabled: async () => true,
       },
     });
   } finally {

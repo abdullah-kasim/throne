@@ -9,7 +9,7 @@
 // tells a reader why; this test stops the reader who did not read it.
 //
 // WHY THIS IS WORTH A TEST AND NOT JUST A COMMENT. It was done once, on
-// 2026-08-27, to make `--model fable` reach omp. The diff looked like four
+// 2026-08-27. The diff looked like four
 // words. The blast radius was not visible from it: `PRIMARY_CLAUDE_MODELS` in
 // `harness.ts` derived itself from `harness === CLAUDE`, so moving the
 // primaries EMPTIED that set, which made `isGptModel("fable")` return true,
@@ -63,34 +63,4 @@ test("every model's primary harness is the one its provider runs natively", () =
     checked.length >= 10,
     `expected to check every Anthropic and ChatGPT model, only saw ${checked.length}`,
   );
-});
-
-test("no model is primarily served through a wrapper harness", () => {
-  // Stated separately and positively: `omp` (and any future wrapper) may appear
-  // in `harnessAliases` as an AVAILABLE route, but never as a primary. The
-  // alias is what makes a wrapper reachable; the primary is what makes it the
-  // default for every caller who named only a model.
-  for (const entry of MODEL_REGISTRY) {
-    assert.notEqual(
-      entry.harness,
-      HARNESS_NAMES.OMP,
-      `"${entry.model}" has omp as its PRIMARY harness. omp is a wrapper: it ` +
-        `belongs in harnessAliases so it stays reachable, not in the primary ` +
-        `column where it silently becomes every caller's default.`,
-    );
-  }
-});
-
-test("the wrapper stays reachable, so this rule costs no capability", () => {
-  // The guard above must not be satisfied by deleting omp support outright.
-  // Every Anthropic and ChatGPT model keeps its omp alias, so an explicit omp
-  // route and an exact registered resume both still work.
-  for (const entry of MODEL_REGISTRY) {
-    if (familyOf(entry.model) === undefined) continue;
-    assert.ok(
-      HARNESS_NAMES.OMP in entry.harnessAliases,
-      `"${entry.model}" lost its omp alias — native primaries must not be ` +
-        `achieved by making the wrapper unreachable`,
-    );
-  }
 });

@@ -1,6 +1,6 @@
-import { resolveAlphaModelSteer } from './legacy-alpha-model-steering.ts';
+import { resolveAlphaModelSteer } from '../harness-routing/policy/alpha-model-steering.ts';
 import { resolveExecutionShadowModelSteer } from '../harness-routing/policy/execution-shadow-model-steering.ts';
-import { resolveGateModelSteer } from './legacy-gate-model-steering.ts';
+import { resolveGateModelSteer } from '../harness-routing/policy/gate-model-steering.ts';
 import type { ModelSteer } from '../harness-routing/policy/model-steering.shared.ts';
 import type { SteerInput } from '../harness-routing/policy/steering.types.ts';
 

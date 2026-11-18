@@ -163,8 +163,13 @@ export async function resolveInstallFallbackPaths(
   destinationProjectDir: string,
   planPaths: readonly string[],
   npmDependencyPath: string,
+  isBuildCachePath: (relativePath: string) => boolean,
 ): Promise<readonly string[]> {
-  const hasNonNpmPath = planPaths.some(
+  const installedPaths = planPaths.filter(
+    (relativePath) => !isBuildCachePath(relativePath),
+  );
+  if (installedPaths.length === 0) return planPaths;
+  const hasNonNpmPath = installedPaths.some(
     (relativePath) => relativePath !== npmDependencyPath,
   );
   if (hasNonNpmPath) {

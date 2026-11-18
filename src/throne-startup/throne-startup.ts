@@ -27,12 +27,6 @@
 
 import os from "node:os";
 import path from "node:path";
-import {
-  describeOmpExtensionInstall,
-  installOmpDeliveryExtension,
-  INSTALLED_EXTENSION_NAME,
-  type OmpExtensionInstallOutcome,
-} from "../herdr/omp-extension-install.ts";
 import { RUNTIME_THRONE_ROOT } from "../shared-policy/runtime-throne-root.ts";
 import {
   openRegentQueueStore,
@@ -93,9 +87,6 @@ export interface ThroneStartupDeps {
   renameWorkspace: typeof renameWorkspace;
   agentNameAtLaunch?: () => string | undefined;
   throneRoot: string;
-  /** Keeps omp's copy of the throne delivery extension pointing at this
-   *  checkout. Injected so tests never touch a real ~/.omp. */
-  installOmpExtension: () => Promise<OmpExtensionInstallOutcome>;
   readQueue: () => Promise<RegentQueueReadResult>;
   resolveDigestReader: (name: string | undefined) => Promise<DigestReader>;
   /**
@@ -135,15 +126,6 @@ export const REAL_DEPS: ThroneStartupDeps = {
   renameWorkspace,
   agentNameAtLaunch: () => process.env[TAB_AGENT_NAME_VARIABLE],
   throneRoot: THRONE_ROOT,
-  installOmpExtension: () =>
-    installOmpDeliveryExtension({
-      source: path.join(
-        THRONE_ROOT,
-        "extensions",
-        "omp",
-        INSTALLED_EXTENSION_NAME,
-      ),
-    }),
   readQueue: async () => {
     const store = openRegentQueueStore();
     try {
@@ -373,21 +355,6 @@ export async function run(
         "throne-startup: exported the live throne bin dir (git identity shim) onto this session's PATH\n",
       );
     }
-  }
-
-  // Step 0 — keep the omp delivery extension current, before anything that
-  // might send a message. It is a symlink into this checkout, so this is
-  // normally a no-op that confirms the link still points here; it matters on
-  // a fresh clone, after a checkout move, and on a host where omp was
-  // installed but never run. Never fatal: a throne that cannot install an
-  // extension still has a court to bring up.
-  try {
-    const outcome = await deps.installOmpExtension();
-    process.stderr.write(`throne-startup: ${describeOmpExtensionInstall(outcome)}\n`);
-  } catch (err) {
-    process.stderr.write(
-      `throne-startup: omp delivery extension install failed (${errText(err)}); continuing\n`,
-    );
   }
 
   // Step 1 — resolve our own pane. Not being inside herdr is not the throne

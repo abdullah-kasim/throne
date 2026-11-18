@@ -253,9 +253,9 @@ must land its intended content in one round; at most two rounds, the
 second only for a diagnosed fixable cause; a needed third round means you
 (the Alpha) merge by hand with plain documented git in your own tree and
 file the recurrence as a process defect. The tripwire counts merges
-attempted against a live destination only; absorb iterations inside the
-delivery rehearsal's private copy are not integration rounds and never
-count toward it. A slice with nothing to merge — a zero-diff validator,
+attempted against a live destination only; the target merges of the
+one-commit delivery, which run in the Alpha worktree, are not integration
+rounds and never count toward it. A slice with nothing to merge — a zero-diff validator,
 a finding-only slice, a gate whose absorb turned out to be a verified
 no-op — still calls`merge-git-tree`unconditionally: the no-op merge
 itself publishes the completion stamp that makes the Shadow reapable

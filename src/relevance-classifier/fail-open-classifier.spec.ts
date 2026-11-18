@@ -25,7 +25,7 @@ function backendAnswering(
   answer: (questions: readonly FailOpenQuestion[]) => Promise<readonly BackendAnswer[]>,
 ): ClassifierBackend & { callCount: number } {
   const backend = {
-    name: 'jev' as const,
+    name: 'rules' as const,
     callCount: 0,
     answer: (_state: string, questions: readonly FailOpenQuestion[]) => {
       backend.callCount += 1;
@@ -69,8 +69,8 @@ for (const [situation, makeError, expectedStderr] of FAILURES) {
     assert.deepEqual(
       answers.map((answer) => [answer.questionId, answer.pick, answer.failedOpen, answer.backend]),
       [
-        ['a', YES, true, 'jev'],
-        ['b', YES, true, 'jev'],
+        ['a', YES, true, 'rules'],
+        ['b', YES, true, 'rules'],
       ],
     );
     assert.equal(stderr.lines.length, 1);
@@ -86,7 +86,7 @@ test('a confident pick away from the safe answer is honoured', async () => {
   const stderr = collectingStderr();
   const answers = await askFailingOpen(backend, 'state', [keepQuestion('a')], stderr);
   assert.deepEqual(answers, [
-    { questionId: 'a', pick: NO, probability: 0.9, backend: 'jev', failedOpen: false },
+    { questionId: 'a', pick: NO, probability: 0.9, backend: 'rules', failedOpen: false },
   ]);
   assert.deepEqual(stderr.lines, []);
 });

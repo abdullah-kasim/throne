@@ -122,7 +122,6 @@ function reportResidentAgent(
   const routed =
     request.routingNote === "" ? "" : ` — routed: ${request.routingNote}`;
   const policyOverrideNote = [
-    request.capabilityOverrideNote,
     request.effortOverrideNote,
     request.harnessOverrideNote,
   ]

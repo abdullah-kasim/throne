@@ -156,6 +156,8 @@ function restartCourt(name: string, record: SpawnSpec | null, readConfig: ReadAc
     renameAgent: async () => {},
     acquireRegentRestartLock: async () => "token",
     releaseRegentRestartLock: async () => {},
+    listClaudeSessions: async () => [],
+    processIsAlive: () => false,
     log: () => {},
     warn: () => {},
   };

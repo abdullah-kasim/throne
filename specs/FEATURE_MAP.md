@@ -15,7 +15,7 @@ Everything else is uncatalogued: search the code for it.
 ## delivery
 
 - **Delivery verification**: Proves from git state alone that work landed, and guards protected branches. ([delivery/verification.md](delivery/verification.md))
-- **Worktrees and merges**: Creates campaign worktrees and merges slice branches back into their target. ([delivery/worktrees.md](delivery/worktrees.md))
+- **Worktrees and merges**: Creates campaign worktrees, merges slice branches back into their target and records each delivery in the agent's delivery-evidence.json. ([delivery/worktrees.md](delivery/worktrees.md))
 
 ## knowledge
 
@@ -25,17 +25,18 @@ Everything else is uncatalogued: search the code for it.
 
 ## messaging
 
-- **Message queue**: Stores every message durably in SQLite and lets senders track, cancel, read and acknowledge it. ([messaging/message-queue.md](messaging/message-queue.md))
-- **Agent messaging**: Delivers one message to a named agent pane, wrapped in its queue id tags, without overwriting a draft the pane already holds, can force a bare Enter into that pane, and takes over a pane lock held longer than a minute. ([messaging/send-agent.md](messaging/send-agent.md))
+- **Message queue**: Stores every message durably in SQLite, delivers it in one lane per recipient, and lets senders track, cancel, read and acknowledge it. ([messaging/message-queue.md](messaging/message-queue.md))
+- **Agent messaging**: Delivers one message to a named agent pane, wrapped in its queue id tags, without overwriting a draft the pane already holds, over the agent's own delivery socket when it was launched with one (throne's Claude Code mod or pi extension listening on it), can force a bare Enter into that pane, and takes over a pane lock held longer than a minute. ([messaging/send-agent.md](messaging/send-agent.md))
 
 ## platform
 
+- **Harness hooks**: Lists throne's global hooks once in claude-hooks/hooks.json, registers them in Claude Code's settings, and runs the same scripts on pi agents through a bridge extension. ([platform/harness-hooks.md](platform/harness-hooks.md))
 - **Throne lifecycle**: Installs, starts, stops and restarts the throne and its Regent. ([platform/lifecycle.md](platform/lifecycle.md))
 - **Notifications and bots**: Sends messages to the Lord through ntfy and through Matrix bots. ([platform/notifications.md](platform/notifications.md))
 - **Regent fencing and suite arbitration**: Hands context to a freshly summoned Regent and records who holds the full suite. ([platform/regent-fencing.md](platform/regent-fencing.md))
 - **Scratch space and slots**: Sweeps stale scratch directories and runs commands in counted slots. ([platform/scratch.md](platform/scratch.md))
-- **Identity, forge and previews**: Supplies the git identity, works with pull requests, publishes tailnet previews and checks pinned tools. ([platform/tooling.md](platform/tooling.md))
-- **Usage and capacity**: Reports plan usage, token lanes, host pressure and the Claude accounts agents run on. ([platform/usage.md](platform/usage.md))
+- **Identity, forge and previews**: Supplies the git identity, refuses orchestration words in commit and merge messages, works with pull requests, publishes tailnet previews and installs and checks pinned tools. ([platform/tooling.md](platform/tooling.md))
+- **Usage and capacity**: Reports plan usage, token lanes, host pressure and the Claude and provider accounts agents run on. ([platform/usage.md](platform/usage.md))
 
 ## queue
 

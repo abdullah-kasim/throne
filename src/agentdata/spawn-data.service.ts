@@ -3,7 +3,6 @@ import {
   agentRegistrationExists,
   readSpawnSpec,
   writeSpawnSpec,
-  spawnCapabilityEvidenceIsValid,
   type SpawnSpec,
 } from "./spawn-data-contracts.ts";
 
@@ -12,5 +11,4 @@ export class SpawnDataService {
   readonly agentRegistrationExists = agentRegistrationExists;
   readonly readSpawnSpec = readSpawnSpec;
   readonly writeSpawnSpec = writeSpawnSpec;
-  readonly spawnCapabilityEvidenceIsValid = spawnCapabilityEvidenceIsValid;
 }

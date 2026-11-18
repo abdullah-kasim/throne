@@ -8,7 +8,6 @@ import {
   RECALL_LEDGER_FILE_NAME,
   probabilityOfYes,
 } from './recall-records.ts';
-import { HOOK_OUTCOMES, type HookOutcome } from './hook-outcome.ts';
 import { OTHER_REPOSITORY_LEDGER_FIELD } from './other-repositories-records.ts';
 import { OTHER_PROMPT, PROMPT_KINDS, type PromptKind } from './prompt-kind.ts';
 import {
@@ -37,7 +36,6 @@ export interface LoggedPrompt {
   readonly promptKind: PromptKind;
   readonly correctionPick: string | undefined;
   readonly transcriptPath: string | null;
-  readonly hookOutcome: HookOutcome | undefined;
   readonly suppressedFiles: readonly string[];
   readonly contentHashOfEachDecidedFile: ReadonlyMap<string, string>;
   readonly probabilityOfYesOfEachJudgedFile: ReadonlyMap<string, number>;
@@ -155,14 +153,6 @@ function promptKindOf(line: LogLine): PromptKind {
   return isPromptKind(line.promptKind) ? line.promptKind : OTHER_PROMPT;
 }
 
-function isHookOutcome(value: unknown): value is HookOutcome {
-  return HOOK_OUTCOMES.some((hookOutcome) => hookOutcome === value);
-}
-
-function hookOutcomeOfSummary(line: LogLine): HookOutcome | undefined {
-  return isHookOutcome(line.hookOutcome) ? line.hookOutcome : undefined;
-}
-
 function earliestLineRecordingAPromptKind(lines: readonly LogLine[]): string | undefined {
   const times = lines
     .filter((line) => isPromptKind(line.promptKind) && typeof line.at === 'string')
@@ -232,7 +222,6 @@ function promptsFromLedger(
         promptKind: promptKindOf(line),
         correctionPick: correctionPickOf(promptLine),
         transcriptPath: stringOrNull(promptLine?.transcriptPath),
-        hookOutcome: hookOutcomeOfSummary(line),
         suppressedFiles: decisions
           .filter((decision) => decision.suppressed === true)
           .map((decision) => String(decision.questionId)),

@@ -44,6 +44,13 @@ all chained or aliased workflow commits. Examples:
 | checkpoint      | `Save commit-message policy baseline`          | `checkpoint(cmg): finish slice`    |
 | chained / alias | `Apply commit-message policy across workflows` | `Run plan-and-execute agent chain` |
 
+A campaign reaches its target as one commit (gate-99c-deliver.md, "The four
+steps of a delivery"): its subject names the shipped change and its body lists the
+real changes, written from `git diff --cached --stat` and the diff. A step that
+records a verdict with a commit that changes no file keeps doing so on the
+campaign branch and passes `git --bypass commit`, because such a message names
+the step; those commits never reach the target. No other file restates this.
+
 Before committing, inspect the final message exactly as Git will receive it. If
 any rejected-axis term appears, rewrite the message around the shipped repository
 behavior. A message that cannot explain the task-domain change without workflow

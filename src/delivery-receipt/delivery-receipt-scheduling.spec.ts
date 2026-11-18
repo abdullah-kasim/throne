@@ -66,7 +66,7 @@ function typingPane(scene: ReceiptCheckScene): TypingPane {
     ...fakeSubmitToAgentDeps(typedTexts),
     stagePayload: (recipient, body) =>
       stagePayload(recipient, body, realDepsRootedAt(path.join(scene.directory, 'payloads'))),
-    fileBackedPayloadsEnabled: true,
+    fileBackedPayloadsEnabled: async () => true,
   };
   return {
     typedTexts,

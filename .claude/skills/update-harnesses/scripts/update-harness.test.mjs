@@ -359,3 +359,34 @@ test('importing update-harness.mjs as a module never runs main()', () => {
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, '');
 });
+
+function runUpdateWithMod(modValidateError) {
+  const root = mkdtempSync(path.join(tmpdir(), 'update-harness-mod-'));
+  const throneRoot = makeThroneRoot(root, { pinnedVersion: '2.1.226' });
+  mkdirSync(path.join(throneRoot, 'extensions', 'claude'), { recursive: true });
+  writeVendoredClaude(throneRoot, '2.1.226');
+  const npmDir = fakeNpmDir(root, { latestVersion: '2.1.267', modValidateError });
+  const throneDir = fakeThroneDir(root);
+  const managedRoot = path.join(root, 'managed');
+  mkdirSync(managedRoot, { recursive: true });
+  const evidencePath = path.join(root, 'evidence.json');
+  const result = spawnSync(process.execPath, [SCRIPT, 'update', '--harness', 'claude', '--throne-root', throneRoot, '--managed-root', managedRoot, '--evidence', evidencePath], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${npmDir}:${throneDir}:${process.env.PATH}` },
+  });
+  return { result, throneRoot, evidence: JSON.parse(readFileSync(evidencePath, 'utf8')) };
+}
+
+test('a failed mod validation names the reason the mod does not fit this version', () => {
+  const { result, throneRoot, evidence } = runUpdateWithMod('unknown hook turn.start');
+  const modLines = result.stderr.split('\n').filter((line) => line.includes('plugin validate'));
+  assert.deepEqual(modLines, ['update-harness: the Claude mod in extensions/claude fails plugin validate on 2.1.267 (unknown hook turn.start); every Claude agent launches without it and get messages as typed keys']);
+  assert.equal(evidence.modValidation.fits, false);
+  assert.equal(JSON.parse(readFileSync(path.join(throneRoot, 'vendor-pins.json'), 'utf8')).harnesses.claude.version, '2.1.267');
+});
+
+test('a Claude update the mod still fits says the mod passes plugin validate', () => {
+  const { result, evidence } = runUpdateWithMod(null);
+  assert.match(result.stdout, /^update-harness: the Claude mod in extensions\/claude passes plugin validate on 2\.1\.267$/m);
+  assert.equal(evidence.modValidation.fits, true);
+});

@@ -17,10 +17,10 @@ const SOURCE = "/checkout/config.user.ts";
 
 test("activeHarness is accepted as its own field", () => {
   const override = validateSteeringOverride(
-    { activePlanPresetName: "TerraLow", activeHarness: "omp" },
+    { activePlanPresetName: "TerraLow", activeHarness: "pi" },
     SOURCE,
   );
-  assert.equal(override.activeHarness, "omp");
+  assert.equal(override.activeHarness, "pi");
   // The preset is untouched by it — that is the entire point.
   assert.equal(override.activePlanPresetName, "TerraLow");
 });
@@ -45,14 +45,14 @@ test("an empty or non-string harness is refused at config load", () => {
 
 test("the harness name is trimmed rather than taken literally", () => {
   assert.equal(
-    validateSteeringOverride({ activeHarness: "  omp  " }, SOURCE).activeHarness,
-    "omp",
+    validateSteeringOverride({ activeHarness: "  pi  " }, SOURCE).activeHarness,
+    "pi",
   );
 });
 
 test("an unknown steering field is still refused — the allowlist did not widen", () => {
   assert.throws(
-    () => validateSteeringOverride({ activeHarnesss: "omp" }, SOURCE),
+    () => validateSteeringOverride({ activeHarnesss: "pi" }, SOURCE),
     /is not a known field/,
   );
 });
@@ -72,31 +72,23 @@ test("delivery steering accepts SQLite and rejects obsolete transports", () => {
   }
 });
 
-// The Stager is a third, separate decision. Presets name campaign-role
-// models, `activeHarness` names the campaign-role harness, and NEITHER may
-// move the Lord's point of contact — that pin is a standing order. But the
-// order pins what the Stager runs on, not that it can never be changed:
-// before `stagerPool` existed the only way to move it was editing
-// src/config.ts, so when the court moved to omp the Stager alone kept
-// spawning on the native claude harness and nothing said so.
-
 test("stagerPool is accepted as its own field", () => {
   const override = validateSteeringOverride(
-    { stagerPool: [{ harness: "omp", model: "opus" }] },
+    { stagerPool: [{ harness: "pi", model: "pro" }] },
     SOURCE,
   );
-  assert.deepEqual(override.stagerPool, [{ harness: "omp", model: "opus" }]);
+  assert.deepEqual(override.stagerPool, [{ harness: "pi", model: "pro" }]);
 });
 
 test("stagerPool is absent unless the operator names it", () => {
   assert.equal(
-    validateSteeringOverride({ activeHarness: "omp" }, SOURCE).stagerPool,
+    validateSteeringOverride({ activeHarness: "pi" }, SOURCE).stagerPool,
     undefined,
   );
 });
 
 test("a malformed stagerPool refuses the config", () => {
-  for (const bad of [[], "omp/opus", {}, [{ harness: "omp" }]]) {
+  for (const bad of [[], "pi/pro", {}, [{ harness: "pi" }]]) {
     assert.throws(
       () => validateSteeringOverride({ stagerPool: bad }, SOURCE),
       /stagerPool/,

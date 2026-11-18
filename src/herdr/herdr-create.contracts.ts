@@ -6,6 +6,7 @@ export interface StartOptions {
    *  caller that doesn't compute a persona label keep today's behaviour. */
   tabLabel?: string;
   account?: string;
+  env?: Record<string, string>;
 }
 export type StartEvidencePhase =
   | "tab-created"
@@ -46,6 +47,9 @@ export interface StartInTabDeps {
   now: () => number;
   sleep: (milliseconds: number) => Promise<void>;
   vendoredHarnessBinaryDirectory?: string;
+  claudeMod?: import('./claude-mod-route.ts').ClaudeModLaunchDeps;
+  readHarnessEnvironment?: (harness: string) => Promise<Readonly<Record<string, string>>>;
+  deliverySocket?: import('./delivery-socket-path.ts').DeliverySocketDeps;
 }
 export interface StartFailureAnnotation {
   phase: StartEvidencePhase;

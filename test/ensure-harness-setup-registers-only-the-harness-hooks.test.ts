@@ -76,20 +76,20 @@ test("a machine with no hooks gets all nine added, and a second run reports them
     "ensure-harness-setup: claude scratch path guard: added\n",
     "ensure-harness-setup: claude skill write guard: added\n",
     "ensure-harness-setup: claude memory read log: added\n",
-    "ensure-harness-setup: claude jev fence: added\n",
     "ensure-harness-setup: claude agent exit marker: added\n",
     "ensure-harness-setup: claude agent state: added\n",
     "ensure-harness-setup: claude hidden skill pointer: added\n",
+    "ensure-harness-setup: claude stager tree refresh: added\n",
     "ensure-harness-setup: claude web fetch failure pointer: added\n",
     "ensure-harness-setup: codex session start: added\n",
   ]);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/scratch-path-guard\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/skill-write-guard\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/memory-read-log\.py/);
-  assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/jev-fence\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/agent-exit-marker\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/agent-state\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/hidden-skill-pointer\.py/);
+  assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/stager-tree-refresh\.py/);
   assert.match(machine.settings.text ?? "", /\/srv\/throne\/claude-hooks\/web-fetch-failure-pointer\.py/);
   assert.match(
     machine.codexHooks.get("/srv/throne/.codex/hooks.json") ?? "",
@@ -102,10 +102,10 @@ test("a machine with no hooks gets all nine added, and a second run reports them
     "ensure-harness-setup: claude scratch path guard: unchanged\n",
     "ensure-harness-setup: claude skill write guard: unchanged\n",
     "ensure-harness-setup: claude memory read log: unchanged\n",
-    "ensure-harness-setup: claude jev fence: unchanged\n",
     "ensure-harness-setup: claude agent exit marker: unchanged\n",
     "ensure-harness-setup: claude agent state: unchanged\n",
     "ensure-harness-setup: claude hidden skill pointer: unchanged\n",
+    "ensure-harness-setup: claude stager tree refresh: unchanged\n",
     "ensure-harness-setup: claude web fetch failure pointer: unchanged\n",
     "ensure-harness-setup: codex session start: unchanged\n",
   ]);
@@ -121,10 +121,10 @@ test("a malformed settings file fails every claude hook with the reason and noti
   assert.match(machine.stderr[0], /^ensure-harness-setup: claude scratch path guard: failed: .*is not valid JSON/);
   assert.match(machine.stderr[1], /^ensure-harness-setup: claude skill write guard: failed: .*is not valid JSON/);
   assert.match(machine.stderr[2], /^ensure-harness-setup: claude memory read log: failed: .*is not valid JSON/);
-  assert.match(machine.stderr[3], /^ensure-harness-setup: claude jev fence: failed: .*is not valid JSON/);
-  assert.match(machine.stderr[4], /^ensure-harness-setup: claude agent exit marker: failed: .*is not valid JSON/);
-  assert.match(machine.stderr[5], /^ensure-harness-setup: claude agent state: failed: .*is not valid JSON/);
-  assert.match(machine.stderr[6], /^ensure-harness-setup: claude hidden skill pointer: failed: .*is not valid JSON/);
+  assert.match(machine.stderr[3], /^ensure-harness-setup: claude agent exit marker: failed: .*is not valid JSON/);
+  assert.match(machine.stderr[4], /^ensure-harness-setup: claude agent state: failed: .*is not valid JSON/);
+  assert.match(machine.stderr[5], /^ensure-harness-setup: claude hidden skill pointer: failed: .*is not valid JSON/);
+  assert.match(machine.stderr[6], /^ensure-harness-setup: claude stager tree refresh: failed: .*is not valid JSON/);
   assert.match(machine.stderr[7], /^ensure-harness-setup: claude web fetch failure pointer: failed: .*is not valid JSON/);
   assert.deepEqual(machine.stdout, ["ensure-harness-setup: codex session start: added\n"]);
   assert.equal(machine.settings.text, "{ not json");

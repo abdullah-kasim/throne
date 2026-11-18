@@ -208,17 +208,17 @@ test("hydration failure removes the newly created worktree and branch", async ()
   const worktreesHome = await mkdtemp(path.join(tmpdir(), "throne-worktrees-"));
   scratchRoots.push(worktreesHome);
   await writeFile(
-    path.join(root, "Cargo.toml"),
-    '[package]\nname = "source"\n',
+    path.join(root, "pyproject.toml"),
+    '[project]\nname = "source"\n',
   );
-  await git(root, ["add", "Cargo.toml"]);
-  await git(root, ["commit", "--no-gpg-sign", "-m", "add Cargo manifest"]);
+  await git(root, ["add", "pyproject.toml"]);
+  await git(root, ["commit", "--no-gpg-sign", "-m", "add Python manifest"]);
   await git(root, ["checkout", "-b", "divergent"]);
   await writeFile(
-    path.join(root, "Cargo.toml"),
-    '[package]\nname = "destination"\n',
+    path.join(root, "pyproject.toml"),
+    '[project]\nname = "destination"\n',
   );
-  await git(root, ["commit", "--no-gpg-sign", "-am", "diverge Cargo manifest"]);
+  await git(root, ["commit", "--no-gpg-sign", "-am", "diverge Python manifest"]);
   await git(root, ["checkout", "main"]);
 
   const previousWorktreesHome = process.env.THRONE_WORKTREES_HOME;

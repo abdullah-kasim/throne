@@ -21,27 +21,6 @@ import {
 
 /**
  * This command's registered name on the transport route dispatcher.
- *
- * WATCHDOG FINDING (verified by grep over `sendSdNotify`/`notifyWatchdog`):
- * unlike `keep-going`, whose route deliberately calls its sweep's plain
- * `run()` instead of `runOnce()` so a manual trigger can never feed the
- * systemd watchdog on the scheduler's behalf, alpha-autoscale has no
- * watchdog feed anywhere in its call path to bypass. `sendSdNotify` has
- * exactly one call site in this codebase, `KeepGoingHostedWorker.runOnce()`
- * (`src/throne-backend/keep-going.hosted-worker.ts`); nothing in
- * `AlphaAutoscaleHostedWorker.runOnce()` or this route's call path ever
- * pings the watchdog. So this route calls `runOnce()` directly -- the same
- * method the cron tick calls -- rather than needing a separate
- * watchdog-avoiding entry point; there is none to invent.
- *
- * RESIDUAL BLIND SPOT (carried forward from `keep-going-route.ts`, restated
- * for alpha-autoscale's own watchdog-free reality): a manual trigger through
- * this route only proves the sweep logic runs -- it says nothing about
- * whether the cron scheduler itself is still ticking on its own. For
- * `keep-going` that blind spot is a deliberate trade against masking a dead
- * scheduler behind the watchdog; for alpha-autoscale there is no watchdog
- * wrapper being bypassed at all, so the blind spot is simply that this route
- * cannot observe the scheduler's own liveness, only the sweep's correctness.
  */
 export const ALPHA_AUTOSCALE_ROUTE_PATH = "alpha-autoscale";
 

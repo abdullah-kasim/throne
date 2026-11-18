@@ -180,10 +180,3 @@ test('non-commit subcommands never consult the identity', async () => {
   assert.equal(code, 0);
   assert.deepEqual(await recordedArgv(f), ['status', '--short']);
 });
-
-test('the message guard still refuses orchestration provenance after the identity passes', async () => {
-  const f = await fixture();
-  const { code, stderr } = await runShim(f, ['commit', '-m', 'Alpha finished the campaign'], { FAKE_EMAIL: 'someone@example.com', FAKE_NAME: 'Some One' });
-  assert.equal(code, 65);
-  assert.match(stderr, /orchestration machinery/);
-});

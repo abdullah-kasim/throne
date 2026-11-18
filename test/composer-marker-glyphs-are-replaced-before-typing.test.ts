@@ -15,12 +15,12 @@ const blockedPage = [
 test("a line-start selected-option glyph is typed as a plain greater-than sign", () => {
   const typed = submittedPayload("blocked-paging", blockedPage, { messageId: 3759 });
   assert.match(typed, /^> 1\. Yes$/mu);
-  assert.doesNotMatch(typed, /^\s*[❯›┃╰]/mu);
+  assert.doesNotMatch(typed, /^\s*[❯›┃]/mu);
 });
 
 test("every harness composer glyph at a line start is replaced, keeping its indentation", () => {
-  const typed = submittedPayload("", "a\n❯ one\n  › two\n┃ three\n╰ four", { omitSenderAttribution: true });
-  assert.equal(typed, "a\n> one\n  > two\n> three\n> four");
+  const typed = submittedPayload("", "a\n❯ one\n  › two\n┃ three", { omitSenderAttribution: true });
+  assert.equal(typed, "a\n> one\n  > two\n> three");
 });
 
 test("a composer glyph in the middle of a line is left alone", () => {

@@ -9,10 +9,18 @@ import {
 } from './dig-episodes.ts';
 import { inputHash } from './recall-records.ts';
 import { readRecallReportLogs, type LoggedPrompt } from './recall-report-logs.ts';
-import { excerptOf, fileNames } from './recall-report-render.ts';
 
 export const PROMPTS_SPOT_CHECKED_BY_DEFAULT = 10;
 const SPOT_CHECK_EXCERPT_CHARACTERS = 300;
+
+function fileNames(filePaths: readonly string[]): string {
+  return filePaths.length === 0 ? 'nothing' : filePaths.map((filePath) => path.basename(filePath)).join(', ');
+}
+
+function excerptOf(promptText: string, characters: number): string {
+  const oneLine = promptText.replaceAll(/\s+/g, ' ').trim();
+  return oneLine.length > characters ? `${oneLine.slice(0, characters)}...` : oneLine;
+}
 
 export interface GradedPrompt {
   readonly id: string;
@@ -63,7 +71,7 @@ function renderedGrade(grade: Grade): string {
 
 function renderedGradedPrompt({ id, entry, grades }: GradedPrompt): string {
   const { prompt } = entry;
-  const served = prompt.arm === SERVE_ARM ? 'Jev served' : 'Jev would have served';
+  const served = prompt.arm === SERVE_ARM ? 'served' : 'would have served';
   return [
     `[${id}] ${prompt.at} ${prompt.arm} arm, ${prompt.promptKind} prompt`,
     `  prompt: "${excerptOf(prompt.promptText, SPOT_CHECK_EXCERPT_CHARACTERS)}"`,

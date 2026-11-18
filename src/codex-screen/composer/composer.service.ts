@@ -10,6 +10,7 @@ import {
   readPromptRegion,
 } from "./prompt-region.ts";
 import { normalizeRenderedPayload } from "./rendered-text.ts";
+import { readPiComposer } from "./pi-composer.ts";
 import type {
   ComposerInspection,
   SupportedAgentScreenSnapshot,
@@ -22,6 +23,9 @@ export class ComposerService implements ComposerInspection {
     paneAnsi: string,
   ): SupportedAgentScreenSnapshot {
     const lines = styledLinesFromAnsi(paneAnsi);
+    if (harness === HARNESS_NAMES.PI) {
+      return { activeComposer: readPiComposer(lines), promptTexts: [], codexQueuedTexts: [], codexPendingTexts: [] };
+    }
     const candidates = promptMarkerCandidates(lines, harness);
     const selectedMarker = activePromptMarker(candidates, harness, lines);
     const selectedRegion =
@@ -98,7 +102,7 @@ export class ComposerService implements ComposerInspection {
       harness !== HARNESS_NAMES.CLAUDE &&
       harness !== HARNESS_NAMES.CODEX &&
       harness !== HARNESS_NAMES.OPENCODE &&
-      harness !== HARNESS_NAMES.OMP
+      harness !== HARNESS_NAMES.PI
     )
       return false;
     return (

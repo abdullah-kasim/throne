@@ -218,7 +218,7 @@ export function fakeSubmitToAgentDeps(sent: string[]): SubmitToAgentDeps {
     sendText: async (_pane: string, text: string) => {
       sent.push(text);
     },
-    deliverToOmp: async () => ({ kind: "delivered" }) as const,
+    deliverThroughExtension: async () => ({ kind: "delivered" }) as const,
     pressEnter: async () => {},
     pressPaneKey: async () => {},
     // The fake target's harness ('unknown') never reaches a composer-clearance

@@ -33,15 +33,7 @@ const COMPOSER_MARKERS: Readonly<Record<RuntimeHarness, string>> = {
   // vertical bar on every composer line, captured from live opencode panes
   // (the composer input itself carries no ❯/› glyph).
   [HARNESS_NAMES.OPENCODE]: "┃",
-  // omp draws its composer as a rounded box whose bottom edge IS the input
-  // line (`╰─ <draft text> ─╯`), with the model/status breadcrumb drawn into
-  // the box's TOP edge instead of a separate footer row — confirmed against
-  // a live omp pane (slice 05 recon, tmux capture of a real `bin/ompy`
-  // launch). The marker is this bottom-left corner glyph; see
-  // `isOmpComposerBottomEdge` for how a real composer edge is told apart
-  // from an unrelated decorative box (e.g. the welcome screen's boxes, which
-  // also close with a `╰` corner).
-  [HARNESS_NAMES.OMP]: "╰",
+  [HARNESS_NAMES.PI]: "",
 };
 
 export const COMPOSER_MARKER_GLYPHS: readonly string[] =
@@ -96,7 +88,6 @@ export function promptMarkerCandidates(
   harness: Harness,
 ): PromptMarker[] {
   const marker = COMPOSER_MARKERS[runtimeHarness(harness)];
-  const isOmp = runtimeHarness(harness) === HARNESS_NAMES.OMP;
   const candidates: PromptMarker[] = [];
   for (const [lineIndex, line] of lines.entries()) {
     const characterIndex = firstNonWhitespaceIndex(line);
@@ -104,9 +95,6 @@ export function promptMarkerCandidates(
       characterIndex === undefined ||
       line[characterIndex]!.value !== marker
     ) {
-      continue;
-    }
-    if (isOmp && !isOmpComposerBottomEdge(line)) {
       continue;
     }
     candidates.push({
@@ -239,9 +227,6 @@ export function readPromptRegion(
 ): PromptRegion {
   if (harness === HARNESS_NAMES.OPENCODE) {
     return readOpenCodePromptRegion(lines, marker);
-  }
-  if (harness === HARNESS_NAMES.OMP) {
-    return readOmpPromptRegion(lines, marker);
   }
   const content: StyledCharacter[] = [
     ...lines[marker.lineIndex]!.slice(marker.characterIndex + 1),
@@ -506,70 +491,4 @@ function isOpenCodeModelLine(lineContent: StyledCharacter[]): boolean {
 
 export function openCodeFrameHasBoxBottom(lines: StyledCharacter[][]): boolean {
   return lines.some(isOpenCodeBoxBottomEdge);
-}
-
-/**
- * omp's composer box closes on a `╰─ <text> ─╯` row — one corner, exactly
- * ONE dash, then a space, then the draft (or padding when empty). Every
- * other box omp draws (the welcome screen's tip/model panels, the queued
- * suggestion list) closes with a `╰` corner run into two-or-more contiguous
- * dashes (`╰──…`) and never a lone dash followed by a space, so this shape
- * is what tells a real composer edge apart from decorative chrome.
- */
-function isOmpComposerBottomEdge(line: StyledCharacter[]): boolean {
-  return /^╰─ /u.test(plainText(line));
-}
-
-/**
- * A wrapped composer draft continues the box on the lines directly above
- * the bottom edge, each opening with `│` and two spaces before the content
- * — the same content column (3) as the bottom edge's `╰─ ` opens with, so
- * both shapes read through the shared column offset below.
- */
-function isOmpComposerContinuationLine(line: StyledCharacter[]): boolean {
-  return /^│ {2}/u.test(plainText(line));
-}
-
-const OMP_BOX_CONTENT_COLUMN = 3;
-
-/**
- * Both the bottom edge and any continuation line above it fill out to the
- * box's fixed right edge with trailing spaces/dashes closed by `╯`/`│`; that
- * trailing run is chrome, never part of the draft, and is stripped here
- * before the lines are stitched back together.
- */
-function stripOmpBoxTrailingBorder(text: string): string {
-  return text.replace(/[\s─]*[╮╯│]\s*$/u, "");
-}
-
-/**
- * omp's status/model breadcrumb (`Opus 5 · high > throne > …`) is drawn
- * into the box's TOP edge rather than a separate footer row (unlike
- * Codex/Claude/opencode), so the reader never needs to recognize and skip a
- * footer line the way those harnesses do — walking upward from the bottom
- * edge while lines keep matching the continuation shape already stops
- * exactly at the top edge, which fails that shape and is excluded.
- */
-function readOmpPromptRegion(
-  lines: StyledCharacter[][],
-  marker: PromptMarker,
-): PromptRegion {
-  let topLineIndex = marker.lineIndex;
-  while (
-    topLineIndex > 0 &&
-    isOmpComposerContinuationLine(lines[topLineIndex - 1]!)
-  ) {
-    topLineIndex -= 1;
-  }
-  const boxLines: string[] = [];
-  for (
-    let lineIndex = topLineIndex;
-    lineIndex <= marker.lineIndex;
-    lineIndex += 1
-  ) {
-    const raw = plainText(lines[lineIndex]!).slice(OMP_BOX_CONTENT_COLUMN);
-    boxLines.push(stripOmpBoxTrailingBorder(raw));
-  }
-  const text = normalizeRenderedLineSequence(boxLines);
-  return { active: true, text };
 }

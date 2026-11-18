@@ -4,7 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { text as readStreamAsText } from 'node:stream/consumers';
-import { chooseClassifierBackend } from '../relevance-classifier/choose-backend.ts';
+import { chooseClassifierBackend, renderedBackendStatus } from '../relevance-classifier/choose-backend.ts';
 import {
   YES,
   yesOrNoQuestion,
@@ -15,15 +15,6 @@ import {
   askFailingOpen,
   isLeftWithoutAnAnswer,
 } from '../relevance-classifier/fail-open-classifier.ts';
-import {
-  readJevSwitch,
-  renderedJevStatus,
-  type JevSwitch,
-} from '../relevance-classifier/jev-switch.ts';
-import {
-  readJevSpendingOnThisMachine,
-  type JevSpending,
-} from '../relevance-classifier/jev-spending.ts';
 import {
   loadRecallConfig,
   type RecallConfig,
@@ -51,8 +42,6 @@ const CHUNKS_ASKED_AT_ONCE = 8;
 export interface SiftDependencies {
   loadConfig(): Promise<RecallConfig>;
   chooseBackend(config: RecallConfig): Promise<ClassifierBackend>;
-  readJevSwitch(config: RecallConfig): Promise<JevSwitch>;
-  readJevSpending(config: RecallConfig): Promise<JevSpending>;
   readStdin(): Promise<string>;
   saveFullInput(text: string): Promise<string>;
   writeStdout(text: string): void;
@@ -80,9 +69,7 @@ async function saveFullInputUnderHomeTmp(text: string): Promise<string> {
 
 const PRODUCTION_DEPENDENCIES: SiftDependencies = {
   loadConfig: () => loadRecallConfig(),
-  chooseBackend: (config) => chooseClassifierBackend(config, 'sift'),
-  readJevSwitch: (config) => readJevSwitch(config),
-  readJevSpending: (config) => readJevSpendingOnThisMachine(config),
+  chooseBackend: () => chooseClassifierBackend(),
   readStdin: () => readStreamAsText(process.stdin),
   saveFullInput: saveFullInputUnderHomeTmp,
   writeStdout: (text) => process.stdout.write(text),
@@ -154,13 +141,7 @@ export async function runSift(
   dependencies: SiftDependencies = PRODUCTION_DEPENDENCIES,
 ): Promise<number> {
   if (commandArguments.length === 1 && commandArguments[0] === '--status') {
-    const config = await dependencies.loadConfig();
-    dependencies.writeStdout(
-      renderedJevStatus(
-        await dependencies.readJevSwitch(config),
-        await dependencies.readJevSpending(config),
-      ),
-    );
+    dependencies.writeStdout(renderedBackendStatus());
     return 0;
   }
   const unknownFlag = commandArguments.find((argument) =>

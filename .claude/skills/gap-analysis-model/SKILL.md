@@ -344,7 +344,7 @@ guardrail_flag=()
 a comparison subtree, at both tiers. The two flags each disable exactly one
 steer: without `--bypass-model` the engine steers the pair (the Alpha allowed
 set, the reserved `claude/fable` execution exclusion, and the 99 gate's
-capability-selected validator), usage steering remains mandatory and may route
+validator), usage steering remains mandatory and may route
 the pair away, and without `--bypass-effort` it refuses the explicit shared
 `COMPARE_EFFORT`. A silently rerouted descendant invalidates the experiment.
 The bypasses override steers only: role pools, the Alpha planning floor, the

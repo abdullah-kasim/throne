@@ -3,7 +3,7 @@ import { RUNTIME_THRONE_ROOT } from '../shared-policy/runtime-throne-root.ts';
 import { Injectable } from '@nestjs/common';
 import type { HerdrAgent } from '../herdr/herdr-inventory.service.ts';
 import { runHerdr } from './herdr-client.ts';
-import { loadUserConfigFile } from '../user-config-loader.ts';
+import { loadUserConfigFile, type UserConfigFile } from '../user-config-loader.ts';
 import {
   readOriginUrl,
   resolveGitIdentityForRemote,
@@ -46,6 +46,28 @@ export async function readConfiguredGitIdentity(cwd: string | undefined): Promis
   } catch (error) {
     process.stderr.write(
       `herdr tab create: git identity not exported, config.user.ts could not be loaded: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return undefined;
+  }
+}
+
+export async function readConfiguredHarnessEnvironment(
+  harness: string,
+  configPath?: string,
+): Promise<Readonly<Record<string, string>>> {
+  const file = await loadFreshUserConfigForLaunch(configPath, 'herdr launch: extra harness environment not applied');
+  return file?.harnessEnvironment[harness] ?? {};
+}
+
+export async function loadFreshUserConfigForLaunch(
+  configPath: string | undefined,
+  skippedMessage: string,
+): Promise<UserConfigFile | undefined> {
+  try {
+    return await loadUserConfigFile(configPath, `${Date.now()}-${++identityCacheBust}`);
+  } catch (error) {
+    process.stderr.write(
+      `${skippedMessage}, config.user.ts could not be loaded: ${error instanceof Error ? error.message : String(error)}\n`,
     );
     return undefined;
   }

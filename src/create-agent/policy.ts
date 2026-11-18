@@ -375,7 +375,6 @@ export async function resolveSpawnPolicy(
       launchEffort,
       routingNote,
       durableRoutingNote,
-      capabilityOverrideNote: "",
       effortOverrideNote,
       harnessOverrideNote,
       usageBypassAuthorization,

@@ -20,8 +20,8 @@
 // home — never silently read, never auto-merged.
 
 import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { inspect } from 'node:util';
@@ -31,6 +31,7 @@ import {
 } from './shared-policy/config-value-shape.ts';
 import { throneConfigDirectory } from './shared-policy/throne-home.ts';
 import { resolveLiveThroneRoot } from './throne-root-resolution.ts';
+import { validateHarnessEnvironment, type HarnessEnvironment } from './harness-environment.ts';
 
 export const PERSONA_SECTION_FIELDS = [
   'roleplayPreset',
@@ -70,22 +71,29 @@ export const STEERING_SECTION_FIELDS = [
 export const IDENTITY_SECTION_FIELDS = ['name', 'email', 'signingKey', 'signingFormat', 'identities', 'remotes'] as const;
 
 export const RECALL_SECTION_FIELDS = [
-  'jevEnabled',
-  'hookEnabled',
-  'hookMode',
   'verdictLineThreshold',
   'serveThreshold',
   'serveThresholdWhenCostIsHigh',
   'siftKeepThreshold',
   'maximumInjectedCharacters',
   'repositoryMemoryNamesPerRepository',
-  'hookTimeoutMilliseconds',
   'globalMemoryDirectories',
-  'rankAllowedRoots',
-  'jevKeyFile',
-  'jevTokensPerDay',
-  'jevTokensPerHour',
 ] as const;
+
+function withoutUnreadRecallFields(
+  recall: Record<string, unknown>,
+  sourcePath: string,
+): Record<string, unknown> {
+  const kept: Record<string, unknown> = {};
+  for (const [field, fieldValue] of Object.entries(recall)) {
+    if ((RECALL_SECTION_FIELDS as readonly string[]).includes(field)) {
+      kept[field] = fieldValue;
+      continue;
+    }
+    process.stderr.write(`recall.${field} in "${sourcePath}" is no longer read; delete it.\n`);
+  }
+  return kept;
+}
 
 export const AGENT_SETTINGS_SECTION_FIELDS = ['checkEnabled', 'colourByRole'] as const;
 
@@ -93,14 +101,31 @@ export const EDITOR_FIELD = 'editor';
 
 export const PREVIEWS_FIELD = 'previews';
 
+export const PI_SETTINGS_FIELD = 'piSettings';
+
+export const FEATURES_FIELD = 'features';
+
+export const FEATURE_SWITCH_KEYS = ['sendAgentFileBackedPayloads'] as const;
+
+export type FeatureSwitchKey = (typeof FEATURE_SWITCH_KEYS)[number];
+
+export type FeatureSwitches = Readonly<Record<FeatureSwitchKey, boolean>>;
+
+export const FEATURE_SWITCHES_OFF: FeatureSwitches = { sendAgentFileBackedPayloads: false };
+
+const PI_SETTINGS_THRONE_OWNS = ['defaultProvider', 'defaultModel'] as const;
+
 const TOP_LEVEL_FIELDS = [
   ...PERSONA_SECTION_FIELDS,
   EDITOR_FIELD,
   PREVIEWS_FIELD,
+  PI_SETTINGS_FIELD,
+  FEATURES_FIELD,
   'steering',
   'identity',
   'recall',
   'agentSettings',
+  'harnessEnvironment',
 ] as const;
 
 /** The merged file's default export, split into its three independently
@@ -116,6 +141,9 @@ export interface UserConfigFile {
   readonly agentSettings: Readonly<Record<string, unknown>>;
   readonly editor: string | undefined;
   readonly previews: unknown;
+  readonly piSettings: Readonly<Record<string, unknown>>;
+  readonly features: FeatureSwitches;
+  readonly harnessEnvironment: HarnessEnvironment;
 }
 
 const USER_CONFIG_FILE_NAME = 'config.user.ts';
@@ -218,7 +246,7 @@ function requireKnownKeys(
 function extractSection(
   value: Record<string, unknown>,
   field: string,
-  knownFields: readonly string[],
+  knownFields: readonly string[] | null,
   sourcePath: string,
 ): Record<string, unknown> {
   if (!(field in value)) return {};
@@ -230,8 +258,64 @@ function extractSection(
       `must be a plain object (got ${describeValue(section)})`,
     );
   }
-  requireKnownKeys(section, knownFields, sourcePath, `${field}.`);
+  if (knownFields) requireKnownKeys(section, knownFields, sourcePath, `${field}.`);
   return section;
+}
+
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  if (typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype) return false;
+  return Object.values(value).every(isJsonValue);
+}
+
+function extractPiSettings(
+  value: Record<string, unknown>,
+  sourcePath: string,
+): Record<string, unknown> {
+  const piSettings = extractSection(value, PI_SETTINGS_FIELD, null, sourcePath);
+  for (const [key, setting] of Object.entries(piSettings)) {
+    const field = `${PI_SETTINGS_FIELD}.${key}`;
+    if ((PI_SETTINGS_THRONE_OWNS as readonly string[]).includes(key)) {
+      throw invalidUserConfig(sourcePath, field, 'is set by throne for every pi agent and cannot be overridden');
+    }
+    if (!isJsonValue(setting)) {
+      throw invalidUserConfig(sourcePath, field, 'must be a JSON value (strings, numbers, booleans, null, arrays and plain objects)');
+    }
+  }
+  return piSettings;
+}
+
+function extractFeatures(
+  value: Record<string, unknown>,
+  sourcePath: string,
+): FeatureSwitches {
+  const section = extractSection(value, FEATURES_FIELD, FEATURE_SWITCH_KEYS, sourcePath);
+  const switches = { ...FEATURE_SWITCHES_OFF };
+  for (const key of FEATURE_SWITCH_KEYS) {
+    if (!(key in section)) continue;
+    const setting = section[key];
+    if (typeof setting !== 'boolean') {
+      throw invalidUserConfig(sourcePath, `${FEATURES_FIELD}.${key}`, `must be true or false (got ${describeValue(setting)})`);
+    }
+    switches[key] = setting;
+  }
+  return switches;
+}
+
+let featureReadSequence = 0;
+
+export async function readFeatureSwitch(key: FeatureSwitchKey, configPath?: string): Promise<boolean> {
+  try {
+    const file = await loadUserConfigFile(configPath, `${Date.now()}-${++featureReadSequence}`);
+    return file?.features[key] ?? false;
+  } catch (error) {
+    process.stderr.write(
+      `feature ${FEATURES_FIELD}.${key} reads as off, config.user.ts could not be loaded: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    return false;
+  }
 }
 
 function legacySteeringMigrationError(
@@ -246,6 +330,16 @@ function legacySteeringMigrationError(
   );
 }
 
+async function importFreshCopy(configPath: string, token: string): Promise<{ default?: unknown }> {
+  const freshCopy = path.join(path.dirname(configPath), `.${path.basename(configPath, '.ts')}.${token}-${randomUUID()}.ts`);
+  await copyFile(configPath, freshCopy);
+  try {
+    return (await import(pathToFileURL(freshCopy).href)) as { default?: unknown };
+  } finally {
+    await rm(freshCopy, { force: true });
+  }
+}
+
 export async function loadUserConfigFile(
   configPath?: string,
   cacheBustToken?: string,
@@ -255,10 +349,9 @@ export async function loadUserConfigFile(
 
   let userModule: { default?: unknown };
   try {
-    if (cacheBustToken) delete createRequire(import.meta.url).cache[resolvedPath];
-    userModule = (await import(pathToFileURL(resolvedPath).href)) as {
-      default?: unknown;
-    };
+    userModule = cacheBustToken
+      ? await importFreshCopy(resolvedPath, cacheBustToken)
+      : ((await import(pathToFileURL(resolvedPath).href)) as { default?: unknown });
   } catch (cause) {
     // `import()` can reject with a plain diagnostics object (e.g. ts-node's
     // ESM loader on a syntax error), not an `Error` — such objects have no
@@ -301,12 +394,7 @@ export async function loadUserConfigFile(
     IDENTITY_SECTION_FIELDS,
     resolvedPath,
   );
-  const recall = extractSection(
-    value,
-    'recall',
-    RECALL_SECTION_FIELDS,
-    resolvedPath,
-  );
+  const recall = extractSection(value, 'recall', null, resolvedPath);
   const agentSettings = extractSection(
     value,
     'agentSettings',
@@ -326,5 +414,18 @@ export async function loadUserConfigFile(
     if (field in value) persona[field] = value[field];
   }
 
-  return { persona, steering, identity, recall, agentSettings, editor, previews: value[PREVIEWS_FIELD] };
+  const harnessEnvironment = validateHarnessEnvironment(value.harnessEnvironment, resolvedPath);
+
+  return {
+    persona,
+    steering,
+    identity,
+    recall: withoutUnreadRecallFields(recall, resolvedPath),
+    agentSettings,
+    editor,
+    previews: value[PREVIEWS_FIELD],
+    piSettings: extractPiSettings(value, resolvedPath),
+    features: extractFeatures(value, resolvedPath),
+    harnessEnvironment,
+  };
 }
