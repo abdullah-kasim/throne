@@ -7,6 +7,7 @@ import path from "node:path";
 import { afterEach, test } from "node:test";
 import { MIRRORED_CONTRACT } from "../extensions/claude/hooks/throne-delivery.ts";
 import {
+  DELIVERY_CALLBACK_ENV,
   DELIVERY_HELPER_ENV,
   DELIVERY_RUNTIME_ENV,
   DELIVERY_SOCKET_ENV,
@@ -35,7 +36,10 @@ type Helper = {
 async function startHelper(): Promise<Helper> {
   const folder = await mkdtemp(path.join(tmpdir(), "cdh-"));
   const socket = path.join(folder, "d.sock");
-  const child = spawn(process.execPath, [helperScript], { env: { ...process.env, [DELIVERY_SOCKET_ENV]: socket, HERDR_PANE_ID: PANE } });
+  const callbackSocket = path.join(folder, "callback.sock");
+  const child = spawn(process.execPath, [helperScript], {
+    env: { ...process.env, [DELIVERY_SOCKET_ENV]: socket, [DELIVERY_CALLBACK_ENV]: callbackSocket, HERDR_PANE_ID: PANE },
+  });
   cleanups.push(async () => {
     child.kill();
     await rm(folder, { recursive: true, force: true });

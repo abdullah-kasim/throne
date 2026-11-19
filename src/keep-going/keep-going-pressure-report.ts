@@ -22,7 +22,6 @@ import {
   readDarwinCpuPressure,
   readDarwinIoPressure,
   readDarwinMemoryPressure,
-  type CpuTimesSample,
 } from '../pressure-signal/darwin-pressure-reader.ts';
 import {
   LOAD_GRADED_IN_PRESSURE_FIGURE,
@@ -58,8 +57,7 @@ export interface CapacityPressureSources {
   readonly load: LoadReading;
   readonly disk: DiskBusySources;
   readonly macLoadLimitPerCore: number;
-  readonly sampleDarwinCpus: () => CpuTimesSample;
-  readonly sleepDuringDarwinCpuSample: (milliseconds: number) => void;
+  readonly readDarwinIostat: () => string;
   readonly readDarwinSysctl: (names: readonly string[]) => string;
 }
 
@@ -78,7 +76,7 @@ export function readCapacityPressure(
   const load = fixtures.load ?? readLoadReading();
   if ((fixtures.platform ?? process.platform) === 'darwin') {
     return classifyPressure(
-      readDarwinCpuPressure(fixtures.sampleDarwinCpus, fixtures.sleepDuringDarwinCpuSample),
+      readDarwinCpuPressure(fixtures.readDarwinIostat),
       readDarwinMemoryPressure(fixtures.readDarwinSysctl),
       load,
       readDarwinIoPressure(),

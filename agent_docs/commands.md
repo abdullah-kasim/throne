@@ -4050,8 +4050,9 @@ and outside the verdict), load averages against the cpu count with a per-core
 ratio, and `MemAvailable`/`MemTotal` from `/proc/meminfo`. On macOS (since
 2026-09-02, the Lord's order that the autoscaler support mac) there is no PSI:
 the verdict comes from `src/pressure-signal/darwin-pressure-reader.ts` through
-the same classifier and thresholds — cpu is utilisation over a 500 ms
-`os.cpus()` sample, memory is the kernel's memorystatus subsystem
+the same classifier and thresholds — cpu is utilisation over the one-second
+interval line of `iostat -n 0 -c 2 -w 1` (Bun froze `os.cpus()` across a
+synchronous sample, 2026-11-18), memory is the kernel's memorystatus subsystem
 (`100 - kern.memorystatus_level`, floored to 70 at WARN and 100 at CRITICAL by
 `kern.memorystatus_vm_pressure_level`), io stall is not measurable and is
 graded 0 with that stated in the report, and the memory line comes from
@@ -4091,7 +4092,7 @@ is on the same device as `$HOME` (compared with stat, not by path), otherwise
 
 | Input | Linux | macOS | Quiet below |
 | --- | --- | --- | --- |
-| cpu | PSI cpu "some" avg60 | utilisation over a 500 ms `os.cpus()` sample | 5 |
+| cpu | PSI cpu "some" avg60 | utilisation over the one-second interval line of `iostat -n 0 -c 2 -w 1` | 5 |
 | disk | busiest physical disk's busy % (the verdict's own disk-busy reader) | not measurable, graded 0 | 5 |
 | memory | PSI memory "some" avg60 | `100 - kern.memorystatus_level` | 1 |
 

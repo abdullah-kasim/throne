@@ -13,7 +13,7 @@ export type QuietReading = { readonly quiet: true } | { readonly quiet: false; r
 
 export type QuietSources = Pick<
   CapacityPressureSources,
-  "platform" | "cpuPath" | "memoryPath" | "disk" | "sampleDarwinCpus" | "sleepDuringDarwinCpuSample" | "readDarwinSysctl"
+  "platform" | "cpuPath" | "memoryPath" | "disk" | "readDarwinIostat" | "readDarwinSysctl"
 >;
 
 export interface QuietInputs {
@@ -55,7 +55,7 @@ export function judgeQuiet(inputs: QuietInputs): QuietReading {
 export function readQuietInputs(sources: Partial<QuietSources> = {}): QuietInputs {
   if ((sources.platform ?? process.platform) === "darwin") {
     return {
-      cpu: readDarwinCpuPressure(sources.sampleDarwinCpus, sources.sleepDuringDarwinCpuSample),
+      cpu: readDarwinCpuPressure(sources.readDarwinIostat),
       disk: readDarwinIoPressure(),
       memory: readDarwinMemoryPressure(sources.readDarwinSysctl),
     };

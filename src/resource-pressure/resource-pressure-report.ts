@@ -130,7 +130,7 @@ export function formatResourcePressureReport(
     // No PSI windows exist to print; say what the verdict was graded from
     // instead of rendering three "unavailable" lines that read as a fault.
     lines.push(
-      '  source: darwin -- cpu is utilisation over a 500 ms sample, memory is kernel memorystatus (100 - free%, or 100 when the kernel reports critical)',
+      '  source: darwin -- cpu is utilisation over a one-second iostat interval, memory is kernel memorystatus (100 - free%, or 100 when the kernel reports critical)',
     );
     lines.push(`  io: ${DARWIN_IO_UNMEASURABLE_NOTE}`);
   } else {

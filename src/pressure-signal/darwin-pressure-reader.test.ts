@@ -19,61 +19,57 @@ import {
 import {
   DARWIN_MEMORY_SYSCTLS,
   memorystatusLevelFloor,
+  parseDarwinIostatCpu,
   parseDarwinMemoryKib,
   parseDarwinMemoryPressure,
   readDarwinCpuPressure,
   readDarwinIoPressure,
   readDarwinMemoryPressure,
-  utilisationBetween,
-  type CpuTimesSample,
 } from './darwin-pressure-reader.ts';
 
 const CALM_LOAD: LoadReading = { state: 'ok', load1: 1.2, cpuCount: 12 };
 
-function cores(...perCore: Array<{ busy: number; idle: number }>): CpuTimesSample {
-  return perCore.map(({ busy, idle }) => ({ times: { user: busy, nice: 0, sys: 0, idle, irq: 0 } }));
+const IOSTAT_HEADER = '      cpu    load average\n us sy id   1m   5m   15m\n';
+
+function iostatWindow(sinceBoot: string, interval: string): string {
+  return `${IOSTAT_HEADER}${sinceBoot}\n${interval}\n`;
 }
 
-test('cpu utilisation is the busy share of the sample window across every core', () => {
-  const before = cores({ busy: 100, idle: 100 }, { busy: 100, idle: 100 });
-  // Core 0 ran flat out for the window, core 1 sat idle: 50% overall.
-  const after = cores({ busy: 200, idle: 100 }, { busy: 100, idle: 200 });
-  const reading = utilisationBetween(before, after);
-  assert.equal(reading.state, 'ok');
-  assert.equal(reading.avg10, 50);
-  assert.equal(reading.avg60, 50);
-});
-
-test('a zero-length or inconsistent cpu window is unknown, never idle', () => {
-  const sample = cores({ busy: 10, idle: 10 });
-  assert.equal(utilisationBetween(sample, sample).state, 'unknown');
-  assert.equal(utilisationBetween([], []).state, 'unknown');
-  assert.equal(utilisationBetween(sample, cores({ busy: 1, idle: 1 }, { busy: 1, idle: 1 })).state, 'unknown');
-  // Counters that went backwards (a core hot-unplugged mid-sample) are unknown.
-  assert.equal(utilisationBetween(cores({ busy: 50, idle: 50 }), cores({ busy: 40, idle: 60 })).state, 'unknown');
-});
-
-test('readDarwinCpuPressure samples twice around the injected sleep', () => {
-  const samples = [cores({ busy: 0, idle: 100 }), cores({ busy: 90, idle: 110 })];
-  const slept: number[] = [];
-  const reading = readDarwinCpuPressure(
-    () => samples.shift()!,
-    (milliseconds) => slept.push(milliseconds),
-    250,
-  );
-  assert.deepEqual(slept, [250]);
+test('cpu pressure is the busy share of the interval line, not the since-boot line', () => {
+  const reading = parseDarwinIostatCpu(iostatWindow('  4  2 94  1.74 2.21 2.56', ' 60 30 10  2.00 2.25 2.58'));
   assert.equal(reading.state, 'ok');
   assert.equal(reading.avg10, 90);
+  assert.equal(reading.avg60, 90);
 });
 
-test('a throwing cpu sampler reads unknown rather than crashing the tick', () => {
-  const reading = readDarwinCpuPressure(
-    () => {
-      throw new Error('no cpus');
-    },
-    () => undefined,
-  );
+test('an idle interval reads zero, a saturated one reads a hundred', () => {
+  assert.equal(parseDarwinIostatCpu(iostatWindow('  4  2 94  1 1 1', '  0  0 100  1 1 1')).avg60, 0);
+  assert.equal(parseDarwinIostatCpu(iostatWindow('  4  2 94  1 1 1', ' 80 20  0  1 1 1')).avg60, 100);
+});
+
+test('iostat output without an interval line or with a broken idle field is unknown, never idle', () => {
+  assert.equal(parseDarwinIostatCpu(`${IOSTAT_HEADER}  4  2 94  1 1 1\n`).state, 'unknown');
+  assert.equal(parseDarwinIostatCpu('').state, 'unknown');
+  assert.equal(parseDarwinIostatCpu(iostatWindow('  4  2 94  1 1 1', '  4  2 xx  1 1 1')).state, 'unknown');
+  assert.equal(parseDarwinIostatCpu(iostatWindow('  4  2 94  1 1 1', '  4  2 140  1 1 1')).state, 'unknown');
+});
+
+test('readDarwinCpuPressure grades the output of the injected iostat run', () => {
+  const reading = readDarwinCpuPressure(() => iostatWindow('  4  2 94  1 1 1', ' 20  5 75  1 1 1'));
+  assert.equal(reading.state, 'ok');
+  assert.equal(reading.avg10, 25);
+});
+
+test('a failing iostat run reads unknown rather than crashing the tick', () => {
+  const reading = readDarwinCpuPressure(() => {
+    throw new Error('iostat missing');
+  });
   assert.equal(reading.state, 'unknown');
+});
+
+test('the live iostat on this Mac yields a cpu reading', { skip: process.platform !== 'darwin' }, () => {
+  const reading = readDarwinCpuPressure();
+  assert.equal(reading.state, 'ok');
 });
 
 test('memory pressure is 100 minus the kernel free percentage when memorystatus is normal', () => {

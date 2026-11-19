@@ -12,7 +12,7 @@
 // macOS has no PSI. Each term below is the nearest thing the kernel actually
 // measures, and each one is honest about what it is:
 //
-//   cpu     Utilisation over a short sample of `os.cpus()` tick deltas. PSI cpu
+//   cpu     Utilisation over the one-second interval line of `iostat`. PSI cpu
 //           `some` is the share of time a runnable task waited for a core;
 //           utilisation is the share of time cores were busy. They agree at the
 //           extremes (an idle box reads ~0 on both, a saturated box reads ~100
@@ -43,62 +43,38 @@
 // Every reader takes its host calls as parameters so tests drive them with
 // fixtures; production calls them with no arguments.
 
-import { cpus as osCpus } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import type { PsiReading } from './psi-pressure-reader.ts';
-import { sleepSync } from './synchronous-sleep.ts';
 
 const UNKNOWN: PsiReading = { state: 'unknown', avg10: null, avg60: null };
 
-/** How long the cpu sample runs. Long enough for the tick counters to move on
- *  an idle box (macOS updates them at 100 Hz), short enough that a 5-minute
- *  cron tick and a one-shot `resource-pressure` both barely notice. */
-export const DARWIN_CPU_SAMPLE_MS = 500;
+export const DARWIN_IOSTAT_ARGUMENTS = ['-n', '0', '-c', '2', '-w', '1'] as const;
 
-export type CpuTimesSample = ReadonlyArray<{
-  readonly times: Readonly<Record<string, number>>;
-}>;
-
-/**
- * Utilisation percentage between two `os.cpus()` samples: 100 x (1 - idle /
- * total) summed across every core. `unknown` when the samples disagree on
- * core count, are empty, or no ticks elapsed (a zero-length window has no
- * utilisation, and 0/0 must not read as idle).
- */
-export function utilisationBetween(
-  before: CpuTimesSample,
-  after: CpuTimesSample,
-): PsiReading {
-  if (before.length === 0 || before.length !== after.length) return UNKNOWN;
-  let idle = 0;
-  let total = 0;
-  for (let index = 0; index < before.length; index += 1) {
-    const earlier = before[index]!.times;
-    const later = after[index]!.times;
-    for (const key of Object.keys(later)) {
-      const delta = (later[key] ?? 0) - (earlier[key] ?? 0);
-      if (!Number.isFinite(delta) || delta < 0) return UNKNOWN;
-      total += delta;
-      if (key === 'idle') idle += delta;
-    }
-  }
-  if (total <= 0) return UNKNOWN;
-  const utilisation = 100 * (1 - idle / total);
-  const clamped = Math.min(100, Math.max(0, utilisation));
-  return { state: 'ok', avg10: clamped, avg60: clamped };
+export function readIostatCpuWindow(): string {
+  return execFileSync('iostat', [...DARWIN_IOSTAT_ARGUMENTS], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: 5_000,
+  });
 }
 
-/** The cpu term: utilisation over one `sampleMs` window. */
-export function readDarwinCpuPressure(
-  sampleCpus: () => CpuTimesSample = osCpus,
-  sleep: (milliseconds: number) => void = sleepSync,
-  sampleMs: number = DARWIN_CPU_SAMPLE_MS,
-): PsiReading {
+export function parseDarwinIostatCpu(iostatOutput: string): PsiReading {
+  const lines = iostatOutput.split('\n').map((line) => line.trim().split(/\s+/)).filter((fields) => fields[0] !== '');
+  const headerIndex = lines.findIndex((fields) => fields[0] === 'us' && fields[1] === 'sy' && fields[2] === 'id');
+  if (headerIndex < 0) return UNKNOWN;
+  const samples = lines.slice(headerIndex + 1);
+  if (samples.length < 2) return UNKNOWN;
+  const idleField = samples[samples.length - 1]![2];
+  if (idleField === undefined || !/^\d+$/.test(idleField)) return UNKNOWN;
+  const idlePercent = Number(idleField);
+  if (idlePercent > 100) return UNKNOWN;
+  const busyPercent = 100 - idlePercent;
+  return { state: 'ok', avg10: busyPercent, avg60: busyPercent };
+}
+
+export function readDarwinCpuPressure(readIostat: () => string = readIostatCpuWindow): PsiReading {
   try {
-    const before = sampleCpus();
-    sleep(sampleMs);
-    const after = sampleCpus();
-    return utilisationBetween(before, after);
+    return parseDarwinIostatCpu(readIostat());
   } catch {
     return UNKNOWN;
   }

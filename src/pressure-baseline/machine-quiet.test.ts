@@ -79,16 +79,11 @@ test("on Linux quiet is judged from the cpu and memory pressure files and the bu
 });
 
 test("on macOS quiet is judged from the darwin readers' figures under the same numbers", () => {
-  const idleCpus = [
-    [{ times: { user: 0, sys: 0, idle: 0 } }],
-    [{ times: { user: 1, sys: 0, idle: 99 } }],
-  ];
+  const idleIostat = "      cpu    load average\n us sy id   1m   5m   15m\n  9  4 87  1.74 2.21 2.56\n  1  0 99  2.00 2.25 2.58\n";
   const darwin = (memorySysctl: string) => {
-    const samples = [...idleCpus];
     return {
       platform: "darwin" as const,
-      sampleDarwinCpus: () => samples.shift() ?? [],
-      sleepDuringDarwinCpuSample: () => {},
+      readDarwinIostat: () => idleIostat,
       readDarwinSysctl: () => memorySysctl,
     };
   };

@@ -13,8 +13,7 @@ import {
 import {
   parseDarwinMemoryPressure,
   readDarwinIoPressure,
-  utilisationBetween,
-  type CpuTimesSample,
+  parseDarwinIostatCpu,
 } from './darwin-pressure-reader.ts';
 import { DISK_BUSY_SAMPLE_MS, type DiskBusySources } from './linux-disk-busy-reader.ts';
 
@@ -268,20 +267,17 @@ test('a box with no physical disks gives no verdict', () => {
 });
 
 test('the Mac verdict is unchanged and never reads diskstats', () => {
-  const cpuBefore: CpuTimesSample = [{ times: { user: 100, nice: 0, sys: 20, idle: 880, irq: 0 } }];
-  const cpuAfter: CpuTimesSample = [{ times: { user: 400, nice: 0, sys: 50, idle: 1_550, irq: 0 } }];
+  const iostatOutput = '      cpu    load average\n us sy id   1m   5m   15m\n  4  2 94  1.74 2.21 2.56\n 25  8 67  2.00 2.25 2.58\n';
   const memorystatusOutput = '62\n1\n';
   const macLoadLimitPerCore = 5;
   const saturatedHost = linuxHostWith(['nvme0n1'], { nvme0n1: 0 }, { nvme0n1: 1_000 });
   const diskSourceCalls: string[] = [];
-  const cpuSamples = [cpuBefore, cpuAfter];
 
   const classification = readCapacityPressure({
     platform: 'darwin',
     load: CALM_LOAD,
     macLoadLimitPerCore,
-    sampleDarwinCpus: () => cpuSamples.shift()!,
-    sleepDuringDarwinCpuSample: () => undefined,
+    readDarwinIostat: () => iostatOutput,
     readDarwinSysctl: () => memorystatusOutput,
     disk: {
       ...saturatedHost.disk,
@@ -297,7 +293,7 @@ test('the Mac verdict is unchanged and never reads diskstats', () => {
   assert.deepEqual(
     classification,
     classifyPressure(
-      utilisationBetween(cpuBefore, cpuAfter),
+      parseDarwinIostatCpu(iostatOutput),
       parseDarwinMemoryPressure(memorystatusOutput),
       CALM_LOAD,
       readDarwinIoPressure(),

@@ -91,8 +91,8 @@ export async function acquireResurrectLock(dir: string): Promise<string | null> 
     let observedContent: string;
     try {
       const info = await readHandle.stat();
-      isStale = Date.now() - info.mtimeMs > RESURRECT_LOCK_STALE_MS;
       observedContent = await readHandle.readFile("utf8");
+      isStale = lockIsAbandoned(info.mtimeMs, observedContent);
     } finally {
       await readHandle.close();
     }
@@ -178,6 +178,26 @@ export async function refreshResurrectLock(dir: string, token: string): Promise<
 }
 
 export async function isResurrectLockHeld(dir: string): Promise<boolean> {
-  const lock = await stat(path.join(dir, RESURRECT_LOCK_BASENAME)).catch(() => null);
-  return lock !== null && Date.now() - lock.mtimeMs <= RESURRECT_LOCK_STALE_MS;
+  const lockPath = path.join(dir, RESURRECT_LOCK_BASENAME);
+  const lock = await stat(lockPath).catch(() => null);
+  const content = await readFile(lockPath, "utf8").catch(() => null);
+  return lock !== null && content !== null && !lockIsAbandoned(lock.mtimeMs, content);
+}
+
+function lockIsAbandoned(lastRefreshedAtMs: number, lockContent: string): boolean {
+  const lockIsOlderThanStaleWindow = Date.now() - lastRefreshedAtMs > RESURRECT_LOCK_STALE_MS;
+  return lockIsOlderThanStaleWindow || lockHolderHasExited(lockContent);
+}
+
+function lockHolderHasExited(lockContent: string): boolean {
+  const holderProcessId = Number(lockContent.split(":")[0]);
+  if (!Number.isInteger(holderProcessId) || holderProcessId <= 0) {
+    return false;
+  }
+  try {
+    process.kill(holderProcessId, 0);
+    return false;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ESRCH";
+  }
 }
