@@ -87,6 +87,7 @@ import { ScratchPaneCommand } from "./scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "./migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "./memory-recall/recall.command.ts";
 import { RefreshStagerTreeCommand } from "./stager-tree-refresh/refresh-stager-tree.command.ts";
+import { TopicCommand } from "./topic/topic.command.ts";
 import { RankCommand } from "./item-rank/rank.command.ts";
 import { LocateCommand } from "./file-locate/locate.command.ts";
 import { SiftCommand } from "./log-sift/sift.command.ts";
@@ -347,6 +348,7 @@ export const NEST_COMMANDER_COMMAND_PROVIDERS = [
     MigrateHomeCommand,
     RecallCommand,
     RefreshStagerTreeCommand,
+    TopicCommand,
     RankCommand,
     LocateCommand,
     SiftCommand,

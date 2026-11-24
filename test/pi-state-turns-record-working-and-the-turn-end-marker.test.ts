@@ -21,7 +21,10 @@ function user(text: string) {
 function fakePi() {
   const handlers = new Map<string, (event: unknown, context: unknown) => void>();
   return {
-    pi: { on: (name: string, handler: (event: unknown, context: unknown) => void) => handlers.set(name, handler) },
+    pi: {
+      on: (name: string, handler: (event: unknown, context: unknown) => void) => handlers.set(name, handler),
+      registerCommand: () => undefined,
+    },
     emit: (name: string, context: unknown = {}) => handlers.get(name)?.({}, context),
   };
 }

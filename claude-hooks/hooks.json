@@ -8,6 +8,7 @@
   { "script": "agent-state.py", "event": "Stop", "notOn": ["pi"] },
   { "script": "hidden-skill-pointer.py", "event": "UserPromptSubmit", "notOn": ["pi"] },
   { "script": "stager-tree-refresh.py", "event": "UserPromptSubmit" },
+  { "script": "stager-topic-order.py", "event": "UserPromptSubmit" },
   { "script": "hidden-skill-pointer.py", "event": "PreToolUse", "matcher": "Skill", "notOn": ["pi"] },
   { "script": "hidden-skill-pointer.py", "event": "PostToolUse", "matcher": "Skill", "notOn": ["pi"] },
   { "script": "hidden-skill-pointer.py", "event": "PostToolUse", "matcher": "Read", "notOn": ["pi"] },

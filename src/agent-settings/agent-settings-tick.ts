@@ -57,10 +57,13 @@ import {
 } from "./claude-session-settings.ts";
 import {
   HARNESS_COMMAND_TYPING_OUTCOMES,
+  sendHarnessCommandToThePiExtension,
   typeHarnessCommandIntoIdleClaudePane,
   type HarnessCommandTypingResult,
 } from "./harness-command-typing.ts";
 import { claudeProjectsFolderOf } from "../account/agent-account.ts";
+import { HARNESS_NAMES } from "../harness-routing/harness.ts";
+import { readPiSessionSettings } from "./pi-session-settings.ts";
 
 export interface AgentSettingsTickRequest {
   readonly dryRun: boolean;
@@ -75,6 +78,10 @@ export interface AgentSettingsTickDeps {
     workingDirectory: string,
     sessionId: string | undefined,
     recordedAccount: string | undefined,
+  ) => Promise<ClaudeSessionSettings>;
+  readonly readPiSessionSettings: (
+    agentName: string,
+    sessionId: string,
   ) => Promise<ClaudeSessionSettings>;
   readonly typeHarnessCommand: (
     agent: HerdrAgent,
@@ -94,8 +101,12 @@ export const REAL_AGENT_SETTINGS_TICK_DEPS: AgentSettingsTickDeps = {
   readSpawnSpec: (agentName) => readSpawnSpec(agentName),
   readSessionSettings: (workingDirectory, sessionId, recordedAccount) =>
     readClaudeSessionSettings(workingDirectory, sessionId, claudeProjectsFolderOf(recordedAccount)),
+  readPiSessionSettings: (agentName, sessionId) =>
+    readPiSessionSettings(agentName, sessionId),
   typeHarnessCommand: (agent, commandText) =>
-    typeHarnessCommandIntoIdleClaudePane(agent, commandText),
+    agent.agent === HARNESS_NAMES.PI
+      ? sendHarnessCommandToThePiExtension(agent, commandText)
+      : typeHarnessCommandIntoIdleClaudePane(agent, commandText),
   reviveAgent: (agentName, request) => reviveAgentInItsTab(agentName, request),
   history: correctionHistoryStoreUnder(),
 };
@@ -108,6 +119,8 @@ export const SPAWN_RECORD_IS_MISSING =
   "its spawn record is missing, so its harness is unknown; nothing is typed";
 export const PANE_IS_NO_LONGER_LISTED =
   "herdr no longer lists its pane";
+export const SESSION_ID_IS_NOT_KNOWN =
+  "its session id is not known; nothing is typed";
 
 const HARNESS_OF_A_MISSING_SPAWN_RECORD = "unknown";
 
@@ -282,20 +295,32 @@ async function settingsReportOfLiveAgent(
   if (desired === undefined) return TAB_NAME_MATCHES_NO_RECORDED_AGENT;
   if (spawnSpec === null) return SPAWN_RECORD_IS_MISSING;
   if (!isAgentCorrectable(desired, LIVE_WITH_NOTHING_READ)) {
-    return `runs ${desired.harness}, not Claude Code; nothing is typed`;
+    return `runs ${desired.harness}, not Claude Code or pi; nothing is typed`;
   }
-  const recorded = await tick.deps.readSessionSettings(
-    spawnSpec.cwd,
-    spawnSpec.session_id,
-    spawnSpec.account,
-  );
+  const sessionId = await sessionIdOfLiveAgent(entry, spawnSpec, tick);
+  if (sessionId === undefined) return SESSION_ID_IS_NOT_KNOWN;
+  const recorded =
+    desired.harness === HARNESS_NAMES.PI
+      ? await tick.deps.readPiSessionSettings(entry.name, sessionId)
+      : await tick.deps.readSessionSettings(spawnSpec.cwd, sessionId, spawnSpec.account);
   const actual: ActualAgentSettings = {
     ...LIVE_WITH_NOTHING_READ,
     ...recorded,
     sessionName:
       recorded.sessionName ?? sessionNameInEffectWithNoRecord(desired, tick),
   };
-  return correctedSettingsReport(entry, spawnSpec, desired, actual, tick);
+  return correctedSettingsReport(entry, sessionId, desired, actual, tick);
+}
+
+async function sessionIdOfLiveAgent(
+  entry: AgentStatusesRosterEntry,
+  spawnSpec: SpawnSpec,
+  tick: TickInProgress,
+): Promise<string | undefined> {
+  const paneAgent = (await tick.paneAgents()).find(
+    (agent) => agent.paneId === entry.paneId,
+  );
+  return paneAgent?.sessionId ?? spawnSpec.session_id;
 }
 
 function sessionNameInEffectWithNoRecord(
@@ -307,7 +332,7 @@ function sessionNameInEffectWithNoRecord(
 
 async function correctedSettingsReport(
   entry: AgentStatusesRosterEntry,
-  spawnSpec: SpawnSpec,
+  sessionId: string,
   desired: DesiredAgentSettings,
   actual: ActualAgentSettings,
   tick: TickInProgress,
@@ -322,6 +347,8 @@ async function correctedSettingsReport(
     const correction = corrections.find((wanted) => wanted.kind === kind);
     if (correction === undefined) {
       phrases.push(settingThatNeedsNoCorrection(kind, desired));
+      const keptHistory = recordedHistory[kind];
+      if (keptHistory !== undefined) nextHistory[kind] = keptHistory;
       continue;
     }
     const attempt = await attemptCorrection(
@@ -331,7 +358,7 @@ async function correctedSettingsReport(
         recordedHistory[kind],
         JSON.stringify({
           wanted: correction.name,
-          sessionId: spawnSpec.session_id,
+          sessionId,
           paneId: entry.paneId,
         }),
       ),

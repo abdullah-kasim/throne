@@ -202,13 +202,15 @@ names, plan roles, ledger paths) are unaffected by that config.
 
 A Stager's own duties live in `agent_docs/role-stager.md`.
 
-**A Regent-spawned Stager defaults to `fable` (Lord, 2026-09-11).** His
-words: "every time you spawn a stager, default to fable please." When the
-Lord orders a Stager and names no model, the Regent spawns it with
-`--model fable`; a model he names wins. The autoscale floor's own recipe
-(`src/alpha-autoscale/stager-floor.ts`) spawns its Stager on fable too
-(Lord, 2026-09-14: "is the default stager model the fable? If not, make it
-so"); `test/stager-floor-spawns-its-stager-on-fable.test.ts` pins it.
+**A Regent-spawned Stager defaults to Opus (Lord, 2026-11-23).** His
+words: "switch over default stagers to opus low, create some opus stagers and
+terminate all fable stagers", which supersedes the 2026-09-11 and 2026-09-14
+fable rulings. When the Lord orders a Stager and names no model, the Regent
+spawns it with no `--model`, so it takes the Stager pool's first pair (Opus),
+at the Stager effort `check-config` reports; a model he names wins. The
+autoscale floor's own recipe (`src/alpha-autoscale/stager-floor.ts`) passes no
+`--model` either; `test/stager-floor-spawns-its-stager-on-the-stager-pools-first-pair.test.ts`
+pins it.
 
 **A Stager runs whatever model the Lord puts it on (Lord, 2026-09-07).** The
 runtime-model quarantine that refuses `send-agent` to a campaign pane on the
@@ -260,7 +262,7 @@ already did this by hand: copy the context out of one Stager, paste it into
 another, tell that one to work, and go back to the first to keep talking.
 `create-agent --fork-of <parent>` automates the handoff. The parent writes the
 brief to `~/.throne/data/<fork-name>/brief.md` in the five-marker shape, spawns
-a FRESH Stager named `<parent>-<task-slug>` (`stager-tenth-prmedia` — never
+a FRESH Stager named `<parent>-<task-slug>` (`stager-oak-prmedia` — never
 `<parent>-01`, and never a reused idle Stager) in its own worktree, and stays
 in the conversation. The fork inherits the parent's live model unless `--model`
 says otherwise, opens on the brief, and inherits no conversation at all — what
@@ -1464,7 +1466,7 @@ evening; `agent_docs/spawn-trust-suppression.md`).
   the macOS Keychain; the Keychain item "Claude Code-credentials" belongs to
   the primary and is never touched. Its `CLAUDE.md`, `settings.json`,
   `skills`, `hooks` and `plugins` are links to the primary's. Recipe and
-  evidence: `~/.throne/data/.reaped/alpha-acctspike-01/REPORT.md`.
+  evidence: `~/.throne/data/.reaped/<alpha-name>/REPORT.md`.
 - Which account a folder holds is whatever the Lord logged in there with
   Claude Code's own login command. The throne reads it from the folder's own `.claude.json`, never
   from the folder's name, and `throne account list` reports a folder holding

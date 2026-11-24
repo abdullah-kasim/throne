@@ -141,11 +141,11 @@ test("--fork-of refuses a parent whose ledger role is not Stager", async () => {
   assert.match(stderr, /the ledger role of "stager-tenth" is "Alpha"/);
 });
 
-test("--fork-of refuses a name that does not begin with the parent's name", async () => {
-  const { result, stderr } = await run(forkArgs({ "--name": "eleventh" }));
-  assert.equal(result.ok, false);
-  assert.match(stderr, /does not begin "stager-tenth-"/);
-  assert.match(stderr, /--name stager-tenth-prmedia/);
+test("a Stager may fork a topic Stager whose name does not begin with its own", async () => {
+  const { result } = await run(forkArgs({ "--name": "stager-gardenboard" }));
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.forkedFrom, PARENT);
 });
 
 test("--fork-of refuses when the parent wrote no brief, and names the path it wants", async () => {

@@ -23,6 +23,7 @@ export async function readClaudeSessionSettings(
   sessionId: string | undefined,
   claudeProjectsDirectory?: string,
 ): Promise<ClaudeSessionSettings> {
+  if (sessionId === undefined) return UNKNOWN_SESSION_SETTINGS;
   const transcript = await readSessionTranscript(
     workingDirectory,
     sessionId,
@@ -35,7 +36,7 @@ export async function readClaudeSessionSettings(
 
 async function readSessionTranscript(
   workingDirectory: string,
-  sessionId: string | undefined,
+  sessionId: string,
   claudeProjectsDirectory: string | undefined,
 ): Promise<string | undefined> {
   try {
@@ -58,7 +59,7 @@ function sessionSettingsRecordedIn(transcript: string): ClaudeSessionSettings {
   };
 }
 
-function transcriptRecords(transcript: string): TranscriptRecord[] {
+export function transcriptRecords(transcript: string): TranscriptRecord[] {
   const records: TranscriptRecord[] = [];
   for (const line of transcript.split('\n')) {
     try {

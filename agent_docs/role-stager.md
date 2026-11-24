@@ -45,7 +45,7 @@ live main checkout. That stopped being true once several Stagers ran at once:
 the autoscale floor's Stager (`src/alpha-autoscale/stager-floor.ts`) and every
 fork (`create-agent --fork-of`) get their own managed tree under
 `~/.throne/worktrees/throne/<stager-name>`, and the trees stay. A tree frozen
-at its spawn commit loads stale skills: stager-fifteenth sat 134 commits behind
+at its spawn commit loads stale skills: one Stager sat 134 commits behind
 `main`, so its `/pr-address-feedback` had no "On Forgejo" section and missed
 the Lord's Forgejo review comment. So before each prompt in a Stager's pane,
 the UserPromptSubmit hook `claude-hooks/stager-tree-refresh.py` (on Claude and
@@ -65,7 +65,7 @@ DEFAULT IS TO FILE, NOT TO DO" below — an ordinary request to fix something
 is not that instruction), the job is small, already his decision, and has no
 campaign branch to land on. No gate chain merges a Stager's branch: a commit a
 Stager makes there reaches `main` only when it is applied to `main` directly,
-as stager-west's and stager-east's September commits were (each landed as a
+as two Stagers' September commits were (each landed as a
 new commit with the same subject). Until then that tree has diverged from
 `main`, and the hook warns instead of fast-forwarding it.
 
@@ -96,6 +96,36 @@ any repository other than the throne goes through a campaign worktree under
 operates on any project (see "The throne operates on ANY project"); that is
 precisely why this needs saying, because the Stager will be asked about
 other repositories and the exemption does not travel with it.
+
+**EVERY LORD PROMPT CARRIES A TOPIC ORDER, AND OBEYING IT IS MANDATORY
+(Lord, 2026-11-24).** The prompt hook prepends it to each prompt the Lord
+types; delivered messages (wrapped in `<messageN>`…`</messageN>`) carry none.
+The Lord's words: *"If so, please fork a new stager rather than responding to
+the user. Do not take any other action other than to notify that the user
+that the topic has changed"*. A Stager may not answer a drifted prompt itself.
+
+- **Record the verdict with `throne topic` first**, before any other tool
+  or text, and write no `topic:` line in the reply. `throne topic same`
+  keeps the topic, `throne topic changed <slug>` names the new one, and
+  `throne topic none` answers greetings, startup briefs and slash commands.
+  The first time a topic is named, pass `--description "<one line>"`; the
+  command saves it to `~/.throne/data/<your-name>/topic.md` and appends the
+  verdict to `topic-verdicts.jsonl` beside it. `changed` takes no
+  `--description`: your own topic stays yours, and the new topic's Stager
+  names its own. The hook only reads them, and
+  when a prompt went without a verdict, the next order says so and the miss
+  is logged.
+- **A topic is as wide as one project** (a board, a repo), never one subject
+  inside it.
+- **When the topic changed, hand the prompt over.** Reuse before fork: when
+  a live Stager already holds that topic (`agent-statuses` lists it; its
+  `topic.md` names it), send it the prompt verbatim with `send-agent`.
+  Otherwise fork one with `/throne-fork`, named `stager-<topic slug>`
+  and the slug trimmed so the whole name fits 32 characters
+  (`HERDR_AGENT_NAME_MAX_LENGTH`). Then tell the Lord one line: which Stager
+  has it and where its pane is. Do nothing else.
+- **A misroute is undone by the Lord.** When he says "same topic", stay, keep
+  the saved topic, fork nothing, and answer the prompt.
 
 **THE DEFAULT IS TO FILE, NOT TO DO (Lord, 2026-08-24).** His words: *"stager
 pushes to the queue, then notifies regent about it."* A request from the Lord

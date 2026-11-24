@@ -444,14 +444,13 @@ and never fails the spawn.
 **Forking a Stager (`--fork-of <parent>`).** The `/throne-fork` skill is the
 authority on when and how to drive this flag; this passage stays the
 authority on the flag's own behavior. `create-agent --fork-of
-stager-tenth --role Stager --supervisor stager-tenth --name
-stager-tenth-prmedia` spawns a FRESH Stager to carry one long-running task
+stager-oak --role Stager --supervisor stager-oak --name
+stager-prmedia` spawns a FRESH Stager to carry one long-running task
 while the parent stays free to talk to the Lord. It never reuses an idle
-Stager. `--fork-of` takes the parent's full registered name, and the fork's
-own name is that name plus a task slug. It refuses, registering and launching
+Stager. `--fork-of` takes the parent's full registered name. It refuses, registering and launching
 nothing, and names which condition failed, unless all of these hold: the role
 is `Stager`; the supervisor is that same parent; the parent is live in the
-roster with ledger role `Stager`; the composed name begins `<parent>-`; and
+roster with ledger role `Stager`; and
 the parent has written the fork's brief.
 
 The model is `--model` when given, otherwise the parent's live observed model
@@ -910,7 +909,7 @@ The confirmed result prints as a second stdout line, `Spawn tasking:
 **Delivery receipt check.** Delivery is one `herdr pane send-text`, but the pty
 hands the text to Claude Code in roughly 1 KiB reads, so a long text lands in
 the composer as several `[Pasted text #N]` placeholders plus a literal tail. On
-2026-09-16 `stager-eighth`'s Claude dropped both placeholders at submit and its
+2026-09-16 one Stager's Claude dropped both placeholders at submit and its
 first turn was the last 235 of 2275 characters. The loss happens inside the
 harness and leaves no screen signal, so the court checks the recipient's
 transcript after delivery. `create-agent` itself does not wait on that check
@@ -2811,6 +2810,23 @@ and one `WARNING:` line names how many commits it is behind (and, when
 diverged, ahead). At or ahead of `main`: silence. Any other session, an
 Alpha's or a Shadow's included, is never touched. A failure writes one stderr
 line and the command still exits 0, so the prompt is never blocked.
+
+## topic
+
+```bash
+./bin/throne-cli topic same|changed <slug>|none [--description "<one line>"]
+```
+
+Records a Stager's verdict on whether the Lord's latest prompt changed topic
+(`src/topic/`). Only a tab whose `THRONE_AGENT_NAME` is registered with role
+`Stager` may run it; any other session is refused with exit 1. `--description`
+writes the one-line topic to `~/.throne/data/<stager-name>/topic.md`; `same`
+with no saved topic requires it. `changed` never writes `topic.md`, so the
+handing-over Stager keeps its own topic; `changed` with `--description` is
+refused with exit 2 and records nothing. Every verdict appends one
+`{"verdict","slug"?,"at"}` line to
+`~/.throne/data/<stager-name>/topic-verdicts.jsonl`; `changed` requires the
+new topic's slug.
 
 ## recall
 

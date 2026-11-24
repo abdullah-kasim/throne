@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { installAgentLook } from "./throne-pi-agent-look.ts";
 
 export const THRONE_CLI_VARIABLE = "THRONE_AGENT_STATE_CLI";
 const MY_STATE_TIMEOUT_MILLISECONDS = 30_000;
@@ -57,6 +58,7 @@ export default function throneStateExtension(pi: any) {
     pending = pending.then(work, work);
     return pending;
   };
+  installAgentLook(pi, async () => (await import("@earendil-works/pi-coding-agent")).CustomEditor);
   pi.on("agent_start", () => inOrder(() => runMyState("--turn-start", "")));
   pi.on("agent_settled", (_event: unknown, context: any) => {
     const message = lastAssistantText(context.sessionManager.getBranch());

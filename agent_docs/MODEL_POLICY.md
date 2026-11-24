@@ -136,8 +136,8 @@ A campaign Alpha owns its allowlist at:
 ```
 
 On the standard installation, the data home is `~/.throne/data`, so Alpha
-`alpha-mal-model-allowlist` uses
-`~/.throne/data/alpha-mal-model-allowlist/model-allowlist.json`.
+`alpha-abc-model-allowlist` uses
+`~/.throne/data/alpha-abc-model-allowlist/model-allowlist.json`.
 The file has this exact JSON shape: a top-level `version` of `1` and a `pairs`
 array whose entries contain only non-empty `harness` and `model` strings.
 

@@ -10,6 +10,7 @@ Everything else is uncatalogued: search the code for it.
 - **Model and persona switching**: Moves a live agent to another model of the same family, or switches the court persona. ([agents/agent-steering.md](agents/agent-steering.md))
 - **Agent completion and reaping**: Verifies an agent finished and tears it down. ([agents/completion.md](agents/completion.md))
 - **Agent creation**: Spawns a new harness in herdr with a validated identity, model and spawn evidence. ([agents/create-agent.md](agents/create-agent.md))
+- **pi agent look**: Gives a pi agent Claude Code's /rename and /color, draws its editor borders in the agent's colour and puts its session name in a solid badge at the right end of the top border. ([agents/pi-agent-look.md](agents/pi-agent-look.md))
 - **Idle and nudge watchdogs**: Nudges stalled agents, pages about idle families and untasked agents, wakes agents waiting on their own background run, and presses Enter on drafts stuck in an agent input box. ([agents/watchdogs.md](agents/watchdogs.md))
 
 ## delivery
@@ -48,7 +49,7 @@ Everything else is uncatalogued: search the code for it.
 ## runtime
 
 - **Agent observation**: Shows which agents are alive, what they print, and how long they take. ([runtime/agent-observation.md](runtime/agent-observation.md))
-- **Alpha autoscale**: Spawns Alphas for launch-eligible queue rows on a schedule or on demand. ([runtime/autoscale.md](runtime/autoscale.md))
+- **Alpha autoscale**: Spawns Alphas for launch-eligible queue rows and keeps a Stager alive, on a schedule or on demand. ([runtime/autoscale.md](runtime/autoscale.md))
 - **Throne backend**: Runs the long-lived server that hosts the message dispatch loop, the watchdogs and the web listener. ([runtime/backend.md](runtime/backend.md))
 - **Throne database**: Opens the where-i-stand and lock SQLite databases through Drizzle, applies its committed migrations in process, and refuses a schema no migration covers. ([runtime/database.md](runtime/database.md))
 - **Lock rows**: Holds every cross-process lock throne takes as a row in one SQLite file, freed when its holder dies, with no dependency on flock. ([runtime/lock-rows.md](runtime/lock-rows.md))

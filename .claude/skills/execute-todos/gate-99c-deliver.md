@@ -131,7 +131,7 @@ merge, so a plain `git merge` that genuinely landed the content satisfies it
 exactly as the retired tooling did. Pasted git output that was fabricated, or was
 true when pasted but has since gone stale, does not substitute for it —
 completion is refused until the real check, re-run right now, agrees. (See
-`HDL_DELIVERY_PRECONDITION` — a `shadow-pln-99e` reported `**Delivery outcome:**
+`HDL_DELIVERY_PRECONDITION` — a delivery Shadow reported `**Delivery outcome:**
 PASS` in prose having merged nothing to the target, and nothing forced the real
 check at the time.)
 

@@ -84,13 +84,6 @@ export type ForkOriginResolution =
   | { readonly ok: true; readonly value: ForkOrigin }
   | { readonly ok: false; readonly reason: string };
 
-function forkNameGuidance(parent: string): string {
-  return (
-    `pass the fork's full name, which is the parent's name plus a task slug ` +
-    `(for example --name ${parent}-prmedia)`
-  );
-}
-
 export function resolveForkOrigin(
   request: ForkRequest,
   evidence: ForkParentEvidence,
@@ -133,15 +126,6 @@ export function resolveForkOrigin(
     };
   }
   const name = request.composedName;
-  if (!name.startsWith(`${parent}-`)) {
-    return {
-      ok: false,
-      reason:
-        `--fork-of ${parent} is refused — the composed name "${name}" does not ` +
-        `begin "${parent}-", so the roster would not show whose fork it is; ` +
-        `${forkNameGuidance(parent)}`,
-    };
-  }
   if (brief === undefined) {
     return {
       ok: false,

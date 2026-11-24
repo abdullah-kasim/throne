@@ -2,7 +2,7 @@ import { plainText, type StyledCharacter } from "./ansi.ts";
 import { normalizeRenderedPayload } from "./rendered-text.ts";
 import type { ActiveComposerSnapshot } from "./composer.types.ts";
 
-const PI_EDITOR_BORDER_PATTERN = /^─{8,}$/u;
+const PI_EDITOR_BORDER_PATTERN = /^─{8,}(?: .+ ─)?$/u;
 
 function isPiEditorBorder(line: StyledCharacter[]): boolean {
   return PI_EDITOR_BORDER_PATTERN.test(plainText(line).trim());

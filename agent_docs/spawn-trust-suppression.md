@@ -20,7 +20,7 @@
 > `CLAUDE_CONFIG_DIR` set to it and the `security` stand-in first on `PATH`,
 > which keeps that folder's login in its own `.credentials.json` instead of the
 > macOS Keychain (recipe and evidence: acctspike's report,
-> `~/.throne/data/.reaped/alpha-acctspike-01/REPORT.md`, "Recommended launch recipe per
+> `~/.throne/data/.reaped/<alpha-name>/REPORT.md`, "Recommended launch recipe per
 > account"). With no `~/.throne/config/accounts.json`, the only folder is
 > `~/.claude`.
 >

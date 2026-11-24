@@ -117,7 +117,7 @@ pair the harness cannot run, all refuse the whole file.
 | `activeHarness` | harness name | absent | Run every campaign role on THIS harness regardless of what the preset's pairs name. Absent means "each pair as written". Harness and model are independent choices, and this field exists so changing one never silently changes the other. The Stager is never moved by it. |
 | `messageQueueTransport` | `'sqlite'` | absent | Explicit queue-transport marker. Only the SQLite delivery path exists; omitting it keeps the feature-flag behaviour. |
 | `customPlanPresets` | `Record<name, { alpha, shadow, shadowSlice99 }>` | `{}` | Your own presets: each of the three campaign-role pools is a non-empty list of `{ harness, model }` pairs. Defining one changes nothing until `activePlanPresetName` names it. The Stager has no pool here by design. |
-| `stagerPool` | `{ harness, model }[]` | absent | The Stager's own pair pool. Absent means the committed pin in `src/config.ts` (currently `claude/fable`, `claude/opus`). This is the ONE place the Stager can be moved; no preset and no `activeHarness` touches it, so a court-wide switch can never relocate your point of contact by accident. |
+| `stagerPool` | `{ harness, model }[]` | absent | The Stager's own pair pool. Absent means the committed pin in `src/config.ts` (currently `claude/opus`). This is the ONE place the Stager can be moved; no preset and no `activeHarness` touches it, so a court-wide switch can never relocate your point of contact by accident. |
 | `tokenBalanceEnabled` | boolean | `false` | Durable operator enable for the token-balance load balancer (`src/token-balance/`). Its ship-dark env kill switch `THRONE_TOKEN_BALANCE_ENABLED` must also be on; either being off fully de-gates it. |
 | `regentHeartbeatNudgeEnabled` | boolean | `false` | Whether the heartbeat timer nudges the Regent. |
 | `macLoadPerCoreAtCapacity` | number above 0 | `5` | On macOS only, the 1-minute load per core at which the host counts as at capacity: load ≥ this × the core count refuses new work. Graded beside the 70 cpu/memory figure, not inside it. Read when a process starts, so restart the backend after changing it. |
@@ -375,7 +375,7 @@ uses it is `src/harness-routing/policy/account-balance.ts`.
   folder.
 
 Removing or renaming `accounts.json` is not a way to turn balancing off. It
-also drops every account's folder mapping: on 2026-10-16 (message 20518),
+also drops every account's folder mapping: on 2026-10-16,
 with the file set aside, send-agent to an Alpha on the secondary account was
 refused with "transcript contains no assistant runtime-model record", because
 the transcript check looked in `~/.claude/projects` instead of the secondary

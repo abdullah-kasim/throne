@@ -33,7 +33,10 @@ agent in the court. When the Lord says "fork", he means this one.
 Only a Stager may take this path; the Regent cannot fork itself.
 
 f0. Confirm the exact scope with the Lord, the same mandatory confirmation
-    `/no-alpha` step 0 requires. Forking does not waive it.
+    `/no-alpha` step 0 requires. Forking does not waive it. A drift fork,
+    made after `throne topic changed <slug>` recorded a topic change, skips this step and
+    asks the Lord nothing: the prompt that changed the topic is its scope.
+    f1 to f5 still apply.
 f1. Write the brief to `~/.throne/data/<fork-name>/brief.md` in the
     five-marker shape (INTENT, SCOPE, RULINGS, VERIFIED-NOUNS, REUSE) and check it
     with `throne lint-queue-plan --body-file <that path>`. THE FORKED PANE
@@ -46,8 +49,11 @@ f1. Write the brief to `~/.throne/data/<fork-name>/brief.md` in the
     `agent_docs/MODEL_POLICY.md` "Find the reader first" says, and put its
     `Written for: <harness>/<model> at effort <n> (<how it was found>)`
     line under `RULINGS:`.
-f2. Choose the fork's name as the invoker's own name plus a task slug
-    (`stager-tenth-prmedia`), never a number.
+f2. Name the fork `stager-<task slug>` (`stager-prmedia`), never a number.
+    A drift fork's slug is the `<slug>` given to `throne topic changed`,
+    trimmed so the whole name fits 32 characters. When a live
+    `stager-<topic slug>` already holds that topic, send it the prompt instead
+    of forking.
 f3. Prepare its worktree with `spawn-git-tree <fork-name> --repo <repo>
     --non-campaign`, then spawn it:
     `create-agent --fork-of <parent> --role Stager --supervisor <parent>
@@ -97,7 +103,6 @@ failed, unless every one of these holds:
 - The role is `Stager`.
 - The supervisor is that same parent.
 - The parent is live in the roster with ledger role `Stager`.
-- The composed `--name` begins `<parent>-`.
 - The parent has already written the fork's brief — without one it refuses,
   names that a fork inherits no conversation, and points at the
   `brief.md` path and `lint-queue-plan --body-file`.
@@ -121,7 +126,8 @@ the Lord.
 
 Fork when the task is long-running and the Lord wants to keep talking to the
 current Stager while it runs — the fork carries the task, the parent stays
-free. Do not fork for something the parent can finish in the current turn;
+free, and when `throne topic changed` recorded a drift that no live Stager
+holds. Do not fork for something the parent can finish in the current turn;
 just do it directly (`/no-alpha`). Do not fork to dodge a scope confirmation
 — the confirmation still applies. Do not fork by reaching for the harness's
 own subagent mechanism — see the distinction above.
@@ -129,16 +135,16 @@ own subagent mechanism — see the distinction above.
 ## Worked example
 
 ```bash
-mkdir -p ~/.throne/data/stager-tenth-prmedia
-cat > ~/.throne/data/stager-tenth-prmedia/brief.md <<'EOF'
+mkdir -p ~/.throne/data/stager-prmedia
+cat > ~/.throne/data/stager-prmedia/brief.md <<'EOF'
 INTENT: publish the PR 214 screenshots and video.
 SCOPE: repo widget-store, PR 214, media capture and publish only.
 RULINGS: none beyond the standing pr-media contract.
 VERIFIED-NOUNS: .claude/skills/pr-media/SKILL.md, PR 214.
 EOF
-throne lint-queue-plan --body-file ~/.throne/data/stager-tenth-prmedia/brief.md
-spawn-git-tree stager-tenth-prmedia --repo widget-store --non-campaign
-create-agent --fork-of stager-tenth --role Stager --supervisor stager-tenth \
-  --name stager-tenth-prmedia --cwd <the worktree spawn-git-tree printed> \
+throne lint-queue-plan --body-file ~/.throne/data/stager-prmedia/brief.md
+spawn-git-tree stager-prmedia --repo widget-store --non-campaign
+create-agent --fork-of stager-oak --role Stager --supervisor stager-oak \
+  --name stager-prmedia --cwd <the worktree spawn-git-tree printed> \
   --non-campaign
 ```

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { claudeToolInput, createHookBridge, type HookListEntry } from "./throne-pi-hooks.ts";
@@ -106,5 +106,24 @@ describe("the pi hook bridge", () => {
     });
     const answers = await bridge(root, [{ script: "prompt.py", event: "UserPromptSubmit" }])("before_agent_start", { prompt: "go on" });
     assert.deepEqual(answers, [{ appendedText: "UserPromptSubmit go on" }]);
+  });
+
+  it("on pi a Stager prompt's topic order reaches the turn", async () => {
+    const root = throneWithScripts({});
+    copyFileSync(path.join(import.meta.dirname, "..", "..", "claude-hooks", "stager-topic-order.py"), path.join(root, "claude-hooks", "stager-topic-order.py"));
+    const dataHome = mkdtempSync(path.join(os.tmpdir(), "pi-hooks-ledger-"));
+    mkdirSync(path.join(dataHome, "data", "stager-board"), { recursive: true });
+    writeFileSync(path.join(dataHome, "data", "stager-board", "identity.md"), "- **Role:** Stager\n");
+    writeFileSync(path.join(dataHome, "data", "stager-board", "topic.md"), "the keyboard pcb\n");
+    process.env.THRONE_DATA_HOME = dataHome;
+    process.env.THRONE_AGENT_NAME = "stager-board";
+    try {
+      const answers = await bridge(root, [{ script: "stager-topic-order.py", event: "UserPromptSubmit" }])("before_agent_start", { prompt: "go on" });
+      assert.equal(answers.length, 1);
+      assert.match(String((answers[0] as { appendedText: string }).appendedText), /changes the topic from: the keyboard pcb\./);
+    } finally {
+      delete process.env.THRONE_DATA_HOME;
+      delete process.env.THRONE_AGENT_NAME;
+    }
   });
 });

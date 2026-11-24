@@ -463,6 +463,7 @@ test("every throne launch registers the memory read log hook once, beside the tw
       ["claude agent state", "added"],
       ["claude hidden skill pointer", "added"],
       ["claude stager tree refresh", "added"],
+      ["claude stager topic order", "added"],
       ["claude web fetch failure pointer", "added"],
       ["codex session start", "added"],
     ],

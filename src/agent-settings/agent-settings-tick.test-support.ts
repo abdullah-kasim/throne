@@ -15,7 +15,10 @@ import type {
 import { correctionHistoryStoreUnder } from "./agent-settings-retry-history.ts";
 import type { AgentSettingsTickDeps } from "./agent-settings-tick.ts";
 import { DEFAULT_AGENT_SETTINGS_CONFIG } from "./agent-settings-user-config.ts";
-import type { ClaudeSessionSettings } from "./claude-session-settings.ts";
+import {
+  readClaudeSessionSettings,
+  type ClaudeSessionSettings,
+} from "./claude-session-settings.ts";
 import {
   HARNESS_COMMAND_TYPING_OUTCOMES,
   type HarnessCommandTypingResult,
@@ -39,6 +42,8 @@ export interface LiveAgentInTheCourt {
   readonly isRecorded?: boolean;
   session: { colour: string | undefined; sessionName: string | undefined };
   sessionId?: string;
+  spawnRecordHasNoSessionId?: boolean;
+  paneSessionId?: string;
 }
 
 interface TypedCommand {
@@ -54,6 +59,7 @@ interface CourtOptions {
   readonly commandsStick?: boolean;
   readonly agentWhoseSpawnRecordCannotBeRead?: string;
   readonly agentDataRoot?: string;
+  readonly claudeProjectsDirectory?: string;
 }
 
 export interface Court {
@@ -68,7 +74,7 @@ function paneIdOf(agentName: string): string {
   return `pane-of-${agentName}`;
 }
 
-function workingDirectoryOf(agentName: string): string {
+export function workingDirectoryOf(agentName: string): string {
   return `/work/${agentName}`;
 }
 
@@ -106,6 +112,7 @@ function paneAgentOf(agent: LiveAgentInTheCourt): HerdrAgent {
     paneId: paneIdOf(agent.name),
     tabId: `tab-of-${agent.name}`,
     terminalId: `terminal-of-${agent.name}`,
+    sessionId: agent.paneSessionId,
   };
 }
 
@@ -116,7 +123,9 @@ function spawnSpecOf(agent: LiveAgentInTheCourt): SpawnSpec | null {
     model: "opus",
     effort: 2,
     cwd: workingDirectoryOf(agent.name),
-    session_id: agent.sessionId ?? `session-of-${agent.name}`,
+    session_id: agent.spawnRecordHasNoSessionId
+      ? undefined
+      : (agent.sessionId ?? `session-of-${agent.name}`),
   };
 }
 
@@ -160,10 +169,18 @@ export async function courtWith(options: CourtOptions): Promise<Court> {
       },
       readSessionSettings: async (
         workingDirectory,
+        sessionId,
       ): Promise<ClaudeSessionSettings> =>
-        liveAgents.find(
-          (agent) => workingDirectoryOf(agent.name) === workingDirectory,
-        )!.session,
+        options.claudeProjectsDirectory === undefined
+          ? liveAgents.find(
+              (agent) => workingDirectoryOf(agent.name) === workingDirectory,
+            )!.session
+          : readClaudeSessionSettings(
+              workingDirectory,
+              sessionId,
+              options.claudeProjectsDirectory,
+            ),
+      readPiSessionSettings: async (agentName) => liveAgentNamed(agentName).session,
       typeHarnessCommand: async (paneAgent, commandText) => {
         const typed = { agentName: paneAgent.name!, commandText };
         court.typed.push(typed);

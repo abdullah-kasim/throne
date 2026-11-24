@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { CronExpression } from "@nestjs/schedule";
 import { HARNESS_NAMES } from "../harness-routing/harness.ts";
@@ -8,6 +10,7 @@ import { ThroneBackendModule } from "../throne-backend/throne-backend.module.ts"
 import { AGENT_REVIVAL_OUTCOMES } from "./agent-revival.ts";
 import {
   AGENT_SETTINGS_CHECK_IS_SWITCHED_OFF,
+  SESSION_ID_IS_NOT_KNOWN,
   TAB_NAME_MATCHES_NO_RECORDED_AGENT,
   runAgentSettingsTick,
 } from "./agent-settings-tick.ts";
@@ -21,7 +24,9 @@ import {
   lineOf,
   shadowThatIsRight,
   shadowWithTheWrongColour,
+  workingDirectoryOf,
 } from "./agent-settings-tick.test-support.ts";
+import { claudeProjectDirectory } from "../session/runtime-model-acceptance.ts";
 import {
   AGENT_SETTINGS_HOSTED_WORKER_NAME,
   AgentSettingsHostedWorker,
@@ -114,7 +119,7 @@ test("an agent whose harness is not Claude Code is reported and nothing is typed
   const lines = await runAgentSettingsTick(REAL_RUN, court.deps);
 
   assert.deepEqual(lines, [
-    `shadow-ledger-02: runs ${HARNESS_NAMES.CODEX}, not Claude Code; nothing is typed`,
+    `shadow-ledger-02: runs ${HARNESS_NAMES.CODEX}, not Claude Code or pi; nothing is typed`,
   ]);
   assert.deepEqual(court.typed, []);
 });
@@ -391,4 +396,85 @@ test("the agent settings worker is hosted in the backend beside the other worker
   assert.equal(worker.workerName, AGENT_SETTINGS_HOSTED_WORKER_NAME);
   assert.equal(worker.workerName, "agent-settings");
   assert.equal(worker.cronExpression, CronExpression.EVERY_MINUTE);
+});
+
+async function projectsFolderHoldingTranscripts(
+  agentName: string,
+  colourBySessionId: Record<string, string>,
+): Promise<string> {
+  const projectsDirectory = await mkdtemp(
+    path.join(os.tmpdir(), "agent-settings-transcripts-"),
+  );
+  const projectDirectory = claudeProjectDirectory(
+    workingDirectoryOf(agentName),
+    projectsDirectory,
+  );
+  await mkdir(projectDirectory, { recursive: true });
+  for (const [sessionId, colour] of Object.entries(colourBySessionId)) {
+    const records = [
+      { type: "agent-color", agentColor: colour },
+      { type: "custom-title", customTitle: `agent-of-${sessionId}` },
+    ];
+    await writeFile(
+      path.join(projectDirectory, `${sessionId}.jsonl`),
+      records.map((record) => JSON.stringify(record)).join("\n"),
+    );
+  }
+  return projectsDirectory;
+}
+
+test("the tick types nothing into an agent whose session it cannot tell, even when other agents' transcripts are in its folder", async () => {
+  const court = await courtWith({
+    liveAgents: [
+      { ...shadowThatIsRight("shadow-ledger-02"), spawnRecordHasNoSessionId: true },
+    ],
+    claudeProjectsDirectory: await projectsFolderHoldingTranscripts(
+      "shadow-ledger-02",
+      { "session-of-the-regent": "red", "session-of-a-stager": "green" },
+    ),
+  });
+
+  const lines = await runAgentSettingsTick(REAL_RUN, court.deps);
+
+  assert.deepEqual(lines, [`shadow-ledger-02: ${SESSION_ID_IS_NOT_KNOWN}`]);
+  assert.deepEqual(court.typed, []);
+});
+
+test("the tick reads the transcript of the session herdr reports for the pane, not the one in the spawn record", async () => {
+  const court = await courtWith({
+    liveAgents: [
+      {
+        ...shadowThatIsRight("shadow-ledger-02"),
+        sessionId: "session-from-the-spawn-record",
+        paneSessionId: "session-herdr-reports",
+      },
+    ],
+    claudeProjectsDirectory: await projectsFolderHoldingTranscripts(
+      "shadow-ledger-02",
+      {
+        "session-from-the-spawn-record": "purple",
+        "session-herdr-reports": "blue",
+      },
+    ),
+  });
+
+  const lines = await runAgentSettingsTick(DRY_RUN, court.deps);
+
+  assert.match(lines[0]!, /^shadow-ledger-02: colour is blue, would be set to purple; name is agent-of-session-herdr-reports, /);
+});
+
+test("a setting read as right between wrong reads does not reset its three tries", async () => {
+  const shadow = shadowWithTheWrongColour("shadow-ledger-02");
+  const court = await courtWith({ liveAgents: [shadow], commandsStick: false });
+
+  for (let tick = 1; tick <= 8; tick += 1) {
+    shadow.session.colour = tick % 2 === 1 ? "blue" : "purple";
+    await runAgentSettingsTick(REAL_RUN, court.deps);
+  }
+
+  assert.deepEqual(commandsTypedInto(court, "shadow-ledger-02"), [
+    "/color purple",
+    "/color purple",
+    "/color purple",
+  ]);
 });

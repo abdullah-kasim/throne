@@ -117,6 +117,7 @@ and each table keeps its family's own order.
 | `scratch-pane` | Register an unnamed herdr pane a live agent opened on purpose, with its owner and a time it may stay until, so the unnamed-agent sweep stays silent about it until the time passes or the owner is gone. |
 | `recall` | Print the recorded memories that apply to a task, most relevant first and capped in size, from the named repositories or memory directories plus the global memories. |
 | `refresh-stager-tree` | Before each prompt, fast-forward a registered Stager's own clean tree to main when it is only behind, and print one line; a dirty or diverged tree gets a warning line and is left unchanged. |
+| `topic` | Record a Stager's verdict on whether the Lord's latest prompt changed its topic: `same`, `changed <slug>` or `none`, with `--description "<one line>"` saving the topic line to its `topic.md`; each verdict is appended to `topic-verdicts.jsonl`. Refused outside a registered Stager. |
 | `rank` | Rank files or input items by how likely each answers yes to a question, most likely first, so only the top few get opened; never prints item contents. |
 | `locate` | Print the files most likely to matter for a stated task, each ranked with a probability and a one-line reason. |
 | `sift` | Read command output on standard input, save the full copy under `~/tmp`, and print only the chunks that matter to what you are looking for, with line numbers. |

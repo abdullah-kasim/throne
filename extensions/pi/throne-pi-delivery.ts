@@ -6,6 +6,9 @@ import { messageText } from "./throne-pi-state.ts";
 type DeliveredAs = "turn" | "followUp";
 type Waiter = { text: string; as: DeliveredAs; seen: () => void };
 
+const AGENT_SETTING_COMMANDS = new Set(["color", "rename"]);
+const AGENT_SETTING_EVENT = "throne:agent-setting";
+
 const CONTEXT_EVENTS = ["session_start", "session_switch", "agent_start", "turn_start", "turn_end", "message_start"];
 
 function sharedModule(name: string): string {
@@ -107,9 +110,13 @@ export default async function throneDeliveryExtension(pi: any) {
     pane,
     harness: "pi",
     callback: callbackTargetFrom(process.env[contract.DELIVERY_CALLBACK_ENV]),
-    commands: false,
+    commands: true,
     tryDeliver: async (request: any, withdrawn: AbortSignal) => {
-      if (typeof request.text !== "string") return { status: "refused", detail: "pi takes no commands" };
+      if (typeof request.text !== "string") {
+        if (!AGENT_SETTING_COMMANDS.has(request.command)) return { status: "refused", detail: `pi takes only the color and rename commands, not ${request.command}` };
+        pi.events.emit(AGENT_SETTING_EVENT, { command: request.command, args: request.args });
+        return { status: "delivered", as: "turn" };
+      }
       const draft = readDraft();
       if (draft === null) return { status: "not-yet", reason: "composer-unreadable" };
       const hasDraft = draft.trim() !== "";

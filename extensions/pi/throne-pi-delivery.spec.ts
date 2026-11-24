@@ -8,6 +8,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { createServer } from "node:http";
 import { DELIVERY_CALLBACK_ENV, DELIVERY_SOCKET_ENV } from "../shared/agent-delivery-contract.ts";
 import throneDeliveryExtension from "./throne-pi-delivery.ts";
+import { HARNESS_COMMAND_TYPING_OUTCOMES, sendHarnessCommandToThePiExtension } from "../../src/agent-settings/harness-command-typing.ts";
+import type { HerdrAgent } from "../../src/herdr/herdr-inventory.service.ts";
 
 const PANE = "w1:pPI";
 const cleanups: (() => Promise<void>)[] = [];
@@ -23,6 +25,7 @@ function stubPi(composer: { draft: string; idle: boolean; canSetDraft?: boolean 
   const handlers = new Map<string, Handler[]>();
   const sent: Sent[] = [];
   const logged: string[] = [];
+  const settingEvents: { event: string; payload: unknown }[] = [];
   const draftWhenSent: string[] = [];
   const ui: Record<string, unknown> = { getEditorText: () => composer.draft };
   if (composer.canSetDraft) ui.setEditorText = (text: string) => (composer.draft = text);
@@ -37,8 +40,9 @@ function stubPi(composer: { draft: string; idle: boolean; canSetDraft?: boolean 
       sent.push({ text, options });
     },
     logger: { debug: (line: string) => logged.push(line) },
+    events: { emit: (event: string, payload: unknown) => settingEvents.push({ event, payload }) },
   };
-  return { pi, sent, logged, emit, draftWhenSent, seenAsUser: (text: string) => emit("message_start", { message: { role: "user", content: [{ type: "text", text }] } }) };
+  return { pi, sent, logged, settingEvents, emit, draftWhenSent, seenAsUser: (text: string) => emit("message_start", { message: { role: "user", content: [{ type: "text", text }] } }) };
 }
 
 async function startExtension(stub: ReturnType<typeof stubPi>, callbackSocket?: string): Promise<string> {
@@ -158,5 +162,27 @@ describe("the pi extension on its delivery socket", () => {
     assert.equal(listener, undefined);
     assert.equal(stub.logged.length, 1);
     assert.match(stub.logged[0], /THRONE_DELIVERY_SOCKET or HERDR_PANE_ID is unset/);
+  });
+});
+
+function piPaneAgent(): HerdrAgent {
+  return { agent: "pi", name: "shadow-pi-04", tabLabel: "shadow-pi-04", agentStatus: "idle", cwd: "/work", focused: false, paneId: PANE, tabId: "tab", terminalId: "terminal" };
+}
+
+describe("agent settings through the pi extension", () => {
+  test("the settings tick corrects a live pi agent's colour through its extension", async () => {
+    const stub = stubPi({ draft: "half-typed draft", idle: true });
+    const socket = await startExtension(stub);
+    assert.deepEqual(await sendHarnessCommandToThePiExtension(piPaneAgent(), "/color purple", socket), { outcome: HARNESS_COMMAND_TYPING_OUTCOMES.APPLIED });
+    assert.deepEqual(stub.settingEvents, [{ event: "throne:agent-setting", payload: { command: "color", args: "purple" } }]);
+    assert.deepEqual(stub.sent, []);
+  });
+
+  test("the pi extension refuses a command that is not color or rename", async () => {
+    const stub = stubPi({ draft: "", idle: true });
+    const socket = await startExtension(stub);
+    const result = await sendHarnessCommandToThePiExtension(piPaneAgent(), "/model opus", socket);
+    assert.equal(result.outcome, HARNESS_COMMAND_TYPING_OUTCOMES.FAILED);
+    assert.deepEqual(stub.settingEvents, []);
   });
 });

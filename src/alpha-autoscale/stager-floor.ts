@@ -5,7 +5,6 @@ import {
   AGENT_LIFECYCLE_STATES,
   type AgentStatusesRosterEntry,
 } from "../agent-statuses/agent-statuses.types.ts";
-import { MODEL_NAMES } from "../harness-routing/harness.ts";
 import {
   DESIRED_STATES,
   readDesiredState,
@@ -254,8 +253,6 @@ export async function ensureLiveStager(
     runtime.cliEntrypoint,
     [
       "create-agent",
-      "--model",
-      MODEL_NAMES.FABLE,
       "--role",
       "Stager",
       "--supervisor",

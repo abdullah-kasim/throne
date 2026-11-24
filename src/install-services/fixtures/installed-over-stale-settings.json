@@ -105,6 +105,10 @@
           {
             "type": "command",
             "command": "python3 \"/srv/throne/claude-hooks/stager-tree-refresh.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"/srv/throne/claude-hooks/stager-topic-order.py\""
           }
         ]
       }

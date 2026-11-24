@@ -20,6 +20,7 @@ import { ScratchPaneCommand } from "../scratch-pane/scratch-pane.command.ts";
 import { MigrateHomeCommand } from "../migrate-home/migrate-home.command.ts";
 import { RecallCommand } from "../memory-recall/recall.command.ts";
 import { RefreshStagerTreeCommand } from "../stager-tree-refresh/refresh-stager-tree.command.ts";
+import { TopicCommand } from "../topic/topic.command.ts";
 import { RankCommand } from "../item-rank/rank.command.ts";
 import { LocateCommand } from "../file-locate/locate.command.ts";
 import { SiftCommand } from "../log-sift/sift.command.ts";
@@ -232,6 +233,14 @@ export const PLATFORM_COMMANDS: readonly CommandRegistryEntry[] = [
     migrated: false,
     description:
       "Serve a prompt-submit hook payload from stdin: fast-forward a registered Stager's own clean tree to main when it is only behind, and print one line; a dirty or diverged tree gets a warning line and is left unchanged.",
+  },
+  {
+    name: "topic",
+    provider: TopicCommand,
+    visibility: "public",
+    migrated: false,
+    description:
+      "Record a Stager's verdict on whether the Lord's latest prompt changed topic: same, changed <slug> or none, with --description saving the one-line topic to the Stager's topic.md; refuses outside a Stager session.",
   },
   {
     name: "rank",

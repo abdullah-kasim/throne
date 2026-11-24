@@ -79,7 +79,7 @@ record exists or was synthesized.
 throne restart-harnesses --dry-run          # print the plan, touch nothing
 throne restart-harnesses                    # restart every eligible live agent
 throne restart-harnesses --force            # include agents that are working
-throne restart-harnesses --only stager-west --only regent
+throne restart-harnesses --only stager-oak --only regent
 ```
 
 ## What each kind of run prints

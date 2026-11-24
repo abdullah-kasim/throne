@@ -25,6 +25,7 @@ An Alpha created with a campaign objective takes that campaign's queue row as so
 - CA-POOL-MODEL: With no `--model`, create-agent takes the first model of the role's active pool, and refuses a role with no pool.
 - CA-LEDGER: Identity and spawn evidence are persisted before launch.
 - CA-SHADOW-NAME: A Shadow name is derived from its Alpha name and slice id.
+- CA-FORK-NAME: `--fork-of <parent>` accepts any valid name for the fork; it need not begin with the parent's name, so a Stager forks `stager-<topic>` (`src/create-agent/fork-of.spec.ts`).
 - CA-CLAUDE-MOD: A Claude agent launches with throne's mod whenever the mod validates, spawn.json records which and its delivery socket, and its opening prompt and its first colour and name correction then go over that socket (MSG-CLAUDE-MOD, BE-SETTINGS).
 - CA-SKILLS-TRUST: A Claude spawn marks the git repository holding `~/.claude/skills` trusted in the same locked config write as its worktree, for the primary and any secondary account config, adds nothing when the link is missing, broken or outside git, and rewrites nothing when both are already trusted (`src/claude-spawn-trust/claude-worktree-trust.test.ts`).
 - CA-PI: pi/flash and pi/pro launch on the newest DeepSeek model through bin/piy with the provider key, refused when the key is not ready, with a delivery socket recorded in spawn.json and passed to the extension (MSG-PI).

@@ -20,6 +20,11 @@ const HARNESS_COMMAND_BY_CORRECTION_KIND: Readonly<
   [AGENT_SETTING_CORRECTION_KINDS.SET_SESSION_NAME]: "/rename",
 };
 
+const HARNESSES_WHOSE_SETTINGS_ARE_CORRECTED: ReadonlySet<string> = new Set([
+  HARNESS_NAMES.CLAUDE,
+  HARNESS_NAMES.PI,
+]);
+
 const NO_COLOUR_IS_NEEDED_TO_NAME_A_SESSION: AgentColourByRole = {};
 
 export function agentRoleNamed(
@@ -62,7 +67,7 @@ export function isAgentCorrectable(
   desired: DesiredAgentSettings,
   actual: ActualAgentSettings,
 ): boolean {
-  return actual.alive && desired.harness === HARNESS_NAMES.CLAUDE;
+  return actual.alive && HARNESSES_WHOSE_SETTINGS_ARE_CORRECTED.has(desired.harness);
 }
 
 export function correctionsFor(

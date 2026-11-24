@@ -118,7 +118,7 @@ export function isTerminalGateShadowName(name: string): boolean {
  * so it is excluded from the no-diff verdict-gate set, but it still needs a
  * name-shaped discriminator for `agent-evidence-gate.ts` to hang the
  * machine-checked path-wise delivery precondition on (see `HDL_DELIVERY_PRECONDITION`
- * campaign — a shadow-pln-99e reported `**Delivery outcome:** PASS` in
+ * campaign — a delivery Shadow reported `**Delivery outcome:** PASS` in
  * prose having only called `absorb-git-tree`, never `merge-git-tree`, and
  * nothing forced the path-wise delivery proof at verdict time).
  */
