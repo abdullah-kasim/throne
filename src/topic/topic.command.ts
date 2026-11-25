@@ -3,11 +3,12 @@ import { access, appendFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 import { TAB_AGENT_NAME_VARIABLE, isRegisteredStager } from "../stager-tree-refresh/stager-tree-refresh.ts";
+import { PRODUCTION_HAND_OVER, forkNameRefusal, handOverChangedTopic, type HandOverDependencies } from "./topic-hand-over.ts";
 
 export const TOPIC_FILE_NAME = "topic.md";
 export const TOPIC_VERDICTS_FILE_NAME = "topic-verdicts.jsonl";
 
-const USAGE = 'Usage: throne topic same|changed <slug>|none [--description "<one line>"]\n';
+const USAGE = 'Usage: throne topic same|none [--description "<one line>"] | changed <slug> [--brief "<what this conversation settled on that topic>"]\n';
 
 export interface TopicDependencies {
   readonly agentLedgerDirectory: string;
@@ -15,6 +16,7 @@ export interface TopicDependencies {
   now(): Date;
   writeStdout(text: string): void;
   writeStderr(text: string): void;
+  readonly handOver: HandOverDependencies;
 }
 
 const PRODUCTION_DEPENDENCIES: TopicDependencies = {
@@ -25,17 +27,20 @@ const PRODUCTION_DEPENDENCIES: TopicDependencies = {
   now: () => new Date(),
   writeStdout: (text) => process.stdout.write(text),
   writeStderr: (text) => process.stderr.write(text),
+  handOver: PRODUCTION_HAND_OVER,
 };
 
 interface TopicVerdict {
   verdict: "same" | "changed" | "none";
   slug?: string;
   description?: string;
+  brief?: string;
 }
 
 function parseTopicArguments(args: string[]): TopicVerdict {
   const positional: string[] = [];
   let description: string | undefined;
+  let brief: string | undefined;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index] as string;
     if (argument === "--description") {
@@ -43,6 +48,10 @@ function parseTopicArguments(args: string[]): TopicVerdict {
       index += 1;
       if (description === undefined || description.trim() === "") throw new Error("--description needs a one-line description");
       if (description.includes("\n")) throw new Error("--description must be one line");
+    } else if (argument === "--brief") {
+      brief = args[index + 1];
+      index += 1;
+      if (brief === undefined || brief.trim() === "") throw new Error("--brief needs what this conversation settled on that topic");
     } else if (argument.startsWith("-")) {
       throw new Error(`unknown flag "${argument}"`);
     } else {
@@ -53,10 +62,13 @@ function parseTopicArguments(args: string[]): TopicVerdict {
   if (extra.length > 0) throw new Error(`unexpected argument "${extra[0]}"`);
   if (verdict === "changed") {
     if (slug === undefined) throw new Error("changed must name the new topic's slug");
+    const refusal = forkNameRefusal(slug);
+    if (refusal !== undefined) throw new Error(refusal);
     if (description !== undefined) throw new Error("changed keeps this Stager's own topic: drop --description");
-    return { verdict, slug };
+    return { verdict, slug, ...(brief === undefined ? {} : { brief: brief.trim() }) };
   }
   if (verdict === "same" || verdict === "none") {
+    if (brief !== undefined) throw new Error("--brief goes only with changed");
     if (slug !== undefined) throw new Error(`${verdict} takes no slug`);
     return { verdict, description };
   }
@@ -90,6 +102,15 @@ export async function runTopic(args: string[], dependencies: TopicDependencies =
   };
   await appendFile(path.join(ledger, TOPIC_VERDICTS_FILE_NAME), `${JSON.stringify(record)}\n`);
   dependencies.writeStdout(`topic: recorded ${verdict.verdict}${verdict.slug === undefined ? "" : ` ${verdict.slug}`}\n`);
+  if (verdict.slug === undefined) return 0;
+  const handOver = await handOverChangedTopic(agentName, verdict.slug, verdict.brief, dependencies.agentLedgerDirectory, dependencies.handOver);
+  if (!handOver.ok) {
+    dependencies.writeStderr(`topic: ${handOver.step} failed: ${handOver.reason}\n`);
+    return 1;
+  }
+  dependencies.writeStdout(
+    `topic: ${handOver.relayed ? "relayed the Lord's prompt to" : "forked"} ${handOver.name}, pane ${handOver.pane}\n`,
+  );
   return 0;
 }
 

@@ -1,7 +1,7 @@
 ---
 name: throne-fork
-description: 'This throne-only, Stager-only skill documents the `create-agent --topic-from <origin>` procedure that hands a prompt whose topic changed to a new, ordinary Stager, never a harness subagent. Use it after `throne topic changed <slug>` recorded a topic change and no live Stager holds that topic. Only a registered Stager may run it; the Regent cannot fork itself.'
-version: 2.0.0
+description: 'This throne-only, Stager-only skill documents `throne topic changed <slug>`, the one command that hands a prompt whose topic changed to a live or newly forked ordinary Stager, never a harness subagent. Use it when the prompt hook''s topic order finds the topic changed. Only a registered Stager may run it; the Regent cannot fork itself.'
+version: 3.0.0
 user-invocable: true
 ---
 
@@ -30,44 +30,44 @@ agent in the court.
 
 ## When to fork
 
-Fork only when the prompt hook's topic order made you run
-`throne topic changed <slug>` and no live Stager already holds that topic
-(`agent-statuses` lists it; its `topic.md` names it). When one does, send
-it the prompt verbatim with `send-agent` instead, and send it every later
-prompt on that topic the same way, as `agent_docs/role-stager.md` says.
+A fork happens inside one command. When the prompt hook's topic order finds
+the topic changed, run `throne topic changed <slug>`, with
+`--brief "<what this conversation settled on that topic>"` only when this
+conversation already settled something there, and run nothing before it.
 There is no other fork: `create-agent --topic-from` refuses unless your
 latest topic record is a change.
 
 ## The procedure
 
-Only a Stager may take this path; the Regent cannot fork itself. Fork now and
-ask the Lord nothing: the prompt that changed the topic is the fork's scope.
+Only a Stager may take this path; the Regent cannot fork itself. Ask the Lord
+nothing and research nothing: the prompt that changed the topic is the new
+Stager's scope, and the new Stager does the research.
 
-f1. Write the brief to `~/.throne/data/<fork-name>/brief.md` in the
-    five-marker shape (INTENT, SCOPE, RULINGS, VERIFIED-NOUNS, REUSE) and check it
-    with `throne lint-queue-plan --body-file <that path>`. THE FORKED PANE
-    INHERITS NONE OF THIS CONVERSATION. Everything settled here on that
-    topic — the rulings, the paths, the file names, the things ruled out — is
-    lost unless it is in that file. Verify every code noun against the live tree
-    before writing it, the same way `/queue-objective` does. Write it for
-    the fork's model: the `--model` the Lord named, else your live
-    model, as "Model resolution" below says. Shape it as
-    `agent_docs/MODEL_POLICY.md` "Find the reader first" says, and put its
-    `Written for: <harness>/<model> at effort <n> (<how it was found>)`
-    line under `RULINGS:`.
-f2. Name the fork `stager-<slug>`, the `<slug>` given to
-    `throne topic changed`, trimmed so the whole name fits 32 characters.
-f3. Prepare its worktree with `spawn-git-tree <fork-name> --repo <repo>
-    --non-campaign`, then spawn it:
-    `create-agent --topic-from <your-name> --role Stager --supervisor Regent
-    --name <fork-name> --cwd <that worktree> --non-campaign`. Pass `--model`
-    only when the Lord named one; otherwise it inherits your live
-    model. `create-agent` copies the prompt that changed the topic, verbatim,
-    from your session transcript into `~/.throne/data/<fork-name>/lord-prompt.md`;
-    no agent writes that file. It refuses and names the failing condition if
-    anything is off.
-f4. Tell the Lord in one line the fork's name and where its pane is. Do
-    nothing else, and do not follow it into the task.
+1. Run `throne topic changed <slug> [--brief "..."]`.
+2. Tell the Lord in one line the Stager's name and pane the command printed.
+   Do nothing else, and do not follow it into the task.
+
+When a step fails the command names that step and exits non-zero, and the
+verdict stays recorded. Report the failed step to the Lord in one line.
+
+## What the command does
+
+After it appends the verdict, the command names the Stager `stager-<slug>`,
+trimmed so the whole name fits 32 characters. When a live Stager of that name
+exists it relays the prompt verbatim to it, the way `send-agent` does, and
+forks nothing. Otherwise:
+
+f1. It writes `~/.throne/data/<fork-name>/brief.md` in the five-marker shape
+    (INTENT, SCOPE, RULINGS, VERIFIED-NOUNS, REUSE): INTENT quotes the prompt
+    that changed the topic, RULINGS holds the `--brief` text or "nothing
+    settled", and the other markers hold fixed text. THE FORKED PANE INHERITS
+    NONE OF THIS CONVERSATION, so what `--brief` leaves out is lost.
+f2. It prepares the fork's worktree in the throne repository the way
+    `spawn-git-tree <fork-name> --non-campaign` does.
+f3. It launches the fork through the `create-agent --topic-from <your-name>
+    --role Stager --supervisor Regent --non-campaign` path, which copies the
+    prompt that changed the topic, verbatim, from your session transcript into
+    `~/.throne/data/<fork-name>/lord-prompt.md`; no agent writes that file.
 
 The fork is an ordinary Stager supervised by the Regent. It reports to no
 one: it talks to the Lord in its own pane, leaves its pane showing the
@@ -107,17 +107,8 @@ asking.
 ## Worked example
 
 ```bash
-throne topic changed prmedia
-mkdir -p ~/.throne/data/stager-prmedia
-cat > ~/.throne/data/stager-prmedia/brief.md <<'EOF'
-INTENT: publish the PR 214 screenshots and video.
-SCOPE: repo widget-store, PR 214, media capture and publish only.
-RULINGS: none beyond the standing pr-media contract.
-VERIFIED-NOUNS: .claude/skills/pr-media/SKILL.md, PR 214.
-EOF
-throne lint-queue-plan --body-file ~/.throne/data/stager-prmedia/brief.md
-spawn-git-tree stager-prmedia --repo widget-store --non-campaign
-create-agent --topic-from stager-oak --role Stager --supervisor Regent \
-  --name stager-prmedia --cwd <the worktree spawn-git-tree printed> \
-  --non-campaign
+throne topic changed prmedia --brief "PR 214 only; the video is already recorded"
 ```
+
+It prints the Stager's name and pane, and the reply to the Lord is one line
+naming them.

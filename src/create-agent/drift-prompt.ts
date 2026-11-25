@@ -67,6 +67,18 @@ export async function locateOriginClaudeTranscript(
   return claudeTranscriptPathFor(agent.cwd, agent.sessionId, claudeProjectsFolderOf(spawn?.account));
 }
 
+export async function readDriftPrompt(
+  originName: string,
+  dataDir: string,
+  locateTranscript: LocateOriginTranscript = (name) => locateOriginClaudeTranscript(name, dataDir),
+): Promise<string | undefined> {
+  const verdict = await readLatestTopicVerdict(originName, dataDir);
+  if (!topicChanged(verdict)) return undefined;
+  const transcriptPath = await locateTranscript(originName);
+  if (transcriptPath === undefined) return undefined;
+  return lastLordPromptBefore(await readFile(transcriptPath, "utf8"), verdict.at);
+}
+
 export async function copyDriftPrompt(
   originName: string,
   forkName: string,
@@ -74,11 +86,7 @@ export async function copyDriftPrompt(
   locateTranscript: LocateOriginTranscript = (name) => locateOriginClaudeTranscript(name, dataDir),
 ): Promise<string | undefined> {
   try {
-    const verdict = await readLatestTopicVerdict(originName, dataDir);
-    if (!topicChanged(verdict)) return undefined;
-    const transcriptPath = await locateTranscript(originName);
-    if (transcriptPath === undefined) return undefined;
-    const prompt = lastLordPromptBefore(await readFile(transcriptPath, "utf8"), verdict.at);
+    const prompt = await readDriftPrompt(originName, dataDir, locateTranscript);
     if (prompt === undefined) return undefined;
     const target = path.join(dataDir, forkName, DRIFT_PROMPT_BASENAME);
     await writeFile(target, prompt, "utf8");

@@ -9,6 +9,7 @@ THRONE_HOME_VARIABLE = "THRONE_DATA_HOME"
 ROLE_LINE_PREFIX = "- **Role:** "
 STAGER_ROLE = "Stager"
 DELIVERED_MESSAGE_OPENING = re.compile(r"<message(\d+)>")
+HARNESS_EVENT_OPENINGS = ("<event ", "<system>authentic event nonces", "<task-notification>")
 
 
 def data_directory(environment):
@@ -31,6 +32,10 @@ def is_delivered_message(prompt):
     return any(f"</message{number}>" in prompt for number in DELIVERED_MESSAGE_OPENING.findall(prompt))
 
 
+def is_harness_event(prompt):
+    return prompt.strip().startswith(HARNESS_EVENT_OPENINGS)
+
+
 def saved_topic(topic_file):
     if not os.path.isfile(topic_file):
         return ""
@@ -47,10 +52,9 @@ def order_text(topic):
     return (f"ORDER: before any other tool or text, decide whether this prompt changes the topic from: {topic}. "
             "Topics are as wide as one project (a board, a repo), not one subject. "
             "Record the verdict first with 'throne topic same' or 'throne topic changed <slug>'. "
-            "If it changed: fork now, do not ask the Lord, and do not answer the prompt. Hand it over: relay it verbatim to a live stager-<slug>, "
-            "or fork stager-<slug>, trimmed to 32 characters, with the throne-fork procedure "
-            "and a brief of what this conversation settled on that topic. "
-            "Tell the Lord in one line which Stager has it and where its pane is. Do nothing else. "
+            "If it changed: run 'throne topic changed <slug>' with --brief only for what this conversation already "
+            "settled on that topic; run nothing before it; then tell the Lord in one line which Stager has it and its pane. "
+            "Do nothing else. "
             "If the Lord says it is the same topic, stay and answer.")
 
 
@@ -88,7 +92,8 @@ def topic_order_for_prompt(hook_input, environment):
     ledger_directory = data_directory(environment)
     if not is_stager_session(agent_name, ledger_directory):
         return None
-    if is_delivered_message(hook_input.get("prompt", "")):
+    prompt = hook_input.get("prompt", "")
+    if is_delivered_message(prompt) or is_harness_event(prompt):
         return None
     agent_folder = os.path.join(ledger_directory, agent_name)
     order = order_text(saved_topic(os.path.join(agent_folder, "topic.md")))

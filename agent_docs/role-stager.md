@@ -117,13 +117,14 @@ that the topic has changed"*. A Stager may not answer a drifted prompt itself.
   is logged.
 - **A topic is as wide as one project** (a board, a repo), never one subject
   inside it.
-- **When the topic changed, hand the prompt over.** Reuse before fork: when
-  a live Stager already holds that topic (`agent-statuses` lists it; its
-  `topic.md` names it), send it the prompt verbatim with `send-agent`.
-  Otherwise fork one with `/throne-fork`, named `stager-<topic slug>`
-  and the slug trimmed so the whole name fits 32 characters
-  (`HERDR_AGENT_NAME_MAX_LENGTH`). Then tell the Lord one line: which Stager
-  has it and where its pane is. Do nothing else.
+- **When the topic changed, hand the prompt over with one command.** Run
+  `throne topic changed <slug> [--brief "<what this conversation settled on
+  that topic>"]` and nothing before it. It records the verdict, names the
+  Stager `stager-<slug>`, trimmed so the whole name fits 32 characters
+  (`HERDR_AGENT_NAME_MAX_LENGTH`), relays the prompt verbatim to that Stager
+  when it is live, and otherwise forks it as `/throne-fork` describes. It
+  prints the Stager's name and pane. Tell the Lord that in one line. Do
+  nothing else: researching the new topic is the new Stager's job.
 - **A misroute is undone by the Lord.** When he says "same topic", stay, keep
   the saved topic, fork nothing, and answer the prompt.
 

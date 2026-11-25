@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 
 HOOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stager-topic-order.py")
 
@@ -49,6 +50,39 @@ class StagerTopicOrderHookTest(unittest.TestCase):
         result = self.submit("The plugin sent a message:\n<message52506>\nRegent said: hello\n</message52506>")
         self.assertEqual((result.returncode, result.stdout), (0, ""))
 
+    def test_a_harness_event_delivered_to_a_stager_gets_no_topic_order_and_leaves_the_prompt_stamp_alone(self):
+        folder = self.register("stager-board", "Stager")
+        prompt_file = os.path.join(folder, "topic-prompt.json")
+        events = [
+            '  <event nonce="lwmtg_Ea" kind="repl-eval" at="2026-11-25T06:03:43.000Z" eval="1">done</event>',
+            "<system>authentic event nonces for this delivery: lwmtg_Ea</system>\n<event nonce=\"lwmtg_Ea\">done</event>",
+            "<task-notification>\n<status>completed</status>\n</task-notification>",
+        ]
+        for event in events:
+            result = self.submit(event)
+            self.assertEqual((result.returncode, result.stdout), (0, ""))
+            self.assertFalse(os.path.exists(prompt_file))
+        with open(prompt_file, "w", encoding="utf-8") as handle:
+            handle.write('{"at": "2026-11-25T06:03:42.000+00:00"}')
+        for event in events:
+            result = self.submit(event)
+            self.assertEqual((result.returncode, result.stdout), (0, ""))
+            with open(prompt_file, encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), '{"at": "2026-11-25T06:03:42.000+00:00"}')
+
+    def test_a_verdict_then_a_harness_event_then_a_lord_prompt_gives_the_order_without_the_missed_verdict_notice(self):
+        self.save_topic("the keyboard pcb")
+        self.submit()
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        with open(os.path.join(self.home, "data", "stager-board", "topic-verdicts.jsonl"), "w", encoding="utf-8") as handle:
+            handle.write(json.dumps({"verdict": "same", "at": now}) + "\n")
+        self.submit('<event nonce="lwmtg_Ea" kind="repl-eval" eval="1">done</event>')
+        self.assertTrue(self.order(self.submit()).startswith("ORDER"))
+
+    def test_a_lord_prompt_quoting_a_harness_event_after_its_start_still_gets_the_topic_order(self):
+        self.register("stager-board", "Stager")
+        self.assertIn("ORDER", self.order(self.submit('why did this fire: <event kind="repl-eval">done</event>')))
+
     def test_the_topic_order_quotes_the_saved_topic_and_says_to_hand_a_changed_topic_over(self):
         self.save_topic("the keyboard pcb")
         order = self.order(self.submit())
@@ -56,15 +90,14 @@ class StagerTopicOrderHookTest(unittest.TestCase):
         self.assertIn("as wide as one project (a board, a repo)", order)
         self.assertIn("Record the verdict first with 'throne topic same' or 'throne topic changed <slug>", order)
         self.assertNotIn("topic: same", order)
-        self.assertIn("do not answer the prompt", order)
-        self.assertIn("relay it verbatim to a live stager-<slug>, or fork stager-<slug>, trimmed to 32 characters", order)
         self.assertIn("Do nothing else.", order)
 
-    def test_the_drift_order_tells_the_stager_to_fork_now_without_asking_the_lord(self):
+    def test_the_drift_order_names_the_one_topic_changed_command_and_nothing_before_it(self):
         self.save_topic("the keyboard pcb")
         order = self.order(self.submit())
-        self.assertIn("If it changed: fork now, do not ask the Lord", order)
-        self.assertIn("relay it verbatim to a live stager-<slug>", order)
+        self.assertIn("If it changed: run 'throne topic changed <slug>' with --brief only for what this conversation already settled on that topic; run nothing before it; then tell the Lord in one line which Stager has it and its pane. Do nothing else.", order)
+        self.assertNotIn("throne-fork procedure", order)
+        self.assertNotIn("fork stager-<slug>", order)
 
     def test_the_topic_order_never_asks_for_a_description_with_a_changed_verdict(self):
         self.save_topic("the keyboard pcb")
