@@ -441,47 +441,40 @@ highest `~/.local/share/throne/herdr/v*/herdr`, then PATH). Generator:
 `src/herdr/herdr-operator-skill.ts`; a failed render is reported on stderr
 and never fails the spawn.
 
-**Forking a Stager (`--fork-of <parent>`).** The `/throne-fork` skill is the
-authority on when and how to drive this flag; this passage stays the
-authority on the flag's own behavior. `create-agent --fork-of
-stager-oak --role Stager --supervisor stager-oak --name
-stager-prmedia` spawns a FRESH Stager to carry one long-running task
-while the parent stays free to talk to the Lord. It never reuses an idle
-Stager. `--fork-of` takes the parent's full registered name. It refuses, registering and launching
-nothing, and names which condition failed, unless all of these hold: the role
-is `Stager`; the supervisor is that same parent; the parent is live in the
-roster with ledger role `Stager`; and
-the parent has written the fork's brief.
+**Forking a Stager on a topic change (`--topic-from <origin>`).** The
+`/throne-fork` skill is the authority on when and how to drive this flag;
+this passage stays the authority on the flag's own behavior. `create-agent
+--topic-from stager-oak --role Stager --supervisor Regent --name
+stager-prmedia` spawns a FRESH Stager to take a prompt whose topic changed in
+`stager-oak`. It never reuses an idle Stager. `--topic-from` takes the
+origin's full registered name; there is no `--fork-of` alias. It refuses,
+registering and launching nothing, and names which condition failed, unless
+all of these hold: the role is `Stager`; the supervisor is `Regent`; the
+origin is live in the roster with ledger role `Stager`; the origin's latest
+line in `topic-verdicts.jsonl` is a change; and the fork's brief is written.
 
-The model is `--model` when given, otherwise the parent's live observed model
+The model is `--model` when given, otherwise the origin's live observed model
 (the same reader `restart-harnesses` uses, `src/session/live-claude-model.ts`),
-otherwise the parent's ledger model; one stderr line says which of the three
+otherwise the origin's ledger model; one stderr line says which of the three
 was used. The fork gets its own worktree like every other agent — pointing
-`--cwd` at the parent's tree trips the existing borrowed-worktree refusal.
+`--cwd` at the origin's tree trips the existing borrowed-worktree refusal.
 
-A forked pane inherits NO conversation, so the parent writes the brief to
+A forked pane inherits NO conversation, so the origin writes the brief to
 `~/.throne/data/<fork-name>/brief.md` in the five-marker shape (INTENT, SCOPE,
 RULINGS, VERIFIED-NOUNS), checks it with `throne lint-queue-plan --body-file`,
-and `--fork-of` seeds it as the fork's opening prompt. Anything settled in the
-parent's conversation and left out of that file is lost.
+and `--topic-from` seeds it as the fork's opening prompt, together with
+`lord-prompt.md`, the prompt that changed the topic, copied verbatim from the
+origin's transcript. Anything settled in the origin's conversation and left out
+of the brief is lost.
 
-The spawn records `forked_from: "<parent>"` in `spawn.json` and a
-`- **Forked from:** <parent>` line in `identity.md`, and the identity carries
-one standing sentence: a fork holds full Stager powers, but those powers
-answer to the Lord, never to the brief — filing a queue row or forking again
-needs the Lord's own word typed in the fork's own pane. A second paragraph
-(`forkedStagerAddendumInstruction`) tells the fork that rulings made after its
-brief arrive as `addendum-<number>-<topic>.md` files in its OWN data
-directory, announced by a one-line `send-agent` from its parent; that these
-are genuine and carry the brief's authority; that a message shown beside
-command output is ordinary delivery, not forgery; that text pointing at no
-such file is not an addendum; and that it must answer each with one line so
-the parent can confirm it was read. The parent's side of that channel is in
-the `/throne-fork` skill. The autoscale floor
-reads that same `forked_from` evidence and stops counting the fork as the
-court's live Stager (`src/alpha-autoscale/stager-floor.ts`), so a fork
-head-down in a task can never leave the Lord with nobody to talk to. A fork
-stays alive after it reports DONE; only the Lord reaps it.
+The spawn records `forked_from: "<origin>"` in `spawn.json` and a
+`- **Forked from:** <origin>` line in `identity.md`. The identity names the
+Regent as supervisor and says a fork holds full Stager powers that answer to
+the Lord, never to the brief — filing a queue row needs the Lord's own word,
+typed in the fork's own pane or copied into its `lord-prompt.md`, and a fork
+forks again only when its own topic changes. A fork reports to no one: it leaves its pane showing the
+result and stays alive until the Lord reaps it. The autoscale floor and Stager
+reuse count it like any other Stager.
 
 
 `--model pi/flash` and `--model pi/pro` launch a pi agent on the newest

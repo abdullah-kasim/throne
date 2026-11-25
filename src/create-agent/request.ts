@@ -35,7 +35,7 @@ import {
 import {
   forkBriefPath,
   readForkBriefFile,
-  readForkParentEvidenceFromLedger,
+  readForkOriginEvidenceFromLedger,
   resolveForkOrigin,
   type ForkOrigin,
 } from "./fork-origin.ts";
@@ -59,9 +59,9 @@ export const CREATE_AGENT_USAGE =
   "[--objective-code <code> | --non-campaign] " +
   "[--account <name> | --account company (a Claude agent's account; without it the account balancer chooses)] " +
   "[--empty-worktree] " +
-  "[--fork-of <parent-stager> (Stager only; spawns a fresh fork of a live parent " +
-  "Stager, inherits its model unless --model is given, and opens on the brief " +
-  "the parent wrote to data/<fork-name>/brief.md)] " +
+  "[--topic-from <origin-stager> (Stager only, --supervisor Regent; forks a live origin " +
+  "Stager whose latest topic record is a change, inherits its model unless --model is given, " +
+  "and opens on the brief written to data/<fork-name>/brief.md)] " +
   "[--single-slice (Alpha only; the Lord authorized this campaign to run one implementation slice and its 99 gates, each a separate Shadow)] " +
   "[--deliverable-shape verdict-only (declares this agent's correct completion " +
   "is a judgement, not a diff; refused for a 99a/99e-shaped --name)] " +
@@ -388,21 +388,21 @@ export async function prepareCreateAgentRequest(
 
   const canonicalName = canonicalIdentityName(name);
 
-  const forkParentName = flags["fork-of"];
+  const forkOriginName = flags["topic-from"];
   let forkOrigin: ForkOrigin | undefined;
-  if (forkParentName !== undefined) {
+  if (forkOriginName !== undefined) {
     const readEvidence =
-      deps.readForkParentEvidence ?? readForkParentEvidenceFromLedger;
+      deps.readForkOriginEvidence ?? readForkOriginEvidenceFromLedger;
     const readBrief = deps.readForkBrief ?? readForkBriefFile;
     const resolution = resolveForkOrigin(
       {
-        parent: forkParentName,
+        origin: forkOriginName,
         role,
         supervisor: flags.supervisor,
         composedName: canonicalName,
         requestedModel: flags.model,
       },
-      await readEvidence(forkParentName),
+      await readEvidence(forkOriginName),
       await readBrief(canonicalName),
       forkBriefPath(canonicalName),
     );
@@ -414,7 +414,7 @@ export async function prepareCreateAgentRequest(
     }
     forkOrigin = resolution.value;
     writeStderr(
-      `create-agent: forking "${canonicalName}" from "${forkOrigin.parent}" on model ` +
+      `create-agent: forking "${canonicalName}" from "${forkOrigin.origin}" on model ` +
         `"${forkOrigin.model}", resolved from ${forkOrigin.modelSource}.\n`,
     );
   }
@@ -510,7 +510,7 @@ export async function prepareCreateAgentRequest(
       emptyWorktree,
       ...(deliverableShape === undefined ? {} : { deliverableShape }),
       ...(singleSlice === undefined ? {} : { singleSlice }),
-      ...(forkOrigin === undefined ? {} : { forkedFrom: forkOrigin.parent }),
+      ...(forkOrigin === undefined ? {} : { forkedFrom: forkOrigin.origin }),
     },
   };
 }

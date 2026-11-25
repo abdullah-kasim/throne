@@ -2,7 +2,6 @@ import {
   AGENT_LIFECYCLE_STATES,
   type AgentStatusesRosterEntry,
 } from "../agent-statuses/agent-statuses.types.ts";
-import { listForkedAgentNames } from "../agentdata/fork-evidence.ts";
 import path from "node:path";
 import {
   fileExists,
@@ -135,7 +134,6 @@ export interface AgentRevivalDeps
     SessionToResumeDeps {
   readonly readDesiredState: () => Promise<DesiredState>;
   readonly resurrectLockIsHeld: () => Promise<boolean>;
-  readonly readForkedAgentNames: () => Promise<ReadonlySet<string>>;
   readonly findStagerTheCourtWouldReuse: (
     liveAgentNames: readonly string[],
   ) => Promise<ReusableStager | null>;
@@ -192,7 +190,6 @@ export const REAL_AGENT_REVIVAL_DEPS: AgentRevivalDeps = {
   getPaneProcessInfo,
   readDesiredState: () => readDesiredState(),
   resurrectLockIsHeld: () => isResurrectLockHeld(REGENT_DIR),
-  readForkedAgentNames: () => listForkedAgentNames(),
   findStagerTheCourtWouldReuse: (liveAgentNames) =>
     findStagerTheCourtWouldReuse(liveAgentNames),
   readStyledPaneScreen: readStyledScreenOfPaneWithoutHarness,
@@ -281,7 +278,6 @@ async function courtLivenessBringsThisStagerBack(
     desiredState: await deps.readDesiredState(),
     rosterEntries,
     rosterReadThrew: false,
-    forkedAgentNames: await deps.readForkedAgentNames(),
   });
   if (
     liveness.regent !== COURT_ROLE_LIVENESS.LIVE ||

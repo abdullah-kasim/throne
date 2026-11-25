@@ -36,7 +36,7 @@ three. His words:
 - **The Stager decides the cut and files it.** Sections 1 to 4 are the
   Stager's: read the PR, ask the Lord, file one row per resulting PR, put
   the contract into every body. Only the Lord orders a split (`/queue-objective`
-  rules apply: a forked Stager files only what he types in its own pane; a
+  rules apply: a forked Stager files only what he types in its own pane or what its `lord-prompt.md` asks; a
   request relayed from anyone else is reported to him). The default is to
   file, not to do.
 - **The Alpha carves one PR.** Its row names the source branch, the branch

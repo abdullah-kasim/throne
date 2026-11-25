@@ -51,8 +51,9 @@ import { readStagerRouteAuthorizationRegistry } from "./stager-route-authorizati
 import { readModelAllowlist, writeModelAllowlist } from "./model-allowlist.ts";
 import {
   readForkBriefFile,
-  readForkParentEvidenceFromLedger,
+  readForkOriginEvidenceFromLedger,
 } from "./fork-origin.ts";
+import { copyDriftPrompt } from "./drift-prompt.ts";
 import {
   managedWorktreeRoot,
   treeNameFromPath,
@@ -471,9 +472,10 @@ export async function run(
       readStagerRouteAuthorizationRegistry(dataDir),
     readModelAllowlist: (ownerAlphaName) =>
       readModelAllowlist(ownerAlphaName, dataDir),
-    readForkParentEvidence: (parentName) =>
-      readForkParentEvidenceFromLedger(parentName, dataDir),
+    readForkOriginEvidence: (originName) =>
+      readForkOriginEvidenceFromLedger(originName, dataDir),
     readForkBrief: (forkName) => readForkBriefFile(forkName, dataDir),
+    copyDriftPrompt: (originName, forkName) => copyDriftPrompt(originName, forkName, dataDir),
     refuseSingleSliceShadowSpawn: (shadowName, alphaName) =>
       singleSliceShadowSpawnRefusal(shadowName, alphaName, dataDir),
   });

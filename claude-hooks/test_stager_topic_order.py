@@ -60,6 +60,12 @@ class StagerTopicOrderHookTest(unittest.TestCase):
         self.assertIn("relay it verbatim to a live stager-<slug>, or fork stager-<slug>, trimmed to 32 characters", order)
         self.assertIn("Do nothing else.", order)
 
+    def test_the_drift_order_tells_the_stager_to_fork_now_without_asking_the_lord(self):
+        self.save_topic("the keyboard pcb")
+        order = self.order(self.submit())
+        self.assertIn("If it changed: fork now, do not ask the Lord", order)
+        self.assertIn("relay it verbatim to a live stager-<slug>", order)
+
     def test_the_topic_order_never_asks_for_a_description_with_a_changed_verdict(self):
         self.save_topic("the keyboard pcb")
         self.assertNotIn("changed <slug> --description", self.order(self.submit()))

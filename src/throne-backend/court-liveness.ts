@@ -24,7 +24,6 @@ export interface CourtLivenessInput {
   readonly desiredState: DesiredState;
   readonly rosterEntries: readonly AgentStatusesRosterEntry[];
   readonly rosterReadThrew: boolean;
-  readonly forkedAgentNames: ReadonlySet<string>;
 }
 
 export interface CourtLiveness {
@@ -60,7 +59,7 @@ export function decideCourtLiveness(input: CourtLivenessInput): CourtLiveness {
     regent: liveOrMissing(input.rosterEntries.some(isLiveRegent)),
     stager: liveOrMissing(
       input.rosterEntries.some((entry) =>
-        isLiveStager(entry, input.forkedAgentNames),
+        isLiveStager(entry),
       ),
     ),
   };

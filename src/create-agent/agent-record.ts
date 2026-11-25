@@ -15,6 +15,7 @@ import type { MemoryResolution } from "../memory-dir/memory-dir-resolver.ts";
 import { composeSituationBriefForObjective } from "../situation-brief/situation-brief-runtime.ts";
 import { SITUATION_BRIEF_HEADING } from "../situation-brief/situation-brief-composer.ts";
 import { readForkBriefFile, type ReadForkBrief } from "./fork-origin.ts";
+import { driftForkOpeningLine } from "../agentdata/drift-fork-instruction.ts";
 
 export interface AgentOpeningPrompts {
   complete: string;
@@ -89,13 +90,17 @@ async function promptWithSituationBrief(
 
 async function promptWithForkBrief(
   request: PolicyResolution,
+  identity: AgentIdentity,
   readBrief: ReadForkBrief,
 ): Promise<string | undefined> {
   if (request.forkedFrom === undefined) return undefined;
   const brief = await readBrief(request.name);
   if (brief === undefined) return undefined;
-  const prompt = request.flags.prompt ?? "";
-  return prompt === "" ? brief : `${prompt}\n\n${brief}`;
+  const opening = [
+    request.flags.prompt ?? "",
+    identity.driftPromptPath === undefined ? "" : driftForkOpeningLine(identity.driftPromptPath),
+  ].filter((part) => part !== "");
+  return [...opening, brief].join("\n\n");
 }
 
 export async function createAgentOpeningPrompts(
@@ -107,7 +112,7 @@ export async function createAgentOpeningPrompts(
   const complete = composeOpeningPrompt(
     request.name,
     identity,
-    (await promptWithForkBrief(request, readBrief)) ??
+    (await promptWithForkBrief(request, identity, readBrief)) ??
       (await promptWithSituationBrief(request, composeBrief)),
   );
   const hasDurableOpeningPrompt =

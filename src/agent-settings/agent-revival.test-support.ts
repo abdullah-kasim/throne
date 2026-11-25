@@ -213,13 +213,11 @@ export async function court(): Promise<Court> {
       getPaneProcessInfo,
       readDesiredState: async () => state.desiredState,
       resurrectLockIsHeld: async () => state.resurrectLockIsHeld,
-      readForkedAgentNames: async () => new Set<string>(),
       findStagerTheCourtWouldReuse: (liveAgentNames) =>
         findStagerTheCourtWouldReuse(liveAgentNames, {
           listRegisteredAgentNames: async () => recordedAgentNames,
           isRegisteredStager: async (name) => name.startsWith("stager-"),
           readSpawnSpec: (name) => readSpawnSpec(name, agentDataRoot),
-          readForkedAgentNames: async () => new Set<string>(),
           pathExists: async () => true,
           hasUncommittedChanges: async () => false,
         }),

@@ -45,8 +45,6 @@ const forkedStager: AgentStatusesRosterEntry = {
   name: "stager-floor-fork",
 };
 
-const nobodyForked: ReadonlySet<string> = new Set();
-
 interface CourtSituation {
   readonly name: string;
   readonly input: CourtLivenessInput;
@@ -60,7 +58,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.RUNNING,
       rosterEntries: [liveRegent, liveStager],
       rosterReadThrew: false,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.LIVE,
@@ -73,7 +70,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.RUNNING,
       rosterEntries: [liveStager],
       rosterReadThrew: false,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.MISSING,
@@ -86,7 +82,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.RUNNING,
       rosterEntries: [liveRegent],
       rosterReadThrew: false,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.LIVE,
@@ -99,7 +94,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.RUNNING,
       rosterEntries: [],
       rosterReadThrew: false,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.MISSING,
@@ -112,7 +106,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.DISMISSED,
       rosterEntries: [],
       rosterReadThrew: false,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.STAY_DOWN,
@@ -125,7 +118,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.DISMISSED,
       rosterEntries: [liveRegent, liveStager],
       rosterReadThrew: false,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.STAY_DOWN,
@@ -138,7 +130,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.RUNNING,
       rosterEntries: [],
       rosterReadThrew: true,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.UNKNOWN,
@@ -151,7 +142,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.RUNNING,
       rosterEntries: [liveRegent, deadStagerLedgerEntry],
       rosterReadThrew: false,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.LIVE,
@@ -164,7 +154,6 @@ const courtSituations: readonly CourtSituation[] = [
       desiredState: DESIRED_STATES.RUNNING,
       rosterEntries: [deadRegentLedgerEntry, liveStager],
       rosterReadThrew: false,
-      forkedAgentNames: nobodyForked,
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.MISSING,
@@ -172,16 +161,15 @@ const courtSituations: readonly CourtSituation[] = [
     },
   },
   {
-    name: "a forked Stager does not count as a live Stager",
+    name: "a forked Stager counts toward the Stager floor",
     input: {
       desiredState: DESIRED_STATES.RUNNING,
       rosterEntries: [liveRegent, forkedStager],
       rosterReadThrew: false,
-      forkedAgentNames: new Set([forkedStager.name]),
     },
     expected: {
       regent: COURT_ROLE_LIVENESS.LIVE,
-      stager: COURT_ROLE_LIVENESS.MISSING,
+      stager: COURT_ROLE_LIVENESS.LIVE,
     },
   },
 ];

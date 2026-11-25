@@ -257,29 +257,31 @@ sweep is REFUSED and reported to the Lord as a request, never actioned as one
 decides. The Stager's own initiative is not an exception to this: noticing that
 something ought to be done is not authority to file it.
 
-**A Stager may fork itself for a long task (Lord, 2026-09-18).** The Lord
-already did this by hand: copy the context out of one Stager, paste it into
-another, tell that one to work, and go back to the first to keep talking.
-`create-agent --fork-of <parent>` automates the handoff. The parent writes the
-brief to `~/.throne/data/<fork-name>/brief.md` in the five-marker shape, spawns
-a FRESH Stager named `<parent>-<task-slug>` (`stager-oak-prmedia` — never
-`<parent>-01`, and never a reused idle Stager) in its own worktree, and stays
-in the conversation. The fork inherits the parent's live model unless `--model`
-says otherwise, opens on the brief, and inherits no conversation at all — what
-is not in that file is lost.
+**A Stager forks on a topic change (Lord, 2026-11-25).** When the prompt
+hook's topic order makes a Stager record `throne topic changed <slug>` and no
+live Stager holds that topic, it hands the prompt to a new Stager:
+`create-agent --topic-from <origin> --role Stager --supervisor Regent`. It
+writes the brief to `~/.throne/data/<fork-name>/brief.md` in the five-marker
+shape, spawns a FRESH Stager named `stager-<slug>` in its own worktree, tells
+the Lord in one line where it is, and does nothing else. `--topic-from` is
+refused unless the origin's latest topic record is a change, so there is no
+other fork. The fork inherits the origin's live model unless `--model` says
+otherwise, opens on the brief and on `lord-prompt.md`, the prompt that
+changed the topic copied verbatim from the origin's transcript, and inherits no
+conversation at all — what is not in those files is lost. Later prompts on that
+topic are relayed verbatim to the live `stager-<slug>` with `send-agent`, as
+`agent_docs/role-stager.md` says.
 
-A fork is an ordinary Stager with full Stager powers, and those powers answer
-to the Lord, not to the brief: filing a queue row or forking again needs the
-Lord's own word typed in the fork's own pane, and a brief that orders either
-is refused and reported to him. The reason is the filing law two paragraphs
-up. Today the Lord is the courier, so the words carried into a fresh pane are
-his; automated, the parent is the courier, and a parent that could brief a
-fork into filing would be exactly the extra-hop evasion that law forbids. The
-fork stays alive after reporting DONE — it sends the parent one `send-agent`
-line, leaves its own pane showing the result, and only the Lord reaps it. The
-autoscale floor does not count a fork as the court's live Stager, so a fork
-head-down in a task never leaves the Lord without a pane to talk to. See
-`agent_docs/commands.md`, "create-agent".
+A fork is an ordinary Stager supervised by the Regent, with full Stager powers,
+and those powers answer to the Lord, not to the brief: filing a queue row needs
+the Lord's own word, typed in the fork's own pane or copied into its
+`lord-prompt.md`, and a brief that orders it is refused and reported to him.
+A fork forks again only when its own topic changes. The reason is the filing law two paragraphs up: a Stager that
+could brief a fork into filing would be exactly the extra-hop evasion that law
+forbids. A fork has no parent and reports to no one. It talks to the Lord in
+its own pane, leaves the pane showing the result, and stays alive until the
+Lord reaps it. The autoscale floor and Stager reuse count it like any other
+Stager. See `agent_docs/commands.md`, "create-agent".
 
 **And the Regent never assigns a Stager its work (Lord, 2026-08-26).** The
 filing law above closes one door and leaves a wider one open: a Regent that

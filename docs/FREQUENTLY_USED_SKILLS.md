@@ -19,11 +19,11 @@ The skills to learn first. Every skill, with its full description, is in
 ## Usually run for you
 
 These are usually executed automatically: you say what you want in plain
-words ("queue this", "no alpha", "fork", "amend that") and the agent you are
+words ("queue this", "no alpha", "amend that") and the agent you are
 talking to runs the skill. You rarely type the name.
 
 - [`/queue-objective`](THRONE_SKILLS.md) — say "queue this"; turns your objective into a launch-ready queue row, files it and tells the Regent.
 - [`/agent-browser`](THRONE_SKILLS.md) — say "open a website" or "take a screenshot"; the browser automation command line for agents.
 - [`/no-alpha`](THRONE_SKILLS.md) — say "no alpha"; the agent you are talking to does the task in its own session instead of spawning an Alpha.
-- [`/throne-fork`](THRONE_SKILLS.md) — say "fork this"; creates a real forked Stager.
+- [`/throne-fork`](THRONE_SKILLS.md) — a Stager forks a new Stager when your prompt changes its topic.
 - [`/amendment`](THRONE_SKILLS.md) — say "amend that"; records your change to a filed queue row and tells its Alpha and the Regent.

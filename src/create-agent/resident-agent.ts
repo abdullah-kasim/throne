@@ -216,14 +216,21 @@ export async function runResidentAgent(
   const spawnedTabLabel = request.resuming
     ? undefined
     : derivePersonaTabLabel(request.name, PERSONA_CONFIG);
-  const identity = createAgentIdentity(
-    request,
-    request.role === "Shadow"
-      ? (request.flags.supervisor as string)
-      : REGENT_NAME,
-    spawnedTabLabel,
-    await resolveSpawnMemory(request, deps),
-  );
+  const driftPromptPath =
+    request.forkedFrom === undefined || request.resuming
+      ? undefined
+      : await deps.copyDriftPrompt?.(request.forkedFrom, request.name);
+  const identity = {
+    ...createAgentIdentity(
+      request,
+      request.role === "Shadow"
+        ? (request.flags.supervisor as string)
+        : REGENT_NAME,
+      spawnedTabLabel,
+      await resolveSpawnMemory(request, deps),
+    ),
+    ...(driftPromptPath === undefined ? {} : { driftPromptPath }),
+  };
   const prompts = await createAgentOpeningPrompts(
     request,
     identity,

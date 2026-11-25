@@ -70,7 +70,7 @@
       ".claude/skills/throne-fork/SKILL.md",
       "agent_docs/commands.md",
       "src/agentdata/identity-data.service.ts",
-      "src/create-agent/fork-of.spec.ts"
+      "src/create-agent/topic-from.spec.ts"
     ]
   },
   {

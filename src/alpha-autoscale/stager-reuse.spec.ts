@@ -5,7 +5,6 @@ import path from "node:path";
 import { test } from "node:test";
 
 import { listRegisteredAgentNames } from "../agent-statuses/agent-statuses-registry.ts";
-import { listForkedAgentNames } from "../agentdata/fork-evidence.ts";
 import { readSpawnSpec } from "../agentdata/spawn-data-contracts.ts";
 import { hasUncommittedChanges } from "../git-lifecycle/checkout-standing.ts";
 import {
@@ -195,7 +194,6 @@ function reuseEffects(court: FakeCourt): StagerReuseEffects {
       listRegisteredAgentNames: () => listRegisteredAgentNames(court.ledgerDir),
       isRegisteredStager: (name) => isRegisteredStager(name, court.ledgerDir),
       readSpawnSpec: (name) => readSpawnSpec(name, court.ledgerDir),
-      readForkedAgentNames: () => listForkedAgentNames(court.ledgerDir),
       pathExists,
       hasUncommittedChanges: (worktree) => hasUncommittedChanges(worktree, git),
     },
@@ -300,10 +298,10 @@ test("a dead Stager whose worktree has uncommitted changes is not reused", async
   assertOnlyBroughtBack(court, await reuse(court), "stager-older");
 });
 
-test("a forked Stager is not reused", async () => {
+test("a dead forked Stager's record can be reused like any other Stager's", async () => {
   const court = await courtWithAnOlderStagerAnd({ forkedFrom: "stager-older" });
 
-  assertOnlyBroughtBack(court, await reuse(court), "stager-older");
+  assertOnlyBroughtBack(court, await reuse(court), "stager-newest");
 });
 
 test("only one Stager is brought back even when several could be", async () => {
@@ -384,7 +382,7 @@ test("the other dead Stager ledgers are left exactly as they were", async () => 
 });
 
 test("with no Stager that can be reused nothing is launched and the caller is told so", async () => {
-  const court = await courtWithAnOlderStagerAnd({ forkedFrom: "stager-older" });
+  const court = await courtWithAnOlderStagerAnd({ worktreeIsMissing: true });
   court.liveAgentNames.push("stager-older");
   await registerDeadStager(court, { name: "alpha-dead", role: "Alpha", spawnedAt: "2026-10-09T00:00:00.000Z" });
 

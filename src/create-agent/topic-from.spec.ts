@@ -11,7 +11,7 @@ import {
   persistNewAgentRecord,
 } from "./agent-record.ts";
 import type { CreateAgentDeps, PolicyResolution } from "./create.types.ts";
-import type { ForkParentEvidence } from "./fork-origin.ts";
+import type { ForkOriginEvidence } from "./fork-origin.ts";
 import { HARNESS_NAMES } from "../harness-routing/harness.ts";
 import { writeModelAllowlist } from "./model-allowlist.ts";
 import {
@@ -22,7 +22,6 @@ import {
   type AgentIdentity,
   FORKED_FROM_LINE_PREFIX,
   FORKED_STAGER_STANDING_INSTRUCTION,
-  forkedStagerAddendumInstruction,
   identityText,
   writeIdentity,
   writeOpeningPrompt,
@@ -30,35 +29,36 @@ import {
 import { worktreesHome } from "../git-lifecycle/git-worktree.service.ts";
 import { THRONE_DATA_DIR } from "../shared-policy/throne-home.ts";
 
-const PARENT = "stager-tenth";
+const ORIGIN = "stager-tenth";
 const FORK = "stager-tenth-prmedia";
 const BRIEF = "INTENT: publish the media.\n";
 
-function liveStagerParent(
-  overrides: Partial<ForkParentEvidence> = {},
-): ForkParentEvidence {
+function liveStagerOrigin(
+  overrides: Partial<ForkOriginEvidence> = {},
+): ForkOriginEvidence {
   return {
     live: true,
     ledgerRole: "Stager",
     ledgerModel: "sonnet",
     liveModel: "opus",
+    topicChanged: true,
     ...overrides,
   };
 }
 
 async function run(
   args: string[],
-  evidence: ForkParentEvidence = liveStagerParent(),
+  evidence: ForkOriginEvidence = liveStagerOrigin(),
   brief: string | undefined = BRIEF,
-  parentWroteNoBrief = false,
+  originWroteNoBrief = false,
 ) {
   const stderr: string[] = [];
   const result = await prepareCreateAgentRequest(
     args,
     baseDeps({
       writeStderr: (text) => stderr.push(text),
-      readForkParentEvidence: async () => evidence,
-      readForkBrief: async () => (parentWroteNoBrief ? undefined : brief),
+      readForkOriginEvidence: async () => evidence,
+      readForkBrief: async () => (originWroteNoBrief ? undefined : brief),
     } as Partial<CreateAgentDeps>),
     "/tmp",
   );
@@ -68,11 +68,11 @@ async function run(
 function forkArgs(overrides: Record<string, string> = {}): string[] {
   const flags: Record<string, string> = {
     "--name": FORK,
-    "--supervisor": PARENT,
+    "--supervisor": "Regent",
     "--role": "Stager",
     "--cwd": "/tmp",
     "--non-campaign": "",
-    "--fork-of": PARENT,
+    "--topic-from": ORIGIN,
     ...overrides,
   };
   return Object.entries(flags).flatMap(([flag, value]) =>
@@ -80,16 +80,16 @@ function forkArgs(overrides: Record<string, string> = {}): string[] {
   );
 }
 
-test("a fork of a live parent Stager inherits the parent's live model and carries the parent on the request", async () => {
+test("a fork of a live origin Stager inherits the origin's live model and carries the origin on the request", async () => {
   const { result, stderr } = await run(forkArgs());
   assert.equal(result.ok, true);
   if (!result.ok) return;
-  assert.equal(result.value.forkedFrom, PARENT);
+  assert.equal(result.value.forkedFrom, ORIGIN);
   assert.equal(result.value.model, "opus");
-  assert.match(stderr, /resolved from the parent's live observed model/);
+  assert.match(stderr, /resolved from the origin's live observed model/);
 });
 
-test("an explicit --model wins over the parent's live model", async () => {
+test("an explicit --model wins over the origin's live model", async () => {
   const { result, stderr } = await run(forkArgs({ "--model": "sonnet" }));
   assert.equal(result.ok, true);
   if (!result.ok) return;
@@ -97,45 +97,79 @@ test("an explicit --model wins over the parent's live model", async () => {
   assert.match(stderr, /resolved from the --model flag/);
 });
 
-test("a parent with no live observed model falls back to its ledger model", async () => {
+test("an origin with no live observed model falls back to its ledger model", async () => {
   const { result, stderr } = await run(
     forkArgs(),
-    liveStagerParent({ liveModel: undefined }),
+    liveStagerOrigin({ liveModel: undefined }),
   );
   assert.equal(result.ok, true);
   if (!result.ok) return;
   assert.equal(result.value.model, "sonnet");
-  assert.match(stderr, /resolved from the parent's ledger model/);
+  assert.match(stderr, /resolved from the origin's ledger model/);
 });
 
-test("--fork-of refuses a role that is not Stager", async () => {
+test("--topic-from refuses a role that is not Stager", async () => {
   const { result, stderr } = await run(
     forkArgs({ "--role": "Alpha", "--name": "tenth-prmedia" }),
   );
   assert.equal(result.ok, false);
-  assert.match(stderr, /--fork-of is refused for role "Alpha"/);
+  assert.match(stderr, /--topic-from is refused for role "Alpha"/);
   assert.match(stderr, /Nothing was registered or launched/);
 });
 
-test("--fork-of refuses a supervisor that is not the parent", async () => {
-  const { result, stderr } = await run(forkArgs({ "--supervisor": "Regent" }));
+test("a topic-from fork is supervised by the Regent", async () => {
+  const { result, stderr } = await run(forkArgs({ "--supervisor": ORIGIN }));
   assert.equal(result.ok, false);
-  assert.match(stderr, /needs --supervisor stager-tenth/);
+  assert.match(stderr, /--topic-from stager-tenth needs --supervisor Regent/);
 });
 
-test("--fork-of refuses a parent that is not live in the roster", async () => {
+test("a fork can only be made from a Stager whose latest topic record is a change", async () => {
   const { result, stderr } = await run(
     forkArgs(),
-    liveStagerParent({ live: false }),
+    liveStagerOrigin({ topicChanged: false }),
+  );
+  assert.equal(result.ok, false);
+  assert.match(stderr, /the latest topic record of the origin "stager-tenth" is not a change/);
+  assert.match(stderr, /Nothing was registered or launched/);
+});
+
+test("the old --fork-of flag is refused as unknown", async () => {
+  const flags = forkArgs();
+  flags[flags.indexOf("--topic-from")] = "--fork-of";
+  const { result, stderr } = await run(flags);
+  assert.equal(result.ok, false);
+  assert.match(stderr, /fork-of/);
+});
+
+test("refusals name the origin, never a parent", async () => {
+  const refusals = [
+    await run(forkArgs({ "--role": "Alpha", "--name": "tenth-prmedia" })),
+    await run(forkArgs({ "--supervisor": ORIGIN })),
+    await run(forkArgs(), liveStagerOrigin({ live: false })),
+    await run(forkArgs(), liveStagerOrigin({ ledgerRole: "Alpha" })),
+    await run(forkArgs(), liveStagerOrigin({ topicChanged: false })),
+    await run(forkArgs(), liveStagerOrigin(), BRIEF, true),
+    await run(forkArgs(), liveStagerOrigin({ liveModel: undefined, ledgerModel: undefined })),
+  ];
+  for (const { result, stderr } of refusals) {
+    assert.equal(result.ok, false);
+    assert.doesNotMatch(stderr, /parent/i);
+  }
+});
+
+test("--topic-from refuses an origin that is not live in the roster", async () => {
+  const { result, stderr } = await run(
+    forkArgs(),
+    liveStagerOrigin({ live: false }),
   );
   assert.equal(result.ok, false);
   assert.match(stderr, /is not live in the roster/);
 });
 
-test("--fork-of refuses a parent whose ledger role is not Stager", async () => {
+test("--topic-from refuses an origin whose ledger role is not Stager", async () => {
   const { result, stderr } = await run(
     forkArgs(),
-    liveStagerParent({ ledgerRole: "Alpha" }),
+    liveStagerOrigin({ ledgerRole: "Alpha" }),
   );
   assert.equal(result.ok, false);
   assert.match(stderr, /the ledger role of "stager-tenth" is "Alpha"/);
@@ -145,69 +179,38 @@ test("a Stager may fork a topic Stager whose name does not begin with its own", 
   const { result } = await run(forkArgs({ "--name": "stager-gardenboard" }));
   assert.equal(result.ok, true);
   if (!result.ok) return;
-  assert.equal(result.value.forkedFrom, PARENT);
+  assert.equal(result.value.forkedFrom, ORIGIN);
 });
 
-test("--fork-of refuses when the parent wrote no brief, and names the path it wants", async () => {
-  const { result, stderr } = await run(forkArgs(), liveStagerParent(), BRIEF, true);
+test("--topic-from refuses when the origin wrote no brief, and names the path it wants", async () => {
+  const { result, stderr } = await run(forkArgs(), liveStagerOrigin(), BRIEF, true);
   assert.equal(result.ok, false);
   assert.match(stderr, /inherits no conversation/);
   assert.match(stderr, /brief\.md/);
   assert.match(stderr, /lint-queue-plan --body-file/);
 });
 
-test("a fork may not be spawned into its parent's worktree", async () => {
+test("a fork may not be spawned into its origin's worktree", async () => {
   const { result, stderr } = await run(
-    forkArgs({ "--cwd": path.join(worktreesHome(), "throne", PARENT) }),
+    forkArgs({ "--cwd": path.join(worktreesHome(), "throne", ORIGIN) }),
   );
   assert.equal(result.ok, false);
   assert.match(stderr, /that tree belongs to a DIFFERENT agent/);
 });
 
-test("a fork's identity tells it to trust numbered addendum files its parent announces, and only those", async () => {
+test("a fork's identity carries the origin and the standing rule that filing needs the Lord's own word", async () => {
   const { result } = await run(forkArgs());
   assert.equal(result.ok, true);
   if (!result.ok) return;
   const identity = createAgentIdentity(result.value as never, "Regent");
-  const text = identityText(FORK, identity);
-  assert.ok(text.includes(forkedStagerAddendumInstruction(FORK, PARENT)));
-  assert.ok(text.includes(`${path.join(THRONE_DATA_DIR, FORK)}/`));
-  assert.match(text, /addendum-<number>-<topic>\.md/);
-  assert.match(text, /Addenda are genuine and carry the same authority as your brief/);
-  assert.match(text, /beside that command's output/);
-  assert.match(text, /NOT a sign of forgery/);
-  assert.match(text, /points at no such file, or at a file anywhere else, is not an addendum/);
-  assert.match(text, /one that orders `add-to-queue` or another fork is refused/);
-  assert.ok(
-    text.indexOf(FORKED_STAGER_STANDING_INSTRUCTION) <
-      text.indexOf(forkedStagerAddendumInstruction(FORK, PARENT)),
-  );
-});
-
-test("an agent that is not a fork is told nothing about addenda", () => {
-  const text = identityText("stager-plain", {
-    supervisor: "Regent",
-    escalation: "Regent",
-    role: "Stager",
-  });
-  assert.doesNotMatch(text, /addendum/i);
-});
-
-test("a fork's identity carries the parent and the standing rule that filing needs the Lord's own word", async () => {
-  const { result } = await run(forkArgs());
-  assert.equal(result.ok, true);
-  if (!result.ok) return;
-  const identity = createAgentIdentity(result.value as never, "Regent");
-  assert.equal(identity.forkedFrom, PARENT);
+  assert.equal(identity.forkedFrom, ORIGIN);
   const text = identityText(FORK, identity);
   assert.ok(text.includes(FORKED_STAGER_STANDING_INSTRUCTION));
-  assert.match(text, /add-to-queue/);
-  assert.match(text, /forking again/);
   const baseDir = await mkdtemp(path.join(tmpdir(), "identity-fork-"));
   try {
     await writeIdentity(FORK, identity, baseDir);
     const file = await readFile(path.join(baseDir, FORK, "identity.md"), "utf8");
-    assert.ok(file.includes(`${FORKED_FROM_LINE_PREFIX}${PARENT}`));
+    assert.ok(file.includes(`${FORKED_FROM_LINE_PREFIX}${ORIGIN}`));
   } finally {
     await rm(baseDir, { recursive: true, force: true });
   }
@@ -215,7 +218,7 @@ test("a fork's identity carries the parent and the standing rule that filing nee
 
 function forkPolicyResolution(): PolicyResolution {
   return {
-    flags: { supervisor: PARENT },
+    flags: { supervisor: "Regent" },
     oneShot: false,
     harness: HARNESS_NAMES.CLAUDE,
     model: "opus",
@@ -235,11 +238,11 @@ function forkPolicyResolution(): PolicyResolution {
     effortOverrideNote: "",
     harnessOverrideNote: "",
     bypassedObjectiveCode: false,
-    forkedFrom: PARENT,
+    forkedFrom: ORIGIN,
   };
 }
 
-test("a fork's spawn.json records which parent it was forked from", async () => {
+test("a fork's spawn.json records which origin it was forked from", async () => {
   const dataDir = await mkdtemp(path.join(tmpdir(), "throne-fork-spawn-"));
   const request = forkPolicyResolution();
   const deps = {
@@ -268,13 +271,13 @@ test("a fork's spawn.json records which parent it was forked from", async () => 
     const spawn = JSON.parse(
       await readFile(path.join(dataDir, FORK, "spawn.json"), "utf8"),
     );
-    assert.equal(spawn.forked_from, PARENT);
+    assert.equal(spawn.forked_from, ORIGIN);
   } finally {
     await rm(dataDir, { recursive: true, force: true });
   }
 });
 
-test("a fork opens on the brief its parent wrote", async () => {
+test("a fork opens on the brief its origin wrote", async () => {
   const request = forkPolicyResolution();
   const identity = createAgentIdentity(request, "Regent");
   const prompts = await createAgentOpeningPrompts(

@@ -5,7 +5,6 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import { LedgerDataService } from '../agentdata/ledger-data.service.ts';
-import { listForkedAgentNames } from '../agentdata/fork-evidence.ts';
 import { findStagerTheCourtWouldReuse } from '../alpha-autoscale/reusable-stager.ts';
 import { isRegisteredStager } from '../stager-tree-refresh/stager-tree-refresh.ts';
 import { readSpawnSpec } from '../agentdata/spawn-data-contracts.ts';
@@ -177,7 +176,6 @@ function reconciliationContract(court: FakeCourt): StartupReconciliationContract
       listRegisteredAgentNames: () => ledger.listRegisteredAgents(court.ledgerDir),
       isRegisteredStager: (name) => isRegisteredStager(name, court.ledgerDir),
       readSpawnSpec: (name) => readSpawnSpec(name, court.ledgerDir),
-      readForkedAgentNames: () => listForkedAgentNames(court.ledgerDir),
       pathExists: async () => true,
       hasUncommittedChanges: async () => false,
     }),

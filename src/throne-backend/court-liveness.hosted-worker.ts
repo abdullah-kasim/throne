@@ -2,7 +2,6 @@ import { Injectable, Optional } from "@nestjs/common";
 import { CronExpression } from "@nestjs/schedule";
 import { getAgentStatusesRoster } from "../agent-statuses/agent-statuses-roster.ts";
 import type { AgentStatusesRosterEntry } from "../agent-statuses/agent-statuses.types.ts";
-import { listForkedAgentNames } from "../agentdata/fork-evidence.ts";
 import { ensureLiveStager } from "../alpha-autoscale/stager-floor.ts";
 import {
   REAL_STAGER_REUSE_EFFECTS,
@@ -33,7 +32,6 @@ export const COURT_LIVENESS_HOSTED_WORKER_NAME = "court-liveness";
 export interface CourtLivenessDependencies {
   readonly readDesiredState: () => Promise<DesiredState>;
   readonly readRoster: () => Promise<readonly AgentStatusesRosterEntry[]>;
-  readonly readForkedAgentNames: () => Promise<ReadonlySet<string>>;
   readonly enqueueRegentResurrection: () => Promise<unknown>;
   readonly reuseRegisteredStager: () => Promise<StagerReuseOutcome>;
   readonly ensureLiveStager: () => Promise<unknown>;
@@ -43,7 +41,6 @@ export interface CourtLivenessDependencies {
 const DEFAULT_DEPENDENCIES: CourtLivenessDependencies = {
   readDesiredState: () => readDesiredState(),
   readRoster: () => getAgentStatusesRoster(),
-  readForkedAgentNames: () => listForkedAgentNames(),
   enqueueRegentResurrection: () => enqueueRegentResurrection(),
   reuseRegisteredStager: () =>
     reuseRegisteredStager({
@@ -112,7 +109,6 @@ export class CourtLivenessHostedWorker implements CronHostedWorker {
         desiredState: await this.dependencies.readDesiredState(),
         rosterEntries: rosterRead.entries,
         rosterReadThrew: rosterRead.failure !== undefined,
-        forkedAgentNames: await this.dependencies.readForkedAgentNames(),
       });
       if (livenessIsUnknown(liveness)) return rosterRead.failure;
       await this.raiseWhicheverRoleIsMissing(liveness);

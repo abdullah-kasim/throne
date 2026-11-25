@@ -46,7 +46,7 @@ import type { awaitSpawnTaskingConfirmation } from "../session/runtime-model-acc
 import type { writeModelAllowlist } from "./model-allowlist.ts";
 import type {
   ReadForkBrief,
-  ReadForkParentEvidence,
+  ReadForkOriginEvidence,
 } from "./fork-origin.ts";
 import type {
   CustomHarnessRequest,
@@ -93,7 +93,7 @@ export type SpawnTaskingOutcome =
 
 export interface ParsedFlags {
   account?: string;
-  "fork-of"?: string;
+  "topic-from"?: string;
   harness?: string;
   "harness-executable"?: string;
   model?: string;
@@ -199,8 +199,9 @@ export interface CreateAgentDeps {
   writeSpawnSpec: typeof writeSpawnSpec;
   writeModelAllowlist: typeof writeModelAllowlist;
   readSpawnSpec: typeof readSpawnSpec;
-  readForkParentEvidence?: ReadForkParentEvidence;
+  readForkOriginEvidence?: ReadForkOriginEvidence;
   readForkBrief?: ReadForkBrief;
+  copyDriftPrompt?: (originName: string, forkName: string) => Promise<string | undefined>;
   markAgentTasked?: typeof markAgentTasked;
   markSpawnFinished?: typeof markSpawnFinished;
   registrationExists: typeof agentRegistrationExists;

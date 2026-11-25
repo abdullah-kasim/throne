@@ -1,6 +1,5 @@
 import path from "node:path";
 import { getAgentStatusesRoster } from "../agent-statuses/agent-statuses-roster.ts";
-import { listForkedAgentNames } from "../agentdata/fork-evidence.ts";
 import {
   AGENT_LIFECYCLE_STATES,
   type AgentStatusesRosterEntry,
@@ -32,7 +31,6 @@ export type StagerFloorDecision =
 export interface StagerFloorDependencies {
   readonly readDesiredState: () => Promise<DesiredState>;
   readonly readRoster: () => Promise<readonly AgentStatusesRosterEntry[]>;
-  readonly readForkedAgentNames: () => Promise<ReadonlySet<string>>;
   readonly resolvePublishedRuntime: () =>
     { readonly repoRoot: string; readonly cliEntrypoint: string } | undefined;
   readonly invokeCli: (
@@ -53,20 +51,9 @@ export interface StagerFloorDependencies {
  */
 const LORD_STAGER_NAME = "stager";
 
-function isForkedStager(
-  entry: AgentStatusesRosterEntry,
-  forkedNames: ReadonlySet<string>,
-): boolean {
-  return forkedNames.has(entry.name.toLowerCase());
-}
-
-function isStagerCandidate(
-  entry: AgentStatusesRosterEntry,
-  forkedNames: ReadonlySet<string>,
-): boolean {
+function isStagerCandidate(entry: AgentStatusesRosterEntry): boolean {
   return (
     entry.lifecycle === AGENT_LIFECYCLE_STATES.LIVE &&
-    !isForkedStager(entry, forkedNames) &&
     (entry.role === "Stager" ||
       entry.name.toLowerCase() === LORD_STAGER_NAME ||
       entry.name.toLowerCase().startsWith("stager-"))
@@ -87,23 +74,17 @@ function isConfirmedStager(entry: AgentStatusesRosterEntry): boolean {
   );
 }
 
-export function isLiveStager(
-  entry: AgentStatusesRosterEntry,
-  forkedAgentNames: ReadonlySet<string>,
-): boolean {
-  return isStagerCandidate(entry, forkedAgentNames) && isConfirmedStager(entry);
+export function isLiveStager(entry: AgentStatusesRosterEntry): boolean {
+  return isStagerCandidate(entry) && isConfirmedStager(entry);
 }
 
 export function decideStagerFloorAction(
   desiredState: DesiredState,
   roster: readonly AgentStatusesRosterEntry[],
-  forkedAgentNames: ReadonlySet<string> = new Set(),
 ): StagerFloorDecision {
   if (desiredState === DESIRED_STATES.DISMISSED) return { action: "stay-down" };
 
-  const candidates = roster.filter((entry) =>
-    isStagerCandidate(entry, forkedAgentNames),
-  );
+  const candidates = roster.filter(isStagerCandidate);
   if (candidates.length > 1) {
     return {
       action: "refuse",
@@ -137,7 +118,6 @@ function realPublishedRuntime():
 const REAL_STAGER_FLOOR_DEPENDENCIES: StagerFloorDependencies = {
   readDesiredState,
   readRoster: getAgentStatusesRoster,
-  readForkedAgentNames: () => listForkedAgentNames(),
   resolvePublishedRuntime: realPublishedRuntime,
   invokeCli: invokeThroneCliWithRetry,
   log: (message) => console.log(`[stager-floor] ${message}`),
@@ -174,11 +154,9 @@ export async function ensureLiveStager(
 ): Promise<StagerFloorDecision> {
   let desiredState: DesiredState;
   let roster: readonly AgentStatusesRosterEntry[];
-  let forkedAgentNames: ReadonlySet<string>;
   try {
     desiredState = await dependencies.readDesiredState();
     roster = await dependencies.readRoster();
-    forkedAgentNames = await dependencies.readForkedAgentNames();
   } catch (error) {
     const refused = {
       action: "refuse",
@@ -191,7 +169,7 @@ export async function ensureLiveStager(
 
   let decision: StagerFloorDecision;
   try {
-    decision = decideStagerFloorAction(desiredState, roster, forkedAgentNames);
+    decision = decideStagerFloorAction(desiredState, roster);
   } catch (error) {
     const refused = {
       action: "refuse",

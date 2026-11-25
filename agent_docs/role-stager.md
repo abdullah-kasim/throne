@@ -43,7 +43,7 @@ it are described under "The peerage" above.
 2026-10-08).** This supersedes the 2026-08-21 ruling that put the Stager in the
 live main checkout. That stopped being true once several Stagers ran at once:
 the autoscale floor's Stager (`src/alpha-autoscale/stager-floor.ts`) and every
-fork (`create-agent --fork-of`) get their own managed tree under
+fork (`create-agent --topic-from`) get their own managed tree under
 `~/.throne/worktrees/throne/<stager-name>`, and the trees stay. A tree frozen
 at its spawn commit loads stale skills: one Stager sat 134 commits behind
 `main`, so its `/pr-address-feedback` had no "On Forgejo" section and missed

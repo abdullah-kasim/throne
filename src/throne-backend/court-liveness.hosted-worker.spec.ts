@@ -119,7 +119,6 @@ function courtWith(
         }
         return court.roster;
       },
-      readForkedAgentNames: async () => new Set<string>(),
       enqueueRegentResurrection: async () => {
         court.resurrectionsQueued += 1;
       },

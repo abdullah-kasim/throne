@@ -47,7 +47,7 @@ def order_text(topic):
     return (f"ORDER: before any other tool or text, decide whether this prompt changes the topic from: {topic}. "
             "Topics are as wide as one project (a board, a repo), not one subject. "
             "Record the verdict first with 'throne topic same' or 'throne topic changed <slug>'. "
-            "If it changed: do not answer the prompt. Hand it over: relay it verbatim to a live stager-<slug>, "
+            "If it changed: fork now, do not ask the Lord, and do not answer the prompt. Hand it over: relay it verbatim to a live stager-<slug>, "
             "or fork stager-<slug>, trimmed to 32 characters, with the throne-fork procedure "
             "and a brief of what this conversation settled on that topic. "
             "Tell the Lord in one line which Stager has it and where its pane is. Do nothing else. "
